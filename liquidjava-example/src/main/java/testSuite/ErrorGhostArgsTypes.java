@@ -1,4 +1,4 @@
-// Error
+// Argument Mismatch Error
 package testSuite;
 
 import liquidjava.specification.Refinement;

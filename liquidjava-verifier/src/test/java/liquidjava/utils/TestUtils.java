@@ -10,6 +10,7 @@ public class TestUtils {
 
     /**
      * Determines if the given path indicates that the test should pass
+     * 
      * @param path
      */
     public static boolean shouldPass(String path) {
@@ -18,6 +19,7 @@ public class TestUtils {
 
     /**
      * Determines if the given path indicates that the test should fail
+     * 
      * @param path
      */
     public static boolean shouldFail(String path) {

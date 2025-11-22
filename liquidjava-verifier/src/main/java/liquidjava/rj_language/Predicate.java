@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import liquidjava.diagnostics.errors.ArgumentMismatchError;
 import liquidjava.diagnostics.errors.LJError;
 import liquidjava.diagnostics.errors.SyntaxError;
 import liquidjava.processor.context.AliasWrapper;
@@ -83,10 +84,11 @@ public class Predicate {
     protected Expression parse(String ref, CtElement element) throws LJError {
         try {
             return RefinementsParser.createAST(ref, prefix);
-        } catch (SyntaxError e) {
+        } catch (LJError e) {
             // add location info to error
             SourcePosition pos = Utils.getRefinementAnnotationPosition(element, ref);
-            throw new SyntaxError(e.getMessage(), pos, ref);
+            e.setPosition(pos);
+            throw e;
         }
     }
 
@@ -94,7 +96,7 @@ public class Predicate {
         return RefinementsParser.createAST(ref, prefix);
     }
 
-    public Predicate changeAliasToRefinement(Context context, Factory f) throws Exception {
+    public Predicate changeAliasToRefinement(Context context, Factory f) throws LJError {
         Expression ref = getExpression();
 
         Map<String, AliasDTO> alias = new HashMap<>();

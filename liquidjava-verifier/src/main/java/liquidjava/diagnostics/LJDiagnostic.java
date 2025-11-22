@@ -10,9 +10,9 @@ public class LJDiagnostic extends RuntimeException {
 
     private final String title;
     private final String message;
-    private final String file;
-    private final ErrorPosition position;
     private final String accentColor;
+    private String file;
+    private ErrorPosition position;
 
     public LJDiagnostic(String title, String message, SourcePosition pos, String accentColor) {
         this.title = title;
@@ -36,6 +36,13 @@ public class LJDiagnostic extends RuntimeException {
 
     public ErrorPosition getPosition() {
         return position;
+    }
+
+    public void setPosition(SourcePosition pos) {
+        if (pos == null)
+            return;
+        this.position = ErrorPosition.fromSpoonPosition(pos);
+        this.file = pos.getFile().getPath();
     }
 
     public String getFile() {

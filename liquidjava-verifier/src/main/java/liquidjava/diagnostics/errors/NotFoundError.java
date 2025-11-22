@@ -14,7 +14,11 @@ public class NotFoundError extends LJError {
     private final String name;
     private final String kind; // "Variable" or "Ghost"
 
-    public NotFoundError(SourcePosition position, String message, String name, String kind,
+    public NotFoundError(String message, String name, String kind) {
+        this(message, null, name, kind, null);
+    }
+
+    public NotFoundError(String message, SourcePosition position, String name, String kind,
             TranslationTable translationTable) {
         super("Not Found Error", message, position, translationTable);
         this.name = Utils.getSimpleName(name);

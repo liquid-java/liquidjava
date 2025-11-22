@@ -6,10 +6,10 @@ import liquidjava.specification.RefinementAlias;
 
 @SuppressWarnings("unused")
 @RefinementAlias("InRange(int val, int low, int up) {low < val && val < up}")
-public class ErrorAliasArgumentSize {
+public class ErrorAliasEmptyArguments {
 
     public static void main(String[] args) {
-        @Refinement("InRange(j, 10)")
+        @Refinement("InRange()")
         int j = 15;
     }
 }

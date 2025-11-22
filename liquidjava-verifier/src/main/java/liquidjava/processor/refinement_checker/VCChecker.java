@@ -7,13 +7,8 @@ import java.util.Stack;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-import liquidjava.diagnostics.errors.CustomError;
-import liquidjava.diagnostics.errors.LJError;
-import liquidjava.diagnostics.errors.NotFoundError;
+import liquidjava.diagnostics.errors.*;
 import liquidjava.diagnostics.TranslationTable;
-import liquidjava.diagnostics.errors.RefinementError;
-import liquidjava.diagnostics.errors.StateConflictError;
-import liquidjava.diagnostics.errors.StateRefinementError;
 import liquidjava.processor.VCImplication;
 import liquidjava.processor.context.*;
 import liquidjava.rj_language.Predicate;
@@ -45,15 +40,16 @@ public class VCChecker {
         String[] s = { Keys.WILDCARD, Keys.THIS };
         Predicate premisesBeforeChange = joinPredicates(expectedType, mainVars, lrv, map).toConjunctions();
         Predicate premises = new Predicate();
-        Predicate et = new Predicate();
+        Predicate et;
         try {
             List<GhostState> filtered = filterGhostStatesForVariables(list, mainVars, lrv);
             premises = premisesBeforeChange.changeStatesToRefinements(filtered, s).changeAliasToRefinement(context, f);
             et = expectedType.changeStatesToRefinements(filtered, s).changeAliasToRefinement(context, f);
-        } catch (Exception e) {
-            throw new RefinementError(element.getPosition(), expectedType.getExpression(), premises.simplify(), map);
+        } catch (LJError e) {
+            // add location info to error
+            e.setPosition(element.getPosition());
+            throw e;
         }
-
         try {
             smtChecking(premises, et);
         } catch (Exception e) {
@@ -80,14 +76,18 @@ public class VCChecker {
         TranslationTable map = new TranslationTable();
         String[] s = { Keys.WILDCARD, Keys.THIS };
 
-        Predicate premises = new Predicate();
-        Predicate et = new Predicate();
+        Predicate premises;
+        Predicate et;
         try {
             premises = joinPredicates(expectedType, mainVars, lrv, map).toConjunctions();
             List<GhostState> filtered = filterGhostStatesForVariables(list, mainVars, lrv);
             premises = Predicate.createConjunction(premises, type).changeStatesToRefinements(filtered, s)
                     .changeAliasToRefinement(context, f);
             et = expectedType.changeStatesToRefinements(filtered, s).changeAliasToRefinement(context, f);
+        } catch (LJError e) {
+            // add location info to error
+            e.setPosition(position);
+            throw e;
         } catch (Exception e) {
             return false;
         }
@@ -269,13 +269,13 @@ public class VCChecker {
         if (e instanceof TypeCheckError) {
             throw new RefinementError(position, expected.getExpression(), found.simplify(), map);
         } else if (e instanceof liquidjava.smt.errors.NotFoundError nfe) {
-            throw new NotFoundError(position, e.getMessage(), nfe.getName(), nfe.getKind(), map);
+            throw new NotFoundError(e.getMessage(), position, nfe.getName(), nfe.getKind(), map);
         } else {
             String msg = e.getLocalizedMessage().toLowerCase();
             if (msg.contains("wrong number of arguments")) {
-                throw new CustomError("Wrong number of arguments in ghost invocation", position);
+                throw new ArgumentMismatchError("Wrong number of arguments in ghost invocation", position, map);
             } else if (msg.contains("sort mismatch")) {
-                throw new CustomError("Type mismatch in arguments of ghost invocation", position);
+                throw new ArgumentMismatchError("Type mismatch in arguments of ghost invocation", position, map);
             } else {
                 throw new CustomError(e.getMessage(), position);
             }
@@ -291,12 +291,12 @@ public class VCChecker {
         throw new RefinementError(position, expected.getExpression(), premises.simplify(), map);
     }
 
-    protected void raiseSameStateError(SourcePosition position, Predicate expected, String klass) throws LJError {
+    protected void raiseSameStateError(SourcePosition position, Predicate expected) throws LJError {
         TranslationTable map = createMap(expected);
         throw new StateConflictError(position, expected.getExpression(), map);
     }
 
-    protected void raiseStateMismatchError(SourcePosition position, String method, Predicate found, Predicate expected)
+    protected void raiseStateMismatchError(SourcePosition position, Predicate found, Predicate expected)
             throws LJError {
         List<RefinedVariable> lrv = new ArrayList<>(), mainVars = new ArrayList<>();
         gatherVariables(found, lrv, mainVars);
