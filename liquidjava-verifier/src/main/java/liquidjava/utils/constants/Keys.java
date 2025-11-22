@@ -8,5 +8,5 @@ public final class Keys {
     public static final String OLD = "old";
     public static final String VARIABLE = "Variable";
     public static final String GHOST = "Ghost";
-    public static final String ALIAS = "alias";
+    public static final String ALIAS = "Alias";
 }

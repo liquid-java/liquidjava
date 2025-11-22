@@ -13,7 +13,7 @@ import liquidjava.processor.VCImplication;
 import liquidjava.processor.context.*;
 import liquidjava.rj_language.Predicate;
 import liquidjava.smt.SMTEvaluator;
-import liquidjava.smt.errors.TypeCheckError;
+import liquidjava.smt.TypeCheckError;
 import liquidjava.utils.constants.Keys;
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.CtElement;
@@ -39,30 +39,64 @@ public class VCChecker {
         TranslationTable map = new TranslationTable();
         String[] s = { Keys.WILDCARD, Keys.THIS };
         Predicate premisesBeforeChange = joinPredicates(expectedType, mainVars, lrv, map).toConjunctions();
-        Predicate premises = new Predicate();
-        Predicate et;
+        Predicate premises;
+        Predicate expected;
         try {
             List<GhostState> filtered = filterGhostStatesForVariables(list, mainVars, lrv);
             premises = premisesBeforeChange.changeStatesToRefinements(filtered, s).changeAliasToRefinement(context, f);
-            et = expectedType.changeStatesToRefinements(filtered, s).changeAliasToRefinement(context, f);
+            expected = expectedType.changeStatesToRefinements(filtered, s).changeAliasToRefinement(context, f);
         } catch (LJError e) {
             // add location info to error
             e.setPosition(element.getPosition());
             throw e;
         }
-        try {
-            smtChecking(premises, et);
-        } catch (Exception e) {
-            // To emit the message we use the constraints before the alias and state change
-            raiseError(e, element.getPosition(), premisesBeforeChange, expectedType, map);
-        }
+        boolean isSubtype = smtChecks(expected, premises, element.getPosition());
+        if (!isSubtype)
+            throw new RefinementError(element.getPosition(), expectedType.getExpression(),
+                    premisesBeforeChange.simplify(), map);
     }
 
+    /**
+     * Check that type is a subtype of expectedType Throws RefinementError otherwise
+     *
+     * @param type
+     * @param expectedType
+     * @param list
+     * @param element
+     * @param f
+     *
+     * @throws LJError
+     */
     public void processSubtyping(Predicate type, Predicate expectedType, List<GhostState> list, CtElement element,
             Factory f) throws LJError {
         boolean b = canProcessSubtyping(type, expectedType, list, element.getPosition(), f);
         if (!b)
-            raiseSubtypingError(element.getPosition(), expectedType, type);
+            throwRefinementError(element.getPosition(), expectedType, type);
+    }
+
+    /**
+     * Checks the expected against the found constraint
+     *
+     * @param expected
+     * @param found
+     * @param position
+     *
+     * @return true if expected type is subtype of found type, false otherwise
+     *
+     * @throws LJError
+     */
+    public boolean smtChecks(Predicate expected, Predicate found, SourcePosition position) throws LJError {
+        try {
+            new SMTEvaluator().verifySubtype(found, expected, context);
+            return true;
+        } catch (TypeCheckError e) {
+            return false;
+        } catch (LJError e) {
+            e.setPosition(position);
+            throw e;
+        } catch (Exception e) {
+            throw new CustomError(e.getMessage(), position);
+        }
     }
 
     public boolean canProcessSubtyping(Predicate type, Predicate expectedType, List<GhostState> list,
@@ -75,23 +109,14 @@ public class VCChecker {
 
         TranslationTable map = new TranslationTable();
         String[] s = { Keys.WILDCARD, Keys.THIS };
+        Predicate premises = joinPredicates(expectedType, mainVars, lrv, map).toConjunctions();
+        List<GhostState> filtered = filterGhostStatesForVariables(list, mainVars, lrv);
+        premises = Predicate.createConjunction(premises, type).changeStatesToRefinements(filtered, s)
+                .changeAliasToRefinement(context, f);
+        Predicate expected = expectedType.changeStatesToRefinements(filtered, s).changeAliasToRefinement(context, f);
 
-        Predicate premises;
-        Predicate et;
-        try {
-            premises = joinPredicates(expectedType, mainVars, lrv, map).toConjunctions();
-            List<GhostState> filtered = filterGhostStatesForVariables(list, mainVars, lrv);
-            premises = Predicate.createConjunction(premises, type).changeStatesToRefinements(filtered, s)
-                    .changeAliasToRefinement(context, f);
-            et = expectedType.changeStatesToRefinements(filtered, s).changeAliasToRefinement(context, f);
-        } catch (LJError e) {
-            // add location info to error
-            e.setPosition(position);
-            throw e;
-        } catch (Exception e) {
-            return false;
-        }
-        return smtChecks(et, premises, position, map);
+        // check subtyping
+        return smtChecks(expected, premises, position);
     }
 
     /**
@@ -196,7 +221,6 @@ public class VCChecker {
         getVariablesFromContext(c.getVariableNames(), allVars, varName);
         List<String> pathNames = pathVariables.stream().map(Refined::getName).collect(Collectors.toList());
         getVariablesFromContext(pathNames, allVars, "");
-
         return allVars;
     }
 
@@ -217,30 +241,6 @@ public class VCChecker {
         getVariablesFromContext(l, newVars, varName);
     }
 
-    public boolean smtChecks(Predicate expected, Predicate found, SourcePosition position, TranslationTable map)
-            throws LJError {
-        try {
-            new SMTEvaluator().verifySubtype(found, expected, context);
-        } catch (TypeCheckError e) {
-            return false;
-        } catch (Exception e) {
-            raiseError(e, position, found, expected, map);
-        }
-        return true;
-    }
-
-    /**
-     * Checks the expectedType against the cSMT constraint. If the types do not check and error is sent and the program
-     * ends
-     *
-     * @param cSMT
-     * @param expectedType
-     * 
-     */
-    private void smtChecking(Predicate cSMT, Predicate expectedType) throws Exception {
-        new SMTEvaluator().verifySubtype(cSMT, expectedType, context);
-    }
-
     public void addPathVariable(RefinedVariable rv) {
         pathVariables.add(rv);
     }
@@ -256,33 +256,8 @@ public class VCChecker {
 
     // Errors---------------------------------------------------------------------------------------------------
 
-    private TranslationTable createMap(Predicate expectedType) {
-        List<RefinedVariable> lrv = new ArrayList<>(), mainVars = new ArrayList<>();
-        gatherVariables(expectedType, lrv, mainVars);
-        TranslationTable map = new TranslationTable();
-        joinPredicates(expectedType, mainVars, lrv, map);
-        return map;
-    }
-
-    protected void raiseError(Exception e, SourcePosition position, Predicate found, Predicate expected,
-            TranslationTable map) throws LJError {
-        if (e instanceof TypeCheckError) {
-            throw new RefinementError(position, expected.getExpression(), found.simplify(), map);
-        } else if (e instanceof liquidjava.smt.errors.NotFoundError nfe) {
-            throw new NotFoundError(e.getMessage(), position, nfe.getName(), nfe.getKind(), map);
-        } else {
-            String msg = e.getLocalizedMessage().toLowerCase();
-            if (msg.contains("wrong number of arguments")) {
-                throw new ArgumentMismatchError("Wrong number of arguments in ghost invocation", position, map);
-            } else if (msg.contains("sort mismatch")) {
-                throw new ArgumentMismatchError("Type mismatch in arguments of ghost invocation", position, map);
-            } else {
-                throw new CustomError(e.getMessage(), position);
-            }
-        }
-    }
-
-    protected void raiseSubtypingError(SourcePosition position, Predicate expected, Predicate found) throws LJError {
+    protected void throwRefinementError(SourcePosition position, Predicate expected, Predicate found)
+            throws RefinementError {
         List<RefinedVariable> lrv = new ArrayList<>(), mainVars = new ArrayList<>();
         gatherVariables(expected, lrv, mainVars);
         gatherVariables(found, lrv, mainVars);
@@ -291,18 +266,26 @@ public class VCChecker {
         throw new RefinementError(position, expected.getExpression(), premises.simplify(), map);
     }
 
-    protected void raiseSameStateError(SourcePosition position, Predicate expected) throws LJError {
-        TranslationTable map = createMap(expected);
-        throw new StateConflictError(position, expected.getExpression(), map);
-    }
-
-    protected void raiseStateMismatchError(SourcePosition position, Predicate found, Predicate expected)
-            throws LJError {
+    protected void throwStateRefinementError(SourcePosition position, Predicate found, Predicate expected)
+            throws StateRefinementError {
         List<RefinedVariable> lrv = new ArrayList<>(), mainVars = new ArrayList<>();
         gatherVariables(found, lrv, mainVars);
         TranslationTable map = new TranslationTable();
         VCImplication foundState = joinPredicates(found, mainVars, lrv, map);
         throw new StateRefinementError(position, expected.getExpression(),
                 foundState.toConjunctions().simplify().getValue(), map);
+    }
+
+    protected void throwStateConflictError(SourcePosition position, Predicate expected) throws StateConflictError {
+        TranslationTable map = createMap(expected);
+        throw new StateConflictError(position, expected.getExpression(), map);
+    }
+
+    private TranslationTable createMap(Predicate expectedType) {
+        List<RefinedVariable> lrv = new ArrayList<>(), mainVars = new ArrayList<>();
+        gatherVariables(expectedType, lrv, mainVars);
+        TranslationTable map = new TranslationTable();
+        joinPredicates(expectedType, mainVars, lrv, map);
+        return map;
     }
 }

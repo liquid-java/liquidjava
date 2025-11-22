@@ -2,6 +2,7 @@ package liquidjava.rj_language.ast;
 
 import java.util.List;
 
+import liquidjava.diagnostics.errors.LJError;
 import liquidjava.rj_language.visitors.ExpressionVisitor;
 
 public class UnaryExpression extends Expression {
@@ -22,7 +23,7 @@ public class UnaryExpression extends Expression {
     }
 
     @Override
-    public <T> T accept(ExpressionVisitor<T> visitor) throws Exception {
+    public <T> T accept(ExpressionVisitor<T> visitor) throws LJError {
         return visitor.visitUnaryExpression(this);
     }
 

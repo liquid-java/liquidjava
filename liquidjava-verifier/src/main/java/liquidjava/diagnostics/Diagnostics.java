@@ -55,11 +55,10 @@ public class Diagnostics {
     }
 
     public String getErrorOutput() {
-        return String.join("\n", errors.stream().map(LJError::toString).toList()) + (errors.isEmpty() ? "" : "\n");
+        return String.join("\n", errors.stream().map(LJError::toString).toList());
     }
 
     public String getWarningOutput() {
-        return String.join("\n", warnings.stream().map(LJWarning::toString).toList())
-                + (warnings.isEmpty() ? "" : "\n");
+        return String.join("\n", warnings.stream().map(LJWarning::toString).toList());
     }
 }

@@ -8,7 +8,6 @@ import com.microsoft.z3.Z3Exception;
 import liquidjava.processor.context.Context;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.Expression;
-import liquidjava.smt.errors.TypeCheckError;
 
 public class SMTEvaluator {
 

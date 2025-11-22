@@ -3,22 +3,24 @@ package liquidjava.rj_language.ast;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import liquidjava.diagnostics.errors.ArgumentMismatchError;
-import liquidjava.diagnostics.errors.CustomError;
 import liquidjava.diagnostics.errors.LJError;
 import liquidjava.diagnostics.errors.NotFoundError;
 import liquidjava.processor.context.Context;
+import liquidjava.processor.context.GhostFunction;
 import liquidjava.processor.facade.AliasDTO;
 import liquidjava.rj_language.ast.typing.TypeInfer;
 import liquidjava.rj_language.visitors.ExpressionVisitor;
 import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Keys;
 import spoon.reflect.factory.Factory;
+import spoon.reflect.reference.CtTypeReference;
 
 public abstract class Expression {
 
-    public abstract <T> T accept(ExpressionVisitor<T> visitor) throws Exception;
+    public abstract <T> T accept(ExpressionVisitor<T> visitor) throws LJError;
 
     public abstract void getVariableNames(List<String> toAdd);
 
@@ -38,7 +40,7 @@ public abstract class Expression {
      * Returns a simplified string representation of this expression with unqualified names (e.g.,
      * com.example.State.open => open Default implementation delegates to toString() Subclasses that contain qualified
      * names should override this method
-     * 
+     *
      * @return simplified string representation
      */
     public String toSimplifiedString() {
@@ -69,7 +71,7 @@ public abstract class Expression {
 
     /**
      * Checks if this expression produces a boolean type based on its structure
-     * 
+     *
      * @return true if it is a boolean expression, false otherwise
      */
     public boolean isBooleanExpression() {
@@ -221,7 +223,7 @@ public abstract class Expression {
             for (int i = 0; i < children.size(); i++) {
                 if (children.get(i)instanceof AliasInvocation ai) {
                     if (!alias.containsKey(ai.name))
-                        throw new NotFoundError("Alias '" + ai.getName() + "' not found", Keys.ALIAS, ai.getName());
+                        throw new NotFoundError(ai.getName(), Keys.ALIAS);
                     AliasDTO dto = alias.get(ai.name);
                     // check argument count
                     if (ai.children.size() != dto.getVarNames().size()) {
@@ -253,4 +255,90 @@ public abstract class Expression {
                 children.get(i).auxChangeAlias(alias, ctx, f);
             }
     }
+
+    /**
+     * Validates all ghost function invocations within this expression against the provided context This method supports
+     * overloading by iterating through all ghost functions with the matching name If a valid signature is found, no
+     * error is thrown If the invocation name exists but no overload matches the argument types, an
+     * {@link ArgumentMismatchError} is thrown.
+     *
+     * @param ctx
+     * @param f
+     * 
+     * @throws LJError
+     */
+    public void validateGhostInvocations(Context ctx, Factory f) throws LJError {
+        if (this instanceof FunctionInvocation fi) {
+
+            // get all ghosts with the matching name
+            List<GhostFunction> candidates = ctx.getGhosts().stream().filter(g -> g.matches(fi.name)).toList();
+
+            if (!candidates.isEmpty()) {
+                // search for a matching overload
+                for (GhostFunction g : candidates) {
+
+                    // check argument count
+                    if (fi.children.size() != g.getParametersTypes().size())
+                        continue;
+
+                    // check argument types
+                    boolean argsMatch = true;
+                    for (int i = 0; i < fi.children.size(); i++) {
+                        Expression arg = fi.children.get(i);
+                        CtTypeReference<?> expected = g.getParametersTypes().get(i);
+                        Optional<CtTypeReference<?>> actualOpt = TypeInfer.getType(ctx, f, arg);
+
+                        if (actualOpt.isPresent()) {
+                            CtTypeReference<?> actual = actualOpt.get();
+                            if (!actual.equals(expected) && !actual.isSubtypeOf(expected)) {
+                                argsMatch = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    // found match
+                    if (argsMatch) {
+                        if (hasChildren()) {
+                            for (Expression child : children)
+                                child.validateGhostInvocations(ctx, f);
+                        }
+                        return;
+                    }
+                }
+
+                // no overload matched, use the first candidate to throw the error
+                GhostFunction g = candidates.get(0);
+
+                if (fi.children.size() != g.getParametersTypes().size()) {
+                    throw new ArgumentMismatchError(
+                            String.format("Wrong number of arguments in ghost invocation '%s': expected %d, got %d",
+                                    fi.name, g.getParametersTypes().size(), fi.children.size()));
+
+                }
+
+                for (int i = 0; i < fi.children.size(); i++) {
+                    CtTypeReference<?> expected = g.getParametersTypes().get(i);
+                    Optional<CtTypeReference<?>> actualOpt = TypeInfer.getType(ctx, f, fi.children.get(i));
+                    if (actualOpt.isPresent()) {
+                        CtTypeReference<?> actual = actualOpt.get();
+                        if (!actual.equals(expected) && !actual.isSubtypeOf(expected)) {
+                            Expression arg = fi.children.get(i);
+                            throw new ArgumentMismatchError(String.format(
+                                    "Argument '%s' and its respective parameter of ghost '%s' types are incompatible: expected %s, got %s",
+                                    arg, fi.name, expected.getSimpleName(), actual.getSimpleName()));
+                        }
+                    }
+                }
+            }
+        }
+        // recurse children
+        if (hasChildren()) {
+            for (Expression child : children) {
+                child.validateGhostInvocations(ctx, f);
+            }
+
+        }
+    }
+
 }

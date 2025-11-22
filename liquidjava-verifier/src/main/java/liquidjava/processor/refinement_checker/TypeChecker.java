@@ -35,14 +35,14 @@ import static liquidjava.processor.refinement_checker.TypeCheckingUtils.*;
 
 public abstract class TypeChecker extends CtScanner {
 
-    Context context;
-    Factory factory;
-    VCChecker vcChecker;
+    protected final Context context;
+    protected final Factory factory;
+    protected final VCChecker vcChecker;
 
     public TypeChecker(Context context, Factory factory) {
         this.context = context;
         this.factory = factory;
-        vcChecker = new VCChecker();
+        this.vcChecker = new VCChecker();
     }
 
     public Context getContext() {
@@ -296,16 +296,16 @@ public abstract class TypeChecker extends CtScanner {
         return vcChecker.canProcessSubtyping(prevState, expectedState, context.getGhostState(), p, factory);
     }
 
-    public void createError(SourcePosition position, Predicate expectedType, Predicate foundType) throws LJError {
-        vcChecker.raiseSubtypingError(position, expectedType, foundType);
-    }
-
-    public void createSameStateError(SourcePosition position, Predicate expectedType, String klass) throws LJError {
-        vcChecker.raiseSameStateError(position, expectedType);
-    }
-
-    public void createStateMismatchError(SourcePosition position, String method, Predicate found, Predicate expected)
+    public void throwRefinementError(SourcePosition position, Predicate expectedType, Predicate foundType)
             throws LJError {
-        vcChecker.raiseStateMismatchError(position, found, expected);
+        vcChecker.throwRefinementError(position, expectedType, foundType);
+    }
+
+    public void throwStateRefinementError(SourcePosition position, Predicate found, Predicate expected) throws LJError {
+        vcChecker.throwStateRefinementError(position, found, expected);
+    }
+
+    public void throwStateConflictError(SourcePosition position, Predicate expectedType) throws LJError {
+        vcChecker.throwStateConflictError(position, expectedType);
     }
 }

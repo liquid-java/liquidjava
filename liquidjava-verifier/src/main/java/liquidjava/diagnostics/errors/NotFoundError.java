@@ -12,15 +12,14 @@ import spoon.reflect.cu.SourcePosition;
 public class NotFoundError extends LJError {
 
     private final String name;
-    private final String kind; // "Variable" or "Ghost"
+    private final String kind; // "Variable" | "Ghost" | "Alias"
 
-    public NotFoundError(String message, String name, String kind) {
-        this(message, null, name, kind, null);
+    public NotFoundError(String name, String kind) {
+        this(null, name, kind, null);
     }
 
-    public NotFoundError(String message, SourcePosition position, String name, String kind,
-            TranslationTable translationTable) {
-        super("Not Found Error", message, position, translationTable);
+    public NotFoundError(SourcePosition position, String name, String kind, TranslationTable translationTable) {
+        super("Not Found Error", String.format("%s '%s' not found", kind, name), position, translationTable);
         this.name = Utils.getSimpleName(name);
         this.kind = kind;
     }

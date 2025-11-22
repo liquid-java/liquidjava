@@ -2,6 +2,7 @@ package liquidjava.rj_language.ast;
 
 import java.util.List;
 
+import liquidjava.diagnostics.errors.LJError;
 import liquidjava.rj_language.visitors.ExpressionVisitor;
 
 public class LiteralBoolean extends Expression {
@@ -17,7 +18,7 @@ public class LiteralBoolean extends Expression {
     }
 
     @Override
-    public <T> T accept(ExpressionVisitor<T> visitor) throws Exception {
+    public <T> T accept(ExpressionVisitor<T> visitor) throws LJError {
         return visitor.visitLiteralBoolean(this);
     }
 

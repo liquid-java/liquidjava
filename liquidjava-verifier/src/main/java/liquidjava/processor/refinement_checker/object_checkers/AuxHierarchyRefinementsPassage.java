@@ -83,7 +83,7 @@ public class AuxHierarchyRefinementsPassage {
             } else {
                 boolean ok = tc.checksStateSMT(superArgRef, argRef, params.get(i).getPosition());
                 if (!ok) {
-                    tc.createError(method.getPosition(), argRef, superArgRef);
+                    tc.throwRefinementError(method.getPosition(), argRef, superArgRef);
                 }
             }
         }

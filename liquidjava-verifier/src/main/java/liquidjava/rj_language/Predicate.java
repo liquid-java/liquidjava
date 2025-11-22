@@ -105,6 +105,8 @@ public class Predicate {
         }
 
         ref = ref.changeAlias(alias, context, f);
+        ref.validateGhostInvocations(context, f);
+
         return new Predicate(ref);
     }
 
