@@ -271,13 +271,13 @@ public abstract class Expression {
         if (this instanceof FunctionInvocation fi) {
             // get all ghosts with the matching name
             List<GhostFunction> candidates = ctx.getGhosts().stream().filter(g -> g.matches(fi.name)).toList();
-            if (candidates.isEmpty())
-                return;
+            if (candidates.isEmpty()) 
+                return; // not found error is thrown elsewhere
 
             // find matching overload
-            Optional<GhostFunction> match = candidates.stream().filter(g -> argumentsMatch(fi, g, ctx, f)).findFirst();
-            if (match.isEmpty()) {
-                // no overload matched, use the first candidate to throw the error
+            Optional<GhostFunction> found = candidates.stream().filter(g -> argumentsMatch(fi, g, ctx, f)).findFirst();
+            if (found.isEmpty()) {
+                // no overload found, use the first candidate to throw the error
                 throwArgumentMismatchError(fi, candidates.get(0), ctx, f);
             }
         }
