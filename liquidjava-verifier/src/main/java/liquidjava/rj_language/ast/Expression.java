@@ -281,7 +281,6 @@ public abstract class Expression {
                 throwArgumentMismatchError(fi, candidates.get(0), ctx, f);
             }
         }
-
         // recurse children
         if (hasChildren()) {
             for (Expression child : children) {
@@ -290,6 +289,14 @@ public abstract class Expression {
         }
     }
 
+    /**
+     * Checks if the arguments of the given function invocation match the parameters of the given ghost function
+     * 
+     * @param fi
+     * @param g
+     * @param ctx
+     * @param f
+     */
     private boolean argumentsMatch(FunctionInvocation fi, GhostFunction g, Context ctx, Factory f) {
         // check argument count
         if (fi.children.size() != g.getParametersTypes().size())
@@ -311,8 +318,18 @@ public abstract class Expression {
         return true;
     }
 
+    /**
+     * Throws an ArgumentMismatchError for the given function invocation and ghost function
+     * 
+     * @param fi
+     * @param g
+     * @param ctx
+     * @param f
+     * 
+     * @throws ArgumentMismatchError
+     */
     private void throwArgumentMismatchError(FunctionInvocation fi, GhostFunction g, Context ctx, Factory f)
-            throws LJError {
+            throws ArgumentMismatchError {
         if (fi.children.size() != g.getParametersTypes().size()) {
             throw new ArgumentMismatchError(
                     String.format("Wrong number of arguments in ghost invocation '%s': expected %d, got %d", fi.name,
