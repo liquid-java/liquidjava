@@ -1,6 +1,6 @@
 package liquidjava.diagnostics.warnings;
 
-import spoon.reflect.declaration.CtElement;
+import spoon.reflect.cu.SourcePosition;
 
 /**
  * Warning indicating that a class referenced in an external refinement was not found
@@ -11,8 +11,8 @@ public class ExternalClassNotFoundWarning extends LJWarning {
 
     private final String className;
 
-    public ExternalClassNotFoundWarning(CtElement element, String message, String className) {
-        super(message, element.getPosition());
+    public ExternalClassNotFoundWarning(SourcePosition position, String message, String className) {
+        super(message, position);
         this.className = className;
     }
 

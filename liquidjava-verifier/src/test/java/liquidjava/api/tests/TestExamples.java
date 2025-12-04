@@ -1,15 +1,18 @@
 package liquidjava.api.tests;
 
+import static liquidjava.utils.TestUtils.*;
 import static org.junit.Assert.fail;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Optional;
 import java.util.stream.Stream;
 import liquidjava.api.CommandLineLauncher;
 import liquidjava.diagnostics.Diagnostics;
 
+import liquidjava.diagnostics.errors.LJError;
 import org.junit.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -22,29 +25,56 @@ public class TestExamples {
      * Test the file at the given path by launching the verifier and checking for errors. The file/directory is expected
      * to be either correct or contain an error based on its name.
      *
-     * @param filePath
+     * @param path
      *            path to the file to test
      */
     @ParameterizedTest
-    @MethodSource("fileNameSource")
-    public void testFile(final Path filePath) {
-        String fileName = filePath.getFileName().toString();
+    @MethodSource("sourcePaths")
+    public void testPath(final Path path) {
+        String pathName = path.getFileName().toString();
+        boolean isDirectory = Files.isDirectory(path);
 
-        // 1. Run the verifier on the file or package
-        CommandLineLauncher.launch(filePath.toAbsolutePath().toString());
+        // run verification
+        CommandLineLauncher.launch(path.toAbsolutePath().toString());
 
-        // 2. Check if the file is correct or contains an error
-        if (isCorrect(fileName) && diagnostics.foundError()) {
-            if (fileName.toLowerCase().startsWith("warning")) {
-                System.out.println("Warning in directory: " + fileName + " --- should be correct with warnings");
-            }
-            System.out.println("Error in directory: " + fileName + " --- should be correct but an error was found");
+        // verification should pass, check if any errors were found
+        if (shouldPass(pathName) && diagnostics.foundError()) {
+            System.out.println("Error in: " + pathName + " --- should pass but an error was found");
             fail();
         }
-        // 3. Check if the file has an error but passed verification
-        if (isError(fileName) && !diagnostics.foundError()) {
-            System.out.println("Error in directory: " + fileName + " --- should be an error but passed verification");
-            fail();
+        // verification should fail, check if it failed as expected (we assume each error test has exactly one error)
+        else if (shouldFail(pathName)) {
+            if (!diagnostics.foundError()) {
+                System.out.println("Error in: " + pathName + " --- should fail but no errors were found");
+                fail();
+            } else {
+                // check if expected error was found
+                Optional<String> expected = isDirectory ? getExpectedErrorFromDirectory(path)
+                        : getExpectedErrorFromFile(path);
+                if (diagnostics.getErrors().size() > 1) {
+                    System.out.println("Multiple errors found in: " + pathName + " --- expected exactly one error");
+                    fail();
+                }
+                LJError error = diagnostics.getErrors().iterator().next();
+                if (error.getPosition() == null) {
+                    System.out.println("Error in: " + pathName + " --- error has no position information");
+                    fail();
+                }
+                if (expected.isPresent()) {
+                    String expectedError = expected.get();
+                    String foundError = error.getTitle();
+                    if (!foundError.equalsIgnoreCase(expectedError)) {
+                        System.out.println("Error in: " + pathName + " --- expected error: " + expectedError
+                                + ", but found: " + foundError);
+                        fail();
+                    }
+                } else {
+                    System.out.println("No expected error message found for: " + pathName);
+                    System.out.println("Please provide an expected error in " + (isDirectory
+                            ? "a .expected file in the directory" : "the first line of the test file as a comment"));
+                    fail();
+                }
+            }
         }
     }
 
@@ -57,17 +87,17 @@ public class TestExamples {
      * @throws IOException
      *             if an I/O error occurs or the path does not exist
      */
-    private static Stream<Path> fileNameSource() throws IOException {
+    private static Stream<Path> sourcePaths() throws IOException {
         return Files.find(Paths.get("../liquidjava-example/src/main/java/testSuite/"), Integer.MAX_VALUE,
                 (filePath, fileAttr) -> {
                     String name = filePath.getFileName().toString();
-                    // 1. Files that start with "Correct" or "Error"
+                    // Files that start with "Correct" or "Error"
                     boolean isFileStartingWithCorrectOrError = fileAttr.isRegularFile()
-                            && (isCorrect(name) || isError(name));
+                            && (shouldPass(name) || shouldFail(name));
 
-                    // 2. Folders (directories) that contain "correct" or "error"
+                    // Directories that contain "correct" or "error"
                     boolean isDirectoryWithCorrectOrError = fileAttr.isDirectory()
-                            && (isCorrect(name) || isError(name));
+                            && (shouldPass(name) || shouldFail(name));
 
                     // Return true if either condition matches
                     return isFileStartingWithCorrectOrError || isDirectoryWithCorrectOrError;
@@ -88,13 +118,5 @@ public class TestExamples {
             System.out.println("Error found in files that should be correct");
             fail();
         }
-    }
-
-    private static boolean isCorrect(String path) {
-        return path.toLowerCase().contains("correct") || path.toLowerCase().contains("warning");
-    }
-
-    private static boolean isError(String path) {
-        return path.toLowerCase().contains("error");
     }
 }

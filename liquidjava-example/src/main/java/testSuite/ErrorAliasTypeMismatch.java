@@ -1,3 +1,4 @@
+// Argument Mismatch Error
 package testSuite;
 
 import liquidjava.specification.Refinement;
@@ -14,6 +15,5 @@ public class ErrorAliasTypeMismatch {
 
         @Refinement("Positive(_)")
         double positive = positiveGrade2;
-        // Positive(_)   fica   positive > 0
     }
 }

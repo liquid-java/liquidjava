@@ -1,3 +1,4 @@
+// State Refinement Error
 package testSuite.field_updates;
 
 import liquidjava.specification.StateRefinement;

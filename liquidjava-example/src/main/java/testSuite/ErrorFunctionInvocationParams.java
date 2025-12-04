@@ -1,3 +1,4 @@
+// Refinement Error
 package testSuite;
 
 import liquidjava.specification.Refinement;

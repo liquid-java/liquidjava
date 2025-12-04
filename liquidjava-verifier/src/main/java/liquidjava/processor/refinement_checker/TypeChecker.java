@@ -5,10 +5,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import liquidjava.diagnostics.errors.CustomError;
-import liquidjava.diagnostics.errors.InvalidRefinementError;
-import liquidjava.diagnostics.errors.LJError;
-import liquidjava.diagnostics.errors.SyntaxError;
+import liquidjava.diagnostics.errors.*;
 import liquidjava.processor.context.AliasWrapper;
 import liquidjava.processor.context.Context;
 import liquidjava.processor.context.GhostFunction;
@@ -34,16 +31,18 @@ import spoon.reflect.factory.Factory;
 import spoon.reflect.reference.CtTypeReference;
 import spoon.reflect.visitor.CtScanner;
 
+import static liquidjava.processor.refinement_checker.TypeCheckingUtils.*;
+
 public abstract class TypeChecker extends CtScanner {
 
-    Context context;
-    Factory factory;
-    VCChecker vcChecker;
+    protected final Context context;
+    protected final Factory factory;
+    protected final VCChecker vcChecker;
 
     public TypeChecker(Context context, Factory factory) {
         this.context = context;
         this.factory = factory;
-        vcChecker = new VCChecker();
+        this.vcChecker = new VCChecker();
     }
 
     public Context getContext() {
@@ -65,15 +64,15 @@ public abstract class TypeChecker extends CtScanner {
         for (CtAnnotation<? extends Annotation> ann : element.getAnnotations()) {
             String an = ann.getActualAnnotation().annotationType().getCanonicalName();
             if (an.contentEquals("liquidjava.specification.Refinement")) {
-                String st = TypeCheckingUtils.getStringFromAnnotation(ann.getValue("value"));
+                String st = getStringFromAnnotation(ann.getValue("value"));
                 ref = Optional.of(st);
 
             } else if (an.contentEquals("liquidjava.specification.RefinementPredicate")) {
-                String st = TypeCheckingUtils.getStringFromAnnotation(ann.getValue("value"));
+                String st = getStringFromAnnotation(ann.getValue("value"));
                 getGhostFunction(st, element);
 
             } else if (an.contentEquals("liquidjava.specification.RefinementAlias")) {
-                String st = TypeCheckingUtils.getStringFromAnnotation(ann.getValue("value"));
+                String st = getStringFromAnnotation(ann.getValue("value"));
                 handleAlias(st, element);
             }
         }
@@ -209,9 +208,9 @@ public abstract class TypeChecker extends CtScanner {
         }
     }
 
-    protected void handleAlias(String value, CtElement element) throws LJError {
+    protected void handleAlias(String ref, CtElement element) throws LJError {
         try {
-            AliasDTO a = RefinementsParser.getAliasDeclaration(value);
+            AliasDTO a = RefinementsParser.getAliasDeclaration(ref);
             String klass = null;
             String path = null;
             if (element instanceof CtClass) {
@@ -226,28 +225,26 @@ public abstract class TypeChecker extends CtScanner {
                 // refinement alias must return a boolean expression
                 if (a.getExpression() != null && !a.getExpression().isBooleanExpression()) {
                     throw new InvalidRefinementError(element.getPosition(),
-                            "Refinement alias must return a boolean expression", value);
+                            "Refinement alias must return a boolean expression", ref);
                 }
                 AliasWrapper aw = new AliasWrapper(a, factory, klass, path);
                 context.addAlias(aw);
             }
-        } catch (SyntaxError e) {
+        } catch (LJError e) {
             // add location info to error
-            SourcePosition pos = Utils.getRefinementAnnotationPosition(element, value);
-            throw new SyntaxError(e.getMessage(), pos, value);
+            SourcePosition pos = Utils.getRefinementAnnotationPosition(element, ref);
+            e.setPosition(pos);
+            throw e;
         }
     }
 
-    Optional<String> getExternalRefinement(CtInterface<?> intrface) {
-        Optional<String> ref = Optional.empty();
+    Optional<CtAnnotation<?>> getExternalRefinement(CtInterface<?> intrface) {
         for (CtAnnotation<? extends Annotation> ann : intrface.getAnnotations())
             if (ann.getActualAnnotation().annotationType().getCanonicalName()
                     .contentEquals("liquidjava.specification.ExternalRefinementsFor")) {
-                @SuppressWarnings("unchecked")
-                CtLiteral<String> s = (CtLiteral<String>) ann.getAllValues().get("value");
-                ref = Optional.of(s.getValue());
+                return Optional.of(ann);
             }
-        return ref;
+        return Optional.empty();
     }
 
     public void checkVariableRefinements(Predicate refinementFound, String simpleName, CtTypeReference<?> type,
@@ -296,16 +293,16 @@ public abstract class TypeChecker extends CtScanner {
         return vcChecker.canProcessSubtyping(prevState, expectedState, context.getGhostState(), p, factory);
     }
 
-    public void createError(SourcePosition position, Predicate expectedType, Predicate foundType) throws LJError {
-        vcChecker.raiseSubtypingError(position, expectedType, foundType);
-    }
-
-    public void createSameStateError(SourcePosition position, Predicate expectedType, String klass) throws LJError {
-        vcChecker.raiseSameStateError(position, expectedType, klass);
-    }
-
-    public void createStateMismatchError(SourcePosition position, String method, Predicate found, Predicate expected)
+    public void throwRefinementError(SourcePosition position, Predicate expectedType, Predicate foundType)
             throws LJError {
-        vcChecker.raiseStateMismatchError(position, method, found, expected);
+        vcChecker.throwRefinementError(position, expectedType, foundType);
+    }
+
+    public void throwStateRefinementError(SourcePosition position, Predicate found, Predicate expected) throws LJError {
+        vcChecker.throwStateRefinementError(position, found, expected);
+    }
+
+    public void throwStateConflictError(SourcePosition position, Predicate expectedType) throws LJError {
+        vcChecker.throwStateConflictError(position, expectedType);
     }
 }

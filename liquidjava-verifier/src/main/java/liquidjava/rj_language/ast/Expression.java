@@ -3,17 +3,24 @@ package liquidjava.rj_language.ast;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
+import liquidjava.diagnostics.errors.ArgumentMismatchError;
+import liquidjava.diagnostics.errors.LJError;
+import liquidjava.diagnostics.errors.NotFoundError;
 import liquidjava.processor.context.Context;
+import liquidjava.processor.context.GhostFunction;
 import liquidjava.processor.facade.AliasDTO;
 import liquidjava.rj_language.ast.typing.TypeInfer;
 import liquidjava.rj_language.visitors.ExpressionVisitor;
 import liquidjava.utils.Utils;
+import liquidjava.utils.constants.Keys;
 import spoon.reflect.factory.Factory;
+import spoon.reflect.reference.CtTypeReference;
 
 public abstract class Expression {
 
-    public abstract <T> T accept(ExpressionVisitor<T> visitor) throws Exception;
+    public abstract <T> T accept(ExpressionVisitor<T> visitor) throws LJError;
 
     public abstract void getVariableNames(List<String> toAdd);
 
@@ -33,7 +40,7 @@ public abstract class Expression {
      * Returns a simplified string representation of this expression with unqualified names (e.g.,
      * com.example.State.open => open Default implementation delegates to toString() Subclasses that contain qualified
      * names should override this method
-     * 
+     *
      * @return simplified string representation
      */
     public String toSimplifiedString() {
@@ -64,7 +71,7 @@ public abstract class Expression {
 
     /**
      * Checks if this expression produces a boolean type based on its structure
-     * 
+     *
      * @return true if it is a boolean expression, false otherwise
      */
     public boolean isBooleanExpression() {
@@ -175,23 +182,33 @@ public abstract class Expression {
         }
     }
 
-    public Expression changeAlias(Map<String, AliasDTO> alias, Context ctx, Factory f) throws Exception {
+    public Expression changeAlias(Map<String, AliasDTO> alias, Context ctx, Factory f) throws LJError {
         Expression e = clone();
         if (this instanceof AliasInvocation ai) {
             if (alias.containsKey(ai.name)) { // object state
                 AliasDTO dto = alias.get(ai.name);
+                // check argument count
+                if (children.size() != dto.getVarNames().size()) {
+                    String msg = String.format(
+                            "Wrong number of arguments in alias invocation '%s': expected %d, got %d", ai.name,
+                            dto.getVarNames().size(), children.size());
+                    throw new ArgumentMismatchError(msg);
+                }
                 Expression sub = dto.getExpression().clone();
                 for (int i = 0; i < children.size(); i++) {
                     Expression varExp = new Var(dto.getVarNames().get(i));
                     String varType = dto.getVarTypes().get(i);
                     Expression aliasExp = children.get(i);
 
+                    // check argument types
                     boolean compatible = TypeInfer.checkCompatibleType(varType, aliasExp, ctx, f);
-                    if (!compatible)
-                        throw new Exception("Type Mismatch: Cannot substitute " + aliasExp + " : "
-                                + TypeInfer.getType(ctx, f, aliasExp).get().getQualifiedName() + " by " + varExp + " : "
-                                + TypeInfer.getType(ctx, f, varExp).get().getQualifiedName());
-
+                    if (!compatible) {
+                        String msg = String.format(
+                                "Argument '%s' and parameter '%s' of alias '%s' types are incompatible: expected %s, got %s",
+                                aliasExp, dto.getVarNames().get(i), ai.name, varType,
+                                TypeInfer.getType(ctx, f, aliasExp).get().getQualifiedName());
+                        throw new ArgumentMismatchError(msg);
+                    }
                     sub = sub.substitute(varExp, aliasExp);
                 }
                 e = new GroupExpression(sub);
@@ -201,13 +218,20 @@ public abstract class Expression {
         return e;
     }
 
-    private void auxChangeAlias(Map<String, AliasDTO> alias, Context ctx, Factory f) throws Exception {
+    private void auxChangeAlias(Map<String, AliasDTO> alias, Context ctx, Factory f) throws LJError {
         if (hasChildren())
             for (int i = 0; i < children.size(); i++) {
                 if (children.get(i)instanceof AliasInvocation ai) {
                     if (!alias.containsKey(ai.name))
-                        throw new Exception("Alias '" + ai.getName() + "' not found");
+                        throw new NotFoundError(ai.getName(), Keys.ALIAS);
                     AliasDTO dto = alias.get(ai.name);
+                    // check argument count
+                    if (ai.children.size() != dto.getVarNames().size()) {
+                        String msg = String.format(
+                                "Wrong number of arguments in alias invocation '%s': expected %d, got %d", ai.name,
+                                dto.getVarNames().size(), ai.children.size());
+                        throw new ArgumentMismatchError(msg);
+                    }
                     Expression sub = dto.getExpression().clone();
                     if (ai.hasChildren())
                         for (int j = 0; j < ai.children.size(); j++) {
@@ -215,18 +239,115 @@ public abstract class Expression {
                             String varType = dto.getVarTypes().get(j);
                             Expression aliasExp = ai.children.get(j);
 
-                            boolean checks = TypeInfer.checkCompatibleType(varType, aliasExp, ctx, f);
-                            if (!checks)
-                                throw new Exception(
-                                        "Type Mismatch: Cannot substitute " + varExp + ":" + varType + " by " + aliasExp
-                                                + ":" + TypeInfer.getType(ctx, f, aliasExp).get().getQualifiedName()
-                                                + " in alias '" + ai.name + "'");
-
+                            // check argument types
+                            boolean compatible = TypeInfer.checkCompatibleType(varType, aliasExp, ctx, f);
+                            if (!compatible) {
+                                String msg = String.format(
+                                        "Argument '%s' and parameter '%s' of alias '%s' types are incompatible: expected %s, got %s",
+                                        aliasExp, dto.getVarNames().get(i), ai.name, varType,
+                                        TypeInfer.getType(ctx, f, aliasExp).get().getQualifiedName());
+                                throw new ArgumentMismatchError(msg);
+                            }
                             sub = sub.substitute(varExp, aliasExp);
                         }
                     setChild(i, sub);
                 }
                 children.get(i).auxChangeAlias(alias, ctx, f);
             }
+    }
+
+    /**
+     * Validates all ghost function invocations within this expression against the provided context This method supports
+     * overloading by iterating through all ghost functions with the matching name If a valid signature is found, no
+     * error is thrown If the invocation name exists but no overload matches the argument types, an
+     * {@link ArgumentMismatchError} is thrown.
+     *
+     * @param ctx
+     * @param f
+     * 
+     * @throws LJError
+     */
+    public void validateGhostInvocations(Context ctx, Factory f) throws LJError {
+        if (this instanceof FunctionInvocation fi) {
+            // get all ghosts with the matching name
+            List<GhostFunction> candidates = ctx.getGhosts().stream().filter(g -> g.matches(fi.name)).toList();
+            if (candidates.isEmpty()) 
+                return; // not found error is thrown elsewhere
+
+            // find matching overload
+            Optional<GhostFunction> found = candidates.stream().filter(g -> argumentsMatch(fi, g, ctx, f)).findFirst();
+            if (found.isEmpty()) {
+                // no overload found, use the first candidate to throw the error
+                throwArgumentMismatchError(fi, candidates.get(0), ctx, f);
+            }
+        }
+        // recurse children
+        if (hasChildren()) {
+            for (Expression child : children) {
+                child.validateGhostInvocations(ctx, f);
+            }
+        }
+    }
+
+    /**
+     * Checks if the arguments of the given function invocation match the parameters of the given ghost function
+     * 
+     * @param fi
+     * @param g
+     * @param ctx
+     * @param f
+     */
+    private boolean argumentsMatch(FunctionInvocation fi, GhostFunction g, Context ctx, Factory f) {
+        // check argument count
+        if (fi.children.size() != g.getParametersTypes().size())
+            return false;
+
+        // check argument types
+        for (int i = 0; i < fi.children.size(); i++) {
+            Expression arg = fi.children.get(i);
+            CtTypeReference<?> expected = g.getParametersTypes().get(i);
+            Optional<CtTypeReference<?>> actualOpt = TypeInfer.getType(ctx, f, arg);
+
+            if (actualOpt.isPresent()) {
+                CtTypeReference<?> actual = actualOpt.get();
+                if (!actual.equals(expected) && !actual.isSubtypeOf(expected)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Throws an ArgumentMismatchError for the given function invocation and ghost function
+     * 
+     * @param fi
+     * @param g
+     * @param ctx
+     * @param f
+     * 
+     * @throws ArgumentMismatchError
+     */
+    private void throwArgumentMismatchError(FunctionInvocation fi, GhostFunction g, Context ctx, Factory f)
+            throws ArgumentMismatchError {
+        if (fi.children.size() != g.getParametersTypes().size()) {
+            throw new ArgumentMismatchError(
+                    String.format("Wrong number of arguments in ghost invocation '%s': expected %d, got %d", fi.name,
+                            g.getParametersTypes().size(), fi.children.size()));
+        }
+
+        for (int i = 0; i < fi.children.size(); i++) {
+            CtTypeReference<?> expected = g.getParametersTypes().get(i);
+            Optional<CtTypeReference<?>> actualOpt = TypeInfer.getType(ctx, f, fi.children.get(i));
+            if (actualOpt.isPresent()) {
+                CtTypeReference<?> actual = actualOpt.get();
+                if (!actual.equals(expected) && !actual.isSubtypeOf(expected)) {
+                    Expression arg = fi.children.get(i);
+                    throw new ArgumentMismatchError(String.format(
+                            "Argument '%s' and its respective parameter of ghost '%s' types are incompatible: expected %s, got %s",
+                            arg, fi.name, expected.getSimpleName(), actual.getSimpleName()));
+                }
+            }
+        }
     }
 }

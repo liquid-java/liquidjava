@@ -1,4 +1,4 @@
-package liquidjava.smt.errors;
+package liquidjava.smt;
 
 public class TypeCheckError extends Exception {
 

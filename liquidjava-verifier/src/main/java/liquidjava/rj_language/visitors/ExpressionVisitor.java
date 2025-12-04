@@ -1,5 +1,6 @@
 package liquidjava.rj_language.visitors;
 
+import liquidjava.diagnostics.errors.LJError;
 import liquidjava.rj_language.ast.AliasInvocation;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.FunctionInvocation;
@@ -13,25 +14,25 @@ import liquidjava.rj_language.ast.UnaryExpression;
 import liquidjava.rj_language.ast.Var;
 
 public interface ExpressionVisitor<T> {
-    T visitAliasInvocation(AliasInvocation alias) throws Exception;
+    T visitAliasInvocation(AliasInvocation alias) throws LJError;
 
-    T visitBinaryExpression(BinaryExpression exp) throws Exception;
+    T visitBinaryExpression(BinaryExpression exp) throws LJError;
 
-    T visitFunctionInvocation(FunctionInvocation fun) throws Exception;
+    T visitFunctionInvocation(FunctionInvocation fun) throws LJError;
 
-    T visitGroupExpression(GroupExpression exp) throws Exception;
+    T visitGroupExpression(GroupExpression exp) throws LJError;
 
-    T visitIte(Ite ite) throws Exception;
+    T visitIte(Ite ite) throws LJError;
 
-    T visitLiteralInt(LiteralInt lit) throws Exception;
+    T visitLiteralInt(LiteralInt lit) throws LJError;
 
-    T visitLiteralBoolean(LiteralBoolean lit) throws Exception;
+    T visitLiteralBoolean(LiteralBoolean lit) throws LJError;
 
-    T visitLiteralReal(LiteralReal lit) throws Exception;
+    T visitLiteralReal(LiteralReal lit) throws LJError;
 
-    T visitLiteralString(LiteralString lit) throws Exception;
+    T visitLiteralString(LiteralString lit) throws LJError;
 
-    T visitUnaryExpression(UnaryExpression exp) throws Exception;
+    T visitUnaryExpression(UnaryExpression exp) throws LJError;
 
-    T visitVar(Var var) throws Exception;
+    T visitVar(Var var) throws LJError;
 }

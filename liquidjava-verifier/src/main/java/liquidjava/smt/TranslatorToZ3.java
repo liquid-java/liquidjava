@@ -16,8 +16,10 @@ import com.microsoft.z3.Status;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import liquidjava.diagnostics.errors.LJError;
+import liquidjava.diagnostics.errors.NotFoundError;
 import liquidjava.processor.context.AliasWrapper;
-import liquidjava.smt.errors.NotFoundError;
 import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Keys;
 
@@ -67,22 +69,22 @@ public class TranslatorToZ3 implements AutoCloseable {
         return z3.mkBool(value);
     }
 
-    private Expr<?> getVariableTranslation(String name) throws Exception {
+    private Expr<?> getVariableTranslation(String name) throws LJError {
         if (!varTranslation.containsKey(name))
-            throw new NotFoundError(Keys.VARIABLE, name);
+            throw new NotFoundError(name, Keys.VARIABLE);
         Expr<?> e = varTranslation.get(name);
         if (e == null)
             e = varTranslation.get(String.format("this#%s", name));
         if (e == null)
-            throw new SyntaxException("Unknown variable:" + name);
+            throw new NotFoundError(name, Keys.VARIABLE);
         return e;
     }
 
-    public Expr<?> makeVariable(String name) throws Exception {
+    public Expr<?> makeVariable(String name) throws LJError {
         return getVariableTranslation(name); // int[] not in varTranslation
     }
 
-    public Expr<?> makeFunctionInvocation(String name, Expr<?>[] params) throws Exception {
+    public Expr<?> makeFunctionInvocation(String name, Expr<?>[] params) throws LJError {
         if (name.equals("addToIndex"))
             return makeStore(params);
         if (name.equals("getFromIndex"))
@@ -111,7 +113,7 @@ public class TranslatorToZ3 implements AutoCloseable {
      * name and number of parameters, preferring an exact qualified-name match if found among candidates; otherwise
      * returns the first compatible candidate and relies on later coercion via var supertypes.
      */
-    private FuncDecl<?> resolveFunctionDeclFallback(String name, Expr<?>[] params) throws Exception {
+    private FuncDecl<?> resolveFunctionDeclFallback(String name, Expr<?>[] params) throws LJError {
         String simple = Utils.getSimpleName(name);
         FuncDecl<?> candidate = null;
         for (Map.Entry<String, FuncDecl<?>> entry : funcTranslation.entrySet()) {
@@ -134,7 +136,7 @@ public class TranslatorToZ3 implements AutoCloseable {
         if (candidate != null) {
             return candidate;
         }
-        throw new NotFoundError(Keys.GHOST, name);
+        throw new NotFoundError(name, Keys.GHOST);
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })

@@ -1,6 +1,6 @@
 package liquidjava.diagnostics.warnings;
 
-import spoon.reflect.declaration.CtElement;
+import spoon.reflect.cu.SourcePosition;
 
 /**
  * Warning indicating that a method referenced in an external refinement was not found
@@ -13,9 +13,9 @@ public class ExternalMethodNotFoundWarning extends LJWarning {
     private final String className;
     private final String[] overloads;
 
-    public ExternalMethodNotFoundWarning(CtElement element, String message, String methodName, String className,
+    public ExternalMethodNotFoundWarning(SourcePosition position, String message, String methodName, String className,
             String[] overloads) {
-        super(message, element.getPosition());
+        super(message, position);
         this.methodName = methodName;
         this.className = className;
         this.overloads = overloads;

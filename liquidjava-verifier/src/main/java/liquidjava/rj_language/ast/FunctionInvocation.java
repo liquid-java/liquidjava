@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import liquidjava.diagnostics.errors.LJError;
 import liquidjava.rj_language.visitors.ExpressionVisitor;
 import liquidjava.utils.Utils;
 
@@ -30,7 +31,7 @@ public class FunctionInvocation extends Expression {
     }
 
     @Override
-    public <T> T accept(ExpressionVisitor<T> visitor) throws Exception {
+    public <T> T accept(ExpressionVisitor<T> visitor) throws LJError {
         return visitor.visitFunctionInvocation(this);
     }
 

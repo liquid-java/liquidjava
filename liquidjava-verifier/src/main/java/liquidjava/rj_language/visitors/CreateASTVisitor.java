@@ -52,6 +52,8 @@ import rj.grammar.RJParser.StartContext;
 import rj.grammar.RJParser.StartPredContext;
 import rj.grammar.RJParser.TargetInvocationContext;
 import rj.grammar.RJParser.VarContext;
+import spoon.reflect.cu.SourcePosition;
+import liquidjava.diagnostics.errors.ArgumentMismatchError;
 
 /**
  * Create refinements language AST using antlr
@@ -168,14 +170,14 @@ public class CreateASTVisitor {
             String name = Utils.qualifyName(prefix, ref);
             List<Expression> args = getArgs(gc.args());
             if (args.isEmpty())
-                throw new SyntaxError("Ghost call cannot have empty arguments", ref);
+                throw new ArgumentMismatchError("Ghost call cannot have empty arguments");
             return new FunctionInvocation(name, args);
         } else {
             AliasCallContext gc = rc.aliasCall();
             String ref = gc.ID_UPPER().getText();
             List<Expression> args = getArgs(gc.args());
             if (args.isEmpty())
-                throw new SyntaxError("Alias call cannot have empty arguments", ref);
+                throw new ArgumentMismatchError("Alias call cannot have empty arguments");
             return new AliasInvocation(ref, args);
         }
     }

@@ -215,7 +215,7 @@ public class AuxStateHandler {
         c = c.changeOldMentions(nameOld, name);
         boolean ok = tc.checksStateSMT(new Predicate(), c.negate(), e.getPosition());
         if (ok) {
-            tc.createSameStateError(e.getPosition(), p, targetClass);
+            tc.throwStateConflictError(e.getPosition(), p);
         }
         return c1;
     }
@@ -407,7 +407,7 @@ public class AuxStateHandler {
                 .changeOldMentions(vi.getName(), instanceName);
 
         if (!tc.checksStateSMT(prevState, expectState, fw.getPosition())) { // Invalid field transition
-            tc.createStateMismatchError(fw.getPosition(), fw.toString(), prevState, stateChange.getFrom());
+            tc.throwStateRefinementError(fw.getPosition(), prevState, stateChange.getFrom());
             return;
         }
 
@@ -490,8 +490,7 @@ public class AuxStateHandler {
                     .map(ObjectState::getFrom)
                     .reduce(Predicate.createLit("false", Types.BOOLEAN), Predicate::createDisjunction);
             String simpleInvocation = invocation.toString();
-            tc.createStateMismatchError(invocation.getPosition(), simpleInvocation, prevState,
-                    expectedStatesDisjunction);
+            tc.throwStateRefinementError(invocation.getPosition(), prevState, expectedStatesDisjunction);
         }
     }
 

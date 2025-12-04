@@ -2,6 +2,7 @@ package liquidjava.smt;
 
 import com.microsoft.z3.Expr;
 
+import liquidjava.diagnostics.errors.LJError;
 import liquidjava.rj_language.ast.AliasInvocation;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.FunctionInvocation;
@@ -24,7 +25,7 @@ public class ExpressionToZ3Visitor implements ExpressionVisitor<Expr<?>> {
     }
 
     @Override
-    public Expr<?> visitAliasInvocation(AliasInvocation alias) throws Exception {
+    public Expr<?> visitAliasInvocation(AliasInvocation alias) throws LJError {
         Expr<?>[] argsExpr = new Expr[alias.getArgs().size()];
         for (int i = 0; i < argsExpr.length; i++) {
             argsExpr[i] = alias.getArgs().get(i).accept(this);
@@ -33,7 +34,7 @@ public class ExpressionToZ3Visitor implements ExpressionVisitor<Expr<?>> {
     }
 
     @Override
-    public Expr<?> visitBinaryExpression(BinaryExpression exp) throws Exception {
+    public Expr<?> visitBinaryExpression(BinaryExpression exp) throws LJError {
         Expr<?> e1 = exp.getFirstOperand().accept(this);
         Expr<?> e2 = exp.getSecondOperand().accept(this);
         return switch (exp.getOperator()) {
@@ -56,7 +57,7 @@ public class ExpressionToZ3Visitor implements ExpressionVisitor<Expr<?>> {
     }
 
     @Override
-    public Expr<?> visitFunctionInvocation(FunctionInvocation fun) throws Exception {
+    public Expr<?> visitFunctionInvocation(FunctionInvocation fun) throws LJError {
         Expr<?>[] argsExpr = new Expr[fun.getArgs().size()];
         for (int i = 0; i < argsExpr.length; i++) {
             argsExpr[i] = fun.getArgs().get(i).accept(this);
@@ -65,17 +66,17 @@ public class ExpressionToZ3Visitor implements ExpressionVisitor<Expr<?>> {
     }
 
     @Override
-    public Expr<?> visitGroupExpression(GroupExpression exp) throws Exception {
+    public Expr<?> visitGroupExpression(GroupExpression exp) throws LJError {
         return exp.getExpression().accept(this);
     }
 
     @Override
-    public Expr<?> visitIte(Ite ite) throws Exception {
+    public Expr<?> visitIte(Ite ite) throws LJError {
         return ctx.makeIte(ite.getCondition().accept(this), ite.getThen().accept(this), ite.getElse().accept(this));
     }
 
     @Override
-    public Expr<?> visitVar(Var var) throws Exception {
+    public Expr<?> visitVar(Var var) throws LJError {
         return ctx.makeVariable(var.getName());
     }
 
@@ -100,7 +101,7 @@ public class ExpressionToZ3Visitor implements ExpressionVisitor<Expr<?>> {
     }
 
     @Override
-    public Expr<?> visitUnaryExpression(UnaryExpression exp) throws Exception {
+    public Expr<?> visitUnaryExpression(UnaryExpression exp) throws LJError {
         return switch (exp.getOp()) {
         case "-" -> ctx.makeMinus(exp.getExpression().accept(this));
         case "!" -> ctx.mkNot(exp.getExpression().accept(this));

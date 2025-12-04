@@ -1,3 +1,4 @@
+// Error
 package testSuite.classes;
 
 import liquidjava.specification.Ghost;
