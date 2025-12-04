@@ -238,16 +238,13 @@ public abstract class TypeChecker extends CtScanner {
         }
     }
 
-    Optional<String> getExternalRefinement(CtInterface<?> intrface) {
-        Optional<String> ref = Optional.empty();
+    Optional<CtAnnotation<?>> getExternalRefinement(CtInterface<?> intrface) {
         for (CtAnnotation<? extends Annotation> ann : intrface.getAnnotations())
             if (ann.getActualAnnotation().annotationType().getCanonicalName()
                     .contentEquals("liquidjava.specification.ExternalRefinementsFor")) {
-                @SuppressWarnings("unchecked")
-                CtLiteral<String> s = (CtLiteral<String>) ann.getAllValues().get("value");
-                ref = Optional.of(s.getValue());
+                return Optional.of(ann);
             }
-        return ref;
+        return Optional.empty();
     }
 
     public void checkVariableRefinements(Predicate refinementFound, String simpleName, CtTypeReference<?> type,

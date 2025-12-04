@@ -14,6 +14,8 @@ import liquidjava.processor.refinement_checker.general_checkers.MethodsFunctions
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.parsing.RefinementsParser;
 import liquidjava.utils.Utils;
+import spoon.reflect.code.CtLiteral;
+import spoon.reflect.declaration.CtAnnotation;
 import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtField;
@@ -38,12 +40,14 @@ public class ExternalRefinementTypeChecker extends TypeChecker {
 
     @Override
     public <T> void visitCtInterface(CtInterface<T> intrface) {
-        Optional<String> externalRefinements = getExternalRefinement(intrface);
-        if (externalRefinements.isPresent()) {
-            this.prefix = externalRefinements.get();
+        Optional<CtAnnotation<?>> externalRef = getExternalRefinement(intrface);
+        if (externalRef.isPresent()) {
+            @SuppressWarnings("unchecked")
+            CtLiteral<String> literal = (CtLiteral<String>) externalRef.get().getAllValues().get("value");
+            this.prefix = literal.getValue();
             if (!classExists(prefix)) {
                 String message = String.format("Could not find class '%s'", prefix);
-                diagnostics.add(new ExternalClassNotFoundWarning(intrface.getPosition(), message, prefix));
+                diagnostics.add(new ExternalClassNotFoundWarning(externalRef.get().getPosition(), message, prefix));
                 return;
             }
             getRefinementFromAnnotation(intrface);
