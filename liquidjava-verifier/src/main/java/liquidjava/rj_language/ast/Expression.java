@@ -269,76 +269,68 @@ public abstract class Expression {
      */
     public void validateGhostInvocations(Context ctx, Factory f) throws LJError {
         if (this instanceof FunctionInvocation fi) {
-
             // get all ghosts with the matching name
             List<GhostFunction> candidates = ctx.getGhosts().stream().filter(g -> g.matches(fi.name)).toList();
+            if (candidates.isEmpty())
+                return;
 
-            if (!candidates.isEmpty()) {
-                // search for a matching overload
-                for (GhostFunction g : candidates) {
-
-                    // check argument count
-                    if (fi.children.size() != g.getParametersTypes().size())
-                        continue;
-
-                    // check argument types
-                    boolean argsMatch = true;
-                    for (int i = 0; i < fi.children.size(); i++) {
-                        Expression arg = fi.children.get(i);
-                        CtTypeReference<?> expected = g.getParametersTypes().get(i);
-                        Optional<CtTypeReference<?>> actualOpt = TypeInfer.getType(ctx, f, arg);
-
-                        if (actualOpt.isPresent()) {
-                            CtTypeReference<?> actual = actualOpt.get();
-                            if (!actual.equals(expected) && !actual.isSubtypeOf(expected)) {
-                                argsMatch = false;
-                                break;
-                            }
-                        }
-                    }
-
-                    // found match
-                    if (argsMatch) {
-                        if (hasChildren()) {
-                            for (Expression child : children)
-                                child.validateGhostInvocations(ctx, f);
-                        }
-                        return;
-                    }
-                }
-
+            // find matching overload
+            Optional<GhostFunction> match = candidates.stream().filter(g -> argumentsMatch(fi, g, ctx, f)).findFirst();
+            if (match.isEmpty()) {
                 // no overload matched, use the first candidate to throw the error
-                GhostFunction g = candidates.get(0);
-
-                if (fi.children.size() != g.getParametersTypes().size()) {
-                    throw new ArgumentMismatchError(
-                            String.format("Wrong number of arguments in ghost invocation '%s': expected %d, got %d",
-                                    fi.name, g.getParametersTypes().size(), fi.children.size()));
-
-                }
-
-                for (int i = 0; i < fi.children.size(); i++) {
-                    CtTypeReference<?> expected = g.getParametersTypes().get(i);
-                    Optional<CtTypeReference<?>> actualOpt = TypeInfer.getType(ctx, f, fi.children.get(i));
-                    if (actualOpt.isPresent()) {
-                        CtTypeReference<?> actual = actualOpt.get();
-                        if (!actual.equals(expected) && !actual.isSubtypeOf(expected)) {
-                            Expression arg = fi.children.get(i);
-                            throw new ArgumentMismatchError(String.format(
-                                    "Argument '%s' and its respective parameter of ghost '%s' types are incompatible: expected %s, got %s",
-                                    arg, fi.name, expected.getSimpleName(), actual.getSimpleName()));
-                        }
-                    }
-                }
+                throwArgumentMismatchError(fi, candidates.get(0), ctx, f);
             }
         }
+
         // recurse children
         if (hasChildren()) {
             for (Expression child : children) {
                 child.validateGhostInvocations(ctx, f);
             }
-
         }
     }
 
+    private boolean argumentsMatch(FunctionInvocation fi, GhostFunction g, Context ctx, Factory f) {
+        // check argument count
+        if (fi.children.size() != g.getParametersTypes().size())
+            return false;
+
+        // check argument types
+        for (int i = 0; i < fi.children.size(); i++) {
+            Expression arg = fi.children.get(i);
+            CtTypeReference<?> expected = g.getParametersTypes().get(i);
+            Optional<CtTypeReference<?>> actualOpt = TypeInfer.getType(ctx, f, arg);
+
+            if (actualOpt.isPresent()) {
+                CtTypeReference<?> actual = actualOpt.get();
+                if (!actual.equals(expected) && !actual.isSubtypeOf(expected)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private void throwArgumentMismatchError(FunctionInvocation fi, GhostFunction g, Context ctx, Factory f)
+            throws LJError {
+        if (fi.children.size() != g.getParametersTypes().size()) {
+            throw new ArgumentMismatchError(
+                    String.format("Wrong number of arguments in ghost invocation '%s': expected %d, got %d", fi.name,
+                            g.getParametersTypes().size(), fi.children.size()));
+        }
+
+        for (int i = 0; i < fi.children.size(); i++) {
+            CtTypeReference<?> expected = g.getParametersTypes().get(i);
+            Optional<CtTypeReference<?>> actualOpt = TypeInfer.getType(ctx, f, fi.children.get(i));
+            if (actualOpt.isPresent()) {
+                CtTypeReference<?> actual = actualOpt.get();
+                if (!actual.equals(expected) && !actual.isSubtypeOf(expected)) {
+                    Expression arg = fi.children.get(i);
+                    throw new ArgumentMismatchError(String.format(
+                            "Argument '%s' and its respective parameter of ghost '%s' types are incompatible: expected %s, got %s",
+                            arg, fi.name, expected.getSimpleName(), actual.getSimpleName()));
+                }
+            }
+        }
+    }
 }
