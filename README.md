@@ -78,8 +78,6 @@ To run LiquidJava, use the Maven command below, replacing `/path/to/your/project
 ```bash
 mvn exec:java -pl liquidjava-verifier -Dexec.mainClass="liquidjava.api.CommandLineLauncher" -Dexec.args="/path/to/your/project"
 ```
-*Warning: Any change to LiquidJava requires rebuilding the jar.*
-
 
 If you're on Linux/macOS, you can use the `liquidjava` script (from the repository root) to simplify the process.
 
@@ -105,9 +103,13 @@ The starter test file is `TestExamples.java`, which runs the test suite under th
 
 The test suite considers test cases:
 1. Files that start with `Correct` or `Error` (e.g., `CorrectRecursion.java`)
-2. Packages or folders that contain the word `correct` or `error` (e.g., `arraylist_correct`)
+2. Directories that contain the word `correct` or `error` (e.g., `arraylist_correct`)
 
 Therefore, the files and folders that do not follow this pattern are ignored.
+
+For failing test cases, the expected error must be specified as follows:
+1. In singular test files, the expected error (title) should be written in the first line of the file as a comment
+2. In test directories, a `.expected` file should be included in that directory with the expected error (title)
 
 ## Project Structure
 
