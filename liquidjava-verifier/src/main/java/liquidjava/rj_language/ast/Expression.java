@@ -271,7 +271,7 @@ public abstract class Expression {
         if (this instanceof FunctionInvocation fi) {
             // get all ghosts with the matching name
             List<GhostFunction> candidates = ctx.getGhosts().stream().filter(g -> g.matches(fi.name)).toList();
-            if (candidates.isEmpty()) 
+            if (candidates.isEmpty())
                 return; // not found error is thrown elsewhere
 
             // find matching overload

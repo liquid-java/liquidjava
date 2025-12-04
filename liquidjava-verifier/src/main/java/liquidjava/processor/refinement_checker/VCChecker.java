@@ -52,8 +52,8 @@ public class VCChecker {
         }
         boolean isSubtype = smtChecks(expected, premises, element.getPosition());
         if (!isSubtype)
-            throw new RefinementError(element.getPosition(), expectedType.getExpression(),
-                    premisesBeforeChange.simplify(), map);
+            throw new RefinementError(element.getPosition(), expectedType.simplify(), premisesBeforeChange.simplify(),
+                    map);
     }
 
     /**
@@ -263,7 +263,7 @@ public class VCChecker {
         gatherVariables(found, lrv, mainVars);
         TranslationTable map = new TranslationTable();
         Predicate premises = joinPredicates(expected, mainVars, lrv, map).toConjunctions();
-        throw new RefinementError(position, expected.getExpression(), premises.simplify(), map);
+        throw new RefinementError(position, expected.simplify(), premises.simplify(), map);
     }
 
     protected void throwStateRefinementError(SourcePosition position, Predicate found, Predicate expected)
