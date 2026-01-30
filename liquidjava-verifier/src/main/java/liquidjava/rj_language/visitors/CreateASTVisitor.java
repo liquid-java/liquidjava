@@ -13,6 +13,7 @@ import liquidjava.rj_language.ast.GroupExpression;
 import liquidjava.rj_language.ast.Ite;
 import liquidjava.rj_language.ast.LiteralBoolean;
 import liquidjava.rj_language.ast.LiteralInt;
+import liquidjava.rj_language.ast.LiteralLong;
 import liquidjava.rj_language.ast.LiteralReal;
 import liquidjava.rj_language.ast.LiteralString;
 import liquidjava.rj_language.ast.UnaryExpression;
@@ -196,9 +197,14 @@ public class CreateASTVisitor {
             return new LiteralBoolean(literalContext.BOOL().getText());
         else if (literalContext.STRING() != null)
             return new LiteralString(literalContext.STRING().getText());
-        else if (literalContext.INT() != null)
-            return new LiteralInt(literalContext.INT().getText());
-        else if (literalContext.REAL() != null)
+        else if (literalContext.INT() != null) {
+            String text = literalContext.INT().getText();
+            try {
+                return new LiteralInt(text);
+            } catch (NumberFormatException e) {
+                return new LiteralLong(text);
+            }
+        } else if (literalContext.REAL() != null)
             return new LiteralReal(literalContext.REAL().getText());
         throw new NotImplementedException("Literal type not implemented");
     }

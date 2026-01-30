@@ -8,6 +8,7 @@ import liquidjava.rj_language.ast.GroupExpression;
 import liquidjava.rj_language.ast.Ite;
 import liquidjava.rj_language.ast.LiteralBoolean;
 import liquidjava.rj_language.ast.LiteralInt;
+import liquidjava.rj_language.ast.LiteralLong;
 import liquidjava.rj_language.ast.LiteralReal;
 import liquidjava.rj_language.ast.LiteralString;
 import liquidjava.rj_language.ast.UnaryExpression;
@@ -25,6 +26,8 @@ public interface ExpressionVisitor<T> {
     T visitIte(Ite ite) throws LJError;
 
     T visitLiteralInt(LiteralInt lit) throws LJError;
+
+    T visitLiteralLong(LiteralLong lit) throws LJError;
 
     T visitLiteralBoolean(LiteralBoolean lit) throws LJError;
 

@@ -10,6 +10,7 @@ import liquidjava.rj_language.ast.GroupExpression;
 import liquidjava.rj_language.ast.Ite;
 import liquidjava.rj_language.ast.LiteralBoolean;
 import liquidjava.rj_language.ast.LiteralInt;
+import liquidjava.rj_language.ast.LiteralLong;
 import liquidjava.rj_language.ast.LiteralReal;
 import liquidjava.rj_language.ast.LiteralString;
 import liquidjava.rj_language.ast.UnaryExpression;
@@ -83,6 +84,11 @@ public class ExpressionToZ3Visitor implements ExpressionVisitor<Expr<?>> {
     @Override
     public Expr<?> visitLiteralInt(LiteralInt lit) {
         return ctx.makeIntegerLiteral(lit.getValue());
+    }
+
+    @Override
+    public Expr<?> visitLiteralLong(LiteralLong lit) {
+        return ctx.makeLongLiteral(lit.getValue());
     }
 
     @Override

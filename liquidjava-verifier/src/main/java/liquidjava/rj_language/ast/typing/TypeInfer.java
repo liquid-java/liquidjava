@@ -11,6 +11,7 @@ import liquidjava.rj_language.ast.GroupExpression;
 import liquidjava.rj_language.ast.Ite;
 import liquidjava.rj_language.ast.LiteralBoolean;
 import liquidjava.rj_language.ast.LiteralInt;
+import liquidjava.rj_language.ast.LiteralLong;
 import liquidjava.rj_language.ast.LiteralReal;
 import liquidjava.rj_language.ast.LiteralString;
 import liquidjava.rj_language.ast.UnaryExpression;
@@ -33,6 +34,8 @@ public class TypeInfer {
             return Optional.of(Utils.getType("String", factory));
         else if (e instanceof LiteralInt)
             return Optional.of(Utils.getType("int", factory));
+        else if (e instanceof LiteralLong)
+            return Optional.of(Utils.getType("long", factory));
         else if (e instanceof LiteralReal)
             return Optional.of(Utils.getType("double", factory));
         else if (e instanceof LiteralBoolean)

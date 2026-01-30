@@ -36,4 +36,31 @@ public class CorrectLongUsage {
         @Refinement("_ > 10")
         long f = doubleBiggerThanTwenty(2 * 80);
     }
+
+
+    void testSmallLong() {                                                                                                                                
+        @Refinement("v > 0")                                                                                                                              
+        long v = 42L;                                                                                                                                     
+    }    
+
+    void testDoublePrecisionBoundary() {                                                                                                                  
+      @Refinement("v == 9007199254740993")                                                                                                              
+      long v = 9007199254740993L;                                                                                                                       
+    }
+
+    void testLargeSubtraction() {                                                                                                                         
+        @Refinement("v - 9007199254740992 == 1")                                                                                                          
+        long v = 9007199254740993L;                                                                                                                       
+    }  
+
+    void testMaxValueModulo() {                                                                                                                           
+        @Refinement("v % 1000 == 807")                                                                                                                    
+        long v = 9223372036854775807L;                                                                                                                    
+    }   
+
+    void testUUID(){
+        @Refinement("((v/4096) % 16) == 1")
+        long v = 0x01000000122341666L;
+    }
+    
 }

@@ -157,7 +157,8 @@ public class TranslatorToZ3 implements AutoCloseable {
     public Expr<?> makeEquals(Expr<?> e1, Expr<?> e2) {
         if (e1 instanceof FPExpr || e2 instanceof FPExpr)
             return z3.mkFPEq(toFP(e1), toFP(e2));
-
+        if (e1 instanceof RealExpr || e2 instanceof RealExpr)
+            return z3.mkEq(toReal(e1), toReal(e2));
         return z3.mkEq(e1, e2);
     }
 
@@ -165,7 +166,8 @@ public class TranslatorToZ3 implements AutoCloseable {
     public Expr<?> makeLt(Expr<?> e1, Expr<?> e2) {
         if (e1 instanceof FPExpr || e2 instanceof FPExpr)
             return z3.mkFPLt(toFP(e1), toFP(e2));
-
+        if (e1 instanceof RealExpr || e2 instanceof RealExpr)
+            return z3.mkLt(toReal(e1), toReal(e2));
         return z3.mkLt((ArithExpr) e1, (ArithExpr) e2);
     }
 
@@ -173,7 +175,8 @@ public class TranslatorToZ3 implements AutoCloseable {
     public Expr<?> makeLtEq(Expr<?> e1, Expr<?> e2) {
         if (e1 instanceof FPExpr || e2 instanceof FPExpr)
             return z3.mkFPLEq(toFP(e1), toFP(e2));
-
+        if (e1 instanceof RealExpr || e2 instanceof RealExpr)
+            return z3.mkLe(toReal(e1), toReal(e2));
         return z3.mkLe((ArithExpr) e1, (ArithExpr) e2);
     }
 
@@ -181,7 +184,8 @@ public class TranslatorToZ3 implements AutoCloseable {
     public Expr<?> makeGt(Expr<?> e1, Expr<?> e2) {
         if (e1 instanceof FPExpr || e2 instanceof FPExpr)
             return z3.mkFPGt(toFP(e1), toFP(e2));
-
+        if (e1 instanceof RealExpr || e2 instanceof RealExpr)
+            return z3.mkGt(toReal(e1), toReal(e2));
         return z3.mkGt((ArithExpr) e1, (ArithExpr) e2);
     }
 
@@ -189,7 +193,8 @@ public class TranslatorToZ3 implements AutoCloseable {
     public Expr<?> makeGtEq(Expr<?> e1, Expr<?> e2) {
         if (e1 instanceof FPExpr || e2 instanceof FPExpr)
             return z3.mkFPGEq(toFP(e1), toFP(e2));
-
+        if (e1 instanceof RealExpr || e2 instanceof RealExpr)
+            return z3.mkGe(toReal(e1), toReal(e2));
         return z3.mkGe((ArithExpr) e1, (ArithExpr) e2);
     }
 
@@ -226,7 +231,8 @@ public class TranslatorToZ3 implements AutoCloseable {
     public Expr<?> makeAdd(Expr<?> eval, Expr<?> eval2) {
         if (eval instanceof FPExpr || eval2 instanceof FPExpr)
             return z3.mkFPAdd(z3.mkFPRoundNearestTiesToEven(), toFP(eval), toFP(eval2));
-
+        if (eval instanceof RealExpr || eval2 instanceof RealExpr)
+            return z3.mkAdd(toReal(eval), toReal(eval2));
         return z3.mkAdd((ArithExpr) eval, (ArithExpr) eval2);
     }
 
@@ -234,7 +240,8 @@ public class TranslatorToZ3 implements AutoCloseable {
     public Expr<?> makeSub(Expr<?> eval, Expr<?> eval2) {
         if (eval instanceof FPExpr || eval2 instanceof FPExpr)
             return z3.mkFPSub(z3.mkFPRoundNearestTiesToEven(), toFP(eval), toFP(eval2));
-
+        if (eval instanceof RealExpr || eval2 instanceof RealExpr)
+            return z3.mkSub(toReal(eval), toReal(eval2));
         return z3.mkSub((ArithExpr) eval, (ArithExpr) eval2);
     }
 
@@ -242,7 +249,8 @@ public class TranslatorToZ3 implements AutoCloseable {
     public Expr<?> makeMul(Expr<?> eval, Expr<?> eval2) {
         if (eval instanceof FPExpr || eval2 instanceof FPExpr)
             return z3.mkFPMul(z3.mkFPRoundNearestTiesToEven(), toFP(eval), toFP(eval2));
-
+        if (eval instanceof RealExpr || eval2 instanceof RealExpr)
+            return z3.mkMul(toReal(eval), toReal(eval2));
         return z3.mkMul((ArithExpr) eval, (ArithExpr) eval2);
     }
 
@@ -250,14 +258,33 @@ public class TranslatorToZ3 implements AutoCloseable {
     public Expr<?> makeDiv(Expr<?> eval, Expr<?> eval2) {
         if (eval instanceof FPExpr || eval2 instanceof FPExpr)
             return z3.mkFPDiv(z3.mkFPRoundNearestTiesToEven(), toFP(eval), toFP(eval2));
-
+        if (eval instanceof RealExpr || eval2 instanceof RealExpr)
+            return z3.mkDiv(toReal(eval), toReal(eval2));
         return z3.mkDiv((ArithExpr) eval, (ArithExpr) eval2);
     }
 
     public Expr<?> makeMod(Expr<?> eval, Expr<?> eval2) {
         if (eval instanceof FPExpr || eval2 instanceof FPExpr)
             return z3.mkFPRem(toFP(eval), toFP(eval2));
+        if (eval instanceof RealExpr || eval2 instanceof RealExpr)
+            return z3.mkMod(toInt(eval), toInt(eval2));
         return z3.mkMod((IntExpr) eval, (IntExpr) eval2);
+    }
+
+    private RealExpr toReal(Expr<?> e) {
+        if (e instanceof RealExpr)
+            return (RealExpr) e;
+        if (e instanceof IntExpr)
+            return z3.mkInt2Real((IntExpr) e);
+        throw new NotImplementedException();
+    }
+
+    private IntExpr toInt(Expr<?> e) {
+        if (e instanceof IntExpr)
+            return (IntExpr) e;
+        if (e instanceof RealExpr)
+            return z3.mkReal2Int((RealExpr) e);
+        throw new NotImplementedException();
     }
 
     private FPExpr toFP(Expr<?> e) {

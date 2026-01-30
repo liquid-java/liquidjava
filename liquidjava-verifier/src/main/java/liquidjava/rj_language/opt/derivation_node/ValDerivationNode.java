@@ -12,6 +12,7 @@ import com.google.gson.annotations.JsonAdapter;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.LiteralBoolean;
 import liquidjava.rj_language.ast.LiteralInt;
+import liquidjava.rj_language.ast.LiteralLong;
 import liquidjava.rj_language.ast.LiteralReal;
 import liquidjava.rj_language.ast.Var;
 
@@ -42,6 +43,8 @@ public class ValDerivationNode extends DerivationNode {
                 return JsonNull.INSTANCE;
             if (exp instanceof LiteralInt)
                 return new JsonPrimitive(((LiteralInt) exp).getValue());
+            if (exp instanceof LiteralLong)
+                return new JsonPrimitive(((LiteralLong) exp).getValue());
             if (exp instanceof LiteralReal)
                 return new JsonPrimitive(((LiteralReal) exp).getValue());
             if (exp instanceof LiteralBoolean)
