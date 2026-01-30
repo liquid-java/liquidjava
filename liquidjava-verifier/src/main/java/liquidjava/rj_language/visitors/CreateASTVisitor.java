@@ -199,10 +199,11 @@ public class CreateASTVisitor {
             return new LiteralString(literalContext.STRING().getText());
         else if (literalContext.INT() != null) {
             String text = literalContext.INT().getText();
-            try {
-                return new LiteralInt(text);
-            } catch (NumberFormatException e) {
-                return new LiteralLong(text);
+            long value = Long.parseLong(text);
+            if (value <= Integer.MAX_VALUE && value >= Integer.MIN_VALUE) {
+                return new LiteralInt((int) value);
+            } else {
+                return new LiteralLong(value);
             }
         } else if (literalContext.REAL() != null)
             return new LiteralReal(literalContext.REAL().getText());
