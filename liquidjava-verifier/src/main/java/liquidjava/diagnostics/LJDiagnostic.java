@@ -126,9 +126,9 @@ public class LJDiagnostic extends RuntimeException {
 
                         // custom message
                         if (customMessage != null && !customMessage.isBlank()) {
-                            sb.append(" " + customMessage);
+                            String sep = " || ";
+                            sb.append(" " + customMessage.replace(sep, "\n" + " ".repeat(padding + colEnd + sep.length())));
                         }
-
                         sb.append(Colors.RESET).append("\n");
                     }
                 }
