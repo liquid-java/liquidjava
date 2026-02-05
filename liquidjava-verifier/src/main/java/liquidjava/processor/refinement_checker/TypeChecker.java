@@ -89,6 +89,19 @@ public abstract class TypeChecker extends CtScanner {
         return constr;
     }
 
+    public Optional<String> getMessageFromAnnotation(CtElement element) {
+        for (CtAnnotation<? extends Annotation> ann : element.getAnnotations()) {
+            String an = ann.getActualAnnotation().annotationType().getCanonicalName();
+            if (an.contentEquals("liquidjava.specification.Refinement")) {
+                String msg = getStringFromAnnotation(ann.getValue("msg"));
+                if (msg != null && !msg.isEmpty()) {
+                    return Optional.of(msg);
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
     @SuppressWarnings("unchecked")
     public void handleStateSetsFromAnnotation(CtElement element) throws LJError {
         int set = 0;
@@ -277,13 +290,17 @@ public abstract class TypeChecker extends CtScanner {
         for (CtTypeReference<?> t : mainRV.getSuperTypes())
             rv.addSuperType(t);
         context.addRefinementInstanceToVariable(simpleName, newName);
-        // smt check
-        checkSMT(cEt, usage); // TODO CHANGE
+        String customMessage = getMessageFromAnnotation(variable).orElse(mainRV != null ? mainRV.getMessage() : null);
+        checkSMT(cEt, usage, customMessage); // TODO CHANGE
         context.addRefinementToVariableInContext(simpleName, type, cet, usage);
     }
 
     public void checkSMT(Predicate expectedType, CtElement element) throws LJError {
-        vcChecker.processSubtyping(expectedType, context.getGhostState(), element, factory);
+        checkSMT(expectedType, element, null);
+    }
+
+    public void checkSMT(Predicate expectedType, CtElement element, String customMessage) throws LJError {
+        vcChecker.processSubtyping(expectedType, context.getGhostState(), element, factory, customMessage);
         element.putMetadata(Keys.REFINEMENT, expectedType);
     }
 
@@ -296,13 +313,14 @@ public abstract class TypeChecker extends CtScanner {
         return vcChecker.canProcessSubtyping(prevState, expectedState, context.getGhostState(), p, factory);
     }
 
-    public void throwRefinementError(SourcePosition position, Predicate expectedType, Predicate foundType)
-            throws LJError {
-        vcChecker.throwRefinementError(position, expectedType, foundType);
+    public void throwRefinementError(SourcePosition position, Predicate expectedType, Predicate foundType,
+            String customMessage) throws LJError {
+        vcChecker.throwRefinementError(position, expectedType, foundType, customMessage);
     }
 
-    public void throwStateRefinementError(SourcePosition position, Predicate found, Predicate expected) throws LJError {
-        vcChecker.throwStateRefinementError(position, found, expected);
+    public void throwStateRefinementError(SourcePosition position, Predicate found, Predicate expected,
+            String customMessage) throws LJError {
+        vcChecker.throwStateRefinementError(position, found, expected, customMessage);
     }
 
     public void throwStateConflictError(SourcePosition position, Predicate expectedType) throws LJError {

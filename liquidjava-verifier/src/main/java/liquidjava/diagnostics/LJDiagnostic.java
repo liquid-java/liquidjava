@@ -11,15 +11,17 @@ public class LJDiagnostic extends RuntimeException {
     private final String title;
     private final String message;
     private final String accentColor;
+    private final String customMessage;
     private String file;
     private ErrorPosition position;
 
-    public LJDiagnostic(String title, String message, SourcePosition pos, String accentColor) {
+    public LJDiagnostic(String title, String message, SourcePosition pos, String accentColor, String customMessage) {
         this.title = title;
         this.message = message;
         this.file = (pos != null && pos.getFile() != null) ? pos.getFile().getPath() : null;
         this.position = ErrorPosition.fromSpoonPosition(pos);
         this.accentColor = accentColor;
+        this.customMessage = customMessage;
     }
 
     public String getTitle() {
@@ -28,6 +30,10 @@ public class LJDiagnostic extends RuntimeException {
 
     public String getMessage() {
         return message;
+    }
+
+    public String getCustomMessage() {
+        return customMessage;
     }
 
     public String getDetails() {
@@ -115,8 +121,15 @@ public class LJDiagnostic extends RuntimeException {
                         // line number padding + " | " + column offset
                         String indent = " ".repeat(padding) + Colors.GREY + " | " + Colors.RESET
                                 + " ".repeat(colStart - 1);
-                        String markers = accentColor + "^".repeat(Math.max(1, colEnd - colStart + 1)) + Colors.RESET;
-                        sb.append(indent).append(markers).append("\n");
+                        String markers = accentColor + "^".repeat(Math.max(1, colEnd - colStart + 1));
+                        sb.append(indent).append(markers);
+
+                        // custom message
+                        if (customMessage != null && !customMessage.isBlank()) {
+                            sb.append(" " + customMessage);
+                        }
+
+                        sb.append(Colors.RESET).append("\n");
                     }
                 }
             }
