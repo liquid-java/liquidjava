@@ -499,7 +499,7 @@ public class AuxStateHandler {
 
             // combine messages of all state changes
             String message = stateChanges.stream().map(ObjectState::getMessage)
-                    .filter(msg -> msg != null && !msg.isBlank()).distinct().collect(Collectors.joining(" || "));
+                    .filter(msg -> msg != null && !msg.isBlank()).distinct().collect(Collectors.joining("\n"));
             tc.throwStateRefinementError(invocation.getPosition(), prevState, expectedStatesDisjunction, message);
         }
     }
