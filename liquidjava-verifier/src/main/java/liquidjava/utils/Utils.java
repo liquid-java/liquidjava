@@ -1,9 +1,12 @@
 package liquidjava.utils;
 
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import liquidjava.utils.constants.Types;
 import spoon.reflect.cu.SourcePosition;
+import spoon.reflect.declaration.CtAnnotation;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.factory.Factory;
 import spoon.reflect.reference.CtTypeReference;
@@ -35,9 +38,19 @@ public class Utils {
         return String.format("%s.%s", prefix, name);
     }
 
-    public static SourcePosition getAnnotationPosition(CtElement element) {
+    public static SourcePosition getAnnotationPosition(CtElement element, String refinement) {
         return element.getAnnotations().stream()
-                .filter(a -> a.getAnnotationType().getQualifiedName().startsWith("liquidjava.specification"))
-                .findFirst().map(CtElement::getPosition).orElse(element.getPosition());
+                .filter(a -> isLiquidJavaAnnotation(a) && hasRefinementValue(a, "\"" + refinement + "\"")).findFirst()
+                .map(CtElement::getPosition).orElse(element.getPosition());
+    }
+
+    private static boolean isLiquidJavaAnnotation(CtAnnotation<?> annotation) {
+        return annotation.getAnnotationType().getQualifiedName().startsWith("liquidjava.specification");
+    }
+
+    private static boolean hasRefinementValue(CtAnnotation<?> annotation, String refinement) {
+        Map<String, ?> values = annotation.getValues();
+        return Stream.of("value", "to", "from")
+                .anyMatch(key -> refinement.equals(String.valueOf(values.get(key))));
     }
 }

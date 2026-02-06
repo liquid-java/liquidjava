@@ -235,7 +235,7 @@ public abstract class TypeChecker extends CtScanner {
             }
         } catch (LJError e) {
             // add location info to error
-            SourcePosition pos = Utils.getAnnotationPosition(element);
+            SourcePosition pos = Utils.getAnnotationPosition(element, ref);
             e.setPosition(pos);
             throw e;
         }
