@@ -35,11 +35,9 @@ public class Utils {
         return String.format("%s.%s", prefix, name);
     }
 
-    public static SourcePosition getRefinementAnnotationPosition(CtElement element, String refinement) {
-        return element.getAnnotations().stream().filter(a -> {
-            String value = a.getValue("value").toString();
-            String unquoted = value.substring(1, value.length() - 1);
-            return unquoted.equals(refinement);
-        }).findFirst().map(CtElement::getPosition).orElse(element.getPosition());
+    public static SourcePosition getAnnotationPosition(CtElement element) {
+        return element.getAnnotations().stream()
+                .filter(a -> a.getAnnotationType().getQualifiedName().startsWith("liquidjava.specification"))
+                .findFirst().map(CtElement::getPosition).orElse(element.getPosition());
     }
 }
