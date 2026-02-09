@@ -14,6 +14,7 @@ public class LJDiagnostic extends RuntimeException {
     private final String customMessage;
     private String file;
     private ErrorPosition position;
+    private static final String PIPE = " | ";
 
     public LJDiagnostic(String title, String message, SourcePosition pos, String accentColor, String customMessage) {
         this.title = title;
@@ -104,14 +105,13 @@ public class LJDiagnostic extends RuntimeException {
 
             // calculate padding for line numbers
             int padding = String.valueOf(endLine).length();
-            String pipe = " | ";
 
             for (int i = startLine; i <= endLine; i++) {
                 String lineNumStr = String.format("%" + padding + "d", i);
                 String line = lines.get(i - 1);
 
                 // add line
-                sb.append(Colors.GREY).append(lineNumStr).append(pipe).append(line).append(Colors.RESET).append("\n");
+                sb.append(Colors.GREY).append(lineNumStr).append(PIPE).append(line).append(Colors.RESET).append("\n");
 
                 // add error markers on the line(s) with the error
                 if (i >= position.lineStart() && i <= position.lineEnd()) {
@@ -120,14 +120,14 @@ public class LJDiagnostic extends RuntimeException {
 
                     if (colStart > 0 && colEnd > 0) {
                         // line number padding + pipe + column offset
-                        String indent = " ".repeat(padding) + Colors.GREY + pipe + Colors.RESET
+                        String indent = " ".repeat(padding) + Colors.GREY + PIPE + Colors.RESET
                                 + " ".repeat(colStart - 1);
                         String markers = accentColor + "^".repeat(Math.max(1, colEnd - colStart + 1));
                         sb.append(indent).append(markers);
 
                         // custom message
                         if (customMessage != null && !customMessage.isBlank()) {
-                            String offset = " ".repeat(padding + colEnd + pipe.length() + 1);
+                            String offset = " ".repeat(padding + colEnd + PIPE.length() + 1);
                             sb.append(" " + customMessage.replace("\n", "\n" + offset));
                         }
                         sb.append(Colors.RESET).append("\n");
