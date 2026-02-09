@@ -187,9 +187,18 @@ public class CreateASTVisitor {
         }
     }
 
+    /**
+     * Handles both cases of dot calls: this.func(args) and targetFunc(this).func(args)
+     * Converts them to func(this, args) and func(targetFunc(this), args) respectively
+     */
     private Expression dotCallCreate(DotCallContext rc) throws LJError {
         if (rc.OBJECT_TYPE() != null) {
-            // this.func(args)
+
+            // check if there are multiple fields (e.g. this.a.b)
+            if (rc.ID().size() > 1)
+                throw new SyntaxError("Multiple dot notation is not allowed", rc.getText());
+
+            // this.func(args) => func(this, args)
             String text = rc.OBJECT_TYPE().getText();
             int dot = text.indexOf('.');
             String target = text.substring(0, dot);
@@ -205,7 +214,7 @@ public class CreateASTVisitor {
             return new FunctionInvocation(name, args);
 
         } else {
-            // targetFunc(this).func(args)
+            // targetFunc(this).func(args) => func(targetFunc(this), args)
             String targetFunc = rc.ID(0).getText();
             String func = rc.ID(1).getText();
             String name = Utils.qualifyName(prefix, func);
