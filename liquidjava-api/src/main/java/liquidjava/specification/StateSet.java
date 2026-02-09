@@ -7,9 +7,8 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Annotation to create the disjoint states in which class objects can be. The annotation receives a
- * list of strings representing the names of the states. e.g. @StateSet({"open", "reading",
- * "closed"})
+ * Annotation to create the disjoint states in which class objects can be
+ * e.g. @StateSet({"open", "reading", "closed"})
  *
  * @author catarina gamboa
  */
@@ -17,5 +16,9 @@ import java.lang.annotation.Target;
 @Target({ElementType.TYPE})
 @Repeatable(StateSets.class)
 public @interface StateSet {
+
+    /**
+     * The array of states to be created
+     */
     public String[] value();
 }

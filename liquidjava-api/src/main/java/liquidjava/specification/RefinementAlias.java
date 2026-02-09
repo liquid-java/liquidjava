@@ -7,8 +7,8 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Annotation to create a ghost variable for a class. The annotation receives the type and name of
- * the ghost within a string e.g. @RefinementAlias("Nat(int x) {x > 0}")
+ * Annotation to create a refinement alias
+ * e.g. `@RefinementAlias("Nat(int x) { x > 0 }")`
  *
  * @author catarina gamboa
  */
@@ -16,5 +16,9 @@ import java.lang.annotation.Target;
 @Target({ElementType.TYPE})
 @Repeatable(RefinementAliasMultiple.class)
 public @interface RefinementAlias {
+
+    /**
+     * The refinement alias string, which includes the name of the alias, its parameters and the refinement itself
+     */
     public String value();
 }
