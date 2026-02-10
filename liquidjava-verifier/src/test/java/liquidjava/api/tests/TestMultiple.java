@@ -14,7 +14,7 @@ public class TestMultiple {
         String path = "../liquidjava-example/src/main/java/testMultiple/errors";
         CommandLineLauncher.launch(path);
         Diagnostics diagnostics = Diagnostics.getInstance();
-        assertEquals(9, diagnostics.getErrors().size());
+        assertEquals(9, diagnostics.getErrors().size());// 9
     }
 
     @Test
@@ -39,7 +39,7 @@ public class TestMultiple {
         CommandLineLauncher.launch(path);
         Diagnostics diagnostics = Diagnostics.getInstance();
 
-        assertEquals(11, diagnostics.getErrors().size());
+        assertEquals(11, diagnostics.getErrors().size());// 11
         assertEquals(3, diagnostics.getWarnings().size());
     }
 }
