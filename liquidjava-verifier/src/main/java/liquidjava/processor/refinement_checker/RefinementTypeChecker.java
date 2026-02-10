@@ -124,10 +124,10 @@ public class RefinementTypeChecker extends TypeChecker {
         super.visitCtLocalVariable(localVariable);
         // only declaration, no assignment
         if (localVariable.getAssignment() == null) {
-            Optional<Predicate> a;
-            a = getRefinementFromAnnotation(localVariable);
-            context.addVarToContext(localVariable.getSimpleName(), localVariable.getType(), a.orElse(new Predicate()),
-                    localVariable);
+            Optional<Predicate> a = getRefinementFromAnnotation(localVariable);
+            RefinedVariable v = context.addVarToContext(localVariable.getSimpleName(), localVariable.getType(),
+                    a.orElse(new Predicate()), localVariable);
+            getMessageFromAnnotation(localVariable).ifPresent(v::setMessage);
         } else {
             String varName = localVariable.getSimpleName();
             CtExpression<?> e = localVariable.getAssignment();
@@ -238,6 +238,7 @@ public class RefinementTypeChecker extends TypeChecker {
             ret = c.get().substituteVariable(Keys.WILDCARD, name).substituteVariable(f.getSimpleName(), name);
         }
         RefinedVariable v = context.addVarToContext(name, f.getType(), ret, f);
+        getMessageFromAnnotation(f).ifPresent(v::setMessage);
         if (v instanceof Variable) {
             ((Variable) v).setLocation("this");
         }

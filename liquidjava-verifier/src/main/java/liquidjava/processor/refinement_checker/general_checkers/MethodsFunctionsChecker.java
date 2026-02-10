@@ -154,6 +154,7 @@ public class MethodsFunctionsChecker {
                 c = oc.get().substituteVariable(Keys.WILDCARD, paramName);
             param.putMetadata(Keys.REFINEMENT, c);
             RefinedVariable v = rtc.getContext().addVarToContext(param.getSimpleName(), param.getType(), c, param);
+            rtc.getMessageFromAnnotation(param).ifPresent(v::setMessage);
             if (v instanceof Variable)
                 f.addArgRefinements((Variable) v);
             joint = Predicate.createConjunction(joint, c);
@@ -162,6 +163,7 @@ public class MethodsFunctionsChecker {
         Predicate ret = oret.orElse(new Predicate());
         ret = ret.substituteVariable("return", Keys.WILDCARD);
         f.setRefReturn(ret);
+        rtc.getMessageFromAnnotation(method).ifPresent(f::setMessage);
         return Predicate.createConjunction(joint, ret);
     }
 
@@ -196,7 +198,7 @@ public class MethodsFunctionsChecker {
                         .substituteVariable(Keys.THIS, returnVarName);
 
                 rtc.getContext().addVarToContext(returnVarName, method.getType(), cretRef, ret);
-                rtc.checkSMT(cexpectedType, ret);
+                rtc.checkSMT(cexpectedType, ret, fi.getMessage());
                 rtc.getContext().newRefinementToVariableInContext(returnVarName, cexpectedType);
             }
         }
@@ -367,7 +369,7 @@ public class MethodsFunctionsChecker {
                 VariableInstance vi = (VariableInstance) invocation.getMetadata(Keys.TARGET);
                 c = c.substituteVariable(Keys.THIS, vi.getName());
             }
-            rtc.checkSMT(c, invocation);
+            rtc.checkSMT(c, invocation, fArg.getMessage());
         }
     }
 

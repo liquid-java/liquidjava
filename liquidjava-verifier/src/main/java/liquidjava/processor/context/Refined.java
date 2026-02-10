@@ -8,6 +8,7 @@ public abstract class Refined {
     private String name; // y
     private CtTypeReference<?> type; // int
     private Predicate refinement; // 9 <= y && y <= 100
+    private String message;
 
     public Refined() {
     }
@@ -42,6 +43,14 @@ public abstract class Refined {
         if (refinement != null)
             return refinement;
         return new Predicate();
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
     }
 
     public Predicate getRenamedRefinements(String toReplace) {
