@@ -318,7 +318,7 @@ public abstract class TypeChecker extends CtScanner {
 
     public void throwRefinementError(SourcePosition position, Predicate expectedType, Predicate foundType,
             String customMessage) throws LJError {
-        vcChecker.throwRefinementError(position, expectedType, foundType, customMessage);
+        vcChecker.throwRefinementError(position, expectedType, foundType, null, customMessage);
     }
 
     public void throwStateRefinementError(SourcePosition position, Predicate found, Predicate expected,
