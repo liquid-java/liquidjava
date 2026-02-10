@@ -1,7 +1,7 @@
 package liquidjava.diagnostics.errors;
 
+import liquidjava.diagnostics.Counterexample;
 import liquidjava.diagnostics.TranslationTable;
-import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.opt.derivation_node.ValDerivationNode;
 import spoon.reflect.cu.SourcePosition;
 
@@ -14,13 +14,30 @@ public class RefinementError extends LJError {
 
     private final ValDerivationNode expected;
     private final ValDerivationNode found;
+    private final Counterexample counterexample;
 
     public RefinementError(SourcePosition position, ValDerivationNode expected, ValDerivationNode found,
-            TranslationTable translationTable) {
+            TranslationTable translationTable, Counterexample counterexample) {
         super("Refinement Error", String.format("%s is not a subtype of %s", found.getValue(), expected.getValue()),
                 position, translationTable);
         this.expected = expected;
         this.found = found;
+        this.counterexample = counterexample;
+    }
+
+    @Override
+    public String getDetails() {
+        if (counterexample == null || counterexample.assignments().isEmpty())
+            return "";
+
+        // filter fresh variables and join assignements with &&
+        String counterexampleExp = counterexample.assignments().stream().filter(a -> !a.startsWith("#fresh_"))
+                .reduce((a, b) -> a + " && " + b).orElse("");
+
+        // check if counterexample is trivial (same as the found value)
+        if (counterexampleExp.equals(found.getValue().toSimplifiedString()))
+            return "";
+        return "Counterexample: " + counterexampleExp;
     }
 
     public ValDerivationNode getExpected() {

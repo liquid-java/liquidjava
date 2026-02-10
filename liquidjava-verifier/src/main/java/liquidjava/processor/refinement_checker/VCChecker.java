@@ -8,6 +8,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.errors.*;
+import liquidjava.diagnostics.Counterexample;
 import liquidjava.diagnostics.TranslationTable;
 import liquidjava.processor.VCImplication;
 import liquidjava.processor.context.*;
@@ -50,10 +51,10 @@ public class VCChecker {
             e.setPosition(element.getPosition());
             throw e;
         }
-        boolean isSubtype = smtChecks(expected, premises, element.getPosition());
-        if (!isSubtype)
+        Counterexample counterexample = smtChecks(expected, premises, element.getPosition());
+        if (counterexample != null)
             throw new RefinementError(element.getPosition(), expectedType.simplify(), premisesBeforeChange.simplify(),
-                    map);
+                    map, counterexample);
     }
 
     /**
@@ -69,9 +70,9 @@ public class VCChecker {
      */
     public void processSubtyping(Predicate type, Predicate expectedType, List<GhostState> list, CtElement element,
             Factory f) throws LJError {
-        boolean b = canProcessSubtyping(type, expectedType, list, element.getPosition(), f);
-        if (!b)
-            throwRefinementError(element.getPosition(), expectedType, type);
+        Counterexample counterexample = canProcessSubtyping(type, expectedType, list, element.getPosition(), f);
+        if (counterexample != null)
+            throwRefinementError(element.getPosition(), expectedType, type, counterexample);
     }
 
     /**
@@ -81,16 +82,16 @@ public class VCChecker {
      * @param found
      * @param position
      *
-     * @return true if expected type is subtype of found type, false otherwise
+     * @return counterexample if expected type is not subtype of found type, otherwise null
      *
      * @throws LJError
      */
-    public boolean smtChecks(Predicate expected, Predicate found, SourcePosition position) throws LJError {
+    public Counterexample smtChecks(Predicate expected, Predicate found, SourcePosition position) throws LJError {
         try {
             new SMTEvaluator().verifySubtype(found, expected, context);
-            return true;
+            return null;
         } catch (TypeCheckError e) {
-            return false;
+            return e.getCounterexample();
         } catch (LJError e) {
             e.setPosition(position);
             throw e;
@@ -99,13 +100,13 @@ public class VCChecker {
         }
     }
 
-    public boolean canProcessSubtyping(Predicate type, Predicate expectedType, List<GhostState> list,
+    public Counterexample canProcessSubtyping(Predicate type, Predicate expectedType, List<GhostState> list,
             SourcePosition position, Factory f) throws LJError {
         List<RefinedVariable> lrv = new ArrayList<>(), mainVars = new ArrayList<>();
         gatherVariables(expectedType, lrv, mainVars);
         gatherVariables(type, lrv, mainVars);
         if (expectedType.isBooleanTrue() && type.isBooleanTrue())
-            return true;
+            return null;
 
         TranslationTable map = new TranslationTable();
         String[] s = { Keys.WILDCARD, Keys.THIS };
@@ -258,12 +259,17 @@ public class VCChecker {
 
     protected void throwRefinementError(SourcePosition position, Predicate expected, Predicate found)
             throws RefinementError {
+        throwRefinementError(position, expected, found, null);
+    }
+
+    protected void throwRefinementError(SourcePosition position, Predicate expected, Predicate found,
+            Counterexample counterexample) throws RefinementError {
         List<RefinedVariable> lrv = new ArrayList<>(), mainVars = new ArrayList<>();
         gatherVariables(expected, lrv, mainVars);
         gatherVariables(found, lrv, mainVars);
         TranslationTable map = new TranslationTable();
         Predicate premises = joinPredicates(expected, mainVars, lrv, map).toConjunctions();
-        throw new RefinementError(position, expected.simplify(), premises.simplify(), map);
+        throw new RefinementError(position, expected.simplify(), premises.simplify(), map, counterexample);
     }
 
     protected void throwStateRefinementError(SourcePosition position, Predicate found, Predicate expected)

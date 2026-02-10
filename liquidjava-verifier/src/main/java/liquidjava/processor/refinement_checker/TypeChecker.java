@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import liquidjava.diagnostics.Counterexample;
 import liquidjava.diagnostics.errors.*;
 import liquidjava.processor.context.AliasWrapper;
 import liquidjava.processor.context.Context;
@@ -292,8 +293,10 @@ public abstract class TypeChecker extends CtScanner {
         vcChecker.processSubtyping(prevState, expectedState, context.getGhostState(), target, factory);
     }
 
-    public boolean checksStateSMT(Predicate prevState, Predicate expectedState, SourcePosition p) throws LJError {
-        return vcChecker.canProcessSubtyping(prevState, expectedState, context.getGhostState(), p, factory);
+    public boolean checkStateSMT(Predicate prevState, Predicate expectedState, SourcePosition p) throws LJError {
+        Counterexample counterexample = vcChecker.canProcessSubtyping(prevState, expectedState, context.getGhostState(),
+                p, factory);
+        return counterexample == null;
     }
 
     public void throwRefinementError(SourcePosition position, Predicate expectedType, Predicate foundType)

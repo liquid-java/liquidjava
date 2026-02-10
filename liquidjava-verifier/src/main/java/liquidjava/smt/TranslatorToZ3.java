@@ -1,22 +1,25 @@
 package liquidjava.smt;
 
-import com.martiansoftware.jsap.SyntaxException;
 import com.microsoft.z3.ArithExpr;
 import com.microsoft.z3.ArrayExpr;
 import com.microsoft.z3.BoolExpr;
 import com.microsoft.z3.Expr;
 import com.microsoft.z3.FPExpr;
 import com.microsoft.z3.FuncDecl;
+import com.microsoft.z3.FuncInterp;
 import com.microsoft.z3.IntExpr;
 import com.microsoft.z3.IntNum;
 import com.microsoft.z3.RealExpr;
 import com.microsoft.z3.Solver;
 import com.microsoft.z3.Sort;
-import com.microsoft.z3.Status;
+import com.microsoft.z3.Model;
+
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import liquidjava.diagnostics.Counterexample;
 import liquidjava.diagnostics.errors.LJError;
 import liquidjava.diagnostics.errors.NotFoundError;
 import liquidjava.processor.context.AliasWrapper;
@@ -42,10 +45,27 @@ public class TranslatorToZ3 implements AutoCloseable {
     }
 
     @SuppressWarnings("unchecked")
-    public Status verifyExpression(Expr<?> e) {
-        Solver s = z3.mkSolver();
-        s.add((BoolExpr) e);
-        return s.check();
+    public Solver makeSolverForExpression(Expr<?> e) {
+        Solver solver = z3.mkSolver();
+        solver.add((BoolExpr) e);
+        return solver;
+    }
+
+    /**
+     * Extracts the counterexample from the Z3 model
+     */
+    public Counterexample getCounterexample(Model model) {
+        List<String> assignments = new ArrayList<>();
+        for (FuncDecl<?> decl : model.getDecls()) {
+            // extract variable assignments with constants
+            if (decl.getArity() == 0) {
+                String name = decl.getName().toString();
+                String value = model.getConstInterp(decl).toString();
+                assignments.add(name + " == " + value);
+            }
+            // TODO: extract function assignments (arity > 0)?
+        }
+        return new Counterexample(assignments);
     }
 
     // #####################Literals and Variables#####################
