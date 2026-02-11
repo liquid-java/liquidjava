@@ -3,6 +3,7 @@ package liquidjava.processor.refinement_checker;
 import java.lang.annotation.Annotation;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import liquidjava.diagnostics.errors.*;
@@ -89,11 +90,13 @@ public abstract class TypeChecker extends CtScanner {
         return constr;
     }
 
+    @SuppressWarnings({ "rawtypes" })
     public Optional<String> getMessageFromAnnotation(CtElement element) {
         for (CtAnnotation<? extends Annotation> ann : element.getAnnotations()) {
             String an = ann.getActualAnnotation().annotationType().getCanonicalName();
             if (an.contentEquals("liquidjava.specification.Refinement")) {
-                String msg = getStringFromAnnotation(ann.getValue("msg"));
+                Map<String, CtExpression> values = ann.getAllValues();
+                String msg = getStringFromAnnotation((values.get("msg")));
                 if (msg != null && !msg.isEmpty()) {
                     return Optional.of(msg);
                 }
