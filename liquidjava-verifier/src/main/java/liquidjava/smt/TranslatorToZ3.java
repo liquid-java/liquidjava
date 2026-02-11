@@ -15,9 +15,11 @@ import com.microsoft.z3.Sort;
 import com.microsoft.z3.Model;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.Counterexample;
 import liquidjava.diagnostics.errors.LJError;
@@ -35,6 +37,8 @@ public class TranslatorToZ3 implements AutoCloseable {
     private final Map<String, List<Expr<?>>> varSuperTypes = new HashMap<>();
     private final Map<String, AliasWrapper> aliasTranslation = new HashMap<>(); // this is not being used
     private final Map<String, FuncDecl<?>> funcTranslation = new HashMap<>();
+    private final Map<String, Expr<?>> funcAppTranslation = new HashMap<>();
+    private final Map<Expr<?>, String> exprToNameTranslation = new HashMap<>();
 
     public TranslatorToZ3(liquidjava.processor.context.Context c) {
         TranslatorContextToZ3.translateVariables(z3, c.getContext(), varTranslation);
@@ -56,14 +60,22 @@ public class TranslatorToZ3 implements AutoCloseable {
      */
     public Counterexample getCounterexample(Model model) {
         List<String> assignments = new ArrayList<>();
+        // Extract constant variable assignments
         for (FuncDecl<?> decl : model.getDecls()) {
-            // extract variable assignments with constants
             if (decl.getArity() == 0) {
                 String name = decl.getName().toString();
                 String value = model.getConstInterp(decl).toString();
-                assignments.add(name + " == " + value);
+                // Skip opaque Z3 object values
+                if (!value.contains("!val!"))
+                    assignments.add(name + " == " + value);
             }
-            // TODO: extract function assignments (arity > 0)?
+        }
+        // Extract function application values
+        for (Map.Entry<String, Expr<?>> entry : funcAppTranslation.entrySet()) {
+            String label = entry.getKey();
+            Expr<?> application = entry.getValue();
+            Expr<?> value = model.eval(application, true);
+            assignments.add(label + " = " + value);
         }
         return new Counterexample(assignments);
     }
@@ -101,7 +113,9 @@ public class TranslatorToZ3 implements AutoCloseable {
     }
 
     public Expr<?> makeVariable(String name) throws LJError {
-        return getVariableTranslation(name); // int[] not in varTranslation
+        Expr<?> expr = getVariableTranslation(name); // int[] not in varTranslation
+        exprToNameTranslation.put(expr, name); // Track for readable labels
+        return expr;
     }
 
     public Expr<?> makeFunctionInvocation(String name, Expr<?>[] params) throws LJError {
@@ -111,7 +125,7 @@ public class TranslatorToZ3 implements AutoCloseable {
             return makeSelect(params);
         FuncDecl<?> fd = funcTranslation.get(name);
         if (fd == null)
-            fd = resolveFunctionDeclFallback(name, params);
+            fd = resolveFunctionDecl(name, params);
 
         Sort[] s = fd.getDomain();
         for (int i = 0; i < s.length; i++) {
@@ -125,15 +139,18 @@ public class TranslatorToZ3 implements AutoCloseable {
                             params[i] = e;
             }
         }
-        return z3.mkApp(fd, params);
+        String label = buildFunctionLabel(name, params);
+        Expr<?> app = z3.mkApp(fd, params);
+        funcAppTranslation.put(label, app);
+        return app;
     }
 
     /**
-     * Fallback resolver for function declarations when an exact qualified name lookup fails. Tries to match by simple
+     * Gets function declarations when an exact qualified name lookup fails. Tries to match by simple
      * name and number of parameters, preferring an exact qualified-name match if found among candidates; otherwise
      * returns the first compatible candidate and relies on later coercion via var supertypes.
      */
-    private FuncDecl<?> resolveFunctionDeclFallback(String name, Expr<?>[] params) throws LJError {
+    private FuncDecl<?> resolveFunctionDecl(String name, Expr<?>[] params) throws LJError {
         String simple = Utils.getSimpleName(name);
         FuncDecl<?> candidate = null;
         for (Map.Entry<String, FuncDecl<?>> entry : funcTranslation.entrySet()) {
@@ -328,6 +345,13 @@ public class TranslatorToZ3 implements AutoCloseable {
         if (c instanceof BoolExpr)
             return z3.mkITE((BoolExpr) c, t, e);
         throw new RuntimeException("Condition is not a boolean expression");
+    }
+
+    private String buildFunctionLabel(String functionName, Expr<?>[] params) {
+        String simpleName = Utils.getSimpleName(functionName);
+        String argsString = Arrays.stream(params).map(p -> exprToNameTranslation.getOrDefault(p, p.toString()))
+                .collect(Collectors.joining(", "));
+        return simpleName + "(" + argsString + ")";
     }
 
     @Override
