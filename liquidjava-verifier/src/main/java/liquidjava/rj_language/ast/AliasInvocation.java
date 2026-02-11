@@ -31,8 +31,7 @@ public class AliasInvocation extends Expression {
 
     @Override
     public String toString() {
-        return name + "(" + getArgs().stream().map(Expression::toString).collect(Collectors.joining(", "))
-                + ")";
+        return name + "(" + getArgs().stream().map(Expression::toString).collect(Collectors.joining(", ")) + ")";
     }
 
     @Override
