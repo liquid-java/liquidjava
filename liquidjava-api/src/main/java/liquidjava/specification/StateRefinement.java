@@ -7,10 +7,24 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Annotation to create state transitions in a method
- * e.g. `@StateRefinement(from="open(this)", to="closed(this)", msg="The object needs to be open before closing")`
+ * Annotation to create state transitions in a method using states defined in state sets.
+ * <p>
+ * This annotation specifies the required precondition state and the resulting
+ * postcondition state when a method or constructor is invoked.
+ * Constructors can only specify the postcondition state since they create a new object.
+ * <p>
+ * <strong>Example:</strong>
+ * <pre>
+ * {@code
+ * @StateRefinement(from="open(this)", to="closed(this)", msg="The object needs to be open before closing")
+ * public void close() {
+ *     // ...
+ * }
+ * }
+ * </pre>
  *
- * @author catarina gamboa
+ * @see StateSet
+ * @author Catarina Gamboa
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.CONSTRUCTOR})
@@ -18,17 +32,38 @@ import java.lang.annotation.Target;
 public @interface StateRefinement {
 
     /**
-     * The state in which the object needs to be before calling the method
+     * The logical pre-condition that defines the state in which the object needs to be before calling the method (optional)
+     * <p>
+     * <strong>Example:</strong>
+     * <pre>
+     * {@code
+     * @StateRefinement(from="open(this)")
+     * }
+     * </pre>
      */
-    public String from() default "";
+    String from() default "";
 
     /**
-     * The state in which the object will be after calling the method
+     * The logical post-condition that defines the state in which the object will be after calling the method (optional)
+     * <p>
+     * <strong>Example:</strong>
+     * <pre>
+     * {@code
+     * @StateRefinement(from="open(this)", to="closed(this)")
+     * }
+     * </pre>
      */
-    public String to() default "";
+    String to() default "";
 
     /**
-     * Optional custom error message to be included in the error message when the `from` is violated
+     * Custom error message to be shown when the {@code from} pre-condition is violated (optional)
+     * <p>
+     * <strong>Example:</strong>
+     * <pre>
+     * {@code
+     * @StateRefinement(from="open(this)", to="closed(this)", msg="The object needs to be open before closing")
+     * }
+     * </pre>
      */
-    public String msg() default "";
+    String msg() default "";
 }

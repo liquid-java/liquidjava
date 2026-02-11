@@ -7,10 +7,24 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Annotation to create a refinement alias
- * e.g. `@RefinementAlias("Nat(int x) { x > 0 }")`
+ * Annotation to create a refinement alias to be reused in refinements.
+ * <p>
+ * Refinement aliases can be used to define reusable refinement predicates with parameters.
+ * They help reduce duplication and improve readability of complex refinement specifications.
+ * <p>
+ * <strong>Example:</strong>
+ * <pre>
+ * {@code
+ * @RefinementAlias("Nat(int x) { x > 0 }")
+ * public class MyClass {
+ *     @Refinement("Nat(_)")
+ *     int value;
+ * }
+ * }
+ * </pre>
  *
- * @author catarina gamboa
+ * @see Refinement
+ * @author Catarina Gamboa
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.TYPE})
@@ -18,7 +32,14 @@ import java.lang.annotation.Target;
 public @interface RefinementAlias {
 
     /**
-     * The refinement alias string, which includes the name of the alias, its parameters and the refinement itself
+     * The refinement alias string, which includes the name of the alias, its parameters and the refinement itself.
+     * <p>
+     * <strong>Example:</strong>
+     * <pre>
+     * {@code
+     * @RefinementAlias("Nat(int x) { x > 0 }")
+     * }
+     * </pre>
      */
-    public String value();
+    String value();
 }

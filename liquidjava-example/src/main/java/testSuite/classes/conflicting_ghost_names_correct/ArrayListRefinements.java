@@ -5,7 +5,7 @@ import liquidjava.specification.Ghost;
 import liquidjava.specification.Refinement;
 import liquidjava.specification.StateRefinement;
 
-@ExternalRefinementsFor("java.util.ArrayList")
+@ExternalRefinementsFor(value="java.util.ArrayList")
 @Ghost("int size")
 public interface ArrayListRefinements<E> {
 

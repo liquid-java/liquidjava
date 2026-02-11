@@ -3,7 +3,7 @@ package testBooleanGhost;
 import liquidjava.specification.Ghost;
 import liquidjava.specification.StateRefinement;
 
-@Ghost("boolean opened")
+@Ghost(value="boolean opened")
 @Ghost("boolean closed")
 public class BooleanGhostClass {
 
