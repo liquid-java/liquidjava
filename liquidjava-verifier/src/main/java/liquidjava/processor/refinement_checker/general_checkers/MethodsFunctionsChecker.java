@@ -296,7 +296,7 @@ public class MethodsFunctionsChecker {
         Predicate methodRef = f.getRefReturn();
 
         if (methodRef != null) {
-            boolean equalsThis = methodRef.toString().equals("(_ == this)"); // TODO change for better
+            boolean equalsThis = methodRef.toString().equals("_ == this"); // TODO change for better
             List<String> vars = methodRef.getVariableNames();
             for (String s : vars)
                 if (map.containsKey(s))

@@ -19,11 +19,13 @@ import liquidjava.rj_language.ast.LiteralString;
 import liquidjava.rj_language.ast.UnaryExpression;
 import liquidjava.rj_language.ast.Var;
 import liquidjava.utils.Utils;
+import liquidjava.utils.constants.Keys;
 
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.apache.commons.lang3.NotImplementedException;
 import rj.grammar.RJParser.AliasCallContext;
 import rj.grammar.RJParser.ArgsContext;
+import rj.grammar.RJParser.DotCallContext;
 import rj.grammar.RJParser.ExpBoolContext;
 import rj.grammar.RJParser.ExpContext;
 import rj.grammar.RJParser.ExpGroupContext;
@@ -51,9 +53,7 @@ import rj.grammar.RJParser.PredNegateContext;
 import rj.grammar.RJParser.ProgContext;
 import rj.grammar.RJParser.StartContext;
 import rj.grammar.RJParser.StartPredContext;
-import rj.grammar.RJParser.TargetInvocationContext;
 import rj.grammar.RJParser.VarContext;
-import spoon.reflect.cu.SourcePosition;
 import liquidjava.diagnostics.errors.ArgumentMismatchError;
 
 /**
@@ -82,6 +82,8 @@ public class CreateASTVisitor {
             return operandCreate(rc);
         else if (rc instanceof LiteralExpressionContext)
             return literalExpressionCreate(rc);
+        else if (rc instanceof DotCallContext)
+            return dotCallCreate((DotCallContext) rc);
         else if (rc instanceof FunctionCallContext)
             return functionCallCreate((FunctionCallContext) rc);
         else if (rc instanceof LiteralContext)
@@ -156,9 +158,7 @@ public class CreateASTVisitor {
             return create(((LitContext) rc).literal());
         else if (rc instanceof VarContext) {
             return new Var(((VarContext) rc).ID().getText());
-        } else if (rc instanceof TargetInvocationContext) {
-            // TODO Finish Invocation with Target (a.len())
-            return null;
+
         } else {
             return create(((InvocationContext) rc).functionCall());
         }
@@ -171,15 +171,57 @@ public class CreateASTVisitor {
             String name = Utils.qualifyName(prefix, ref);
             List<Expression> args = getArgs(gc.args());
             if (args.isEmpty())
-                throw new ArgumentMismatchError("Ghost call cannot have empty arguments");
+                args.add(new Var(Keys.THIS)); // implicit this: size() => this.size()
+
             return new FunctionInvocation(name, args);
-        } else {
+        } else if (rc.aliasCall() != null) {
             AliasCallContext gc = rc.aliasCall();
             String ref = gc.ID_UPPER().getText();
             List<Expression> args = getArgs(gc.args());
             if (args.isEmpty())
                 throw new ArgumentMismatchError("Alias call cannot have empty arguments");
+
             return new AliasInvocation(ref, args);
+        } else {
+            return dotCallCreate(rc.dotCall());
+        }
+    }
+
+    /**
+     * Handles both cases of dot calls: this.func(args) and targetFunc(this).func(args) Converts them to func(this,
+     * args) and func(targetFunc(this), args) respectively
+     */
+    private Expression dotCallCreate(DotCallContext rc) throws LJError {
+        if (rc.OBJECT_TYPE() != null) {
+            String text = rc.OBJECT_TYPE().getText();
+
+            // check if there are multiple fields (e.g. this.a.b)
+            if (text.chars().filter(ch -> ch == '.').count() > 1)
+                throw new SyntaxError("Multiple dot notation is not allowed", text);
+
+            // this.func(args) => func(this, args)
+            int dot = text.indexOf('.');
+            String target = text.substring(0, dot);
+            String simpleName = text.substring(dot + 1);
+            String name = Utils.qualifyName(prefix, simpleName);
+            List<Expression> args = getArgs(rc.args(0));
+            if (!args.isEmpty() && args.get(0)instanceof Var v && v.getName().equals(Keys.THIS)
+                    && target.equals(Keys.THIS))
+                throw new SyntaxError("Cannot use both dot notation and explicit 'this' argument. Use either 'this."
+                        + simpleName + "()' or '" + simpleName + "(this)'", text);
+
+            args.add(0, new Var(target));
+            return new FunctionInvocation(name, args);
+
+        } else {
+            // targetFunc(this).func(args) => func(targetFunc(this), args)
+            String targetFunc = rc.ID(0).getText();
+            String func = rc.ID(1).getText();
+            String name = Utils.qualifyName(prefix, func);
+            List<Expression> targetArgs = getArgs(rc.args(0));
+            List<Expression> funcArgs = getArgs(rc.args(1));
+            funcArgs.add(0, new FunctionInvocation(targetFunc, targetArgs));
+            return new FunctionInvocation(name, funcArgs);
         }
     }
 

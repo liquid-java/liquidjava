@@ -37,14 +37,8 @@ public class FunctionInvocation extends Expression {
 
     @Override
     public String toString() {
-        return name + "(" + getArgs().stream().map(Expression::toString).collect(Collectors.joining(",")) + ")";
-    }
-
-    @Override
-    public String toSimplifiedString() {
-        String simpleName = Utils.getSimpleName(name);
-        return simpleName + "("
-                + getArgs().stream().map(Expression::toSimplifiedString).collect(Collectors.joining(",")) + ")";
+        return Utils.getSimpleName(name) + "("
+                + getArgs().stream().map(Expression::toString).collect(Collectors.joining(",")) + ")";
     }
 
     @Override

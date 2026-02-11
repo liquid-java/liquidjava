@@ -35,12 +35,6 @@ public class AliasInvocation extends Expression {
     }
 
     @Override
-    public String toSimplifiedString() {
-        return name + "(" + getArgs().stream().map(Expression::toSimplifiedString).collect(Collectors.joining(", "))
-                + ")";
-    }
-
-    @Override
     public void getVariableNames(List<String> toAdd) {
         for (Expression e : getArgs())
             e.getVariableNames(toAdd);

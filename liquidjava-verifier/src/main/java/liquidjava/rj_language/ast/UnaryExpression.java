@@ -33,11 +33,6 @@ public class UnaryExpression extends Expression {
     }
 
     @Override
-    public String toSimplifiedString() {
-        return op + getExpression().toSimplifiedString();
-    }
-
-    @Override
     public void getVariableNames(List<String> toAdd) {
         getExpression().getVariableNames(toAdd);
     }
