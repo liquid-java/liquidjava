@@ -50,7 +50,6 @@ public class Utils {
 
     private static boolean hasRefinementValue(CtAnnotation<?> annotation, String refinement) {
         Map<String, ?> values = annotation.getValues();
-        return Stream.of("value", "to", "from")
-                .anyMatch(key -> refinement.equals(String.valueOf(values.get(key))));
+        return Stream.of("value", "to", "from").anyMatch(key -> refinement.equals(String.valueOf(values.get(key))));
     }
 }

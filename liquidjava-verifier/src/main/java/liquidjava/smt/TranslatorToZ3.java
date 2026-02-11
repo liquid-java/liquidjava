@@ -146,9 +146,9 @@ public class TranslatorToZ3 implements AutoCloseable {
     }
 
     /**
-     * Gets function declarations when an exact qualified name lookup fails. Tries to match by simple
-     * name and number of parameters, preferring an exact qualified-name match if found among candidates; otherwise
-     * returns the first compatible candidate and relies on later coercion via var supertypes.
+     * Gets function declarations when an exact qualified name lookup fails. Tries to match by simple name and number of
+     * parameters, preferring an exact qualified-name match if found among candidates; otherwise returns the first
+     * compatible candidate and relies on later coercion via var supertypes.
      */
     private FuncDecl<?> resolveFunctionDecl(String name, Expr<?>[] params) throws LJError {
         String simple = Utils.getSimpleName(name);

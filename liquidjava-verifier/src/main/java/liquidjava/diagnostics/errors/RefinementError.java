@@ -35,7 +35,7 @@ public class RefinementError extends LJError {
                 .reduce((a, b) -> a + " && " + b).orElse("");
 
         // check if counterexample is trivial (same as the found value)
-        if (counterexampleExp.equals(found.getValue().toSimplifiedString()))
+        if (counterexampleExp.equals(found.getValue().toString()))
             return "";
         return "Counterexample: " + counterexampleExp;
     }
