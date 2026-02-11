@@ -17,7 +17,7 @@ public class StateConflictError extends LJError {
         super("State Conflict Error",
                 "Found multiple disjoint states in state transition: state transition can only go to one state of each state set",
                 position, translationTable);
-        this.state = state.toSimplifiedString();
+        this.state = state.toString();
     }
 
     public String getState() {
