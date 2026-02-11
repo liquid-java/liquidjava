@@ -12,6 +12,7 @@ import com.microsoft.z3.IntNum;
 import com.microsoft.z3.RealExpr;
 import com.microsoft.z3.Solver;
 import com.microsoft.z3.Sort;
+import com.microsoft.z3.Symbol;
 import com.microsoft.z3.Model;
 
 import java.util.ArrayList;
@@ -27,6 +28,7 @@ import liquidjava.diagnostics.errors.NotFoundError;
 import liquidjava.processor.context.AliasWrapper;
 import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Keys;
+import com.microsoft.z3.enumerations.Z3_sort_kind;
 
 import org.apache.commons.lang3.NotImplementedException;
 
@@ -63,10 +65,10 @@ public class TranslatorToZ3 implements AutoCloseable {
         // Extract constant variable assignments
         for (FuncDecl<?> decl : model.getDecls()) {
             if (decl.getArity() == 0) {
-                String name = decl.getName().toString();
-                String value = model.getConstInterp(decl).toString();
-                // Skip opaque Z3 object values
-                if (!value.contains("!val!"))
+                Symbol name = decl.getName();
+                Expr<?> value = model.getConstInterp(decl);
+                // Skip values of uninterpreted sorts
+                if (value.getSort().getSortKind() != Z3_sort_kind.Z3_UNINTERPRETED_SORT)
                     assignments.add(name + " == " + value);
             }
         }
