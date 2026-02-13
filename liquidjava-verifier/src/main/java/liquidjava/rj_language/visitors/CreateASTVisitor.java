@@ -160,11 +160,7 @@ public class CreateASTVisitor {
         } else if (rc instanceof TargetInvocationContext) {
             // TODO Finish Invocation with Target (a.len())
             return null;
-        }
-        // else {
-        // return create(((InvocationContext) rc).functionCall());
-        // }
-        else if (rc instanceof ResultContext) {
+        } else if (rc instanceof ResultContext) {
             return new Var("$result");
         } else if (rc instanceof InvocationContext) {
             return create(((InvocationContext) rc).functionCall());
