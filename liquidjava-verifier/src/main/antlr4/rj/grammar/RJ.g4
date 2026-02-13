@@ -36,6 +36,7 @@ operand:
 literalExpression:
 		'(' literalExpression ')'	#litGroup
 	|	literal						#lit
+	|   RESULT                      #result
 	| 	ID 							#var
 	|	ID '.' functionCall			#targetInvocation
 	|	functionCall				#invocation
@@ -91,8 +92,9 @@ ARITHOP : '+'|'*'|'/'|'%';//|'-';
 BOOL    : 'true' | 'false';
 ID_UPPER: ([A-Z][a-zA-Z0-9]*);
 OBJECT_TYPE:
-		  (([a-zA-Z][a-zA-Z0-9]+) ('.' [a-zA-Z][a-zA-Z0-9]*)+);
-ID     	: '#'*('$')? [a-zA-Z_] [a-zA-Z0-9_#]* ;
+		  (([a-zA-Z][a-zA-Z0-9]+) ('.' [a-zA-Z][a-zA-Z0-9]*)+);	  
+RESULT  : '$result';		  
+ID     	: '#'*[a-zA-Z_][a-zA-Z0-9_#]*;
 STRING  : '"'(~["])*'"';
 INT     : 	(([0-9]+) |	([0-9]+('_'[0-9]+)*));
 REAL   	: (([0-9]+('.'[0-9]+)?) | '.'[0-9]+);
