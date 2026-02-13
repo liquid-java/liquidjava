@@ -7,14 +7,13 @@ import com.microsoft.z3.Solver;
 import com.microsoft.z3.Status;
 import com.microsoft.z3.Z3Exception;
 
-import liquidjava.diagnostics.Counterexample;
 import liquidjava.processor.context.Context;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.Expression;
 
 public class SMTEvaluator {
 
-    public void verifySubtype(Predicate subRef, Predicate supRef, Context c) throws Exception {
+    public SMTResult verifySubtype(Predicate subRef, Predicate supRef, Context c) throws Exception {
         // Creates a parser for our SMT-ready refinement language
         // Discharges the verification to z3
         Predicate toVerify = Predicate.createConjunction(subRef, supRef.negate());
@@ -28,7 +27,7 @@ public class SMTEvaluator {
                 if (result.equals(Status.SATISFIABLE)) {
                     Model model = solver.getModel();
                     Counterexample counterexample = tz3.getCounterexample(model);
-                    throw new TypeCheckError(counterexample);
+                    return SMTResult.error(counterexample);
                 }
             }
         } catch (SyntaxException e1) {
@@ -37,5 +36,6 @@ public class SMTEvaluator {
         } catch (Z3Exception e) {
             throw new Z3Exception(e.getLocalizedMessage());
         }
+        return SMTResult.ok();
     }
 }

@@ -8,13 +8,13 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.errors.*;
-import liquidjava.diagnostics.Counterexample;
 import liquidjava.diagnostics.TranslationTable;
 import liquidjava.processor.VCImplication;
 import liquidjava.processor.context.*;
 import liquidjava.rj_language.Predicate;
+import liquidjava.smt.Counterexample;
 import liquidjava.smt.SMTEvaluator;
-import liquidjava.smt.TypeCheckError;
+import liquidjava.smt.SMTResult;
 import liquidjava.utils.constants.Keys;
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.CtElement;
@@ -56,10 +56,11 @@ public class VCChecker {
             e.setPosition(element.getPosition());
             throw e;
         }
-        Counterexample counterexample = smtChecks(expected, premises, element.getPosition());
-        if (counterexample != null)
+        SMTResult result = smtChecks(expected, premises, element.getPosition());
+        if (result.isError()) {
             throw new RefinementError(element.getPosition(), expectedType.simplify(), premisesBeforeChange.simplify(),
-                    map, counterexample, customMessage);
+                    map, result.getCounterexample(), customMessage);
+        }
     }
 
     /**
@@ -75,9 +76,9 @@ public class VCChecker {
      */
     public void processSubtyping(Predicate type, Predicate expectedType, List<GhostState> list, CtElement element,
             Factory f) throws LJError {
-        Counterexample counterexample = canProcessSubtyping(type, expectedType, list, element.getPosition(), f);
-        if (counterexample != null)
-            throwRefinementError(element.getPosition(), expectedType, type, counterexample, null);
+        SMTResult result = canProcessSubtyping(type, expectedType, list, element.getPosition(), f);
+        if (result.isError())
+            throwRefinementError(element.getPosition(), expectedType, type, result.getCounterexample(), null);
     }
 
     /**
@@ -91,12 +92,9 @@ public class VCChecker {
      *
      * @throws LJError
      */
-    public Counterexample smtChecks(Predicate expected, Predicate found, SourcePosition position) throws LJError {
+    public SMTResult smtChecks(Predicate expected, Predicate found, SourcePosition position) throws LJError {
         try {
-            new SMTEvaluator().verifySubtype(found, expected, context);
-            return null;
-        } catch (TypeCheckError e) {
-            return e.getCounterexample();
+            return new SMTEvaluator().verifySubtype(found, expected, context);
         } catch (LJError e) {
             e.setPosition(position);
             throw e;
@@ -105,13 +103,13 @@ public class VCChecker {
         }
     }
 
-    public Counterexample canProcessSubtyping(Predicate type, Predicate expectedType, List<GhostState> list,
+    public SMTResult canProcessSubtyping(Predicate type, Predicate expectedType, List<GhostState> list,
             SourcePosition position, Factory f) throws LJError {
         List<RefinedVariable> lrv = new ArrayList<>(), mainVars = new ArrayList<>();
         gatherVariables(expectedType, lrv, mainVars);
         gatherVariables(type, lrv, mainVars);
         if (expectedType.isBooleanTrue() && type.isBooleanTrue())
-            return null;
+            return SMTResult.ok();
 
         TranslationTable map = new TranslationTable();
         String[] s = { Keys.WILDCARD, Keys.THIS };

@@ -1,4 +1,4 @@
-package liquidjava.diagnostics;
+package liquidjava.smt;
 
 import java.util.List;
 

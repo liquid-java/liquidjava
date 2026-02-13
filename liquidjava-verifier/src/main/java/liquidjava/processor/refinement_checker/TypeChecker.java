@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import liquidjava.diagnostics.Counterexample;
 import liquidjava.diagnostics.errors.*;
 import liquidjava.processor.context.AliasWrapper;
 import liquidjava.processor.context.Context;
@@ -17,6 +16,8 @@ import liquidjava.processor.facade.AliasDTO;
 import liquidjava.processor.facade.GhostDTO;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.parsing.RefinementsParser;
+import liquidjava.smt.Counterexample;
+import liquidjava.smt.SMTResult;
 import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Formats;
 import liquidjava.utils.constants.Keys;
@@ -314,9 +315,8 @@ public abstract class TypeChecker extends CtScanner {
     }
 
     public boolean checkStateSMT(Predicate prevState, Predicate expectedState, SourcePosition p) throws LJError {
-        Counterexample counterexample = vcChecker.canProcessSubtyping(prevState, expectedState, context.getGhostState(),
-                p, factory);
-        return counterexample == null;
+        SMTResult result = vcChecker.canProcessSubtyping(prevState, expectedState, context.getGhostState(), p, factory);
+        return result.isOk();
     }
 
     public void throwRefinementError(SourcePosition position, Predicate expectedType, Predicate foundType,

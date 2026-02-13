@@ -1,8 +1,8 @@
 package liquidjava.diagnostics.errors;
 
-import liquidjava.diagnostics.Counterexample;
 import liquidjava.diagnostics.TranslationTable;
 import liquidjava.rj_language.opt.derivation_node.ValDerivationNode;
+import liquidjava.smt.Counterexample;
 import spoon.reflect.cu.SourcePosition;
 
 /**
