@@ -16,10 +16,9 @@ import java.lang.annotation.Target;
  * @Refinement("x > 0")
  * int x;
  * 
- * @Refinement("_ >= 0")
- * public int getSize() {
- *     // ...
- * }
+ * @Refinement("_ > 0")
+ * int increment(@Refinement("_ >= 0") int n) {
+ *     return n + 1;
  * }
  * </pre>
  *

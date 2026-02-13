@@ -16,7 +16,11 @@ import java.lang.annotation.Target;
  * <strong>Example:</strong>
  * <pre>
  * {@code
- * @StateSet({"open", "reading", "closed"}})
+ * @StateSet({"open", "reading", "closed"})
+ * @StateSet({"locked", "unlocked"})
+ * public class File {
+ *    // ...
+ * }
  * </pre>
  *
  * @see StateRefinement
