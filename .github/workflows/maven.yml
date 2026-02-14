@@ -48,7 +48,7 @@ jobs:
 
       # Build the project (compiles and packages the code)
       - name: Build the project
-        run: mvn -B clean install --file pom.xml --batch-mode --fail-fast -Dgpg.skip=true -Dmaven.deploy.skip=true
+        run: mvn -B clean install -DskipTests --file pom.xml --batch-mode --fail-fast -Dgpg.skip=true -Dmaven.deploy.skip=true
 
       # Run tests
       - name: Run tests
