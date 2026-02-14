@@ -413,10 +413,6 @@ public class MethodsFunctionsChecker {
                 List<Variable> lv = fi.getArguments();
                 for (Variable v : lv)
                     rtc.getContext().addVarToContext(v);
-            } else {
-                assert false;
-                // Method should already be in context. Should not arrive this point in
-                // refinement checker.
             }
         }
     }
