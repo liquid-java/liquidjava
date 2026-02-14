@@ -181,6 +181,8 @@ public class MethodsFunctionsChecker {
             if (method.getParent() instanceof CtClass) {
                 RefinedFunction fi = rtc.getContext().getFunction(method.getSimpleName(),
                         ((CtClass<?>) method.getParent()).getQualifiedName(), method.getParameters().size());
+                if (fi == null)
+                    return;
 
                 List<Variable> lv = fi.getArguments();
                 for (Variable v : lv) {
