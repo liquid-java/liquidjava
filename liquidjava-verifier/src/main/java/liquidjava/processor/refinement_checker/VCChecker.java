@@ -56,7 +56,7 @@ public class VCChecker {
             e.setPosition(element.getPosition());
             throw e;
         }
-        SMTResult result = smtChecks(expected, premises, element.getPosition());
+        SMTResult result = verifySMTSubtype(expected, premises, element.getPosition());
         if (result.isError()) {
             throw new RefinementError(element.getPosition(), expectedType.simplify(), premisesBeforeChange.simplify(),
                     map, result.getCounterexample(), customMessage);
@@ -64,35 +64,33 @@ public class VCChecker {
     }
 
     /**
-     * Check that type is a subtype of expectedType Throws RefinementError otherwise
-     *
+     * Checks if type is a subtype of expectedType
+     * 
      * @param type
      * @param expectedType
      * @param list
      * @param element
      * @param f
-     *
+     * 
      * @throws LJError
      */
     public void processSubtyping(Predicate type, Predicate expectedType, List<GhostState> list, CtElement element,
             Factory f) throws LJError {
-        SMTResult result = canProcessSubtyping(type, expectedType, list, element.getPosition(), f);
+        SMTResult result = verifySMTSubtypeStates(type, expectedType, list, element.getPosition(), f);
         if (result.isError())
             throwRefinementError(element.getPosition(), expectedType, type, result.getCounterexample(), null);
     }
 
     /**
-     * Checks the expected against the found constraint
-     *
+     * Verifies whether the found predicate is a subtype of the expected predicate
+     * 
      * @param expected
      * @param found
      * @param position
-     *
-     * @return counterexample if expected type is not subtype of found type, otherwise null
-     *
-     * @throws LJError
+     * 
+     * @return the result of the verification, containing a counterexample if the verification fails
      */
-    public SMTResult smtChecks(Predicate expected, Predicate found, SourcePosition position) throws LJError {
+    public SMTResult verifySMTSubtype(Predicate expected, Predicate found, SourcePosition position) throws LJError {
         try {
             return new SMTEvaluator().verifySubtype(found, expected, context);
         } catch (LJError e) {
@@ -103,8 +101,19 @@ public class VCChecker {
         }
     }
 
-    public SMTResult canProcessSubtyping(Predicate type, Predicate expectedType, List<GhostState> list,
-            SourcePosition position, Factory f) throws LJError {
+    /**
+     * Verifies whether the found predicate is a subtype of the expected predicate, taking into account the ghost states
+     * 
+     * @param type
+     * @param expectedType
+     * @param states
+     * @param position
+     * @param factory
+     * 
+     * @return the result of the verification, containing a counterexample if the verification fails
+     */
+    public SMTResult verifySMTSubtypeStates(Predicate type, Predicate expectedType, List<GhostState> states,
+            SourcePosition position, Factory factory) throws LJError {
         List<RefinedVariable> lrv = new ArrayList<>(), mainVars = new ArrayList<>();
         gatherVariables(expectedType, lrv, mainVars);
         gatherVariables(type, lrv, mainVars);
@@ -114,13 +123,14 @@ public class VCChecker {
         TranslationTable map = new TranslationTable();
         String[] s = { Keys.WILDCARD, Keys.THIS };
         Predicate premises = joinPredicates(expectedType, mainVars, lrv, map).toConjunctions();
-        List<GhostState> filtered = filterGhostStatesForVariables(list, mainVars, lrv);
+        List<GhostState> filtered = filterGhostStatesForVariables(states, mainVars, lrv);
         premises = Predicate.createConjunction(premises, type).changeStatesToRefinements(filtered, s)
-                .changeAliasToRefinement(context, f);
-        Predicate expected = expectedType.changeStatesToRefinements(filtered, s).changeAliasToRefinement(context, f);
+                .changeAliasToRefinement(context, factory);
+        Predicate expected = expectedType.changeStatesToRefinements(filtered, s).changeAliasToRefinement(context,
+                factory);
 
         // check subtyping
-        return smtChecks(expected, premises, position);
+        return verifySMTSubtype(expected, premises, position);
     }
 
     /**
