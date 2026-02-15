@@ -160,7 +160,7 @@ public class CreateASTVisitor {
         else if (rc instanceof VarContext) {
             return new Var(((VarContext) rc).ID().getText());
         } else if (rc instanceof ResultContext) {
-            return new Var("$result");
+            return new Var("#result");
         } else if (rc instanceof InvocationContext) {
             return create(((InvocationContext) rc).functionCall());
         } else {

@@ -97,7 +97,7 @@ BOOL    : 'true' | 'false';
 ID_UPPER: ([A-Z][a-zA-Z0-9]*);
 OBJECT_TYPE:
 		  (([a-zA-Z][a-zA-Z0-9]+) ('.' [a-zA-Z][a-zA-Z0-9]*)+);	  
-RESULT  : '$result';		  
+RESULT  : '#result';		  
 ID     	: '#'*[a-zA-Z_][a-zA-Z0-9_#]*;
 STRING  : '"'(~["])*'"';
 INT     : 	(([0-9]+) |	([0-9]+('_'[0-9]+)*));

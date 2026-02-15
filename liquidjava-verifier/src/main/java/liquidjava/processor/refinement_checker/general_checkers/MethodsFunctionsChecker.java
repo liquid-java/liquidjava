@@ -162,7 +162,7 @@ public class MethodsFunctionsChecker {
         Optional<Predicate> oret = rtc.getRefinementFromAnnotation(method);
         Predicate ret = oret.orElse(new Predicate());
         ret = ret.substituteVariable("return", Keys.WILDCARD);
-        ret = ret.substituteVariable("$result", Keys.WILDCARD);
+        ret = ret.substituteVariable("#result", Keys.WILDCARD);
         f.setRefReturn(ret);
         rtc.getMessageFromAnnotation(method).ifPresent(f::setMessage);
         return Predicate.createConjunction(joint, ret);
