@@ -6,6 +6,7 @@ public class ObjectState {
 
     Predicate from;
     Predicate to;
+    String message;
 
     public ObjectState() {
     }
@@ -13,6 +14,12 @@ public class ObjectState {
     public ObjectState(Predicate from, Predicate to) {
         this.from = from;
         this.to = to;
+    }
+
+    public ObjectState(Predicate from, Predicate to, String message) {
+        this.from = from;
+        this.to = to;
+        this.message = message;
     }
 
     public void setFrom(Predicate from) {
@@ -39,8 +46,16 @@ public class ObjectState {
         return to != null ? to : new Predicate();
     }
 
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
+    }
+
     public ObjectState clone() {
-        return new ObjectState(from.clone(), to.clone());
+        return new ObjectState(from.clone(), to.clone(), message);
     }
 
     @Override

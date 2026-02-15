@@ -11,7 +11,7 @@
 
 	<groupId>io.github.liquid-java</groupId>
 	<artifactId>liquidjava-verifier</artifactId>
-	<version>0.0.11</version>
+	<version>0.0.12</version>
 	<name>liquidjava-verifier</name>
 	<description>LiquidJava Verifier</description>
 	<url>https://github.com/liquid-java/liquidjava</url>
@@ -301,7 +301,7 @@
 		<dependency>
 			<groupId>io.github.liquid-java</groupId>
 			<artifactId>liquidjava-api</artifactId>
-			<version>0.0.3</version>
+			<version>0.0.4</version>
 		</dependency>
 
 		<!-- https://mvnrepository.com/artifact/org.antlr/antlr4 -->

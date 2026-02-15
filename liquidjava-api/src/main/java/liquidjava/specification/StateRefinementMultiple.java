@@ -6,10 +6,9 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Interface to allow multiple state refinements in a method. A method can have a state refinement
- * for each set of different source and destination states
+ * Annotation to allow the creation of multiple state transitions.
  *
- * @author catarina gamboa
+ * @author Catarina Gamboa
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.CONSTRUCTOR})

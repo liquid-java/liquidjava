@@ -38,13 +38,17 @@ literalExpression:
 	|	literal						#lit
 	|   RESULT                      #result
 	| 	ID 							#var
-	|	ID '.' functionCall			#targetInvocation
 	|	functionCall				#invocation
 	;
 
  functionCall:
  		ghostCall
- 	|	aliasCall;
+ 	|	aliasCall
+	|	dotCall;
+
+dotCall:
+		OBJECT_TYPE '(' args? ')'
+	| 	ID '(' args? ')' '.' ID '(' args? ')';
 
 ghostCall:
  	ID '(' args? ')';

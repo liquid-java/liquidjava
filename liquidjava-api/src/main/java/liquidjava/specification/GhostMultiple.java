@@ -6,9 +6,9 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Annotation to allow the creation of multiple @Ghost
+ * Annotation to allow the creation of multiple ghost variables.
  *
- * @author catarina gamboa
+ * @author Catarina Gamboa
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.TYPE})

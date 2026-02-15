@@ -11,15 +11,18 @@ public class LJDiagnostic extends RuntimeException {
     private final String title;
     private final String message;
     private final String accentColor;
+    private final String customMessage;
     private String file;
     private ErrorPosition position;
+    private static final String PIPE = " | ";
 
-    public LJDiagnostic(String title, String message, SourcePosition pos, String accentColor) {
+    public LJDiagnostic(String title, String message, SourcePosition pos, String accentColor, String customMessage) {
         this.title = title;
         this.message = message;
         this.file = (pos != null && pos.getFile() != null) ? pos.getFile().getPath() : null;
         this.position = ErrorPosition.fromSpoonPosition(pos);
         this.accentColor = accentColor;
+        this.customMessage = customMessage;
     }
 
     public String getTitle() {
@@ -28,6 +31,10 @@ public class LJDiagnostic extends RuntimeException {
 
     public String getMessage() {
         return message;
+    }
+
+    public String getCustomMessage() {
+        return customMessage;
     }
 
     public String getDetails() {
@@ -104,7 +111,7 @@ public class LJDiagnostic extends RuntimeException {
                 String line = lines.get(i - 1);
 
                 // add line
-                sb.append(Colors.GREY).append(lineNumStr).append(" | ").append(line).append(Colors.RESET).append("\n");
+                sb.append(Colors.GREY).append(lineNumStr).append(PIPE).append(line).append(Colors.RESET).append("\n");
 
                 // add error markers on the line(s) with the error
                 if (i >= position.lineStart() && i <= position.lineEnd()) {
@@ -112,11 +119,18 @@ public class LJDiagnostic extends RuntimeException {
                     int colEnd = (i == position.lineEnd()) ? position.colEnd() : line.length();
 
                     if (colStart > 0 && colEnd > 0) {
-                        // line number padding + " | " + column offset
-                        String indent = " ".repeat(padding) + Colors.GREY + " | " + Colors.RESET
+                        // line number padding + pipe + column offset
+                        String indent = " ".repeat(padding) + Colors.GREY + PIPE + Colors.RESET
                                 + " ".repeat(colStart - 1);
-                        String markers = accentColor + "^".repeat(Math.max(1, colEnd - colStart + 1)) + Colors.RESET;
-                        sb.append(indent).append(markers).append("\n");
+                        String markers = accentColor + "^".repeat(Math.max(1, colEnd - colStart + 1));
+                        sb.append(indent).append(markers);
+
+                        // custom message
+                        if (customMessage != null && !customMessage.isBlank()) {
+                            String offset = " ".repeat(padding + colEnd + PIPE.length() + 1);
+                            sb.append(" " + customMessage.replace("\n", "\n" + offset));
+                        }
+                        sb.append(Colors.RESET).append("\n");
                     }
                 }
             }

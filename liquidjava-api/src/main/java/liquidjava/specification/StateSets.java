@@ -6,9 +6,8 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Interface to allow multiple StateSets in a class.
- *
- * @author catarina gamboa
+ * Annotation to allow the creation of multiple state sets.
+ * @author Catarina Gamboa
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.TYPE})

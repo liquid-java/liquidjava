@@ -61,7 +61,11 @@ public class AuxStateHandler {
         for (CtAnnotation<? extends Annotation> an : anns) {
             Map<String, CtExpression> m = an.getAllValues();
             String to = TypeCheckingUtils.getStringFromAnnotation(m.get("to"));
+            String msg = TypeCheckingUtils.getStringFromAnnotation(m.get("msg"));
             ObjectState state = new ObjectState();
+            if (msg != null && !msg.isEmpty())
+                state.setMessage(msg);
+
             if (to != null) {
                 Predicate p = new Predicate(to, element);
                 if (!p.getExpression().isBooleanExpression()) {
@@ -163,7 +167,10 @@ public class AuxStateHandler {
         Map<String, CtExpression> m = ctAnnotation.getAllValues();
         String from = TypeCheckingUtils.getStringFromAnnotation(m.get("from"));
         String to = TypeCheckingUtils.getStringFromAnnotation(m.get("to"));
+        String msg = TypeCheckingUtils.getStringFromAnnotation(m.get("msg"));
         ObjectState state = new ObjectState();
+        if (msg != null && !msg.isEmpty())
+            state.setMessage(msg);
 
         // has from
         if (from != null)
@@ -407,7 +414,7 @@ public class AuxStateHandler {
                 .changeOldMentions(vi.getName(), instanceName);
 
         if (!tc.checksStateSMT(prevState, expectState, fw.getPosition())) { // Invalid field transition
-            tc.throwStateRefinementError(fw.getPosition(), prevState, stateChange.getFrom());
+            tc.throwStateRefinementError(fw.getPosition(), prevState, stateChange.getFrom(), stateChange.getMessage());
             return;
         }
 
@@ -480,7 +487,7 @@ public class AuxStateHandler {
                     transitionedState = transitionedState.substituteVariable(s, map.get(s));
                 }
                 transitionedState = checkOldMentions(transitionedState, instanceName, newInstanceName);
-                // update of stata of new instance of this#n#(whatever it was + 1)
+                // update of state of new instance of this#n#(whatever it was + 1)
                 addInstanceWithState(tc, name, newInstanceName, vi, transitionedState, invocation);
                 return;
             }
@@ -489,8 +496,11 @@ public class AuxStateHandler {
             Predicate expectedStatesDisjunction = stateChanges.stream().filter(ObjectState::hasFrom)
                     .map(ObjectState::getFrom)
                     .reduce(Predicate.createLit("false", Types.BOOLEAN), Predicate::createDisjunction);
-            String simpleInvocation = invocation.toString();
-            tc.throwStateRefinementError(invocation.getPosition(), prevState, expectedStatesDisjunction);
+
+            // combine messages of all state changes
+            String message = stateChanges.stream().map(ObjectState::getMessage)
+                    .filter(msg -> msg != null && !msg.isBlank()).distinct().collect(Collectors.joining("\n"));
+            tc.throwStateRefinementError(invocation.getPosition(), prevState, expectedStatesDisjunction, message);
         }
     }
 

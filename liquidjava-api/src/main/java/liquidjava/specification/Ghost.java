@@ -7,15 +7,37 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Annotation to create a ghost variable for a class. The annotation receives
- * the type and name of
- * the ghost within a string e.g. @Ghost("int size")
+ * Annotation to create a ghost variable for a class or interface.
+ * <p>
+ * Ghost variables that only exist during the verification and can be used in refinements and state refinements.
+ * They are not part of the actual implementation but help specify behavior and invariants.
+ * <p>
+ * <strong>Example:</strong>
+ * <pre>
+ * {@code
+ * @Ghost("int size")
+ * public class MyStack {
+ *     // ...
+ * }
+ * }
+ * </pre>
  *
- * @author catarina gamboa
+ * @author Catarina Gamboa
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.TYPE})
 @Repeatable(GhostMultiple.class)
 public @interface Ghost {
-    public String value();
+
+    /**
+     * The type and name of the ghost variable.
+     * <p>
+     * <strong>Example:</strong>
+     * <pre>
+     * {@code
+     * @Ghost("int size")
+     * }
+     * </pre>
+     */
+    String value();
 }

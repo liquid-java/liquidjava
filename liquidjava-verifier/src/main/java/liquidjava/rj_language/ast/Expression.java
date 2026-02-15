@@ -36,17 +36,6 @@ public abstract class Expression {
 
     public abstract String toString();
 
-    /**
-     * Returns a simplified string representation of this expression with unqualified names (e.g.,
-     * com.example.State.open => open Default implementation delegates to toString() Subclasses that contain qualified
-     * names should override this method
-     *
-     * @return simplified string representation
-     */
-    public String toSimplifiedString() {
-        return toString();
-    }
-
     List<Expression> children = new ArrayList<>();
 
     public void addChild(Expression e) {
