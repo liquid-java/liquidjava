@@ -159,9 +159,6 @@ public class CreateASTVisitor {
             return create(((LitContext) rc).literal());
         else if (rc instanceof VarContext) {
             return new Var(((VarContext) rc).ID().getText());
-        } else if (rc instanceof TargetInvocationContext) {
-            // TODO Finish Invocation with Target (a.len())
-            return null;
         } else if (rc instanceof ResultContext) {
             return new Var("$result");
         } else if (rc instanceof InvocationContext) {
