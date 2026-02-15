@@ -13,6 +13,7 @@ import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.LiteralBoolean;
 import liquidjava.rj_language.ast.LiteralInt;
 import liquidjava.rj_language.ast.LiteralLong;
+import liquidjava.rj_language.ast.LiteralNull;
 import liquidjava.rj_language.ast.LiteralReal;
 import liquidjava.rj_language.ast.Var;
 
@@ -49,6 +50,8 @@ public class ValDerivationNode extends DerivationNode {
                 return new JsonPrimitive(((LiteralReal) exp).getValue());
             if (exp instanceof LiteralBoolean)
                 return new JsonPrimitive(exp.isBooleanTrue());
+            if (exp instanceof LiteralNull)
+                return JsonNull.INSTANCE;
             if (exp instanceof Var)
                 return new JsonPrimitive(((Var) exp).getName());
             return new JsonPrimitive(exp.toString());

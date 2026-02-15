@@ -16,6 +16,7 @@ import liquidjava.rj_language.ast.LiteralInt;
 import liquidjava.rj_language.ast.LiteralLong;
 import liquidjava.rj_language.ast.LiteralReal;
 import liquidjava.rj_language.ast.LiteralString;
+import liquidjava.rj_language.ast.LiteralNull;
 import liquidjava.rj_language.ast.UnaryExpression;
 import liquidjava.rj_language.ast.Var;
 import liquidjava.utils.Utils;
@@ -242,13 +243,12 @@ public class CreateASTVisitor {
         else if (literalContext.INT() != null) {
             String text = literalContext.INT().getText();
             long value = Long.parseLong(text);
-            if (value <= Integer.MAX_VALUE && value >= Integer.MIN_VALUE) {
-                return new LiteralInt((int) value);
-            } else {
-                return new LiteralLong(value);
-            }
+            return value <= Integer.MAX_VALUE && value >= Integer.MIN_VALUE ? new LiteralInt((int) value)
+                    : new LiteralLong(value);
         } else if (literalContext.REAL() != null)
             return new LiteralReal(literalContext.REAL().getText());
+        else if (literalContext.NULL() != null)
+            return new LiteralNull();
         throw new NotImplementedException("Literal type not implemented");
     }
 }

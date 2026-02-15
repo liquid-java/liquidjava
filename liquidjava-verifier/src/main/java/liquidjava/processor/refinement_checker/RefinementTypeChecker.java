@@ -13,6 +13,7 @@ import liquidjava.processor.refinement_checker.general_checkers.OperationsChecke
 import liquidjava.processor.refinement_checker.object_checkers.AuxStateHandler;
 import liquidjava.rj_language.BuiltinFunctionPredicate;
 import liquidjava.rj_language.Predicate;
+import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Formats;
 import liquidjava.utils.constants.Keys;
 import liquidjava.utils.constants.Types;
@@ -122,19 +123,22 @@ public class RefinementTypeChecker extends TypeChecker {
     @Override
     public <T> void visitCtLocalVariable(CtLocalVariable<T> localVariable) {
         super.visitCtLocalVariable(localVariable);
-        // only declaration, no assignment
+        String varName = localVariable.getSimpleName();
         if (localVariable.getAssignment() == null) {
-            Optional<Predicate> a = getRefinementFromAnnotation(localVariable);
-            RefinedVariable v = context.addVarToContext(localVariable.getSimpleName(), localVariable.getType(),
-                    a.orElse(new Predicate()), localVariable);
+            // declaration with no assignment
+            Optional<Predicate> pred = getRefinementFromAnnotation(localVariable);
+            RefinedVariable v = context.addVarToContext(varName, localVariable.getType(), pred.orElse(new Predicate()),
+                    localVariable);
             getMessageFromAnnotation(localVariable).ifPresent(v::setMessage);
         } else {
-            String varName = localVariable.getSimpleName();
+            // declaration with assignment
             CtExpression<?> e = localVariable.getAssignment();
-
             Predicate refinementFound = getRefinement(e);
             if (refinementFound == null) {
                 refinementFound = new Predicate();
+            }
+            if (!Utils.isPrimitiveType(localVariable.getType().getQualifiedName()) && isNonNullExpr(e)) {
+                refinementFound = Predicate.createConjunction(refinementFound, Predicate.createNonNullEq());
             }
             context.addVarToContext(varName, localVariable.getType(), new Predicate(), e);
             checkVariableRefinements(refinementFound, varName, localVariable.getType(), localVariable, localVariable);
@@ -219,9 +223,9 @@ public class RefinementTypeChecker extends TypeChecker {
                     Predicate.createLit(lit.getValue().toString(), type)));
 
         } else if (lit.getType().getQualifiedName().equals("java.lang.String")) {
-            // Only taking care of strings inside refinements
+            lit.putMetadata(Keys.REFINEMENT, Predicate.createNonNullEq());
         } else if (type.equals(Types.NULL)) {
-            // Skip null literals
+            lit.putMetadata(Keys.REFINEMENT, Predicate.createNullEq());
         } else {
             throw new NotImplementedException(
                     String.format("Literal of type %s not implemented:", lit.getType().getQualifiedName()));
@@ -261,7 +265,6 @@ public class RefinementTypeChecker extends TypeChecker {
             String thisName = String.format(Formats.THIS, fieldName);
             fieldRead.putMetadata(Keys.REFINEMENT,
                     Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), Predicate.createVar(thisName)));
-
         } else if (fieldRead.getVariable().getSimpleName().equals("length")) {
             String targetName = fieldRead.getTarget().toString();
             fieldRead.putMetadata(Keys.REFINEMENT, Predicate.createEquals(Predicate.createVar(Keys.WILDCARD),
@@ -374,12 +377,14 @@ public class RefinementTypeChecker extends TypeChecker {
     @Override
     public <T> void visitCtConstructorCall(CtConstructorCall<T> ctConstructorCall) {
         super.visitCtConstructorCall(ctConstructorCall);
+        ctConstructorCall.putMetadata(Keys.REFINEMENT, Predicate.createNonNullEq());
         mfc.getConstructorInvocationRefinements(ctConstructorCall);
     }
 
     @Override
     public <T> void visitCtNewClass(CtNewClass<T> newClass) {
         super.visitCtNewClass(newClass);
+        newClass.putMetadata(Keys.REFINEMENT, Predicate.createNonNullEq());
     }
 
     // ############################### Inner Visitors
@@ -396,6 +401,9 @@ public class RefinementTypeChecker extends TypeChecker {
             } else {
                 refinementFound = new Predicate();
             }
+        }
+        if (!Utils.isPrimitiveType(type.getQualifiedName()) && isNonNullExpr(assignment)) {
+            refinementFound = Predicate.createConjunction(refinementFound, Predicate.createNonNullEq());
         }
         Optional<VariableInstance> r = context.getLastVariableInstance(name);
         // AQUI!!
@@ -426,6 +434,13 @@ public class RefinementTypeChecker extends TypeChecker {
             return getRefinement(inv);
         }
         return getRefinement(element);
+    }
+
+    private boolean isNonNullExpr(CtExpression<?> exp) {
+        if (exp == null || Utils.isNullLiteral(exp))
+            return false;
+        return exp instanceof CtLiteral<?> || exp instanceof CtConstructorCall<?> || exp instanceof CtNewArray<?>
+                || exp instanceof CtNewClass<?> || exp instanceof CtThisAccess<?>;
     }
 
     private Predicate substituteAllVariablesForLastInstance(Predicate c) {

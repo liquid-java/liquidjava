@@ -3,6 +3,7 @@ package testSuite;
 
 import liquidjava.specification.Refinement;
 
+@SuppressWarnings("unused")
 public class ErrorGhostNotFound {
 
     public void test() {

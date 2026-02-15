@@ -3,6 +3,7 @@ package testSuite;
 
 import liquidjava.specification.Refinement;
 
+@SuppressWarnings("unused")
 public class ErrorLongUsagePredicates1 {
     void testUUID(){
         @Refinement("((v/4096) % 16) == 2")

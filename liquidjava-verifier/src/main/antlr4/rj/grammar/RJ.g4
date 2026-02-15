@@ -62,7 +62,8 @@ literal:
 		BOOL
 	|	STRING
 	|	INT
-	|	REAL;
+	|	REAL
+	|	NULL;
 
 //----------------------- Declarations -----------------------
 
@@ -93,6 +94,7 @@ BOOLOP	 : '=='|'!='|'>='|'>'|'<='|'<';
 ARITHOP : '+'|'*'|'/'|'%';//|'-';
 
 BOOL    : 'true' | 'false';
+NULL    : 'null';
 ID_UPPER: ([A-Z][a-zA-Z0-9]*);
 OBJECT_TYPE:
 		  (([a-zA-Z][a-zA-Z0-9]+) ('.' [a-zA-Z][a-zA-Z0-9]*)+);

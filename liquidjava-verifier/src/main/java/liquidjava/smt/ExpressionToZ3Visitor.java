@@ -11,6 +11,7 @@ import liquidjava.rj_language.ast.Ite;
 import liquidjava.rj_language.ast.LiteralBoolean;
 import liquidjava.rj_language.ast.LiteralInt;
 import liquidjava.rj_language.ast.LiteralLong;
+import liquidjava.rj_language.ast.LiteralNull;
 import liquidjava.rj_language.ast.LiteralReal;
 import liquidjava.rj_language.ast.LiteralString;
 import liquidjava.rj_language.ast.UnaryExpression;
@@ -104,6 +105,11 @@ public class ExpressionToZ3Visitor implements ExpressionVisitor<Expr<?>> {
     @Override
     public Expr<?> visitLiteralString(LiteralString lit) {
         return ctx.makeString(lit.toString());
+    }
+
+    @Override
+    public Expr<?> visitLiteralNull(LiteralNull lit) {
+        return ctx.makeNullLiteral();
     }
 
     @Override

@@ -16,6 +16,8 @@ import liquidjava.utils.constants.Keys;
 import liquidjava.utils.constants.Ops;
 import liquidjava.utils.constants.Types;
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.ast.LiteralNull;
+
 import org.apache.commons.lang3.NotImplementedException;
 import spoon.reflect.code.BinaryOperatorKind;
 import spoon.reflect.code.CtAssignment;
@@ -221,7 +223,7 @@ public class OperationsChecker {
                 return new Predicate();
             }
             if (l.getValue() == null)
-                throw new CustomError("Null literals are not supported");
+                return new Predicate(new LiteralNull());
 
             return new Predicate(l.getValue().toString(), element);
 

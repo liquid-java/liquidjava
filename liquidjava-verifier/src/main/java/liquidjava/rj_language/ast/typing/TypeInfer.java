@@ -12,6 +12,7 @@ import liquidjava.rj_language.ast.Ite;
 import liquidjava.rj_language.ast.LiteralBoolean;
 import liquidjava.rj_language.ast.LiteralInt;
 import liquidjava.rj_language.ast.LiteralLong;
+import liquidjava.rj_language.ast.LiteralNull;
 import liquidjava.rj_language.ast.LiteralReal;
 import liquidjava.rj_language.ast.LiteralString;
 import liquidjava.rj_language.ast.UnaryExpression;
@@ -24,6 +25,8 @@ import spoon.reflect.reference.CtTypeReference;
 public class TypeInfer {
 
     public static boolean checkCompatibleType(String type, Expression e, Context ctx, Factory factory) {
+        if (e instanceof LiteralNull)
+            return !Utils.isPrimitiveType(type);
         Optional<CtTypeReference<?>> t1 = getType(ctx, factory, e);
         CtTypeReference<?> t2 = Utils.getType(type, factory);
         return t1.isPresent() && t1.get().equals(t2);
@@ -40,6 +43,8 @@ public class TypeInfer {
             return Optional.of(Utils.getType("double", factory));
         else if (e instanceof LiteralBoolean)
             return boolType(factory);
+        else if (e instanceof LiteralNull)
+            return Optional.of(Utils.getType("java.lang.Object", factory));
         else if (e instanceof Var)
             return varType(ctx, (Var) e);
         else if (e instanceof UnaryExpression)

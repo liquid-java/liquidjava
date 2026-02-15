@@ -6,9 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import liquidjava.diagnostics.errors.ArgumentMismatchError;
 import liquidjava.diagnostics.errors.LJError;
-import liquidjava.diagnostics.errors.SyntaxError;
 import liquidjava.processor.context.AliasWrapper;
 import liquidjava.processor.context.Context;
 import liquidjava.processor.context.GhostFunction;
@@ -22,6 +20,7 @@ import liquidjava.rj_language.ast.Ite;
 import liquidjava.rj_language.ast.LiteralBoolean;
 import liquidjava.rj_language.ast.LiteralInt;
 import liquidjava.rj_language.ast.LiteralLong;
+import liquidjava.rj_language.ast.LiteralNull;
 import liquidjava.rj_language.ast.LiteralReal;
 import liquidjava.rj_language.ast.UnaryExpression;
 import liquidjava.rj_language.ast.Var;
@@ -77,7 +76,6 @@ public class Predicate {
         }
     }
 
-    /** Create a predicate with the expression true */
     public Predicate(Expression e) {
         exp = e;
     }
@@ -254,5 +252,13 @@ public class Predicate {
         for (Predicate c : Predicates)
             le.add(c.getExpression());
         return new Predicate(new FunctionInvocation(name, le));
+    }
+
+    public static Predicate createNonNullEq() {
+        return Predicate.createOperation(Predicate.createVar(Keys.WILDCARD), Ops.NEQ, new Predicate(new LiteralNull()));
+    }
+
+    public static Predicate createNullEq() {
+        return Predicate.createOperation(Predicate.createVar(Keys.WILDCARD), Ops.EQ, new Predicate(new LiteralNull()));
     }
 }

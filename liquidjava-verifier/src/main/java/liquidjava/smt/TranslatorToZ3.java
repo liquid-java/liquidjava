@@ -1,6 +1,5 @@
 package liquidjava.smt;
 
-import com.martiansoftware.jsap.SyntaxException;
 import com.microsoft.z3.ArithExpr;
 import com.microsoft.z3.ArrayExpr;
 import com.microsoft.z3.BoolExpr;
@@ -67,6 +66,10 @@ public class TranslatorToZ3 implements AutoCloseable {
 
     public Expr<?> makeBooleanLiteral(boolean value) {
         return z3.mkBool(value);
+    }
+
+    public Expr<?> makeNullLiteral() {
+        return z3.mkConst("null", z3.mkUninterpretedSort("java.lang.Object"));
     }
 
     private Expr<?> getVariableTranslation(String name) throws LJError {
@@ -155,11 +158,22 @@ public class TranslatorToZ3 implements AutoCloseable {
 
     // #####################Boolean Operations#####################
     public Expr<?> makeEquals(Expr<?> e1, Expr<?> e2) {
+        e1 = convertNullToSort(e1, e2);
+        e2 = convertNullToSort(e2, e1);
         if (e1 instanceof FPExpr || e2 instanceof FPExpr)
             return z3.mkFPEq(toFP(e1), toFP(e2));
         if (e1 instanceof RealExpr || e2 instanceof RealExpr)
             return z3.mkEq(toReal(e1), toReal(e2));
         return z3.mkEq(e1, e2);
+    }
+
+    private Expr<?> convertNullToSort(Expr<?> nullable, Expr<?> other) {
+        // convert null literals to the sort of the other expression
+        if (nullable != null && other != null && nullable.isConst() && "null".equals(nullable.toString())
+                && !nullable.getSort().equals(other.getSort()))
+            return z3.mkConst("null", other.getSort());
+
+        return nullable;
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })

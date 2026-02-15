@@ -3,6 +3,7 @@ package liquidjava.rj_language.opt;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.LiteralBoolean;
+import liquidjava.rj_language.ast.LiteralNull;
 import liquidjava.rj_language.opt.derivation_node.BinaryDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.DerivationNode;
 import liquidjava.rj_language.opt.derivation_node.ValDerivationNode;
@@ -58,6 +59,12 @@ public class ExpressionSimplifier {
                 rightSimplified = simplifyValDerivationNode(new ValDerivationNode(binExp.getSecondOperand(), null));
             }
 
+            // remove null check when equality already implies non-null
+            if (isNullCheckImpliedBy(rightSimplified.getValue(), leftSimplified.getValue()))
+                return leftSimplified;
+            if (isNullCheckImpliedBy(leftSimplified.getValue(), rightSimplified.getValue()))
+                return rightSimplified;
+
             // check if either side is redundant
             if (isRedundant(leftSimplified.getValue()))
                 return rightSimplified;
@@ -83,6 +90,9 @@ public class ExpressionSimplifier {
         return node;
     }
 
+    /**
+     * Checks if a binary expression is of the form x == y && y == x, which can be simplified to x == y
+     */
     private static boolean isSymmetricEquality(Expression left, Expression right) {
         if (left instanceof BinaryExpression b1 && "==".equals(b1.getOperator()) && right instanceof BinaryExpression b2
                 && "==".equals(b2.getOperator())) {
@@ -94,6 +104,36 @@ public class ExpressionSimplifier {
             return l1.equals(r2) && r1.equals(l2);
         }
         return false;
+    }
+
+    /**
+     * Checks if a null check (x != null) is implied by an equality check (x == y) where y is not null
+     */
+    private static boolean isNullCheckImpliedBy(Expression nullCheck, Expression context) {
+
+        // check if in form of x != null
+        if (!(nullCheck instanceof BinaryExpression nb) || !"!=".equals(nb.getOperator()))
+            return false;
+
+        // identify the variable being checked for null
+        Expression checkedVar;
+        if (nb.getFirstOperand() instanceof LiteralNull && !(nb.getSecondOperand() instanceof LiteralNull)) {
+            checkedVar = nb.getSecondOperand();
+        } else if (nb.getSecondOperand() instanceof LiteralNull && !(nb.getFirstOperand() instanceof LiteralNull)) {
+            checkedVar = nb.getFirstOperand();
+        } else {
+            return false;
+        }
+
+        // check if context contains an equality check of the form x == y where y is not null
+        if (!(context instanceof BinaryExpression cb) || !"==".equals(cb.getOperator()))
+            return false;
+
+        // check if either side of the equality is the checked variable and the other side is not null
+        Expression left = cb.getFirstOperand();
+        Expression right = cb.getSecondOperand();
+        return (left.equals(checkedVar) && !(right instanceof LiteralNull))
+                || (right.equals(checkedVar) && !(left instanceof LiteralNull));
     }
 
     /**

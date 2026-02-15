@@ -5,6 +5,8 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import liquidjava.utils.constants.Types;
+import spoon.reflect.code.CtExpression;
+import spoon.reflect.code.CtLiteral;
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.CtAnnotation;
 import spoon.reflect.declaration.CtElement;
@@ -14,6 +16,7 @@ import spoon.reflect.reference.CtTypeReference;
 public class Utils {
 
     private static final Set<String> DEFAULT_NAMES = Set.of("old", "length", "addToIndex", "getFromIndex");
+    private static final Set<String> PRIMITIVE_TYPES = Set.of("int", "boolean", "long", "short", "float", "double");
 
     public static CtTypeReference<?> getType(String type, Factory factory) {
         // TODO: complete with other types
@@ -26,6 +29,14 @@ public class Utils {
         case Types.LIST -> factory.Type().LIST;
         default -> factory.createReference(type);
         };
+    }
+
+    public static boolean isNullLiteral(CtExpression<?> assignment) {
+        return assignment instanceof CtLiteral<?> lit && lit.getValue() == null;
+    }
+
+    public static boolean isPrimitiveType(String type) {
+        return PRIMITIVE_TYPES.contains(type);
     }
 
     public static String getSimpleName(String name) {
