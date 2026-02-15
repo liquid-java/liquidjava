@@ -162,7 +162,7 @@ public class MethodsFunctionsChecker {
         Optional<Predicate> oret = rtc.getRefinementFromAnnotation(method);
         Predicate ret = oret.orElse(new Predicate());
         ret = ret.substituteVariable("return", Keys.WILDCARD);
-        ret = ret.substituteVariable("$result", Keys.WILDCARD);// added for refinement
+        ret = ret.substituteVariable("$result", Keys.WILDCARD);
         f.setRefReturn(ret);
         rtc.getMessageFromAnnotation(method).ifPresent(f::setMessage);
         return Predicate.createConjunction(joint, ret);
@@ -182,13 +182,6 @@ public class MethodsFunctionsChecker {
             if (method.getParent() instanceof CtClass) {
                 RefinedFunction fi = rtc.getContext().getFunction(method.getSimpleName(),
                         ((CtClass<?>) method.getParent()).getQualifiedName(), method.getParameters().size());
-
-                if (fi == null)
-                    return;// null check refinement
-
-                if (fi.getRefReturn() == null) {
-                    return;
-                }
 
                 List<Variable> lv = fi.getArguments();
                 for (Variable v : lv) {
