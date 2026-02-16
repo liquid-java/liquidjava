@@ -56,7 +56,7 @@ public abstract class Expression {
 
     public boolean isLiteral() {
         return this instanceof LiteralInt || this instanceof LiteralLong || this instanceof LiteralReal
-                || this instanceof LiteralBoolean;
+                || this instanceof LiteralBoolean || this instanceof LiteralChar;
     }
 
     /**

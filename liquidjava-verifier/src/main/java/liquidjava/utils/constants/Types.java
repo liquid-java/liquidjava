@@ -10,6 +10,7 @@ public class Types {
     public static final String SHORT = "short";
     public static final String LONG = "long";
     public static final String FLOAT = "float";
+    public static final String CHAR = "char";
     public static final String NULL = "<nulltype>";
-    public static final String[] IMPLEMENTED = { "boolean", "int", "short", "long", "float", "double" };
+    public static final String[] IMPLEMENTED = { "boolean", "int", "short", "long", "float", "double", "char" };
 }

@@ -20,6 +20,7 @@ import liquidjava.rj_language.ast.FunctionInvocation;
 import liquidjava.rj_language.ast.GroupExpression;
 import liquidjava.rj_language.ast.Ite;
 import liquidjava.rj_language.ast.LiteralBoolean;
+import liquidjava.rj_language.ast.LiteralChar;
 import liquidjava.rj_language.ast.LiteralInt;
 import liquidjava.rj_language.ast.LiteralLong;
 import liquidjava.rj_language.ast.LiteralReal;
@@ -236,6 +237,7 @@ public class Predicate {
         case Types.INT, Types.SHORT -> new LiteralInt(value);
         case Types.LONG -> new LiteralLong(value);
         case Types.DOUBLE, Types.FLOAT -> new LiteralReal(value);
+        case Types.CHAR -> new LiteralChar(value);
         default -> throw new IllegalArgumentException("Unsupported literal type: " + type);
         };
         return new Predicate(exp);

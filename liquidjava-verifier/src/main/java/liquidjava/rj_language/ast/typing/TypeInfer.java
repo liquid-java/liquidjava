@@ -10,6 +10,7 @@ import liquidjava.rj_language.ast.FunctionInvocation;
 import liquidjava.rj_language.ast.GroupExpression;
 import liquidjava.rj_language.ast.Ite;
 import liquidjava.rj_language.ast.LiteralBoolean;
+import liquidjava.rj_language.ast.LiteralChar;
 import liquidjava.rj_language.ast.LiteralInt;
 import liquidjava.rj_language.ast.LiteralLong;
 import liquidjava.rj_language.ast.LiteralReal;
@@ -40,6 +41,8 @@ public class TypeInfer {
             return Optional.of(Utils.getType("double", factory));
         else if (e instanceof LiteralBoolean)
             return boolType(factory);
+        else if (e instanceof LiteralChar)
+            return Optional.of(Utils.getType("char", factory));
         else if (e instanceof Var)
             return varType(ctx, (Var) e);
         else if (e instanceof UnaryExpression)

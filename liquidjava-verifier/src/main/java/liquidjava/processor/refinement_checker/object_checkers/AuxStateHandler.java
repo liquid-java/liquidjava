@@ -94,6 +94,7 @@ public class AuxStateHandler {
             String retType = sg.getReturnType().toString();
             Predicate typePredicate = switch (retType) {
             case "int" -> Predicate.createLit("0", Types.INT);
+            case "char" -> Predicate.createLit("\u0000", Types.CHAR);
             case "boolean" -> Predicate.createLit("false", Types.BOOLEAN);
             case "double" -> Predicate.createLit("0.0", Types.DOUBLE);
             default -> throw new RuntimeException("Ghost not implemented for type " + retType);
