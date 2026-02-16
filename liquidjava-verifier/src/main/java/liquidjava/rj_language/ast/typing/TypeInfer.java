@@ -39,10 +39,10 @@ public class TypeInfer {
             return Optional.of(Utils.getType("long", factory));
         else if (e instanceof LiteralReal)
             return Optional.of(Utils.getType("double", factory));
-        else if (e instanceof LiteralBoolean)
-            return boolType(factory);
         else if (e instanceof LiteralChar)
             return Optional.of(Utils.getType("char", factory));
+        else if (e instanceof LiteralBoolean)
+            return boolType(factory);
         else if (e instanceof Var)
             return varType(ctx, (Var) e);
         else if (e instanceof UnaryExpression)
