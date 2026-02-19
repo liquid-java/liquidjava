@@ -8,11 +8,10 @@ import java.util.Set;
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtExecutable;
-import spoon.reflect.declaration.CtMethod;
 
 public class ContextHistory {
     private static ContextHistory instance;
-    
+
     private Map<String, Map<String, Set<RefinedVariable>>> vars; // file -> (scope -> variables in scope)
     private Set<RefinedVariable> instanceVars;
     private Set<RefinedVariable> globalVars;
@@ -49,10 +48,9 @@ public class ContextHistory {
         // add variables in scope for this position
         String file = pos.getFile().getAbsolutePath();
         String scope = getScopePosition(element);
-        System.out.println("Saving context for " + file + " in scope " + scope);
         vars.putIfAbsent(file, new HashMap<>());
         vars.get(file).put(scope, new HashSet<>(context.getCtxVars()));
-    
+
         // add other elements in context
         instanceVars.addAll(context.getCtxInstanceVars());
         globalVars.addAll(context.getCtxGlobalVars());
@@ -62,8 +60,13 @@ public class ContextHistory {
 
     public String getScopePosition(CtElement element) {
         SourcePosition pos = element.getPosition();
-        SourcePosition innerPosition = element instanceof CtExecutable ? ((CtExecutable<?>) element).getBody().getPosition() : pos;
-        return String.format("%d:%d-%d:%d", innerPosition.getLine(), innerPosition.getColumn() + 1, pos.getEndLine(), pos.getEndColumn());
+        SourcePosition innerPosition = pos;
+        if (element instanceof CtExecutable<?> executable) {
+            if (executable.getBody() != null)
+                innerPosition = executable.getBody().getPosition();
+        }
+        return String.format("%d:%d-%d:%d", innerPosition.getLine(), innerPosition.getColumn() + 1, pos.getEndLine(),
+                pos.getEndColumn());
     }
 
     public Map<String, Map<String, Set<RefinedVariable>>> getVars() {
