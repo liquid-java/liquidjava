@@ -9,6 +9,7 @@ import java.util.Optional;
 import liquidjava.diagnostics.errors.*;
 import liquidjava.processor.context.AliasWrapper;
 import liquidjava.processor.context.Context;
+import liquidjava.processor.context.ContextHistory;
 import liquidjava.processor.context.GhostFunction;
 import liquidjava.processor.context.GhostState;
 import liquidjava.processor.context.RefinedVariable;
@@ -40,6 +41,7 @@ public abstract class TypeChecker extends CtScanner {
     protected final Context context;
     protected final Factory factory;
     protected final VCChecker vcChecker;
+    private final ContextHistory contextHistory = ContextHistory.getInstance();
 
     public TypeChecker(Context context, Factory factory) {
         this.context = context;
@@ -158,6 +160,7 @@ public abstract class TypeChecker extends CtScanner {
                 gs.setRefinement(Predicate.createEquals(ip, Predicate.createLit(Integer.toString(order), Types.INT)));
                 // open(THIS) -> state1(THIS) == 1
                 context.addToGhostClass(g.getParentClassName(), gs);
+                contextHistory.saveGhost(element, gs);
             }
             order++;
         }
@@ -183,6 +186,7 @@ public abstract class TypeChecker extends CtScanner {
         CtTypeReference<?> r = factory.Type().createReference(gd.returnType());
         GhostState gs = new GhostState(gd.name(), param, r, qn);
         context.addToGhostClass(sn, gs);
+        contextHistory.saveGhost(element, gs);
     }
 
     protected String getQualifiedClassName(CtElement element) {

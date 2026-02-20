@@ -13,16 +13,18 @@ public class ContextHistory {
     private static ContextHistory instance;
 
     private Map<String, Map<String, Set<RefinedVariable>>> vars; // file -> (scope -> variables in scope)
+    private Map<String, Set<GhostState>> ghosts; // file -> ghosts
+
+    // globals
+    private Set<AliasWrapper> aliases;
     private Set<RefinedVariable> instanceVars;
     private Set<RefinedVariable> globalVars;
-    private Set<GhostState> ghosts;
-    private Set<AliasWrapper> aliases;
 
     private ContextHistory() {
         vars = new HashMap<>();
         instanceVars = new HashSet<>();
         globalVars = new HashSet<>();
-        ghosts = new HashSet<>();
+        ghosts = new HashMap<>();
         aliases = new HashSet<>();
     }
 
@@ -41,21 +43,35 @@ public class ContextHistory {
     }
 
     public void saveContext(CtElement element, Context context) {
-        SourcePosition pos = element.getPosition();
-        if (pos == null || pos.getFile() == null)
+        String file = getFile(element);
+        if (file == null)
             return;
 
-        // add variables in scope for this position
-        String file = pos.getFile().getAbsolutePath();
+        // add variables in scope
         String scope = getScopePosition(element);
         vars.putIfAbsent(file, new HashMap<>());
         vars.get(file).put(scope, new HashSet<>(context.getCtxVars()));
 
-        // add other elements in context
+        // add other elements in context (except ghosts)
         instanceVars.addAll(context.getCtxInstanceVars());
         globalVars.addAll(context.getCtxGlobalVars());
-        ghosts.addAll(context.getGhostStates());
         aliases.addAll(context.getAliases());
+    }
+
+    public void saveGhost(CtElement element, GhostState ghost) {
+        String file = getFile(element);
+        if (file == null)
+            return;
+        ghosts.putIfAbsent(file, new HashSet<>());
+        ghosts.get(file).add(ghost);
+    }
+
+    private String getFile(CtElement element) {
+        SourcePosition pos = element.getPosition();
+        if (pos == null || pos.getFile() == null)
+            return null;
+
+        return pos.getFile().getAbsolutePath();
     }
 
     public String getScopePosition(CtElement element) {
@@ -81,7 +97,7 @@ public class ContextHistory {
         return globalVars;
     }
 
-    public Set<GhostState> getGhosts() {
+    public Map<String, Set<GhostState>> getGhosts() {
         return ghosts;
     }
 
