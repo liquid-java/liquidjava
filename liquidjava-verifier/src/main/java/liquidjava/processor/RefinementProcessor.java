@@ -1,8 +1,5 @@
 package liquidjava.processor;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import liquidjava.diagnostics.Diagnostics;
 import liquidjava.diagnostics.errors.LJError;
 import liquidjava.processor.ann_generation.FieldGhostsGeneration;
@@ -17,7 +14,6 @@ import spoon.reflect.factory.Factory;
 /** Finds circular dependencies between packages */
 public class RefinementProcessor extends AbstractProcessor<CtPackage> {
 
-    List<CtPackage> visitedPackages = new ArrayList<>();
     Factory factory;
     Diagnostics diagnostics = Diagnostics.getInstance();
 
@@ -26,28 +22,39 @@ public class RefinementProcessor extends AbstractProcessor<CtPackage> {
     }
 
     @Override
+    public boolean isToBeProcessed(CtPackage pkg) {
+        // Only let Spoon invoke us for the root package;
+        // we handle sub-packages ourselves to guarantee parent-before-child order.
+        return pkg.isUnnamedPackage();
+    }
+
+    @Override
     public void process(CtPackage pkg) {
-        if (!visitedPackages.contains(pkg)) {
-            visitedPackages.add(pkg);
-            Context c = Context.getInstance();
-            c.reinitializeAllContext();
+        Context c = Context.getInstance();
+        c.reinitializeAllContext();
+        processPackage(pkg, c);
+    }
 
-            try {
-                // process types in this package only, not sub-packages
-                // first pass: gather refinements
-                pkg.getTypes().forEach(type -> {
-                    type.accept(new FieldGhostsGeneration(c, factory)); // generate annotations for field ghosts
-                    type.accept(new ExternalRefinementTypeChecker(c, factory)); // process external refinements
-                    type.accept(new MethodsFirstChecker(c, factory)); // double passing idea (instead of headers)
-                });
+    private void processPackage(CtPackage pkg, Context c) {
+        try {
+            // first pass: gather refinements
+            pkg.getTypes().forEach(type -> {
+                type.accept(new FieldGhostsGeneration(c, factory));
+                type.accept(new ExternalRefinementTypeChecker(c, factory));
+                type.accept(new MethodsFirstChecker(c, factory));
+            });
 
-                // second pass: check refinements
-                pkg.getTypes().forEach(type -> {
-                    type.accept(new RefinementTypeChecker(c, factory));
-                });
-            } catch (LJError e) {
-                diagnostics.add(e);
+            // second pass: check refinements
+            pkg.getTypes().forEach(type -> {
+                type.accept(new RefinementTypeChecker(c, factory));
+            });
+
+            // recurse into sub-packages (inheriting context)
+            for (CtPackage subPkg : pkg.getPackages()) {
+                processPackage(subPkg, c);
             }
+        } catch (LJError e) {
+            diagnostics.add(e);
         }
     }
 }
