@@ -27,10 +27,10 @@ public class RefinementError extends LJError {
 
     @Override
     public String getDetails() {
-        return getCounterexampleString();
+        return "Counterexample: " + getCounterExampleString();
     }
 
-    private String getCounterexampleString() {
+    public String getCounterExampleString() {
         if (counterexample == null || counterexample.assignments().isEmpty())
             return "";
 
@@ -42,7 +42,7 @@ public class RefinementError extends LJError {
         if (counterexampleExp.equals(found.getValue().toString()))
             return "";
 
-        return "Counterexample: " + counterexampleExp;
+        return counterexampleExp;
     }
 
     public Counterexample getCounterexample() {

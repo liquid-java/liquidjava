@@ -11,7 +11,7 @@
 
 	<groupId>io.github.liquid-java</groupId>
 	<artifactId>liquidjava-verifier</artifactId>
-	<version>0.0.13</version>
+	<version>0.0.14</version>
 	<name>liquidjava-verifier</name>
 	<description>LiquidJava Verifier</description>
 	<url>https://github.com/liquid-java/liquidjava</url>
