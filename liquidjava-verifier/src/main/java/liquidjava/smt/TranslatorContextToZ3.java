@@ -42,7 +42,8 @@ public class TranslatorContextToZ3 {
     private static Expr<?> getExpr(Context z3, String name, CtTypeReference<?> type) {
         String typeName = type.getQualifiedName();
         return switch (typeName) {
-        case "int", "short", "java.lang.Integer", "java.lang.Short" -> z3.mkIntConst(name);
+        case "int", "short", "char", "java.lang.Integer", "java.lang.Short", "java.lang.Character" -> z3
+                .mkIntConst(name);
         case "boolean", "java.lang.Boolean" -> z3.mkBoolConst(name);
         case "long", "java.lang.Long" -> z3.mkRealConst(name);
         case "float", "double", "java.lang.Float", "java.lang.Double" -> (FPExpr) z3.mkConst(name, z3.mkFPSort64());
@@ -81,7 +82,7 @@ public class TranslatorContextToZ3 {
 
     static Sort getSort(Context z3, String sort) {
         return switch (sort) {
-        case "int", "short", "java.lang.Integer", "java.lang.Short" -> z3.getIntSort();
+        case "int", "short", "char", "java.lang.Integer", "java.lang.Short", "java.lang.Character" -> z3.getIntSort();
         case "boolean", "java.lang.Boolean" -> z3.getBoolSort();
         case "long", "java.lang.Long" -> z3.getRealSort();
         case "float", "java.lang.Float" -> z3.mkFPSort32();

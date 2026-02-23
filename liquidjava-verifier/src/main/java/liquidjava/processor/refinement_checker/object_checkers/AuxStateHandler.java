@@ -94,6 +94,7 @@ public class AuxStateHandler {
             String retType = sg.getReturnType().toString();
             Predicate typePredicate = switch (retType) {
             case "int" -> Predicate.createLit("0", Types.INT);
+            case "char" -> Predicate.createLit("\u0000", Types.CHAR);
             case "boolean" -> Predicate.createLit("false", Types.BOOLEAN);
             case "double" -> Predicate.createLit("0.0", Types.DOUBLE);
             default -> throw new RuntimeException("Ghost not implemented for type " + retType);
@@ -220,7 +221,7 @@ public class AuxStateHandler {
         Predicate c1 = isTo ? getMissingStates(targetClass, tc, p) : p;
         Predicate c = c1.substituteVariable(Keys.THIS, name);
         c = c.changeOldMentions(nameOld, name);
-        boolean ok = tc.checksStateSMT(new Predicate(), c.negate(), e.getPosition());
+        boolean ok = tc.checkStateSMT(new Predicate(), c.negate(), e.getPosition());
         if (ok) {
             tc.throwStateConflictError(e.getPosition(), p);
         }
@@ -413,7 +414,7 @@ public class AuxStateHandler {
         Predicate expectState = stateChange.getFrom().substituteVariable(Keys.THIS, instanceName)
                 .changeOldMentions(vi.getName(), instanceName);
 
-        if (!tc.checksStateSMT(prevState, expectState, fw.getPosition())) { // Invalid field transition
+        if (!tc.checkStateSMT(prevState, expectState, fw.getPosition())) { // Invalid field transition
             tc.throwStateRefinementError(fw.getPosition(), prevState, stateChange.getFrom(), stateChange.getMessage());
             return;
         }
@@ -478,7 +479,7 @@ public class AuxStateHandler {
             }
             expectState = expectState.changeOldMentions(vi.getName(), instanceName);
 
-            found = tc.checksStateSMT(prevCheck, expectState, invocation.getPosition());
+            found = tc.checkStateSMT(prevCheck, expectState, invocation.getPosition());
             if (found && stateChange.hasTo()) {
                 String newInstanceName = String.format(Formats.INSTANCE, name, tc.getContext().getCounter());
                 Predicate transitionedState = stateChange.getTo().substituteVariable(Keys.WILDCARD, newInstanceName)

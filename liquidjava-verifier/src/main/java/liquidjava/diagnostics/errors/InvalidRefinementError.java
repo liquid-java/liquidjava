@@ -12,7 +12,7 @@ public class InvalidRefinementError extends LJError {
     private final String refinement;
 
     public InvalidRefinementError(SourcePosition position, String message, String refinement) {
-        super("Invalid Refinement", message, position, null);
+        super("Invalid Refinement Error", message, position, null);
         this.refinement = refinement;
     }
 

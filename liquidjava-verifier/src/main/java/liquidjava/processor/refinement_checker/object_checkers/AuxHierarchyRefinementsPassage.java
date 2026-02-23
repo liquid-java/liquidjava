@@ -81,7 +81,7 @@ public class AuxHierarchyRefinementsPassage {
             if (argRef.isBooleanTrue()) {
                 arg.setRefinement(superArgRef.substituteVariable(newName, arg.getName()));
             } else {
-                boolean ok = tc.checksStateSMT(superArgRef, argRef, params.get(i).getPosition());
+                boolean ok = tc.checkStateSMT(superArgRef, argRef, params.get(i).getPosition());
                 if (!ok) {
                     tc.throwRefinementError(method.getPosition(), argRef, superArgRef, function.getMessage());
                 }

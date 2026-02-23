@@ -16,6 +16,7 @@ import liquidjava.processor.facade.AliasDTO;
 import liquidjava.processor.facade.GhostDTO;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.parsing.RefinementsParser;
+import liquidjava.smt.SMTResult;
 import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Formats;
 import liquidjava.utils.constants.Keys;
@@ -312,13 +313,15 @@ public abstract class TypeChecker extends CtScanner {
         vcChecker.processSubtyping(prevState, expectedState, context.getGhostStates(), target, factory);
     }
 
-    public boolean checksStateSMT(Predicate prevState, Predicate expectedState, SourcePosition p) throws LJError {
-        return vcChecker.canProcessSubtyping(prevState, expectedState, context.getGhostStates(), p, factory);
+    public boolean checkStateSMT(Predicate prevState, Predicate expectedState, SourcePosition p) throws LJError {
+        SMTResult result = vcChecker.verifySMTSubtypeStates(prevState, expectedState, context.getGhostStates(), p,
+                factory);
+        return result.isOk();
     }
 
     public void throwRefinementError(SourcePosition position, Predicate expectedType, Predicate foundType,
             String customMessage) throws LJError {
-        vcChecker.throwRefinementError(position, expectedType, foundType, customMessage);
+        vcChecker.throwRefinementError(position, expectedType, foundType, null, customMessage);
     }
 
     public void throwStateRefinementError(SourcePosition position, Predicate found, Predicate expected,

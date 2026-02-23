@@ -181,6 +181,8 @@ public class MethodsFunctionsChecker {
             if (method.getParent() instanceof CtClass) {
                 RefinedFunction fi = rtc.getContext().getFunction(method.getSimpleName(),
                         ((CtClass<?>) method.getParent()).getQualifiedName(), method.getParameters().size());
+                if (fi == null)
+                    return;
 
                 List<Variable> lv = fi.getArguments();
                 for (Variable v : lv) {
@@ -411,10 +413,6 @@ public class MethodsFunctionsChecker {
                 List<Variable> lv = fi.getArguments();
                 for (Variable v : lv)
                     rtc.getContext().addVarToContext(v);
-            } else {
-                assert false;
-                // Method should already be in context. Should not arrive this point in
-                // refinement checker.
             }
         }
     }

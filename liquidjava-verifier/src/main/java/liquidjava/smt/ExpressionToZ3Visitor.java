@@ -9,6 +9,7 @@ import liquidjava.rj_language.ast.FunctionInvocation;
 import liquidjava.rj_language.ast.GroupExpression;
 import liquidjava.rj_language.ast.Ite;
 import liquidjava.rj_language.ast.LiteralBoolean;
+import liquidjava.rj_language.ast.LiteralChar;
 import liquidjava.rj_language.ast.LiteralInt;
 import liquidjava.rj_language.ast.LiteralLong;
 import liquidjava.rj_language.ast.LiteralReal;
@@ -94,6 +95,11 @@ public class ExpressionToZ3Visitor implements ExpressionVisitor<Expr<?>> {
     @Override
     public Expr<?> visitLiteralBoolean(LiteralBoolean lit) {
         return ctx.makeBooleanLiteral(lit.isBooleanTrue());
+    }
+
+    @Override
+    public Expr<?> visitLiteralChar(LiteralChar lit) {
+        return ctx.makeIntegerLiteral(lit.getValue());
     }
 
     @Override

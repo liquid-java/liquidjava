@@ -108,7 +108,8 @@ public class LJDiagnostic extends RuntimeException {
 
             for (int i = startLine; i <= endLine; i++) {
                 String lineNumStr = String.format("%" + padding + "d", i);
-                String line = lines.get(i - 1);
+                String rawLine = lines.get(i - 1);
+                String line = rawLine.replace("\t", "    ");
 
                 // add line
                 sb.append(Colors.GREY).append(lineNumStr).append(PIPE).append(line).append(Colors.RESET).append("\n");
@@ -116,18 +117,25 @@ public class LJDiagnostic extends RuntimeException {
                 // add error markers on the line(s) with the error
                 if (i >= position.lineStart() && i <= position.lineEnd()) {
                     int colStart = (i == position.lineStart()) ? position.colStart() : 1;
-                    int colEnd = (i == position.lineEnd()) ? position.colEnd() : line.length();
+                    int colEnd = (i == position.lineEnd()) ? position.colEnd() : rawLine.length();
 
                     if (colStart > 0 && colEnd > 0) {
+                        int tabsBeforeStart = (int) rawLine.substring(0, Math.max(0, colStart - 1)).chars()
+                                .filter(ch -> ch == '\t').count();
+                        int tabsBeforeEnd = (int) rawLine.substring(0, Math.max(0, colEnd)).chars()
+                                .filter(ch -> ch == '\t').count();
+                        int visualColStart = colStart + tabsBeforeStart * 3;
+                        int visualColEnd = colEnd + tabsBeforeEnd * 3;
+
                         // line number padding + pipe + column offset
                         String indent = " ".repeat(padding) + Colors.GREY + PIPE + Colors.RESET
-                                + " ".repeat(colStart - 1);
-                        String markers = accentColor + "^".repeat(Math.max(1, colEnd - colStart + 1));
+                            + " ".repeat(visualColStart - 1);
+                        String markers = accentColor + "^".repeat(Math.max(1, visualColEnd - visualColStart + 1));
                         sb.append(indent).append(markers);
 
                         // custom message
                         if (customMessage != null && !customMessage.isBlank()) {
-                            String offset = " ".repeat(padding + colEnd + PIPE.length() + 1);
+                            String offset = " ".repeat(padding + visualColEnd + PIPE.length() + 1);
                             sb.append(" " + customMessage.replace("\n", "\n" + offset));
                         }
                         sb.append(Colors.RESET).append("\n");
