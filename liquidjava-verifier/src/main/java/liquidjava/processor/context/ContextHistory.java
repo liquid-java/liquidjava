@@ -12,14 +12,14 @@ import spoon.reflect.declaration.CtExecutable;
 public class ContextHistory {
     private static ContextHistory instance;
 
-    private Map<String, Map<String, Set<RefinedVariable>>> vars; // file -> (scope -> variables in scope)
+    private Map<String, Map<String, Set<RefinedVariable>>> fileScopeVars; // file -> (scope -> variables in scope)
     private Set<RefinedVariable> instanceVars;
     private Set<RefinedVariable> globalVars;
     private Set<GhostState> ghosts;
     private Set<AliasWrapper> aliases;
 
     private ContextHistory() {
-        vars = new HashMap<>();
+        fileScopeVars = new HashMap<>();
         instanceVars = new HashSet<>();
         globalVars = new HashSet<>();
         ghosts = new HashSet<>();
@@ -33,7 +33,7 @@ public class ContextHistory {
     }
 
     public void clearHistory() {
-        vars.clear();
+        fileScopeVars.clear();
         instanceVars.clear();
         globalVars.clear();
         ghosts.clear();
@@ -48,8 +48,8 @@ public class ContextHistory {
         // add variables in scope for this position
         String file = pos.getFile().getAbsolutePath();
         String scope = getScopePosition(element);
-        vars.putIfAbsent(file, new HashMap<>());
-        vars.get(file).put(scope, new HashSet<>(context.getCtxVars()));
+        fileScopeVars.putIfAbsent(file, new HashMap<>());
+        fileScopeVars.get(file).put(scope, new HashSet<>(context.getCtxVars()));
 
         // add other elements in context
         instanceVars.addAll(context.getCtxInstanceVars());
@@ -69,8 +69,8 @@ public class ContextHistory {
                 pos.getEndColumn());
     }
 
-    public Map<String, Map<String, Set<RefinedVariable>>> getVars() {
-        return vars;
+    public Map<String, Map<String, Set<RefinedVariable>>> getFileScopeVars() {
+        return fileScopeVars;
     }
 
     public Set<RefinedVariable> getInstanceVars() {

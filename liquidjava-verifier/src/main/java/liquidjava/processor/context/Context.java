@@ -12,7 +12,7 @@ public class Context {
     private final List<RefinedVariable> ctxGlobalVars;
 
     private List<GhostFunction> ghosts;
-    private Map<String, List<GhostState>> states;
+    private Map<String, List<GhostState>> classStates;
     private List<AliasWrapper> aliases;
 
     private int counter;
@@ -27,7 +27,7 @@ public class Context {
 
         aliases = new ArrayList<>();
         ghosts = new ArrayList<>();
-        states = new HashMap<>();
+        classStates = new HashMap<>();
         counter = 0;
     }
 
@@ -48,7 +48,7 @@ public class Context {
         ctxFunctions = new ArrayList<>();
         aliases = new ArrayList<>();
         ghosts = new ArrayList<>();
-        states = new HashMap<>();
+        classStates = new HashMap<>();
         counter = 0;
     }
 
@@ -323,23 +323,23 @@ public class Context {
     }
 
     public void addGhostClass(String klass) {
-        if (!states.containsKey(klass))
-            states.put(klass, new ArrayList<>());
+        if (!classStates.containsKey(klass))
+            classStates.put(klass, new ArrayList<>());
     }
 
     public void addToGhostClass(String klass, GhostState gs) {
-        List<GhostState> l = states.get(klass);
+        List<GhostState> l = classStates.get(klass);
         if (!l.contains(gs))
             l.add(gs);
     }
 
     public List<GhostState> getGhostState(String s) {
-        return states.get(s);
+        return classStates.get(s);
     }
 
     public List<GhostState> getGhostStates() {
         List<GhostState> lgs = new ArrayList<>();
-        for (List<GhostState> l : states.values())
+        for (List<GhostState> l : classStates.values())
             lgs.addAll(l);
         return lgs;
     }
