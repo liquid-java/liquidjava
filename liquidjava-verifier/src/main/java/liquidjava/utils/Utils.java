@@ -45,13 +45,12 @@ public class Utils {
     }
 
     public static SourcePosition getFirstAnnotationPosition(CtElement element) {
-        CtElement target = element.getParent() != null ? element.getParent() : element;
-        return target.getAnnotations().stream().filter(Utils::isLiquidJavaAnnotation).map(CtElement::getPosition)
-            .min((p1, p2) -> {
-                if (p1.getLine() != p2.getLine())
-                    return Integer.compare(p1.getLine(), p2.getLine());
-                return Integer.compare(p1.getColumn(), p2.getColumn());
-            }).orElse(target.getPosition());
+        return element.getAnnotations().stream().filter(Utils::isLiquidJavaAnnotation).map(CtElement::getPosition)
+                .min((p1, p2) -> {
+                    if (p1.getLine() != p2.getLine())
+                        return Integer.compare(p1.getLine(), p2.getLine());
+                    return Integer.compare(p1.getColumn(), p2.getColumn());
+                }).orElse(element.getPosition());
     }
 
     private static boolean isLiquidJavaAnnotation(CtAnnotation<?> annotation) {

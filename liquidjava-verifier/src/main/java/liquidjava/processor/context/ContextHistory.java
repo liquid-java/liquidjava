@@ -9,6 +9,7 @@ import liquidjava.utils.Utils;
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtExecutable;
+import spoon.reflect.declaration.CtParameter;
 
 public class ContextHistory {
     private static ContextHistory instance;
@@ -76,8 +77,9 @@ public class ContextHistory {
     }
 
     public String getScopePosition(CtElement element) {
+        CtElement startElement = element instanceof CtParameter<?> ? element.getParent() : element;
+        SourcePosition annPosition = Utils.getFirstAnnotationPosition(startElement);
         SourcePosition pos = element.getPosition();
-        SourcePosition annPosition = Utils.getFirstAnnotationPosition(element);
         return String.format("%d:%d-%d:%d", annPosition.getLine(), annPosition.getColumn() + 1, pos.getEndLine(),
                 pos.getEndColumn());
     }
