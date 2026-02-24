@@ -5,6 +5,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import liquidjava.utils.Utils;
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtExecutable;
@@ -76,12 +77,8 @@ public class ContextHistory {
 
     public String getScopePosition(CtElement element) {
         SourcePosition pos = element.getPosition();
-        SourcePosition innerPosition = pos;
-        if (element instanceof CtExecutable<?> executable) {
-            if (executable.getBody() != null)
-                innerPosition = executable.getBody().getPosition();
-        }
-        return String.format("%d:%d-%d:%d", innerPosition.getLine(), innerPosition.getColumn() + 1, pos.getEndLine(),
+        SourcePosition annPosition = Utils.getFirstAnnotationPosition(element);
+        return String.format("%d:%d-%d:%d", annPosition.getLine(), annPosition.getColumn() + 1, pos.getEndLine(),
                 pos.getEndColumn());
     }
 

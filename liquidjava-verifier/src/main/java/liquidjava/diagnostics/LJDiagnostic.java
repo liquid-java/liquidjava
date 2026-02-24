@@ -129,7 +129,7 @@ public class LJDiagnostic extends RuntimeException {
 
                         // line number padding + pipe + column offset
                         String indent = " ".repeat(padding) + Colors.GREY + PIPE + Colors.RESET
-                            + " ".repeat(visualColStart - 1);
+                                + " ".repeat(visualColStart - 1);
                         String markers = accentColor + "^".repeat(Math.max(1, visualColEnd - visualColStart + 1));
                         sb.append(indent).append(markers);
 

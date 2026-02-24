@@ -9,10 +9,12 @@ import spoon.reflect.reference.CtTypeReference;
 public abstract class RefinedVariable extends Refined {
     private final List<CtTypeReference<?>> supertypes;
     private PlacementInCode placementInCode;
+    private boolean isParameter;
 
     public RefinedVariable(String name, CtTypeReference<?> type, Predicate c) {
         super(name, type, c);
         supertypes = new ArrayList<>();
+        isParameter = false;
     }
 
     public abstract Predicate getMainRefinement();
@@ -64,5 +66,13 @@ public abstract class RefinedVariable extends Refined {
         } else {
             return supertypes.equals(other.supertypes);
         }
+    }
+
+    public void setIsParameter(boolean b) {
+        isParameter = b;
+    }
+
+    public boolean isParameter() {
+        return isParameter;
     }
 }

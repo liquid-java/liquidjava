@@ -44,6 +44,16 @@ public class Utils {
                 .map(CtElement::getPosition).orElse(element.getPosition());
     }
 
+    public static SourcePosition getFirstAnnotationPosition(CtElement element) {
+        CtElement target = element.getParent() != null ? element.getParent() : element;
+        return target.getAnnotations().stream().filter(Utils::isLiquidJavaAnnotation).map(CtElement::getPosition)
+            .min((p1, p2) -> {
+                if (p1.getLine() != p2.getLine())
+                    return Integer.compare(p1.getLine(), p2.getLine());
+                return Integer.compare(p1.getColumn(), p2.getColumn());
+            }).orElse(target.getPosition());
+    }
+
     private static boolean isLiquidJavaAnnotation(CtAnnotation<?> annotation) {
         return annotation.getAnnotationType().getQualifiedName().startsWith("liquidjava.specification");
     }

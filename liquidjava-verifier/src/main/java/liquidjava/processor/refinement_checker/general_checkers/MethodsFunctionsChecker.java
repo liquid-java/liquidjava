@@ -154,6 +154,7 @@ public class MethodsFunctionsChecker {
                 c = oc.get().substituteVariable(Keys.WILDCARD, paramName);
             param.putMetadata(Keys.REFINEMENT, c);
             RefinedVariable v = rtc.getContext().addVarToContext(param.getSimpleName(), param.getType(), c, param);
+            v.setIsParameter(true);
             rtc.getMessageFromAnnotation(param).ifPresent(v::setMessage);
             if (v instanceof Variable)
                 f.addArgRefinements((Variable) v);
