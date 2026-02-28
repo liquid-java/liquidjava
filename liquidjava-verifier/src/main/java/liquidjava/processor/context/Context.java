@@ -105,31 +105,31 @@ public class Context {
     }
 
     public RefinedVariable addVarToContext(String simpleName, CtTypeReference<?> type, Predicate c,
-            CtElement placementInCode) {
+            CtElement element) {
         RefinedVariable vi = new Variable(simpleName, type, c);
-        vi.addPlacementInCode(PlacementInCode.createPlacement(placementInCode));
+        vi.addPlacementInCode(element);
         vi.addSuperTypes(type.getSuperclass(), type.getSuperInterfaces());
         addVarToContext(vi);
         return vi;
     }
 
     public RefinedVariable addInstanceToContext(String simpleName, CtTypeReference<?> type, Predicate c,
-            CtElement placementInCode) {
+            CtElement element) {
         RefinedVariable vi = new VariableInstance(simpleName, type, c);
-        vi.addPlacementInCode(PlacementInCode.createPlacement(placementInCode));
+        vi.addPlacementInCode(element);
         if (!ctxInstanceVars.contains(vi))
             addInstanceVariable(vi);
         return vi;
     }
 
     public void addRefinementToVariableInContext(String name, CtTypeReference<?> type, Predicate et,
-            CtElement placementInCode) {
+            CtElement element) {
         if (hasVariable(name)) {
             RefinedVariable vi = getVariableByName(name);
             vi.setRefinement(et);
-            vi.addPlacementInCode(PlacementInCode.createPlacement(placementInCode));
+            vi.addPlacementInCode(element);
         } else {
-            addVarToContext(name, type, et, placementInCode);
+            addVarToContext(name, type, et, element);
         }
     }
 

@@ -4,12 +4,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import liquidjava.rj_language.Predicate;
+import liquidjava.utils.Utils;
+import spoon.reflect.cu.SourcePosition;
+import spoon.reflect.declaration.CtElement;
 import spoon.reflect.reference.CtTypeReference;
 
 public abstract class RefinedVariable extends Refined {
     private final List<CtTypeReference<?>> supertypes;
     private PlacementInCode placementInCode;
     private boolean isParameter;
+    private SourcePosition annPosition;
 
     public RefinedVariable(String name, CtTypeReference<?> type, Predicate c) {
         super(name, type, c);
@@ -36,14 +40,23 @@ public abstract class RefinedVariable extends Refined {
                 supertypes.add(ct);
     }
 
-    public void addPlacementInCode(PlacementInCode s) {
-        placementInCode = s;
+    public void addPlacementInCode(CtElement element) {
+        placementInCode = PlacementInCode.createPlacement(element);
+        annPosition = Utils.getFirstAnnotationPosition(element);
+    }
+
+    public void addPlacementInCode(PlacementInCode placement) {
+        placementInCode = placement;
     }
 
     public PlacementInCode getPlacementInCode() {
         return placementInCode;
     }
 
+    public SourcePosition getAnnPosition() {
+        return annPosition;
+    }
+    
     @Override
     public int hashCode() {
         final int prime = 31;

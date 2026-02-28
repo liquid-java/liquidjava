@@ -8,7 +8,6 @@ import java.util.Set;
 import liquidjava.utils.Utils;
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.CtElement;
-import spoon.reflect.declaration.CtExecutable;
 import spoon.reflect.declaration.CtParameter;
 
 public class ContextHistory {
