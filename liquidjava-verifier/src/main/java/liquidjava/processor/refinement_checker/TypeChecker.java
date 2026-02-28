@@ -163,9 +163,20 @@ public abstract class TypeChecker extends CtScanner {
         }
     }
 
+    protected GhostDTO getGhostDeclaration(String value, CtElement element) throws LJError {
+        try {
+            return RefinementsParser.getGhostDeclaration(value);
+        } catch (LJError e) {
+            // add location info to error
+            SourcePosition annPosition = Utils.getAnnotationPosition(element, value);
+            e.setPosition(annPosition);
+            throw e;
+        }
+    }
+
     private void createStateGhost(String string, CtAnnotation<? extends Annotation> ann, CtElement element)
             throws LJError {
-        GhostDTO gd = RefinementsParser.getGhostDeclaration(string);
+        GhostDTO gd = getGhostDeclaration(string, ann);
         if (!gd.paramTypes().isEmpty()) {
             throw new CustomError(
                     "Ghost States have the class as parameter " + "by default, no other parameters are allowed",
@@ -221,7 +232,7 @@ public abstract class TypeChecker extends CtScanner {
     }
 
     protected void getGhostFunction(String value, CtElement element) throws LJError {
-        GhostDTO f = RefinementsParser.getGhostDeclaration(value);
+        GhostDTO f = getGhostDeclaration(value, element);
         if (element.getParent()instanceof CtClass<?> klass) {
             GhostFunction gh = new GhostFunction(f, factory, klass.getQualifiedName());
             context.addGhostFunction(gh);

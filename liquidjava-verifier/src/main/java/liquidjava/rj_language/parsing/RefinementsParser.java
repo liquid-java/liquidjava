@@ -35,16 +35,12 @@ public class RefinementsParser {
         ParseTree rc = compile(s);
         GhostDTO g = GhostVisitor.getGhostDecl(rc);
         if (g == null)
-            throw new SyntaxError("Ghost declarations should be in format <type> <name> (<parameters>)", s);
+            throw new SyntaxError("Invalid ghost declaration, e.g. \"int size\"", s);
         return g;
     }
 
     public static AliasDTO getAliasDeclaration(String s) throws LJError {
-        Optional<String> os = getErrors(s);
-        if (os.isPresent())
-            throw new SyntaxError(os.get(), s);
-        CodePointCharStream input;
-        input = CharStreams.fromString(s);
+        CodePointCharStream input = CharStreams.fromString(s);
         RJErrorListener err = new RJErrorListener();
         RJLexer lexer = new RJLexer(input);
         lexer.removeErrorListeners();
@@ -60,14 +56,14 @@ public class RefinementsParser {
         AliasVisitor av = new AliasVisitor(input);
         AliasDTO alias = av.getAlias(rc);
         if (alias == null)
-            throw new SyntaxError("Alias definitions should be in format <name>(<parameters>) { <definition> }", s);
+            throw new SyntaxError("Invalid alias definition, e.g. \"Positive(int v) { v >= 0 }\"", s);
         return alias;
     }
 
     private static ParseTree compile(String toParse) throws LJError {
         Optional<String> s = getErrors(toParse);
         if (s.isPresent())
-            throw new SyntaxError(s.get(), toParse);
+            throw new SyntaxError("Invalid refinement expression, e.g. \"v > 0\"", toParse);
 
         CodePointCharStream input = CharStreams.fromString(toParse);
         RJErrorListener err = new RJErrorListener();

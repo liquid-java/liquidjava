@@ -94,7 +94,7 @@ public class ExternalRefinementTypeChecker extends TypeChecker {
     }
 
     protected void getGhostFunction(String value, CtElement element) throws LJError {
-        GhostDTO f = RefinementsParser.getGhostDeclaration(value);
+        GhostDTO f = getGhostDeclaration(value, element);
         if (element.getParent() instanceof CtInterface<?>) {
             GhostFunction gh = new GhostFunction(f, factory, prefix);
             context.addGhostFunction(gh);
