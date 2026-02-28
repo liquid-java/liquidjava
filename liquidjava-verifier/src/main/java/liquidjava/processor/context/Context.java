@@ -104,8 +104,7 @@ public class Context {
         var.addSuperTypes(type.getSuperclass(), type.getSuperInterfaces());
     }
 
-    public RefinedVariable addVarToContext(String simpleName, CtTypeReference<?> type, Predicate c,
-            CtElement element) {
+    public RefinedVariable addVarToContext(String simpleName, CtTypeReference<?> type, Predicate c, CtElement element) {
         RefinedVariable vi = new Variable(simpleName, type, c);
         vi.addPlacementInCode(element);
         vi.addSuperTypes(type.getSuperclass(), type.getSuperInterfaces());

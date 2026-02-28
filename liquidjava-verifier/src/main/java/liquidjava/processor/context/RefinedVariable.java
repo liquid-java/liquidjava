@@ -56,7 +56,7 @@ public abstract class RefinedVariable extends Refined {
     public SourcePosition getAnnPosition() {
         return annPosition;
     }
-    
+
     @Override
     public int hashCode() {
         final int prime = 31;
