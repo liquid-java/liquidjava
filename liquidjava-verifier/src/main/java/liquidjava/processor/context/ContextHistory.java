@@ -77,7 +77,7 @@ public class ContextHistory {
 
     public String getScopePosition(CtElement element) {
         CtElement startElement = element instanceof CtParameter<?> ? element.getParent() : element;
-        SourcePosition annPosition = Utils.getFirstAnnotationPosition(startElement);
+        SourcePosition annPosition = Utils.getFirstLJAnnotationPosition(startElement);
         SourcePosition pos = element.getPosition();
         return String.format("%d:%d-%d:%d", annPosition.getLine(), annPosition.getColumn() + 1, pos.getEndLine(),
                 pos.getEndColumn());

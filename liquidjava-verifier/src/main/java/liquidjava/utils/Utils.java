@@ -38,13 +38,13 @@ public class Utils {
         return String.format("%s.%s", prefix, name);
     }
 
-    public static SourcePosition getAnnotationPosition(CtElement element, String refinement) {
+    public static SourcePosition getLJAnnotationPosition(CtElement element, String refinement) {
         return element.getAnnotations().stream()
                 .filter(a -> isLiquidJavaAnnotation(a) && hasRefinementValue(a, "\"" + refinement + "\"")).findFirst()
                 .map(CtElement::getPosition).orElse(element.getPosition());
     }
 
-    public static SourcePosition getFirstAnnotationPosition(CtElement element) {
+    public static SourcePosition getFirstLJAnnotationPosition(CtElement element) {
         return element.getAnnotations().stream().filter(Utils::isLiquidJavaAnnotation).map(CtElement::getPosition)
                 .min((p1, p2) -> {
                     if (p1.getLine() != p2.getLine())

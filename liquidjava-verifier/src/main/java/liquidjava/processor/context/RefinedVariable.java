@@ -42,7 +42,7 @@ public abstract class RefinedVariable extends Refined {
 
     public void addPlacementInCode(CtElement element) {
         placementInCode = PlacementInCode.createPlacement(element);
-        annPosition = Utils.getFirstAnnotationPosition(element);
+        annPosition = Utils.getFirstLJAnnotationPosition(element);
     }
 
     public void addPlacementInCode(PlacementInCode placement) {
