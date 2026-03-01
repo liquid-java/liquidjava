@@ -35,7 +35,7 @@ public class RefinementsParser {
         ParseTree rc = compile(s);
         GhostDTO g = GhostVisitor.getGhostDecl(rc);
         if (g == null)
-            throw new SyntaxError("Invalid ghost declaration, e.g. @Ghost(\"int size\")", s);
+            throw new SyntaxError("Invalid ghost declaration, expected e.g. @Ghost(\"int size\")", s);
         return g;
     }
 
@@ -56,7 +56,7 @@ public class RefinementsParser {
         AliasVisitor av = new AliasVisitor(input);
         AliasDTO alias = av.getAlias(rc);
         if (alias == null)
-            throw new SyntaxError("Invalid alias definition, e.g. @RefinementAlias(\"Positive(int v) { v >= 0 }\")", s);
+            throw new SyntaxError("Invalid alias definition, expected e.g. @RefinementAlias(\"Positive(int v) { v >= 0 }\")", s);
         return alias;
     }
 
