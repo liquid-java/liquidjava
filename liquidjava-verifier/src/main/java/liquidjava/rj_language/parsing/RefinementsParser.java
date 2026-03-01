@@ -56,7 +56,8 @@ public class RefinementsParser {
         AliasVisitor av = new AliasVisitor(input);
         AliasDTO alias = av.getAlias(rc);
         if (alias == null)
-            throw new SyntaxError("Invalid alias definition, expected e.g. @RefinementAlias(\"Positive(int v) { v >= 0 }\")", s);
+            throw new SyntaxError(
+                    "Invalid alias definition, expected e.g. @RefinementAlias(\"Positive(int v) { v >= 0 }\")", s);
         return alias;
     }
 

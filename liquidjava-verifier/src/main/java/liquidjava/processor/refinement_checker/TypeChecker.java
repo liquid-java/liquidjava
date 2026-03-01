@@ -82,8 +82,8 @@ public abstract class TypeChecker extends CtScanner {
             Predicate p = new Predicate(ref.get(), element);
             if (!p.getExpression().isBooleanExpression()) {
                 SourcePosition position = Utils.getAnnotationPosition(element, ref.get());
-                throw new InvalidRefinementError(position,
-                        "Refinement predicate must be a boolean expression", ref.get());
+                throw new InvalidRefinementError(position, "Refinement predicate must be a boolean expression",
+                        ref.get());
             }
             constr = Optional.of(p);
         }
@@ -251,8 +251,8 @@ public abstract class TypeChecker extends CtScanner {
             if (klass != null && path != null) {
                 a.parse(path);
                 if (a.getExpression() != null && !a.getExpression().isBooleanExpression()) {
-                    throw new InvalidRefinementError(position,
-                            "Refinement alias must return a boolean expression", ref);
+                    throw new InvalidRefinementError(position, "Refinement alias must return a boolean expression",
+                            ref);
                 }
                 AliasWrapper aw = new AliasWrapper(a, factory, klass, path);
                 context.addAlias(aw);
