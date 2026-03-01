@@ -19,9 +19,7 @@ public class GhostVisitor {
             List<String> ls = args.stream().map(Pair::first).collect(Collectors.toList());
             return new GhostDTO(name, ls, type);
         } else if (rc.getChildCount() > 0) {
-            int i = rc.getChildCount();
-            if (i > 0)
-                return getGhostDecl(rc.getChild(0));
+            return getGhostDecl(rc.getChild(0));
         }
         return null;
     }

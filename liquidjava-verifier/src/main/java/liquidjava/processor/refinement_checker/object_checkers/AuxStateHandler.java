@@ -210,8 +210,8 @@ public class AuxStateHandler {
         Predicate p = new Predicate(value, e, prefix);
         if (!p.getExpression().isBooleanExpression()) {
             SourcePosition position = Utils.getAnnotationPosition(e, value);
-            throw new InvalidRefinementError(position,
-                    "State refinement transition must be a boolean expression", value);
+            throw new InvalidRefinementError(position, "State refinement transition must be a boolean expression",
+                    value);
         }
         CtTypeReference<?> r = tc.getFactory().Type().createReference(targetClass);
         String nameOld = String.format(Formats.INSTANCE, Keys.THIS, tc.getContext().getCounter());
