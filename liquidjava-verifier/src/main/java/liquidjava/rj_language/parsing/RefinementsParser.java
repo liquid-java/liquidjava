@@ -35,7 +35,7 @@ public class RefinementsParser {
         ParseTree rc = compile(s);
         GhostDTO g = GhostVisitor.getGhostDecl(rc);
         if (g == null)
-            throw new SyntaxError("Invalid ghost declaration, e.g. \"int size\"", s);
+            throw new SyntaxError("Invalid ghost declaration, e.g. @Ghost(\"int size\")", s);
         return g;
     }
 
@@ -56,14 +56,14 @@ public class RefinementsParser {
         AliasVisitor av = new AliasVisitor(input);
         AliasDTO alias = av.getAlias(rc);
         if (alias == null)
-            throw new SyntaxError("Invalid alias definition, e.g. \"Positive(int v) { v >= 0 }\"", s);
+            throw new SyntaxError("Invalid alias definition, e.g. @RefinementAlias(\"Positive(int v) { v >= 0 }\")", s);
         return alias;
     }
 
     private static ParseTree compile(String toParse) throws LJError {
         Optional<String> s = getErrors(toParse);
         if (s.isPresent())
-            throw new SyntaxError("Invalid refinement expression, e.g. \"v > 0\"", toParse);
+            throw new SyntaxError("Invalid refinement expression, expected a logical predicate", toParse);
 
         CodePointCharStream input = CharStreams.fromString(toParse);
         RJErrorListener err = new RJErrorListener();
