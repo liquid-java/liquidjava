@@ -164,7 +164,7 @@ public abstract class TypeChecker extends CtScanner {
 
     protected GhostDTO getGhostDeclaration(String value, SourcePosition position) throws LJError {
         try {
-            return RefinementsParser.getGhostDeclaration(value);
+            return RefinementsParser.parseGhostDeclaration(value);
         } catch (LJError e) {
             // add location info to error
             e.setPosition(position);
@@ -238,7 +238,7 @@ public abstract class TypeChecker extends CtScanner {
 
     protected void handleAlias(String ref, CtElement element, SourcePosition position) throws LJError {
         try {
-            AliasDTO a = RefinementsParser.getAliasDeclaration(ref);
+            AliasDTO a = RefinementsParser.parseAliasDefinition(ref);
             String klass = null;
             String path = null;
             if (element instanceof CtClass) {

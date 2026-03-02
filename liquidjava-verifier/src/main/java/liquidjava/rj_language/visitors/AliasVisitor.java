@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 import liquidjava.processor.facade.AliasDTO;
 import liquidjava.utils.Pair;
-import org.antlr.v4.runtime.CodePointCharStream;
 import org.antlr.v4.runtime.misc.Interval;
 import org.antlr.v4.runtime.tree.ParseTree;
 import rj.grammar.RJParser.AliasContext;
@@ -13,12 +12,6 @@ import rj.grammar.RJParser.ArgDeclIDContext;
 import rj.grammar.RJParser.PredContext;
 
 public class AliasVisitor {
-    CodePointCharStream input;
-
-    public AliasVisitor(CodePointCharStream input) {
-        this.input = input;
-    }
-
     /**
      * Gets information about the alias
      *
@@ -56,7 +49,7 @@ public class AliasVisitor {
         int a = pred.start.getStartIndex();
         int b = pred.stop.getStopIndex();
         Interval interval = new Interval(a, b);
-        return input.getText(interval);
+        return pred.start.getInputStream().getText(interval);
     }
 
     private List<Pair<String, String>> getArgsDecl(ArgDeclIDContext argDeclID) {
