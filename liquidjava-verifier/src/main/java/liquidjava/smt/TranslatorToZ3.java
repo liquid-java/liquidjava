@@ -50,7 +50,8 @@ public class TranslatorToZ3 implements AutoCloseable {
         TranslatorContextToZ3.addAliases(context.getAliases(), aliasTranslation);
         TranslatorContextToZ3.addGhostFunctions(z3, context.getGhosts(), funcTranslation);
         TranslatorContextToZ3.addGhostStates(z3, context.getGhostStates(), funcTranslation);
-        instanceVariableRefinements = context.getCtxInstanceVars().stream().map(v -> v.getRefinement().toString()).collect(Collectors.toSet());
+        instanceVariableRefinements = context.getCtxInstanceVars().stream().map(v -> v.getRefinement().toString())
+                .collect(Collectors.toSet());
     }
 
     @SuppressWarnings("unchecked")
@@ -72,7 +73,8 @@ public class TranslatorToZ3 implements AutoCloseable {
                 Expr<?> value = model.getConstInterp(decl);
                 String assignment = name + " == " + value;
                 // Skip values of uninterpreted sorts
-                if (value.getSort().getSortKind() != Z3_sort_kind.Z3_UNINTERPRETED_SORT && !instanceVariableRefinements.contains(assignment))
+                if (value.getSort().getSortKind() != Z3_sort_kind.Z3_UNINTERPRETED_SORT
+                        && !instanceVariableRefinements.contains(assignment))
                     assignments.add(assignment);
             }
         }
@@ -84,7 +86,7 @@ public class TranslatorToZ3 implements AutoCloseable {
             String assignment = name + " == " + value;
             if (!instanceVariableRefinements.contains(assignment))
                 assignments.add(assignment);
-        }        
+        }
         return new Counterexample(assignments);
     }
 
