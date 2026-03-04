@@ -77,7 +77,7 @@ public class LJDiagnostic extends RuntimeException {
         // details
         String details = getDetails();
         if (!details.isEmpty()) {
-            sb.append(Colors.CYAN).append(" --> ").append(String.join("\n     ", details.split("\n"))).append(Colors.RESET).append("\n");
+            sb.append(" --> ").append(String.join("\n     ", details.split("\n"))).append("\n");
         }
 
         // location
