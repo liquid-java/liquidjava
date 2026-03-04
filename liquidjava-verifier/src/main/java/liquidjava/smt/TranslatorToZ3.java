@@ -18,8 +18,10 @@ import com.microsoft.z3.Model;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.errors.LJError;
@@ -40,13 +42,15 @@ public class TranslatorToZ3 implements AutoCloseable {
     private final Map<String, FuncDecl<?>> funcTranslation = new HashMap<>();
     private final Map<String, Expr<?>> funcAppTranslation = new HashMap<>();
     private final Map<Expr<?>, String> exprToNameTranslation = new HashMap<>();
+    private final Set<String> instanceVariableRefinements;
 
-    public TranslatorToZ3(liquidjava.processor.context.Context c) {
-        TranslatorContextToZ3.translateVariables(z3, c.getContext(), varTranslation);
-        TranslatorContextToZ3.storeVariablesSubtypes(z3, c.getAllVariablesWithSupertypes(), varSuperTypes);
-        TranslatorContextToZ3.addAliases(c.getAliases(), aliasTranslation);
-        TranslatorContextToZ3.addGhostFunctions(z3, c.getGhosts(), funcTranslation);
-        TranslatorContextToZ3.addGhostStates(z3, c.getGhostStates(), funcTranslation);
+    public TranslatorToZ3(liquidjava.processor.context.Context context) {
+        TranslatorContextToZ3.translateVariables(z3, context.getContext(), varTranslation);
+        TranslatorContextToZ3.storeVariablesSubtypes(z3, context.getAllVariablesWithSupertypes(), varSuperTypes);
+        TranslatorContextToZ3.addAliases(context.getAliases(), aliasTranslation);
+        TranslatorContextToZ3.addGhostFunctions(z3, context.getGhosts(), funcTranslation);
+        TranslatorContextToZ3.addGhostStates(z3, context.getGhostStates(), funcTranslation);
+        instanceVariableRefinements = context.getCtxInstanceVars().stream().map(v -> v.getRefinement().toString()).collect(Collectors.toSet());
     }
 
     @SuppressWarnings("unchecked")
@@ -66,18 +70,21 @@ public class TranslatorToZ3 implements AutoCloseable {
             if (decl.getArity() == 0) {
                 Symbol name = decl.getName();
                 Expr<?> value = model.getConstInterp(decl);
+                String assignment = name + " == " + value;
                 // Skip values of uninterpreted sorts
-                if (value.getSort().getSortKind() != Z3_sort_kind.Z3_UNINTERPRETED_SORT)
-                    assignments.add(name + " == " + value);
+                if (value.getSort().getSortKind() != Z3_sort_kind.Z3_UNINTERPRETED_SORT && !instanceVariableRefinements.contains(assignment))
+                    assignments.add(assignment);
             }
         }
         // Extract function application values
         for (Map.Entry<String, Expr<?>> entry : funcAppTranslation.entrySet()) {
-            String label = entry.getKey();
+            String name = entry.getKey();
             Expr<?> application = entry.getValue();
             Expr<?> value = model.eval(application, true);
-            assignments.add(label + " = " + value);
-        }
+            String assignment = name + " == " + value;
+            if (!instanceVariableRefinements.contains(assignment))
+                assignments.add(assignment);
+        }        
         return new Counterexample(assignments);
     }
 

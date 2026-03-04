@@ -27,20 +27,22 @@ public class RefinementError extends LJError {
 
     @Override
     public String getDetails() {
-        return "Counterexample: " + getCounterExampleString();
+        String counterexampleString = getCounterExampleString();
+        if (counterexampleString == null)
+            return "";
+        return "Counterexample: " + counterexampleString;
     }
 
     public String getCounterExampleString() {
         if (counterexample == null || counterexample.assignments().isEmpty())
-            return "";
+            return null;
 
-        // filter fresh variables and join assignements with &&
-        String counterexampleExp = counterexample.assignments().stream().filter(a -> !a.startsWith("#fresh_"))
-                .reduce((a, b) -> a + " && " + b).orElse("");
+        // join assignements with &&
+        String counterexampleExp = String.join(" && ", counterexample.assignments());
 
         // check if counterexample is trivial (same as the found value)
         if (counterexampleExp.equals(found.getValue().toString()))
-            return "";
+            return null;
 
         return counterexampleExp;
     }
