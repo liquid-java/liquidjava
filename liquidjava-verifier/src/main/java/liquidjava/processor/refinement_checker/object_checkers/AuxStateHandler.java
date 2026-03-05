@@ -16,6 +16,7 @@ import liquidjava.utils.constants.Formats;
 import liquidjava.utils.constants.Keys;
 import liquidjava.utils.constants.Types;
 import spoon.reflect.code.*;
+import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.*;
 import spoon.reflect.reference.CtTypeReference;
 
@@ -69,7 +70,7 @@ public class AuxStateHandler {
             if (to != null) {
                 Predicate p = new Predicate(to, element);
                 if (!p.getExpression().isBooleanExpression()) {
-                    throw new InvalidRefinementError(element.getPosition(),
+                    throw new InvalidRefinementError(an.getPosition(),
                             "State refinement transition must be a boolean expression", to);
                 }
                 state.setTo(p);
@@ -208,8 +209,9 @@ public class AuxStateHandler {
             boolean isTo, String prefix) throws LJError {
         Predicate p = new Predicate(value, e, prefix);
         if (!p.getExpression().isBooleanExpression()) {
-            throw new InvalidRefinementError(e.getPosition(),
-                    "State refinement transition must be a boolean expression", value);
+            SourcePosition position = Utils.getAnnotationPosition(e, value);
+            throw new InvalidRefinementError(position, "State refinement transition must be a boolean expression",
+                    value);
         }
         CtTypeReference<?> r = tc.getFactory().Type().createReference(targetClass);
         String nameOld = String.format(Formats.INSTANCE, Keys.THIS, tc.getContext().getCounter());

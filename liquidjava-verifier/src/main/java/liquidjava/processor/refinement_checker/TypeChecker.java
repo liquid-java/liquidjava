@@ -68,25 +68,24 @@ public abstract class TypeChecker extends CtScanner {
         for (CtAnnotation<? extends Annotation> ann : element.getAnnotations()) {
             String an = ann.getActualAnnotation().annotationType().getCanonicalName();
             if (an.contentEquals("liquidjava.specification.Refinement")) {
-                String st = getStringFromAnnotation(ann.getValue("value"));
-                ref = Optional.of(st);
+                String value = getStringFromAnnotation(ann.getValue("value"));
+                ref = Optional.of(value);
 
             } else if (an.contentEquals("liquidjava.specification.RefinementPredicate")) {
-                String st = getStringFromAnnotation(ann.getValue("value"));
-                getGhostFunction(st, element);
+                String value = getStringFromAnnotation(ann.getValue("value"));
+                getGhostFunction(value, element, ann.getPosition());
 
             } else if (an.contentEquals("liquidjava.specification.RefinementAlias")) {
-                String st = getStringFromAnnotation(ann.getValue("value"));
-                handleAlias(st, element);
+                String value = getStringFromAnnotation(ann.getValue("value"));
+                handleAlias(value, element, ann.getPosition());
             }
         }
         if (ref.isPresent()) {
             Predicate p = new Predicate(ref.get(), element);
-
-            // check if refinement is valid
             if (!p.getExpression().isBooleanExpression()) {
-                throw new InvalidRefinementError(element.getPosition(),
-                        "Refinement predicate must be a boolean expression", ref.get());
+                SourcePosition position = Utils.getAnnotationPosition(element, ref.get());
+                throw new InvalidRefinementError(position, "Refinement predicate must be a boolean expression",
+                        ref.get());
             }
             constr = Optional.of(p);
         }
@@ -119,7 +118,7 @@ public abstract class TypeChecker extends CtScanner {
             }
             if (an.contentEquals("liquidjava.specification.Ghost")) {
                 CtLiteral<String> s = (CtLiteral<String>) ann.getAllValues().get("value");
-                createStateGhost(s.getValue(), ann, element);
+                createStateGhost(s.getValue(), element, ann.getPosition());
             }
         }
     }
@@ -166,13 +165,22 @@ public abstract class TypeChecker extends CtScanner {
         }
     }
 
-    private void createStateGhost(String string, CtAnnotation<? extends Annotation> ann, CtElement element)
-            throws LJError {
-        GhostDTO gd = RefinementsParser.getGhostDeclaration(string);
+    protected GhostDTO getGhostDeclaration(String value, SourcePosition position) throws LJError {
+        try {
+            return RefinementsParser.parseGhostDeclaration(value);
+        } catch (LJError e) {
+            // add location info to error
+            e.setPosition(position);
+            throw e;
+        }
+    }
+
+    private void createStateGhost(String string, CtElement element, SourcePosition position) throws LJError {
+        GhostDTO gd = getGhostDeclaration(string, position);
         if (!gd.paramTypes().isEmpty()) {
             throw new CustomError(
                     "Ghost States have the class as parameter " + "by default, no other parameters are allowed",
-                    ann.getPosition());
+                    position);
         }
         // Set class as parameter of Ghost
         String qn = getQualifiedClassName(element);
@@ -224,17 +232,17 @@ public abstract class TypeChecker extends CtScanner {
         return Optional.empty();
     }
 
-    protected void getGhostFunction(String value, CtElement element) throws LJError {
-        GhostDTO f = RefinementsParser.getGhostDeclaration(value);
+    protected void getGhostFunction(String value, CtElement element, SourcePosition position) throws LJError {
+        GhostDTO f = getGhostDeclaration(value, position);
         if (element.getParent()instanceof CtClass<?> klass) {
             GhostFunction gh = new GhostFunction(f, factory, klass.getQualifiedName());
             context.addGhostFunction(gh);
         }
     }
 
-    protected void handleAlias(String ref, CtElement element) throws LJError {
+    protected void handleAlias(String ref, CtElement element, SourcePosition position) throws LJError {
         try {
-            AliasDTO a = RefinementsParser.getAliasDeclaration(ref);
+            AliasDTO a = RefinementsParser.parseAliasDefinition(ref);
             String klass = null;
             String path = null;
             if (element instanceof CtClass) {
@@ -246,18 +254,16 @@ public abstract class TypeChecker extends CtScanner {
             }
             if (klass != null && path != null) {
                 a.parse(path);
-                // refinement alias must return a boolean expression
                 if (a.getExpression() != null && !a.getExpression().isBooleanExpression()) {
-                    throw new InvalidRefinementError(element.getPosition(),
-                            "Refinement alias must return a boolean expression", ref);
+                    throw new InvalidRefinementError(position, "Refinement alias must return a boolean expression",
+                            ref);
                 }
                 AliasWrapper aw = new AliasWrapper(a, factory, klass, path);
                 context.addAlias(aw);
             }
         } catch (LJError e) {
             // add location info to error
-            SourcePosition pos = Utils.getLJAnnotationPosition(element, ref);
-            e.setPosition(pos);
+            e.setPosition(position);
             throw e;
         }
     }

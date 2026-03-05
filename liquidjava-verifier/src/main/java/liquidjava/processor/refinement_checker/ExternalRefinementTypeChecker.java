@@ -16,6 +16,7 @@ import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.parsing.RefinementsParser;
 import liquidjava.utils.Utils;
 import spoon.reflect.code.CtLiteral;
+import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.CtAnnotation;
 import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtElement;
@@ -95,8 +96,8 @@ public class ExternalRefinementTypeChecker extends TypeChecker {
         super.visitCtMethod(method);
     }
 
-    protected void getGhostFunction(String value, CtElement element) throws LJError {
-        GhostDTO f = RefinementsParser.getGhostDeclaration(value);
+    protected void getGhostFunction(String value, CtElement element, SourcePosition position) throws LJError {
+        GhostDTO f = getGhostDeclaration(value, position);
         if (element.getParent() instanceof CtInterface<?>) {
             GhostFunction gh = new GhostFunction(f, factory, prefix);
             context.addGhostFunction(gh);
