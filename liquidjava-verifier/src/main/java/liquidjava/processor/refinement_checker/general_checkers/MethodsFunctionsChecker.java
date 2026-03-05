@@ -200,8 +200,8 @@ public class MethodsFunctionsChecker {
                 Predicate cexpectedType = fi.getRefReturn().substituteVariable(Keys.WILDCARD, returnVarName)
                         .substituteVariable(Keys.THIS, returnVarName);
 
-                rtc.getContext().addVarToContext(returnVarName, method.getType(), cretRef, ret);
-                rtc.checkSMT(cexpectedType, ret, fi.getMessage());
+                RefinedVariable rv = rtc.getContext().addVarToContext(returnVarName, method.getType(), cretRef, ret);
+                rtc.checkSMT(cexpectedType, ret, fi.getMessage(), rv);
                 rtc.getContext().newRefinementToVariableInContext(returnVarName, cexpectedType);
             }
         }
@@ -372,7 +372,7 @@ public class MethodsFunctionsChecker {
                 VariableInstance vi = (VariableInstance) invocation.getMetadata(Keys.TARGET);
                 c = c.substituteVariable(Keys.THIS, vi.getName());
             }
-            rtc.checkSMT(c, invocation, fArg.getMessage());
+            rtc.checkSMT(c, invocation, fArg.getMessage(), fArg);
         }
     }
 

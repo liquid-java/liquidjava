@@ -305,17 +305,23 @@ public abstract class TypeChecker extends CtScanner {
             rv.addSuperType(t);
         context.addRefinementInstanceToVariable(simpleName, newName);
         String customMessage = getMessageFromAnnotation(variable).orElse(mainRV != null ? mainRV.getMessage() : null);
-        checkSMT(cEt, usage, customMessage); // TODO CHANGE
+        checkSMT(cEt, usage, customMessage, mainRV); // TODO CHANGE
         context.addRefinementToVariableInContext(simpleName, type, cet, usage);
     }
 
-    public void checkSMT(Predicate expectedType, CtElement element) throws LJError {
-        checkSMT(expectedType, element, null);
+    public void checkSMT(Predicate expectedType, CtElement element, RefinedVariable rv) throws LJError {
+        checkSMT(expectedType, element, null, rv);
     }
 
-    public void checkSMT(Predicate expectedType, CtElement element, String customMessage) throws LJError {
-        vcChecker.processSubtyping(expectedType, context.getGhostStates(), element, factory, customMessage);
-        element.putMetadata(Keys.REFINEMENT, expectedType);
+    public void checkSMT(Predicate expectedType, CtElement element, String customMessage, RefinedVariable rv)
+            throws LJError {
+        try {
+            vcChecker.processSubtyping(expectedType, context.getGhostStates(), element, factory, customMessage);
+            element.putMetadata(Keys.REFINEMENT, expectedType);
+        } catch (RefinementError e) {
+            rv.setFailingRefinement(expectedType);
+            throw e;
+        }
     }
 
     public void checkStateSMT(Predicate prevState, Predicate expectedState, CtElement target, String moreInfo)

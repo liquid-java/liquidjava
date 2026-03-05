@@ -14,6 +14,7 @@ public abstract class RefinedVariable extends Refined {
     private PlacementInCode placementInCode;
     private boolean isParameter;
     private SourcePosition annPosition;
+    private Predicate failingRefinement;
 
     public RefinedVariable(String name, CtTypeReference<?> type, Predicate c) {
         super(name, type, c);
@@ -87,5 +88,13 @@ public abstract class RefinedVariable extends Refined {
 
     public boolean isParameter() {
         return isParameter;
+    }
+
+    public void setFailingRefinement(Predicate failingRefinement) {
+        this.failingRefinement = failingRefinement;
+    }
+
+    public Predicate getFailingRefinement() {
+        return failingRefinement;
     }
 }

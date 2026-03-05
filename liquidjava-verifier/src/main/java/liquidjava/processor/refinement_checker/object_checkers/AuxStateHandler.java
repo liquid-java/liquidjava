@@ -440,7 +440,7 @@ public class AuxStateHandler {
         // is a subtype of the variable's main refinement
         if (rv instanceof Variable) {
             Predicate superC = rv.getMainRefinement().substituteVariable(rv.getName(), vi2.getName());
-            tc.checkSMT(superC, fw);
+            tc.checkSMT(superC, fw, rv);
             tc.getContext().addRefinementInstanceToVariable(parentTargetName, newInstanceName);
         }
     }
@@ -558,7 +558,7 @@ public class AuxStateHandler {
             // is a subtype of the variable's main refinement
             if (rv instanceof Variable) {
                 Predicate superC = rv.getMainRefinement().substituteVariable(rv.getName(), vi2.getName());
-                tc.checkSMT(superC, invocation);
+                tc.checkSMT(superC, invocation, rv);
                 tc.getContext().addRefinementInstanceToVariable(superName, name2);
             }
         }
