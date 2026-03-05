@@ -209,7 +209,7 @@ public class AuxStateHandler {
             boolean isTo, String prefix) throws LJError {
         Predicate p = new Predicate(value, e, prefix);
         if (!p.getExpression().isBooleanExpression()) {
-            SourcePosition position = Utils.getAnnotationPosition(e, value);
+            SourcePosition position = Utils.getLJAnnotationPosition(e, value);
             throw new InvalidRefinementError(position, "State refinement transition must be a boolean expression",
                     value);
         }
