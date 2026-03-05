@@ -86,9 +86,9 @@ public class Context {
         return ret;
     }
 
-    public Set<String> getAllVariableRefinements() {
+    public Set<String> getVariableRefinements() {
         Set<RefinedVariable> vars = new HashSet<>();
-        vars.addAll(getAllCtxVars());
+        vars.addAll(ctxVars.peek());
         vars.addAll(ctxInstanceVars);
         vars.addAll(ctxGlobalVars);
         Set<String> refinements = new HashSet<>();
