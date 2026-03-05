@@ -1,5 +1,7 @@
 package liquidjava.smt;
 
+import java.util.Set;
+
 import com.martiansoftware.jsap.SyntaxException;
 import com.microsoft.z3.Expr;
 import com.microsoft.z3.Model;
@@ -36,7 +38,8 @@ public class SMTEvaluator {
                 // subRef is not a subtype of supRef
                 if (result.equals(Status.SATISFIABLE)) {
                     Model model = solver.getModel();
-                    Counterexample counterexample = tz3.getCounterexample(model);
+                    Set<String> variableRefinements = context.getAllVariableRefinements();
+                    Counterexample counterexample = tz3.getCounterexample(model, variableRefinements);
                     return SMTResult.error(counterexample);
                 }
             }

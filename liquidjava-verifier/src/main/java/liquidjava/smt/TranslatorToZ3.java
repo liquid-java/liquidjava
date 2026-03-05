@@ -6,7 +6,6 @@ import com.microsoft.z3.BoolExpr;
 import com.microsoft.z3.Expr;
 import com.microsoft.z3.FPExpr;
 import com.microsoft.z3.FuncDecl;
-import com.microsoft.z3.FuncInterp;
 import com.microsoft.z3.IntExpr;
 import com.microsoft.z3.IntNum;
 import com.microsoft.z3.RealExpr;
@@ -18,7 +17,6 @@ import com.microsoft.z3.Model;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -42,7 +40,6 @@ public class TranslatorToZ3 implements AutoCloseable {
     private final Map<String, FuncDecl<?>> funcTranslation = new HashMap<>();
     private final Map<String, Expr<?>> funcAppTranslation = new HashMap<>();
     private final Map<Expr<?>, String> exprToNameTranslation = new HashMap<>();
-    private final Set<String> instanceVariableRefinements;
 
     public TranslatorToZ3(liquidjava.processor.context.Context context) {
         TranslatorContextToZ3.translateVariables(z3, context.getContext(), varTranslation);
@@ -50,8 +47,6 @@ public class TranslatorToZ3 implements AutoCloseable {
         TranslatorContextToZ3.addAliases(context.getAliases(), aliasTranslation);
         TranslatorContextToZ3.addGhostFunctions(z3, context.getGhosts(), funcTranslation);
         TranslatorContextToZ3.addGhostStates(z3, context.getGhostStates(), funcTranslation);
-        instanceVariableRefinements = context.getCtxInstanceVars().stream().map(v -> v.getRefinement().toString())
-                .collect(Collectors.toSet());
     }
 
     @SuppressWarnings("unchecked")
@@ -64,7 +59,7 @@ public class TranslatorToZ3 implements AutoCloseable {
     /**
      * Extracts the counterexample from the Z3 model
      */
-    public Counterexample getCounterexample(Model model) {
+    public Counterexample getCounterexample(Model model, Set<String> variableRefinements) {
         List<String> assignments = new ArrayList<>();
         // Extract constant variable assignments
         for (FuncDecl<?> decl : model.getDecls()) {
@@ -74,7 +69,7 @@ public class TranslatorToZ3 implements AutoCloseable {
                 String assignment = name + " == " + value;
                 // Skip values of uninterpreted sorts
                 if (value.getSort().getSortKind() != Z3_sort_kind.Z3_UNINTERPRETED_SORT
-                        && !instanceVariableRefinements.contains(assignment))
+                        && !variableRefinements.contains(assignment))
                     assignments.add(assignment);
             }
         }
@@ -84,7 +79,7 @@ public class TranslatorToZ3 implements AutoCloseable {
             Expr<?> application = entry.getValue();
             Expr<?> value = model.eval(application, true);
             String assignment = name + " == " + value;
-            if (!instanceVariableRefinements.contains(assignment))
+            if (!variableRefinements.contains(assignment))
                 assignments.add(assignment);
         }
         return new Counterexample(assignments);

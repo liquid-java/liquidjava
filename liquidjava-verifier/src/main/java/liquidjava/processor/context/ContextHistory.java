@@ -49,7 +49,7 @@ public class ContextHistory {
         String file = pos.getFile().getAbsolutePath();
         String scope = getScopePosition(element);
         fileScopeVars.putIfAbsent(file, new HashMap<>());
-        fileScopeVars.get(file).put(scope, new HashSet<>(context.getCtxVars()));
+        fileScopeVars.get(file).put(scope, new HashSet<>(context.getAllCtxVars()));
 
         // add other elements in context
         instanceVars.addAll(context.getCtxInstanceVars());
