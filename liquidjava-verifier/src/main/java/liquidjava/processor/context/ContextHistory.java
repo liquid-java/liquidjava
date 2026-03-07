@@ -79,8 +79,8 @@ public class ContextHistory {
         CtElement startElement = element instanceof CtParameter<?> ? element.getParent() : element;
         SourcePosition annPosition = Utils.getFirstLJAnnotationPosition(startElement);
         SourcePosition pos = element.getPosition();
-        return String.format("%d:%d-%d:%d", annPosition.getLine(), annPosition.getColumn() + 1, pos.getEndLine(),
-                pos.getEndColumn());
+        return String.format("%d:%d-%d:%d", annPosition.getLine() - 1, annPosition.getColumn() - 1,
+                pos.getEndLine() - 1, pos.getEndColumn() - 1);
     }
 
     public Map<String, Map<String, Set<RefinedVariable>>> getFileScopeVars() {
