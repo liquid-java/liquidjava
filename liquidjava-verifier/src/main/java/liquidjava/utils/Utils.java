@@ -38,6 +38,14 @@ public class Utils {
         return String.format("%s.%s", prefix, name);
     }
 
+    public static String getFile(CtElement element) {
+        SourcePosition pos = element.getPosition();
+        if (pos == null || pos.getFile() == null)
+            return null;
+
+        return pos.getFile().getAbsolutePath();
+    }
+
     public static SourcePosition getLJAnnotationPosition(CtElement element, String refinement) {
         return element.getAnnotations().stream()
                 .filter(a -> isLiquidJavaAnnotation(a) && hasRefinementValue(a, "\"" + refinement + "\"")).findFirst()

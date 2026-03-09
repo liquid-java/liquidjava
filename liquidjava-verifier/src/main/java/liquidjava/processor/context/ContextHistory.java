@@ -14,9 +14,7 @@ public class ContextHistory {
     private static ContextHistory instance;
 
     private Map<String, Map<String, Set<RefinedVariable>>> fileScopeVars; // file -> (scope -> variables in scope)
-    private Map<String, Set<GhostState>> ghosts; // file -> ghosts
-
-    // globals
+    private Set<GhostState> ghosts;
     private Set<AliasWrapper> aliases;
     private Set<RefinedVariable> instanceVars;
     private Set<RefinedVariable> globalVars;
@@ -25,7 +23,7 @@ public class ContextHistory {
         fileScopeVars = new HashMap<>();
         instanceVars = new HashSet<>();
         globalVars = new HashSet<>();
-        ghosts = new HashMap<>();
+        ghosts = new HashSet<>();
         aliases = new HashSet<>();
     }
 
@@ -44,7 +42,7 @@ public class ContextHistory {
     }
 
     public void saveContext(CtElement element, Context context) {
-        String file = getFile(element);
+        String file = Utils.getFile(element);
         if (file == null)
             return;
 
@@ -56,26 +54,11 @@ public class ContextHistory {
         // add other elements in context (except ghosts)
         instanceVars.addAll(context.getCtxInstanceVars());
         globalVars.addAll(context.getCtxGlobalVars());
+        ghosts.addAll(context.getGhostStates());
         aliases.addAll(context.getAliases());
     }
 
-    public void saveGhost(CtElement element, GhostState ghost) {
-        String file = getFile(element);
-        if (file == null)
-            return;
-        ghosts.putIfAbsent(file, new HashSet<>());
-        ghosts.get(file).add(ghost);
-    }
-
-    private String getFile(CtElement element) {
-        SourcePosition pos = element.getPosition();
-        if (pos == null || pos.getFile() == null)
-            return null;
-
-        return pos.getFile().getAbsolutePath();
-    }
-
-    public String getScopePosition(CtElement element) {
+    private String getScopePosition(CtElement element) {
         CtElement startElement = element instanceof CtParameter<?> ? element.getParent() : element;
         SourcePosition annPosition = Utils.getFirstLJAnnotationPosition(startElement);
         SourcePosition pos = element.getPosition();
@@ -95,7 +78,7 @@ public class ContextHistory {
         return globalVars;
     }
 
-    public Map<String, Set<GhostState>> getGhosts() {
+    public Set<GhostState> getGhosts() {
         return ghosts;
     }
 

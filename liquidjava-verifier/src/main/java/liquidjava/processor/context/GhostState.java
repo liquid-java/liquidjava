@@ -8,9 +8,12 @@ public class GhostState extends GhostFunction {
 
     private GhostFunction parent;
     private Predicate refinement;
+    private final String file;
 
-    public GhostState(String name, List<CtTypeReference<?>> list, CtTypeReference<?> returnType, String prefix) {
+    public GhostState(String name, List<CtTypeReference<?>> list, CtTypeReference<?> returnType, String prefix,
+            String file) {
         super(name, list, returnType, prefix);
+        this.file = file;
     }
 
     public void setGhostParent(GhostFunction parent) {
@@ -27,5 +30,9 @@ public class GhostState extends GhostFunction {
 
     public Predicate getRefinement() {
         return refinement;
+    }
+
+    public String getFile() {
+        return file;
     }
 }

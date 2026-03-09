@@ -8,12 +8,10 @@ import liquidjava.diagnostics.errors.LJError;
 import liquidjava.diagnostics.warnings.ExternalClassNotFoundWarning;
 import liquidjava.diagnostics.warnings.ExternalMethodNotFoundWarning;
 import liquidjava.processor.context.Context;
-import liquidjava.processor.context.ContextHistory;
 import liquidjava.processor.context.GhostFunction;
 import liquidjava.processor.facade.GhostDTO;
 import liquidjava.processor.refinement_checker.general_checkers.MethodsFunctionsChecker;
 import liquidjava.rj_language.Predicate;
-import liquidjava.rj_language.parsing.RefinementsParser;
 import liquidjava.utils.Utils;
 import spoon.reflect.code.CtLiteral;
 import spoon.reflect.cu.SourcePosition;
@@ -31,7 +29,6 @@ import spoon.reflect.reference.CtTypeReference;
 public class ExternalRefinementTypeChecker extends TypeChecker {
     private String prefix;
     private final Diagnostics diagnostics = Diagnostics.getInstance();
-    private final ContextHistory contextHistory = ContextHistory.getInstance();
 
     public ExternalRefinementTypeChecker(Context context, Factory factory) {
         super(context, factory);
