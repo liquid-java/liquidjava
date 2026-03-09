@@ -417,7 +417,7 @@ public class AuxStateHandler {
                 .changeOldMentions(vi.getName(), instanceName);
 
         if (!tc.checkStateSMT(prevState, expectState, fw.getPosition())) { // Invalid field transition
-            tc.throwStateRefinementError(fw.getPosition(), prevState, stateChange.getFrom(), stateChange.getMessage());
+            tc.throwStateRefinementError(fw.getPosition(), prevState, expectState, stateChange.getMessage());
             return;
         }
 
@@ -465,6 +465,7 @@ public class AuxStateHandler {
                 .substituteVariable(name, instanceName);
 
         boolean found = false;
+        String newInstanceName = String.format(Formats.INSTANCE, name, tc.getContext().getCounter());
         for (ObjectState stateChange : stateChanges) { // TODO: only working for 1 state annotation
             if (found) {
                 break;
@@ -483,7 +484,6 @@ public class AuxStateHandler {
 
             found = tc.checkStateSMT(prevCheck, expectState, invocation.getPosition());
             if (stateChange.hasTo()) {
-                String newInstanceName = String.format(Formats.INSTANCE, name, tc.getContext().getCounter());
                 Predicate transitionedState = stateChange.getTo().substituteVariable(Keys.WILDCARD, newInstanceName)
                         .substituteVariable(Keys.THIS, newInstanceName);
                 for (String s : map.keySet()) {
@@ -498,6 +498,11 @@ public class AuxStateHandler {
             Predicate expectedStatesDisjunction = stateChanges.stream().filter(ObjectState::hasFrom)
                     .map(ObjectState::getFrom)
                     .reduce(Predicate.createLit("false", Types.BOOLEAN), Predicate::createDisjunction);
+            expectedStatesDisjunction = expectedStatesDisjunction.substituteVariable(Keys.THIS, newInstanceName);
+            for (String s : map.keySet()) {
+                expectedStatesDisjunction = expectedStatesDisjunction.substituteVariable(s, map.get(s));
+            }
+            expectedStatesDisjunction = expectedStatesDisjunction.changeOldMentions(vi.getName(), newInstanceName);
 
             // combine messages of all state changes
             String message = stateChanges.stream().map(ObjectState::getMessage)
