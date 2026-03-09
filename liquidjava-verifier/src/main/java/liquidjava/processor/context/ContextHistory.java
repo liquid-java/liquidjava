@@ -13,15 +13,15 @@ import spoon.reflect.declaration.CtParameter;
 public class ContextHistory {
     private static ContextHistory instance;
 
-    private Map<String, Map<String, Set<RefinedVariable>>> fileScopeVars; // file -> (scope -> variables in scope)
+    private Map<String, Set<String>> fileScopes;
+    private Set<RefinedVariable> localVars;
     private Set<GhostState> ghosts;
     private Set<AliasWrapper> aliases;
-    private Set<RefinedVariable> instanceVars;
     private Set<RefinedVariable> globalVars;
 
     private ContextHistory() {
-        fileScopeVars = new HashMap<>();
-        instanceVars = new HashSet<>();
+        fileScopes = new HashMap<>();
+        localVars = new HashSet<>();
         globalVars = new HashSet<>();
         ghosts = new HashSet<>();
         aliases = new HashSet<>();
@@ -34,8 +34,8 @@ public class ContextHistory {
     }
 
     public void clearHistory() {
-        fileScopeVars.clear();
-        instanceVars.clear();
+        fileScopes.clear();
+        localVars.clear();
         globalVars.clear();
         ghosts.clear();
         aliases.clear();
@@ -46,13 +46,14 @@ public class ContextHistory {
         if (file == null)
             return;
 
-        // add variables in scope
+        // add scope
         String scope = getScopePosition(element);
-        fileScopeVars.putIfAbsent(file, new HashMap<>());
-        fileScopeVars.get(file).put(scope, new HashSet<>(context.getCtxVars()));
+        fileScopes.putIfAbsent(file, new HashSet<>());
+        fileScopes.get(file).add(scope);
 
-        // add other elements in context (except ghosts)
-        instanceVars.addAll(context.getCtxInstanceVars());
+        // add variables, ghosts and aliases
+        localVars.addAll(context.getCtxVars());
+        localVars.addAll(context.getCtxInstanceVars());
         globalVars.addAll(context.getCtxGlobalVars());
         ghosts.addAll(context.getGhostStates());
         aliases.addAll(context.getAliases());
@@ -62,16 +63,12 @@ public class ContextHistory {
         CtElement startElement = element instanceof CtParameter<?> ? element.getParent() : element;
         SourcePosition annPosition = Utils.getFirstLJAnnotationPosition(startElement);
         SourcePosition pos = element.getPosition();
-        return String.format("%d:%d-%d:%d", annPosition.getLine() - 1, annPosition.getColumn() - 1,
-                pos.getEndLine() - 1, pos.getEndColumn() - 1);
+        return String.format("%d:%d-%d:%d", annPosition.getLine(), annPosition.getColumn(), pos.getEndLine(),
+                pos.getEndColumn());
     }
 
-    public Map<String, Map<String, Set<RefinedVariable>>> getFileScopeVars() {
-        return fileScopeVars;
-    }
-
-    public Set<RefinedVariable> getInstanceVars() {
-        return instanceVars;
+    public Set<RefinedVariable> getLocalVars() {
+        return localVars;
     }
 
     public Set<RefinedVariable> getGlobalVars() {
@@ -84,5 +81,9 @@ public class ContextHistory {
 
     public Set<AliasWrapper> getAliases() {
         return aliases;
+    }
+
+    public Map<String, Set<String>> getFileScopes() {
+        return fileScopes;
     }
 }
