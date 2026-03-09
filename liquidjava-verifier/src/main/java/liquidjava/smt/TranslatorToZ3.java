@@ -6,7 +6,6 @@ import com.microsoft.z3.BoolExpr;
 import com.microsoft.z3.Expr;
 import com.microsoft.z3.FPExpr;
 import com.microsoft.z3.FuncDecl;
-import com.microsoft.z3.FuncInterp;
 import com.microsoft.z3.IntExpr;
 import com.microsoft.z3.IntNum;
 import com.microsoft.z3.RealExpr;
