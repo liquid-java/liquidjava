@@ -492,8 +492,6 @@ public class AuxStateHandler {
                 transitionedState = checkOldMentions(transitionedState, instanceName, newInstanceName);
                 // update of state of new instance of this#n#(whatever it was + 1)
                 addInstanceWithState(tc, name, newInstanceName, vi, transitionedState, invocation);
-                if (found)
-                    return;
             }
         }
         if (!found) { // Reaches the end of stateChange no matching states
