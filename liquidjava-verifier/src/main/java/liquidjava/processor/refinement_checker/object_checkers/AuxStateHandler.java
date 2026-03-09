@@ -482,7 +482,7 @@ public class AuxStateHandler {
             expectState = expectState.changeOldMentions(vi.getName(), instanceName);
 
             found = tc.checkStateSMT(prevCheck, expectState, invocation.getPosition());
-            if (found && stateChange.hasTo()) {
+            if (stateChange.hasTo()) {
                 String newInstanceName = String.format(Formats.INSTANCE, name, tc.getContext().getCounter());
                 Predicate transitionedState = stateChange.getTo().substituteVariable(Keys.WILDCARD, newInstanceName)
                         .substituteVariable(Keys.THIS, newInstanceName);
@@ -492,7 +492,8 @@ public class AuxStateHandler {
                 transitionedState = checkOldMentions(transitionedState, instanceName, newInstanceName);
                 // update of state of new instance of this#n#(whatever it was + 1)
                 addInstanceWithState(tc, name, newInstanceName, vi, transitionedState, invocation);
-                return;
+                if (found)
+                    return;
             }
         }
         if (!found) { // Reaches the end of stateChange no matching states
