@@ -184,8 +184,11 @@ public class MethodsFunctionsChecker {
             if (rtc.getRefinement(method) == null)
                 return;
             if (method.getParent() instanceof CtClass) {
-                RefinedFunction fi = rtc.getContext().getFunction(method.getSimpleName(),
-                        ((CtClass<?>) method.getParent()).getQualifiedName(), method.getParameters().size());
+                List<CtTypeReference<?>> paramTypes = extractParameterTypes(method.getParameters());
+                String parentClass = ((CtClass<?>) method.getParent()).getQualifiedName();
+                RefinedFunction fi = rtc.getContext().getFunction(method.getSimpleName(), parentClass, paramTypes);
+                if (fi == null)
+                    fi = rtc.getContext().getFunction(method.getSimpleName(), parentClass, method.getParameters().size());
                 if (fi == null)
                     return;
 
@@ -440,6 +443,13 @@ public class MethodsFunctionsChecker {
         }
     }
 
+    private List<CtTypeReference<?>> extractParameterTypes(List<CtParameter<?>> parameters) {
+        List<CtTypeReference<?>> paramTypes = new ArrayList<>();
+        for (CtParameter<?> p : parameters)
+            paramTypes.add(p.getType());
+        return paramTypes;
+    }
+
     public void loadFunctionInfo(CtExecutable<?> method) {
         String className = null;
         if (method.getParent() instanceof CtClass) {
@@ -448,9 +458,7 @@ public class MethodsFunctionsChecker {
             className = ((CtInterface<?>) method.getParent()).getQualifiedName();
         }
         if (className != null) {
-            List<CtTypeReference<?>> paramTypes = new ArrayList<>();
-            for (CtParameter<?> p : method.getParameters())
-                paramTypes.add(p.getType());
+            List<CtTypeReference<?>> paramTypes = extractParameterTypes(method.getParameters());
             RefinedFunction fi = getRefinementFunction(method.getSimpleName(), className, paramTypes);
             if (fi != null) {
                 List<Variable> lv = fi.getArguments();
