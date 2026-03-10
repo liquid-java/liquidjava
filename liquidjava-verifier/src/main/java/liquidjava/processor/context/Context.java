@@ -306,7 +306,7 @@ public class Context {
                     && argumentTypesMatch(fi.getArguments(), paramTypes))
                 return fi;
         }
-        return null;
+        return getFunction(name, target, paramTypes.size());
     }
 
     private boolean argumentTypesMatch(List<Variable> args, List<CtTypeReference<?>> paramTypes) {
