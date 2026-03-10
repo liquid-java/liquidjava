@@ -300,6 +300,29 @@ public class Context {
         return null;
     }
 
+    public RefinedFunction getFunction(String name, String target, List<CtTypeReference<?>> paramTypes) {
+        for (RefinedFunction fi : ctxFunctions) {
+            if (fi.getTargetClass() != null && fi.getName().equals(name) && fi.getTargetClass().equals(target)
+                    && argumentTypesMatch(fi.getArguments(), paramTypes))
+                return fi;
+        }
+        return null;
+    }
+
+    private boolean argumentTypesMatch(List<Variable> args, List<CtTypeReference<?>> paramTypes) {
+        if (args.size() != paramTypes.size())
+            return false;
+        for (int i = 0; i < args.size(); i++) {
+            CtTypeReference<?> argType = args.get(i).getType();
+            CtTypeReference<?> paramType = paramTypes.get(i);
+            if (argType == null || paramType == null)
+                return false;
+            if (!argType.getQualifiedName().equals(paramType.getQualifiedName()))
+                return false;
+        }
+        return true;
+    }
+
     public List<RefinedFunction> getAllMethodsWithNameSize(String name, int size) {
         List<RefinedFunction> l = new ArrayList<>();
         for (RefinedFunction fi : ctxFunctions) {

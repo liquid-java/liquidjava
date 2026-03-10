@@ -1,5 +1,6 @@
 package liquidjava.processor.refinement_checker.general_checkers;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -60,12 +61,16 @@ public class MethodsFunctionsChecker {
     public void getConstructorInvocationRefinements(CtConstructorCall<?> ctConstructorCall) throws LJError {
         CtExecutableReference<?> exe = ctConstructorCall.getExecutable();
         if (exe != null) {
+            List<CtTypeReference<?>> paramTypes = exe.getParameters();
             RefinedFunction f = rtc.getContext().getFunction(exe.getSimpleName(),
-                    exe.getDeclaringType().getQualifiedName(), ctConstructorCall.getArguments().size());
+                    exe.getDeclaringType().getQualifiedName(), paramTypes);
+            if (f == null)
+                f = rtc.getContext().getFunction(exe.getSimpleName(), exe.getDeclaringType().getQualifiedName(),
+                        ctConstructorCall.getArguments().size());
             if (f != null) {
                 Map<String, String> map = checkInvocationRefinements(ctConstructorCall,
                         ctConstructorCall.getArguments(), ctConstructorCall.getTarget(), f.getName(),
-                        f.getTargetClass());
+                        f.getTargetClass(), paramTypes);
                 AuxStateHandler.constructorStateMetadata(Keys.REFINEMENT, f, map, ctConstructorCall);
             }
         }
@@ -220,11 +225,13 @@ public class MethodsFunctionsChecker {
 
         } else if (method.getParent() instanceof CtClass) {
             String ctype = ((CtClass<?>) method.getParent()).getQualifiedName();
-            int argSize = invocation.getArguments().size();
-            RefinedFunction f = rtc.getContext().getFunction(method.getSimpleName(), ctype, argSize);
+            List<CtTypeReference<?>> paramTypes = invocation.getExecutable().getParameters();
+            RefinedFunction f = rtc.getContext().getFunction(method.getSimpleName(), ctype, paramTypes);
+            if (f == null)
+                f = rtc.getContext().getFunction(method.getSimpleName(), ctype, invocation.getArguments().size());
             if (f != null) { // inside rtc.context
                 checkInvocationRefinements(invocation, invocation.getArguments(), invocation.getTarget(),
-                        method.getSimpleName(), ctype);
+                        method.getSimpleName(), ctype, paramTypes);
             }
         }
     }
@@ -233,6 +240,16 @@ public class MethodsFunctionsChecker {
         RefinedFunction f = rtc.getContext().getFunction(methodName, className, size);
         if (f == null)
             f = rtc.getContext().getFunction(String.format("%s.%s", className, methodName), className, size);
+        return f;
+    }
+
+    public RefinedFunction getRefinementFunction(String methodName, String className,
+            List<CtTypeReference<?>> paramTypes) {
+        RefinedFunction f = rtc.getContext().getFunction(methodName, className, paramTypes);
+        if (f == null)
+            f = rtc.getContext().getFunction(String.format("%s.%s", className, methodName), className, paramTypes);
+        if (f == null)
+            f = getRefinementFunction(methodName, className, paramTypes.size());
         return f;
     }
 
@@ -247,38 +264,62 @@ public class MethodsFunctionsChecker {
 
         String name = ctr.getSimpleName(); // missing
         int argSize = invocation.getArguments().size();
+        List<CtTypeReference<?>> paramTypes = ctr.getParameters();
         String qualifiedSignature = null;
         if (ctype != null) {
             qualifiedSignature = String.format("%s.%s", ctype, ctr.getSignature());
-            if (rtc.getContext().getFunction(qualifiedSignature, ctype, argSize) != null) {
+            RefinedFunction f = rtc.getContext().getFunction(qualifiedSignature, ctype, paramTypes);
+            if (f == null)
+                f = rtc.getContext().getFunction(qualifiedSignature, ctype, argSize);
+            if (f != null) {
                 checkInvocationRefinements(invocation, invocation.getArguments(), invocation.getTarget(),
-                        qualifiedSignature, ctype);
+                        qualifiedSignature, ctype, paramTypes);
                 return;
             }
         }
         String signature = ctr.getSignature();
-        if (rtc.getContext().getFunction(signature, ctype, argSize) != null) {
-            checkInvocationRefinements(invocation, invocation.getArguments(), invocation.getTarget(), signature, ctype);
+        RefinedFunction f = rtc.getContext().getFunction(signature, ctype, paramTypes);
+        if (f == null)
+            f = rtc.getContext().getFunction(signature, ctype, argSize);
+        if (f != null) {
+            checkInvocationRefinements(invocation, invocation.getArguments(), invocation.getTarget(), signature, ctype,
+                    paramTypes);
             return;
         }
-        if (rtc.getContext().getFunction(name, ctype, argSize) != null) { // inside rtc.context
-            checkInvocationRefinements(invocation, invocation.getArguments(), invocation.getTarget(), name, ctype);
+        f = rtc.getContext().getFunction(name, ctype, paramTypes);
+        if (f == null)
+            f = rtc.getContext().getFunction(name, ctype, argSize);
+        if (f != null) { // inside rtc.context
+            checkInvocationRefinements(invocation, invocation.getArguments(), invocation.getTarget(), name, ctype,
+                    paramTypes);
             return;
         }
         if (qualifiedSignature != null) {
             String completeName = String.format("%s.%s", ctype, name);
-            if (rtc.getContext().getFunction(completeName, ctype, argSize) != null) {
+            f = rtc.getContext().getFunction(completeName, ctype, paramTypes);
+            if (f == null)
+                f = rtc.getContext().getFunction(completeName, ctype, argSize);
+            if (f != null) {
                 checkInvocationRefinements(invocation, invocation.getArguments(), invocation.getTarget(), completeName,
-                        ctype);
+                        ctype, paramTypes);
             }
         }
     }
 
     private Map<String, String> checkInvocationRefinements(CtElement invocation, List<CtExpression<?>> arguments,
             CtExpression<?> target, String methodName, String className) throws LJError {
+        return checkInvocationRefinements(invocation, arguments, target, methodName, className, null);
+    }
+
+    private Map<String, String> checkInvocationRefinements(CtElement invocation, List<CtExpression<?>> arguments,
+            CtExpression<?> target, String methodName, String className, List<CtTypeReference<?>> paramTypes)
+            throws LJError {
         // -- Part 1: Check if the invocation is possible
-        int si = arguments.size();
-        RefinedFunction f = rtc.getContext().getFunction(methodName, className, si);
+        RefinedFunction f = null;
+        if (paramTypes != null)
+            f = rtc.getContext().getFunction(methodName, className, paramTypes);
+        if (f == null)
+            f = rtc.getContext().getFunction(methodName, className, arguments.size());
         if (f == null)
             return new HashMap<>();
         Map<String, String> map = mapInvocation(arguments, f);
@@ -407,8 +448,10 @@ public class MethodsFunctionsChecker {
             className = ((CtInterface<?>) method.getParent()).getQualifiedName();
         }
         if (className != null) {
-            RefinedFunction fi = getRefinementFunction(method.getSimpleName(), className,
-                    method.getParameters().size());
+            List<CtTypeReference<?>> paramTypes = new ArrayList<>();
+            for (CtParameter<?> p : method.getParameters())
+                paramTypes.add(p.getType());
+            RefinedFunction fi = getRefinementFunction(method.getSimpleName(), className, paramTypes);
             if (fi != null) {
                 List<Variable> lv = fi.getArguments();
                 for (Variable v : lv)
