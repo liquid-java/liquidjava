@@ -1,4 +1,4 @@
-package testSuite.classes.overload_constructors;
+package testSuite.classes.overload_constructors_error;
 
 public class Test{
     void test3(){
