@@ -1,4 +1,4 @@
-package testSuite.classes.overload_constructors;
+package testSuite.classes.overload_constructors_error;
 
 import liquidjava.specification.StateSet;
 import liquidjava.specification.StateRefinement;
