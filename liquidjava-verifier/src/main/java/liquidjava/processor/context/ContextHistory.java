@@ -6,16 +6,8 @@ import java.util.Map;
 import java.util.Set;
 
 import liquidjava.utils.Utils;
-import spoon.reflect.code.CtBlock;
-import spoon.reflect.code.CtFor;
-import spoon.reflect.code.CtForEach;
-import spoon.reflect.code.CtIf;
-import spoon.reflect.code.CtTry;
-import spoon.reflect.code.CtWhile;
 import spoon.reflect.cu.SourcePosition;
-import spoon.reflect.declaration.CtConstructor;
 import spoon.reflect.declaration.CtElement;
-import spoon.reflect.declaration.CtMethod;
 
 public class ContextHistory {
     private static ContextHistory instance;
