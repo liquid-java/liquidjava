@@ -6,9 +6,16 @@ import java.util.Map;
 import java.util.Set;
 
 import liquidjava.utils.Utils;
+import spoon.reflect.code.CtBlock;
+import spoon.reflect.code.CtFor;
+import spoon.reflect.code.CtForEach;
+import spoon.reflect.code.CtIf;
+import spoon.reflect.code.CtTry;
+import spoon.reflect.code.CtWhile;
 import spoon.reflect.cu.SourcePosition;
+import spoon.reflect.declaration.CtConstructor;
 import spoon.reflect.declaration.CtElement;
-import spoon.reflect.declaration.CtParameter;
+import spoon.reflect.declaration.CtMethod;
 
 public class ContextHistory {
     private static ContextHistory instance;
@@ -60,11 +67,10 @@ public class ContextHistory {
     }
 
     private String getScopePosition(CtElement element) {
-        CtElement startElement = element instanceof CtParameter<?> ? element.getParent() : element;
-        SourcePosition annPosition = Utils.getFirstLJAnnotationPosition(startElement);
-        SourcePosition pos = element.getPosition();
-        return String.format("%d:%d-%d:%d", annPosition.getLine(), annPosition.getColumn(), pos.getEndLine(),
-                pos.getEndColumn());
+        SourcePosition startPos = Utils.getRealPosition(element);
+        SourcePosition endPos = element.getPosition();
+        return String.format("%d:%d-%d:%d", startPos.getLine(), startPos.getColumn(), endPos.getEndLine(),
+                endPos.getEndColumn() - 1);
     }
 
     public Set<RefinedVariable> getLocalVars() {

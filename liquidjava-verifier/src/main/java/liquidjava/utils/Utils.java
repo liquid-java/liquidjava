@@ -5,9 +5,17 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import liquidjava.utils.constants.Types;
+import spoon.reflect.code.CtBlock;
+import spoon.reflect.code.CtFor;
+import spoon.reflect.code.CtForEach;
+import spoon.reflect.code.CtIf;
+import spoon.reflect.code.CtTry;
+import spoon.reflect.code.CtWhile;
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.CtAnnotation;
+import spoon.reflect.declaration.CtConstructor;
 import spoon.reflect.declaration.CtElement;
+import spoon.reflect.declaration.CtMethod;
 import spoon.reflect.factory.Factory;
 import spoon.reflect.reference.CtTypeReference;
 
@@ -68,5 +76,20 @@ public class Utils {
     private static boolean hasRefinementValue(CtAnnotation<?> annotation, String refinement) {
         Map<String, ?> values = annotation.getValues();
         return Stream.of("value", "to", "from").anyMatch(key -> refinement.equals(String.valueOf(values.get(key))));
+    }
+
+    public static SourcePosition getRealPosition(CtElement element) {
+        if (element instanceof CtBlock<?> block) {
+            CtElement parent = block.getParent();
+            if (parent instanceof CtIf ctIf) {
+                if (ctIf.getThenStatement() == element) {
+                    return ctIf.getPosition();
+                }
+            } else if (parent instanceof CtFor || parent instanceof CtForEach || parent instanceof CtWhile
+                    || parent instanceof CtTry || parent instanceof CtMethod<?> || parent instanceof CtConstructor<?>) {
+                return parent.getPosition();
+            }
+        }
+        return element.getPosition();
     }
 }
