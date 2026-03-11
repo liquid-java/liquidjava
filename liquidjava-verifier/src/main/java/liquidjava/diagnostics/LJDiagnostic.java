@@ -46,7 +46,7 @@ public class LJDiagnostic extends RuntimeException {
     }
 
     public void setPosition(SourcePosition pos) {
-        if (pos == null)
+        if (pos == null || pos.getFile() == null)
             return;
         this.position = pos;
         this.file = pos.getFile().getPath();
