@@ -4,21 +4,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import liquidjava.rj_language.Predicate;
-import liquidjava.utils.Utils;
-import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.reference.CtTypeReference;
 
 public abstract class RefinedVariable extends Refined {
     private final List<CtTypeReference<?>> supertypes;
     private PlacementInCode placementInCode;
-    private boolean isParameter;
-    private SourcePosition annPosition;
 
     public RefinedVariable(String name, CtTypeReference<?> type, Predicate c) {
         super(name, type, c);
         supertypes = new ArrayList<>();
-        isParameter = false;
     }
 
     public abstract Predicate getMainRefinement();
@@ -40,21 +35,16 @@ public abstract class RefinedVariable extends Refined {
                 supertypes.add(ct);
     }
 
-    public void addPlacementInCode(CtElement element) {
+    public void setPlacementInCode(CtElement element) {
         placementInCode = PlacementInCode.createPlacement(element);
-        annPosition = Utils.getFirstLJAnnotationPosition(element);
     }
 
-    public void addPlacementInCode(PlacementInCode placement) {
+    public void setPlacementInScope(PlacementInCode placement) {
         placementInCode = placement;
     }
 
     public PlacementInCode getPlacementInCode() {
         return placementInCode;
-    }
-
-    public SourcePosition getAnnPosition() {
-        return annPosition;
     }
 
     @Override
@@ -79,13 +69,5 @@ public abstract class RefinedVariable extends Refined {
         } else {
             return supertypes.equals(other.supertypes);
         }
-    }
-
-    public void setIsParameter(boolean b) {
-        isParameter = b;
-    }
-
-    public boolean isParameter() {
-        return isParameter;
     }
 }

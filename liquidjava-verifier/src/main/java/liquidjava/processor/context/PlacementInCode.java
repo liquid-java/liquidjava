@@ -1,6 +1,8 @@
 package liquidjava.processor.context;
 
 import java.lang.annotation.Annotation;
+
+import liquidjava.utils.Utils;
 import spoon.reflect.code.CtComment;
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.CtAnnotation;
@@ -9,10 +11,12 @@ import spoon.reflect.declaration.CtElement;
 public class PlacementInCode {
     private final String text;
     private final SourcePosition position;
+    private final SourcePosition annotationPosition;
 
-    private PlacementInCode(String text, SourcePosition pos) {
+    private PlacementInCode(String text, SourcePosition pos, SourcePosition annotationPosition) {
         this.text = text;
         this.position = pos;
+        this.annotationPosition = annotationPosition;
     }
 
     public String getText() {
@@ -21,6 +25,10 @@ public class PlacementInCode {
 
     public SourcePosition getPosition() {
         return position;
+    }
+
+    public SourcePosition getAnnotationPosition() {
+        return annotationPosition;
     }
 
     public static PlacementInCode createPlacement(CtElement elem) {
@@ -38,7 +46,8 @@ public class PlacementInCode {
             }
         }
         String elemText = elemCopy.toString();
-        return new PlacementInCode(elemText, elem.getPosition());
+        SourcePosition annotationPosition = Utils.getFirstLJAnnotationPosition(elem);
+        return new PlacementInCode(elemText, elem.getPosition(), annotationPosition);
     }
 
     public String toString() {
