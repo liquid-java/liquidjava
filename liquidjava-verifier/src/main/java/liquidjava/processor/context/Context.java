@@ -85,7 +85,7 @@ public class Context {
             ret.put(var.getName(), var.getType());
         return ret;
     }
-    
+
     // ---------------------- Global variables ----------------------
     public void addGlobalVariableToContext(String simpleName, String location, CtTypeReference<?> type, Predicate c) {
         RefinedVariable vi = new Variable(simpleName, location, type, c);

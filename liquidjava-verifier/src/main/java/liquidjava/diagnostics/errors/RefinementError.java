@@ -42,12 +42,10 @@ public class RefinementError extends LJError {
 
         // filter out assignments of variables that do not appear in the found value
         String foundValue = found.getValue().toString();
-        List<String> relevantAssignments = counterexample.assignments().stream()
-                .filter(a -> {
-                    String varName = a.contains(" == ") ? a.substring(0, a.indexOf(" == ")).trim() : a;
-                    return foundValue.contains(varName);
-                })
-                .collect(Collectors.toList());
+        List<String> relevantAssignments = counterexample.assignments().stream().filter(a -> {
+            String varName = a.contains(" == ") ? a.substring(0, a.indexOf(" == ")).trim() : a;
+            return foundValue.contains(varName);
+        }).collect(Collectors.toList());
 
         if (relevantAssignments.isEmpty())
             return null;
