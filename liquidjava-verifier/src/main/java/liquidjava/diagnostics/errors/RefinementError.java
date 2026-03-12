@@ -1,5 +1,8 @@
 package liquidjava.diagnostics.errors;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 import liquidjava.diagnostics.TranslationTable;
 import liquidjava.rj_language.opt.derivation_node.ValDerivationNode;
 import liquidjava.smt.Counterexample;
@@ -37,11 +40,23 @@ public class RefinementError extends LJError {
         if (counterexample == null || counterexample.assignments().isEmpty())
             return null;
 
+        // filter out assignments of variables that do not appear in the found value
+        String foundValue = found.getValue().toString();
+        List<String> relevantAssignments = counterexample.assignments().stream()
+                .filter(a -> {
+                    String varName = a.contains(" == ") ? a.substring(0, a.indexOf(" == ")).trim() : a;
+                    return foundValue.contains(varName);
+                })
+                .collect(Collectors.toList());
+
+        if (relevantAssignments.isEmpty())
+            return null;
+
         // join assignements with &&
-        String counterexampleExp = String.join(" && ", counterexample.assignments());
+        String counterexampleExp = String.join(" && ", relevantAssignments);
 
         // check if counterexample is trivial (same as the found value)
-        if (counterexampleExp.equals(found.getValue().toString()))
+        if (counterexampleExp.equals(foundValue))
             return null;
 
         return counterexampleExp;
