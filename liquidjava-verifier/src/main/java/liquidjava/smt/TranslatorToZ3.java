@@ -19,7 +19,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.errors.LJError;
@@ -59,7 +58,7 @@ public class TranslatorToZ3 implements AutoCloseable {
     /**
      * Extracts the counterexample from the Z3 model
      */
-    public Counterexample getCounterexample(Model model, Set<String> variableRefinements) {
+    public Counterexample getCounterexample(Model model) {
         List<String> assignments = new ArrayList<>();
         // Extract constant variable assignments
         for (FuncDecl<?> decl : model.getDecls()) {
@@ -68,8 +67,7 @@ public class TranslatorToZ3 implements AutoCloseable {
                 Expr<?> value = model.getConstInterp(decl);
                 String assignment = name + " == " + value;
                 // Skip values of uninterpreted sorts
-                if (value.getSort().getSortKind() != Z3_sort_kind.Z3_UNINTERPRETED_SORT
-                        && !variableRefinements.contains(assignment))
+                if (value.getSort().getSortKind() != Z3_sort_kind.Z3_UNINTERPRETED_SORT)
                     assignments.add(assignment);
             }
         }
@@ -79,8 +77,7 @@ public class TranslatorToZ3 implements AutoCloseable {
             Expr<?> application = entry.getValue();
             Expr<?> value = model.eval(application, true);
             String assignment = name + " == " + value;
-            if (!variableRefinements.contains(assignment))
-                assignments.add(assignment);
+            assignments.add(assignment);
         }
         return new Counterexample(assignments);
     }

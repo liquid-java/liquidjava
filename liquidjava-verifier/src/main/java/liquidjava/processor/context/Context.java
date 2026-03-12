@@ -85,20 +85,7 @@ public class Context {
             ret.put(var.getName(), var.getType());
         return ret;
     }
-
-    public Set<String> getVariableRefinements() {
-        Set<RefinedVariable> vars = new HashSet<>();
-        vars.addAll(ctxVars.peek());
-        vars.addAll(ctxInstanceVars);
-        vars.addAll(ctxGlobalVars);
-        Set<String> refinements = new HashSet<>();
-        for (RefinedVariable var : vars) {
-            if (var.getRefinement() != null)
-                refinements.add(var.getRefinement().toString());
-        }
-        return refinements;
-    }
-
+    
     // ---------------------- Global variables ----------------------
     public void addGlobalVariableToContext(String simpleName, String location, CtTypeReference<?> type, Predicate c) {
         RefinedVariable vi = new Variable(simpleName, location, type, c);

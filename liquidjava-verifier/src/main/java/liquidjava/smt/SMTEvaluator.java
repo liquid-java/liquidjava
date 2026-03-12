@@ -38,8 +38,7 @@ public class SMTEvaluator {
                 // subRef is not a subtype of supRef
                 if (result.equals(Status.SATISFIABLE)) {
                     Model model = solver.getModel();
-                    Set<String> variableRefinements = context.getVariableRefinements();
-                    Counterexample counterexample = tz3.getCounterexample(model, variableRefinements);
+                    Counterexample counterexample = tz3.getCounterexample(model);
                     return SMTResult.error(counterexample);
                 }
             }
