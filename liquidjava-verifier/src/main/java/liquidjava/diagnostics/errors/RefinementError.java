@@ -1,5 +1,6 @@
 package liquidjava.diagnostics.errors;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -42,9 +43,10 @@ public class RefinementError extends LJError {
 
         // filter out assignments of variables that do not appear in the found value
         String foundValue = found.getValue().toString();
+        List<String> foundTokens = Arrays.asList(foundValue.split("[^a-zA-Z0-9_#]+"));
         List<String> relevantAssignments = counterexample.assignments().stream().filter(a -> {
             String varName = a.contains(" == ") ? a.substring(0, a.indexOf(" == ")).trim() : a;
-            return foundValue.contains(varName);
+            return foundTokens.contains(varName);
         }).collect(Collectors.toList());
 
         if (relevantAssignments.isEmpty())
