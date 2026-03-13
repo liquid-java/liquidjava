@@ -43,7 +43,7 @@ public class RefinementError extends LJError {
 
         List<String> foundVarNames = new ArrayList<>();
         found.getValue().getVariableNames(foundVarNames);
-        String counterexampleExp = counterexample.assignments().stream()
+        String counterexampleString = counterexample.assignments().stream()
                 // only include variables that appear in the found value
                 .filter(a -> foundVarNames.contains(a.first()))
                 // format as "var == value"
@@ -51,10 +51,10 @@ public class RefinementError extends LJError {
                 // join with "&&"
                 .collect(Collectors.joining(" && "));
 
-        if (counterexampleExp.isEmpty() || counterexampleExp.equals(found.getValue().toString()))
+        if (counterexampleString.isEmpty() || counterexampleString.equals(found.getValue().toString()))
             return null;
 
-        return counterexampleExp;
+        return counterexampleString;
     }
 
     public Counterexample getCounterexample() {
