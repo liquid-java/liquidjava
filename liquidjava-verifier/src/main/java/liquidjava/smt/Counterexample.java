@@ -2,5 +2,7 @@ package liquidjava.smt;
 
 import java.util.List;
 
-public record Counterexample(List<String> assignments) {
+import liquidjava.utils.Pair;
+
+public record Counterexample(List<Pair<String, String>> assignments) {
 }

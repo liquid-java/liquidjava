@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 import liquidjava.diagnostics.errors.LJError;
 import liquidjava.diagnostics.errors.NotFoundError;
 import liquidjava.processor.context.AliasWrapper;
+import liquidjava.utils.Pair;
 import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Keys;
 import com.microsoft.z3.enumerations.Z3_sort_kind;
@@ -59,13 +60,13 @@ public class TranslatorToZ3 implements AutoCloseable {
      * Extracts the counterexample from the Z3 model
      */
     public Counterexample getCounterexample(Model model) {
-        List<String> assignments = new ArrayList<>();
+        List<Pair<String, String>> assignments = new ArrayList<>();
         // Extract constant variable assignments
         for (FuncDecl<?> decl : model.getDecls()) {
             if (decl.getArity() == 0) {
                 Symbol name = decl.getName();
                 Expr<?> value = model.getConstInterp(decl);
-                String assignment = name + " == " + value;
+                Pair<String, String> assignment = new Pair<>(name.toString(), value.toString());
                 // Skip values of uninterpreted sorts
                 if (value.getSort().getSortKind() != Z3_sort_kind.Z3_UNINTERPRETED_SORT)
                     assignments.add(assignment);
@@ -76,7 +77,7 @@ public class TranslatorToZ3 implements AutoCloseable {
             String name = entry.getKey();
             Expr<?> application = entry.getValue();
             Expr<?> value = model.eval(application, true);
-            String assignment = name + " == " + value;
+            Pair<String, String> assignment = new Pair<>(name, value.toString());
             assignments.add(assignment);
         }
         return new Counterexample(assignments);

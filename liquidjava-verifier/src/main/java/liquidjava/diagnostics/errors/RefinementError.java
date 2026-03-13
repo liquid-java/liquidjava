@@ -1,6 +1,6 @@
 package liquidjava.diagnostics.errors;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -41,22 +41,14 @@ public class RefinementError extends LJError {
         if (counterexample == null || counterexample.assignments().isEmpty())
             return null;
 
-        // filter out assignments of variables that do not appear in the found value
-        String foundValue = found.getValue().toString();
-        List<String> foundTokens = Arrays.asList(foundValue.split("[^a-zA-Z0-9_#]+"));
-        List<String> relevantAssignments = counterexample.assignments().stream().filter(a -> {
-            String varName = a.contains(" == ") ? a.substring(0, a.indexOf(" == ")).trim() : a;
-            return foundTokens.contains(varName);
-        }).collect(Collectors.toList());
+        List<String> foundVarNames = new ArrayList<>();
+        found.getValue().getVariableNames(foundVarNames);
+        String counterexampleExp = counterexample.assignments().stream()
+            .filter(a -> foundVarNames.contains(a.first())) // only include variables that appear in the found value
+            .map(a -> a.first() + " == " + a.second()) // format as "var == value"
+            .collect(Collectors.joining(" && ")); // join with "&&"
 
-        if (relevantAssignments.isEmpty())
-            return null;
-
-        // join assignements with &&
-        String counterexampleExp = String.join(" && ", relevantAssignments);
-
-        // check if counterexample is trivial (same as the found value)
-        if (counterexampleExp.equals(foundValue))
+        if (counterexampleExp.isEmpty() || counterexampleExp.equals(found.getValue().toString()))
             return null;
 
         return counterexampleExp;
