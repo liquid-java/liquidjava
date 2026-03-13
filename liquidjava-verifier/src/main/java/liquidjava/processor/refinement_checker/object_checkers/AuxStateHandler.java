@@ -465,7 +465,6 @@ public class AuxStateHandler {
                 .substituteVariable(name, instanceName);
 
         boolean found = false;
-     
         for (ObjectState stateChange : stateChanges) { // TODO: only working for 1 state annotation
             if (found)
                 break;
