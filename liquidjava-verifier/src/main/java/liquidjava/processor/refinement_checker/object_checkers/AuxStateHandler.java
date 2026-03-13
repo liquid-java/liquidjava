@@ -465,14 +465,13 @@ public class AuxStateHandler {
                 .substituteVariable(name, instanceName);
 
         boolean found = false;
-        String newInstanceName = String.format(Formats.INSTANCE, name, tc.getContext().getCounter());
+     
         for (ObjectState stateChange : stateChanges) { // TODO: only working for 1 state annotation
-            if (found) {
+            if (found)
                 break;
-            }
-            if (!stateChange.hasFrom()) {
+            if (!stateChange.hasFrom())
                 continue;
-            }
+
             // replace "state(this)" to "state(whatever method is called from) and so on"
             Predicate expectState = stateChange.getFrom().substituteVariable(Keys.THIS, instanceName);
             Predicate prevCheck = prevState;
@@ -483,7 +482,8 @@ public class AuxStateHandler {
             expectState = expectState.changeOldMentions(vi.getName(), instanceName);
 
             found = tc.checkStateSMT(prevCheck, expectState, invocation.getPosition());
-            if (stateChange.hasTo()) {
+            if (found && stateChange.hasTo()) {
+                String newInstanceName = String.format(Formats.INSTANCE, name, tc.getContext().getCounter());
                 Predicate transitionedState = stateChange.getTo().substituteVariable(Keys.WILDCARD, newInstanceName)
                         .substituteVariable(Keys.THIS, newInstanceName);
                 for (String s : map.keySet()) {
@@ -498,17 +498,16 @@ public class AuxStateHandler {
             Predicate expectedStatesDisjunction = stateChanges.stream().filter(ObjectState::hasFrom)
                     .map(ObjectState::getFrom)
                     .reduce(Predicate.createLit("false", Types.BOOLEAN), Predicate::createDisjunction);
-            expectedStatesDisjunction = expectedStatesDisjunction.substituteVariable(Keys.THIS, newInstanceName);
+            expectedStatesDisjunction = expectedStatesDisjunction.substituteVariable(Keys.THIS, instanceName);
             for (String s : map.keySet()) {
                 expectedStatesDisjunction = expectedStatesDisjunction.substituteVariable(s, map.get(s));
             }
-            expectedStatesDisjunction = expectedStatesDisjunction.changeOldMentions(vi.getName(), newInstanceName);
+            expectedStatesDisjunction = expectedStatesDisjunction.changeOldMentions(vi.getName(), instanceName);
 
             // combine messages of all state changes
             String message = stateChanges.stream().map(ObjectState::getMessage)
                     .filter(msg -> msg != null && !msg.isBlank()).distinct().collect(Collectors.joining("\n"));
-            Predicate foundState = prevState.substituteVariable(instanceName, newInstanceName);
-            tc.throwStateRefinementError(invocation.getPosition(), foundState, expectedStatesDisjunction, message);
+            tc.throwStateRefinementError(invocation.getPosition(), prevState, expectedStatesDisjunction, message);
         }
     }
 
