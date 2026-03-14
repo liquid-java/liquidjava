@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 import liquidjava.diagnostics.errors.LJError;
 import liquidjava.diagnostics.errors.NotFoundError;
 import liquidjava.processor.context.AliasWrapper;
+import liquidjava.utils.Pair;
 import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Keys;
 import com.microsoft.z3.enumerations.Z3_sort_kind;
@@ -40,12 +41,12 @@ public class TranslatorToZ3 implements AutoCloseable {
     private final Map<String, Expr<?>> funcAppTranslation = new HashMap<>();
     private final Map<Expr<?>, String> exprToNameTranslation = new HashMap<>();
 
-    public TranslatorToZ3(liquidjava.processor.context.Context c) {
-        TranslatorContextToZ3.translateVariables(z3, c.getContext(), varTranslation);
-        TranslatorContextToZ3.storeVariablesSubtypes(z3, c.getAllVariablesWithSupertypes(), varSuperTypes);
-        TranslatorContextToZ3.addAliases(c.getAliases(), aliasTranslation);
-        TranslatorContextToZ3.addGhostFunctions(z3, c.getGhosts(), funcTranslation);
-        TranslatorContextToZ3.addGhostStates(z3, c.getGhostStates(), funcTranslation);
+    public TranslatorToZ3(liquidjava.processor.context.Context context) {
+        TranslatorContextToZ3.translateVariables(z3, context.getContext(), varTranslation);
+        TranslatorContextToZ3.storeVariablesSubtypes(z3, context.getAllVariablesWithSupertypes(), varSuperTypes);
+        TranslatorContextToZ3.addAliases(context.getAliases(), aliasTranslation);
+        TranslatorContextToZ3.addGhostFunctions(z3, context.getGhosts(), funcTranslation);
+        TranslatorContextToZ3.addGhostStates(z3, context.getGhostStates(), funcTranslation);
     }
 
     @SuppressWarnings("unchecked")
@@ -59,23 +60,25 @@ public class TranslatorToZ3 implements AutoCloseable {
      * Extracts the counterexample from the Z3 model
      */
     public Counterexample getCounterexample(Model model) {
-        List<String> assignments = new ArrayList<>();
+        List<Pair<String, String>> assignments = new ArrayList<>();
         // Extract constant variable assignments
         for (FuncDecl<?> decl : model.getDecls()) {
             if (decl.getArity() == 0) {
                 Symbol name = decl.getName();
                 Expr<?> value = model.getConstInterp(decl);
+                Pair<String, String> assignment = new Pair<>(name.toString(), value.toString());
                 // Skip values of uninterpreted sorts
                 if (value.getSort().getSortKind() != Z3_sort_kind.Z3_UNINTERPRETED_SORT)
-                    assignments.add(name + " == " + value);
+                    assignments.add(assignment);
             }
         }
         // Extract function application values
         for (Map.Entry<String, Expr<?>> entry : funcAppTranslation.entrySet()) {
-            String label = entry.getKey();
+            String name = entry.getKey();
             Expr<?> application = entry.getValue();
             Expr<?> value = model.eval(application, true);
-            assignments.add(label + " = " + value);
+            Pair<String, String> assignment = new Pair<>(name, value.toString());
+            assignments.add(assignment);
         }
         return new Counterexample(assignments);
     }

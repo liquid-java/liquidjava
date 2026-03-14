@@ -1,5 +1,7 @@
 package liquidjava.smt;
 
+import java.util.Set;
+
 import com.martiansoftware.jsap.SyntaxException;
 import com.microsoft.z3.Expr;
 import com.microsoft.z3.Model;

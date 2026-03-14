@@ -1,5 +1,9 @@
 package liquidjava.diagnostics.errors;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+
 import liquidjava.diagnostics.TranslationTable;
 import liquidjava.rj_language.opt.derivation_node.ValDerivationNode;
 import liquidjava.smt.Counterexample;
@@ -27,22 +31,30 @@ public class RefinementError extends LJError {
 
     @Override
     public String getDetails() {
-        return "Counterexample: " + getCounterExampleString();
+        String counterexampleString = getCounterExampleString();
+        if (counterexampleString == null)
+            return "";
+        return "Counterexample: " + counterexampleString;
     }
 
     public String getCounterExampleString() {
         if (counterexample == null || counterexample.assignments().isEmpty())
-            return "";
+            return null;
 
-        // filter fresh variables and join assignements with &&
-        String counterexampleExp = counterexample.assignments().stream().filter(a -> !a.startsWith("#fresh_"))
-                .reduce((a, b) -> a + " && " + b).orElse("");
+        List<String> foundVarNames = new ArrayList<>();
+        found.getValue().getVariableNames(foundVarNames);
+        String counterexampleString = counterexample.assignments().stream()
+                // only include variables that appear in the found value
+                .filter(a -> foundVarNames.contains(a.first()))
+                // format as "var == value"
+                .map(a -> a.first() + " == " + a.second())
+                // join with "&&"
+                .collect(Collectors.joining(" && "));
 
-        // check if counterexample is trivial (same as the found value)
-        if (counterexampleExp.equals(found.getValue().toString()))
-            return "";
+        if (counterexampleString.isEmpty() || counterexampleString.equals(found.getValue().toString()))
+            return null;
 
-        return counterexampleExp;
+        return counterexampleString;
     }
 
     public Counterexample getCounterexample() {
