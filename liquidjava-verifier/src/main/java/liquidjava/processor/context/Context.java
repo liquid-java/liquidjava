@@ -55,7 +55,7 @@ public class Context {
     public void enterContext() {
         ctxVars.push(new ArrayList<>());
         // make each variable enter context
-        for (RefinedVariable vi : getAllCtxVars())
+        for (RefinedVariable vi : getCtxVars())
             if (vi instanceof Variable)
                 ((Variable) vi).enterContext();
     }
@@ -63,7 +63,7 @@ public class Context {
     public void exitContext() {
         ctxVars.pop();
         // make each variable exit context
-        for (RefinedVariable vi : getAllCtxVars())
+        for (RefinedVariable vi : getCtxVars())
             if (vi instanceof Variable)
                 ((Variable) vi).exitContext();
     }
@@ -173,7 +173,7 @@ public class Context {
 
     public List<RefinedVariable> getAllVariablesWithSupertypes() {
         List<RefinedVariable> lvi = new ArrayList<>();
-        for (RefinedVariable rv : getAllCtxVars()) {
+        for (RefinedVariable rv : getCtxVars()) {
             if (!rv.getSuperTypes().isEmpty())
                 lvi.add(rv);
         }
@@ -215,7 +215,7 @@ public class Context {
         return vi.getParent().orElse(null);
     }
 
-    public List<RefinedVariable> getAllCtxVars() {
+    public List<RefinedVariable> getCtxVars() {
         List<RefinedVariable> lvi = new ArrayList<>();
         for (List<RefinedVariable> l : ctxVars) {
             lvi.addAll(l);
@@ -229,37 +229,37 @@ public class Context {
 
     // ---------------------- Variables - if information storing ----------------------
     public void variablesSetBeforeIf() {
-        for (RefinedVariable vi : getAllCtxVars())
+        for (RefinedVariable vi : getCtxVars())
             if (vi instanceof Variable)
                 ((Variable) vi).saveInstanceBeforeIf();
     }
 
     public void variablesSetThenIf() {
-        for (RefinedVariable vi : getAllCtxVars())
+        for (RefinedVariable vi : getCtxVars())
             if (vi instanceof Variable)
                 ((Variable) vi).saveInstanceThen();
     }
 
     public void variablesSetElseIf() {
-        for (RefinedVariable vi : getAllCtxVars())
+        for (RefinedVariable vi : getCtxVars())
             if (vi instanceof Variable)
                 ((Variable) vi).saveInstanceElse();
     }
 
     public void variablesNewIfCombination() {
-        for (RefinedVariable vi : getAllCtxVars())
+        for (RefinedVariable vi : getCtxVars())
             if (vi instanceof Variable)
                 ((Variable) vi).newIfCombination();
     }
 
     public void variablesFinishIfCombination() {
-        for (RefinedVariable vi : getAllCtxVars())
+        for (RefinedVariable vi : getCtxVars())
             if (vi instanceof Variable)
                 ((Variable) vi).finishIfCombination();
     }
 
     public void variablesCombineFromIf(Predicate cond) {
-        for (RefinedVariable vi : getAllCtxVars()) {
+        for (RefinedVariable vi : getCtxVars()) {
             if (vi instanceof Variable) {
                 Optional<VariableInstance> ovi = ((Variable) vi).getIfInstanceCombination(getCounter(), cond);
                 if (ovi.isPresent()) {
