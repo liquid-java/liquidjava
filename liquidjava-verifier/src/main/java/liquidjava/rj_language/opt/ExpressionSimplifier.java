@@ -20,7 +20,7 @@ public class ExpressionSimplifier {
 
     /**
      * Recursively applies propagation and folding until the expression stops changing (fixed point) Stops early if the
-     * expression simplifies to 'true', which means we've simplified too much
+     * expression simplifies to a boolean literal, which means we've simplified too much
      */
     private static ValDerivationNode simplifyToFixedPoint(ValDerivationNode current, Expression prevExp) {
         // apply propagation and folding
@@ -31,6 +31,11 @@ public class ExpressionSimplifier {
 
         // fixed point reached
         if (current != null && currExp.equals(current.getValue())) {
+            return current;
+        }
+
+        // prevent oversimplification
+        if (current != null && currExp instanceof LiteralBoolean && !(current.getValue() instanceof LiteralBoolean)) {
             return current;
         }
 

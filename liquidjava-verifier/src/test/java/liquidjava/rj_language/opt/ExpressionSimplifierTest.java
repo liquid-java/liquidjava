@@ -550,6 +550,36 @@ class ExpressionSimplifierTest {
         assertEquals("a == 1", result.getValue().toString(), "Expected result to be a == 1");
     }
 
+    @Test
+    void testShouldNotOversimplifyToTrue() {
+        // Given: x > 5 && x == y && y == 10
+        // Iteration 1: resolves y == 10, substitutes y -> 10: x > 5 && x == 10
+        // Iteration 2: resolves x == 10, substitutes x -> 10: 10 > 5 && 10 == 10 -> true
+        // Expected: x > 5 && x == 10 (should NOT simplify to true)
+
+        Expression varX = new Var("x");
+        Expression varY = new Var("y");
+        Expression five = new LiteralInt(5);
+        Expression ten = new LiteralInt(10);
+
+        Expression xGreater5 = new BinaryExpression(varX, ">", five);
+        Expression xEqualsY = new BinaryExpression(varX, "==", varY);
+        Expression yEquals10 = new BinaryExpression(varY, "==", ten);
+
+        Expression firstAnd = new BinaryExpression(xGreater5, "&&", xEqualsY);
+        Expression fullExpression = new BinaryExpression(firstAnd, "&&", yEquals10);
+
+        // When
+        ValDerivationNode result = ExpressionSimplifier.simplify(fullExpression);
+
+        // Then
+        assertNotNull(result, "Result should not be null");
+        assertFalse(result.getValue() instanceof LiteralBoolean,
+                "Should not oversimplify to a boolean literal, but got: " + result.getValue());
+        assertEquals("x > 5 && x == 10", result.getValue().toString(),
+                "Should stop simplification before collapsing to true");
+    }
+
     /**
      * Helper method to compare two derivation nodes recursively
      */
