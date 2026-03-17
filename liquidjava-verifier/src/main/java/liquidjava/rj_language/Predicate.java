@@ -183,6 +183,18 @@ public class Predicate {
         return new Predicate(exp.clone());
     }
 
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj)
+            return true;
+        if (obj == null)
+            return false;
+        if (getClass() != obj.getClass())
+            return false;
+        Predicate other = (Predicate) obj;
+        return exp.equals(other.exp);
+    }
+
     public Expression getExpression() {
         return exp;
     }
@@ -195,6 +207,15 @@ public class Predicate {
         return expr instanceof LiteralBoolean && expr.isBooleanTrue() == value;
     }
 
+    private static boolean containsConjunct(Predicate c1, Predicate c2) {
+        if (c1.toString().equals(c2.toString()))
+            return true;
+        if (c1.getExpression()instanceof BinaryExpression be && be.getOperator().equals(Ops.AND))
+            return containsConjunct(new Predicate(be.getFirstOperand()), c2)
+                    || containsConjunct(new Predicate(be.getSecondOperand()), c2);
+        return false;
+    }
+
     public static Predicate createConjunction(Predicate c1, Predicate c2) {
         // simplification: (true && x) = x, (false && x) = false
         if (isBooleanLiteral(c1.getExpression(), true))
@@ -205,6 +226,11 @@ public class Predicate {
             return c1;
         if (isBooleanLiteral(c2.getExpression(), false))
             return c2;
+
+        // check if c2 is already present in the conjunctions of c1
+        if (containsConjunct(c1, c2))
+            return c1;
+
         return new Predicate(new BinaryExpression(c1.getExpression(), Ops.AND, c2.getExpression()));
     }
 
