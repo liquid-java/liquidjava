@@ -76,8 +76,12 @@ public class ExpressionSimplifier {
 
             // return the conjunction with simplified children
             Expression newValue = new BinaryExpression(leftSimplified.getValue(), "&&", rightSimplified.getValue());
-            DerivationNode newOrigin = new BinaryDerivationNode(leftSimplified, rightSimplified, "&&");
-            return new ValDerivationNode(newValue, newOrigin);
+            // only create origin if at least one child has a meaningful origin
+            if (leftSimplified.getOrigin() != null || rightSimplified.getOrigin() != null) {
+                DerivationNode newOrigin = new BinaryDerivationNode(leftSimplified, rightSimplified, "&&");
+                return new ValDerivationNode(newValue, newOrigin);
+            }
+            return new ValDerivationNode(newValue, null);
         }
         // no simplification
         return node;

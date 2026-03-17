@@ -120,9 +120,7 @@ class ExpressionSimplifierTest {
         ValDerivationNode trueFromOr = new ValDerivationNode(new LiteralBoolean(true), orFalseTrue);
 
         // !true = false
-        ValDerivationNode valTrue2 = new ValDerivationNode(new LiteralBoolean(true), null);
-        UnaryDerivationNode notOp = new UnaryDerivationNode(valTrue2, "!");
-        ValDerivationNode falseFromNot = new ValDerivationNode(new LiteralBoolean(false), notOp);
+        ValDerivationNode falseFromNot = new ValDerivationNode(new LiteralBoolean(false), null);
 
         // true && false = false
         BinaryDerivationNode andTrueFalse = new BinaryDerivationNode(trueFromOr, falseFromNot, "&&");
@@ -187,10 +185,8 @@ class ExpressionSimplifierTest {
         BinaryDerivationNode div6By2 = new BinaryDerivationNode(val6, val2, "/");
         ValDerivationNode val3 = new ValDerivationNode(new LiteralInt(3), div6By2);
 
-        // -5 from unary negation of 5
-        ValDerivationNode val5 = new ValDerivationNode(new LiteralInt(5), null);
-        UnaryDerivationNode unaryNeg5 = new UnaryDerivationNode(val5, "-");
-        ValDerivationNode valNeg5 = new ValDerivationNode(new LiteralInt(-5), unaryNeg5);
+        // -5 is a literal with no origin
+        ValDerivationNode valNeg5 = new ValDerivationNode(new LiteralInt(-5), null);
 
         // 3 + (-5) = -2
         BinaryDerivationNode add3AndNeg5 = new BinaryDerivationNode(val3, valNeg5, "+");

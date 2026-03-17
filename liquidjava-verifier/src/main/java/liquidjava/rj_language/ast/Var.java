@@ -70,4 +70,8 @@ public class Var extends Expression {
             return name.equals(other.name);
         }
     }
+
+    public boolean isInternal() {
+        return name.startsWith("#");
+    }
 }
