@@ -3,12 +3,14 @@ package liquidjava.rj_language.opt;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.GroupExpression;
+import liquidjava.rj_language.ast.Ite;
 import liquidjava.rj_language.ast.LiteralBoolean;
 import liquidjava.rj_language.ast.LiteralInt;
 import liquidjava.rj_language.ast.LiteralReal;
 import liquidjava.rj_language.ast.UnaryExpression;
 import liquidjava.rj_language.opt.derivation_node.BinaryDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.DerivationNode;
+import liquidjava.rj_language.opt.derivation_node.IteDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.UnaryDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.ValDerivationNode;
 
@@ -25,6 +27,9 @@ public class ConstantFolding {
 
         if (exp instanceof UnaryExpression)
             return foldUnary(node);
+
+        if (exp instanceof Ite)
+            return foldIte(node);
 
         if (exp instanceof GroupExpression group) {
             if (group.getChildren().size() == 1) {
@@ -190,5 +195,46 @@ public class ConstantFolding {
         // no folding
         DerivationNode origin = operandNode.getOrigin() != null ? new UnaryDerivationNode(operandNode, operator) : null;
         return new ValDerivationNode(unaryExp, origin);
+    }
+
+    /**
+     * Folds ternary expressions by checking if condition is a boolean literal or both branches are the same
+     */
+    private static ValDerivationNode foldIte(ValDerivationNode node) {
+        Ite iteExp = (Ite) node.getValue();
+
+        ValDerivationNode condNode = fold(new ValDerivationNode(iteExp.getCondition(), null));
+        ValDerivationNode thenNode = fold(new ValDerivationNode(iteExp.getThen(), null));
+        ValDerivationNode elseNode = fold(new ValDerivationNode(iteExp.getElse(), null));
+
+        Expression condition = condNode.getValue();
+        Expression thenExp = thenNode.getValue();
+        Expression elseExp = elseNode.getValue();
+
+        iteExp.setChild(0, condition);
+        iteExp.setChild(1, thenExp);
+        iteExp.setChild(2, elseExp);
+
+        // if condition is a boolean literal, select the corresponding branch: true ? a : b => a, false ? a : b => b
+        if (condition instanceof LiteralBoolean boolCond) {
+            Expression selected = boolCond.isBooleanTrue() ? thenExp : elseExp;
+            DerivationNode origin = new IteDerivationNode(condNode, thenNode, elseNode);
+            return new ValDerivationNode(selected, origin);
+        }
+
+        // if both branches are the same, return one of them (e.g. cond ? b : b => b)
+        if (thenExp.equals(elseExp)) {
+            DerivationNode origin = new IteDerivationNode(condNode, thenNode, elseNode);
+            return new ValDerivationNode(thenExp, origin);
+        }
+
+        // no folding, but keep track of the folding steps in the origin
+        DerivationNode origin = hasIteChildOrigin(condNode, thenNode, elseNode)
+                ? new IteDerivationNode(condNode, thenNode, elseNode) : node.getOrigin();
+        return new ValDerivationNode(iteExp, origin);
+    }
+
+    private static boolean hasIteChildOrigin(ValDerivationNode cond, ValDerivationNode then, ValDerivationNode els) {
+        return cond.getOrigin() != null || then.getOrigin() != null || els.getOrigin() != null;
     }
 }

@@ -4,12 +4,14 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
+import liquidjava.rj_language.ast.Ite;
 import liquidjava.rj_language.ast.LiteralBoolean;
 import liquidjava.rj_language.ast.LiteralInt;
 import liquidjava.rj_language.ast.UnaryExpression;
 import liquidjava.rj_language.ast.Var;
 import liquidjava.rj_language.opt.derivation_node.BinaryDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.DerivationNode;
+import liquidjava.rj_language.opt.derivation_node.IteDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.UnaryDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.ValDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.VarDerivationNode;
@@ -550,6 +552,76 @@ class ExpressionSimplifierTest {
         assertEquals("a == 1", result.getValue().toString(), "Expected result to be a == 1");
     }
 
+    @Test
+    void testIteTrueConditionSimplifiesToThenBranch() {
+        // Given: true ? a : b
+        // Expected: a
+
+        Expression expr = new Ite(new LiteralBoolean(true), new Var("a"), new Var("b"));
+
+        // When
+        ValDerivationNode result = ExpressionSimplifier.simplify(expr);
+
+        // Then
+        assertNotNull(result, "Result should not be null");
+        assertEquals("a", result.getValue().toString(), "Expected result to be a");
+
+        ValDerivationNode conditionNode = new ValDerivationNode(new LiteralBoolean(true), null);
+        ValDerivationNode thenNode = new ValDerivationNode(new Var("a"), null);
+        ValDerivationNode elseNode = new ValDerivationNode(new Var("b"), null);
+        IteDerivationNode iteOrigin = new IteDerivationNode(conditionNode, thenNode, elseNode);
+        ValDerivationNode expected = new ValDerivationNode(new Var("a"), iteOrigin);
+
+        assertDerivationEquals(expected, result, "");
+    }
+
+    @Test
+    void testIteFalseConditionSimplifiesToElseBranch() {
+        // Given: false ? a : b
+        // Expected: b
+
+        Expression expr = new Ite(new LiteralBoolean(false), new Var("a"), new Var("b"));
+
+        // When
+        ValDerivationNode result = ExpressionSimplifier.simplify(expr);
+
+        // Then
+        assertNotNull(result, "Result should not be null");
+        assertEquals("b", result.getValue().toString(), "Expected result to be b");
+
+        ValDerivationNode conditionNode = new ValDerivationNode(new LiteralBoolean(false), null);
+        ValDerivationNode thenNode = new ValDerivationNode(new Var("a"), null);
+        ValDerivationNode elseNode = new ValDerivationNode(new Var("b"), null);
+        IteDerivationNode iteOrigin = new IteDerivationNode(conditionNode, thenNode, elseNode);
+        ValDerivationNode expected = new ValDerivationNode(new Var("b"), iteOrigin);
+
+        assertDerivationEquals(expected, result, "");
+    }
+
+    @Test
+    void testIteEqualBranchesSimplifiesToBranch() {
+        // Given: cond ? b : b
+        // Expected: b
+
+        Expression branch = new Var("b");
+        Expression expr = new Ite(new Var("cond"), branch, branch.clone());
+
+        // When
+        ValDerivationNode result = ExpressionSimplifier.simplify(expr);
+
+        // Then
+        assertNotNull(result, "Result should not be null");
+        assertEquals("b", result.getValue().toString(), "Expected result to be b");
+
+        ValDerivationNode conditionNode = new ValDerivationNode(new Var("cond"), null);
+        ValDerivationNode thenNode = new ValDerivationNode(new Var("b"), null);
+        ValDerivationNode elseNode = new ValDerivationNode(new Var("b"), null);
+        IteDerivationNode iteOrigin = new IteDerivationNode(conditionNode, thenNode, elseNode);
+        ValDerivationNode expected = new ValDerivationNode(new Var("b"), iteOrigin);
+
+        assertDerivationEquals(expected, result, "");
+    }
+
     /**
      * Helper method to compare two derivation nodes recursively
      */
@@ -576,6 +648,11 @@ class ExpressionSimplifierTest {
             UnaryDerivationNode actualUnary = (UnaryDerivationNode) actual;
             assertEquals(expectedUnary.getOp(), actualUnary.getOp(), message + ": operators should match");
             assertDerivationEquals(expectedUnary.getOperand(), actualUnary.getOperand(), message + " > operand");
+        } else if (expected instanceof IteDerivationNode expectedIte) {
+            IteDerivationNode actualIte = (IteDerivationNode) actual;
+            assertDerivationEquals(expectedIte.getCondition(), actualIte.getCondition(), message + " > condition");
+            assertDerivationEquals(expectedIte.getThenBranch(), actualIte.getThenBranch(), message + " > then");
+            assertDerivationEquals(expectedIte.getElseBranch(), actualIte.getElseBranch(), message + " > else");
         }
     }
 }

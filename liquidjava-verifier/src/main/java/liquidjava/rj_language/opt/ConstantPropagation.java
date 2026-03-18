@@ -6,6 +6,7 @@ import liquidjava.rj_language.ast.UnaryExpression;
 import liquidjava.rj_language.ast.Var;
 import liquidjava.rj_language.opt.derivation_node.BinaryDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.DerivationNode;
+import liquidjava.rj_language.opt.derivation_node.IteDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.UnaryDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.ValDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.VarDerivationNode;
@@ -134,6 +135,10 @@ public class ConstantPropagation {
             extractVarOrigins(binOrigin.getRight(), varOrigins);
         } else if (origin instanceof UnaryDerivationNode unaryOrigin) {
             extractVarOrigins(unaryOrigin.getOperand(), varOrigins);
+        } else if (origin instanceof IteDerivationNode iteOrigin) {
+            extractVarOrigins(iteOrigin.getCondition(), varOrigins);
+            extractVarOrigins(iteOrigin.getThenBranch(), varOrigins);
+            extractVarOrigins(iteOrigin.getElseBranch(), varOrigins);
         } else if (origin instanceof ValDerivationNode valOrigin) {
             extractVarOrigins(valOrigin, varOrigins);
         }
