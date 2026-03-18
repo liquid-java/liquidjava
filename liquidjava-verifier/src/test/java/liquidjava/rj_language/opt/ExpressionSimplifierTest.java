@@ -550,6 +550,196 @@ class ExpressionSimplifierTest {
         assertEquals("a == 1", result.getValue().toString(), "Expected result to be a == 1");
     }
 
+    @Test
+    void testVarToVarPropagationWithInternalVariable() {
+        // Given: #x_0 == a && #x_0 > 5
+        // Expected: a > 5 (internal #x_0 substituted with user-facing a)
+
+        Expression varX0 = new Var("#x_0");
+        Expression varA = new Var("a");
+        Expression x0EqualsA = new BinaryExpression(varX0, "==", varA);
+        Expression x0Greater5 = new BinaryExpression(varX0, ">", new LiteralInt(5));
+        Expression fullExpression = new BinaryExpression(x0EqualsA, "&&", x0Greater5);
+
+        // When
+        ValDerivationNode result = ExpressionSimplifier.simplify(fullExpression);
+
+        // Then
+        assertNotNull(result, "Result should not be null");
+        assertEquals("a > 5", result.getValue().toString(),
+                "Internal variable #x_0 should be substituted with user-facing variable a");
+    }
+
+    @Test
+    void testVarToVarInternalToInternal() {
+        // Given: #a_1 == #b_2 && #b_2 == 5 && x == #a_1 + 1
+        // Expected: x == 5 + 1 = x == 6
+
+        Expression varA = new Var("#a_1");
+        Expression varB = new Var("#b_2");
+        Expression varX = new Var("x");
+        Expression five = new LiteralInt(5);
+        Expression aEqualsB = new BinaryExpression(varA, "==", varB);
+        Expression bEquals5 = new BinaryExpression(varB, "==", five);
+        Expression aPlus1 = new BinaryExpression(varA, "+", new LiteralInt(1));
+        Expression xEqualsAPlus1 = new BinaryExpression(varX, "==", aPlus1);
+        Expression firstAnd = new BinaryExpression(aEqualsB, "&&", bEquals5);
+        Expression fullExpression = new BinaryExpression(firstAnd, "&&", xEqualsAPlus1);
+
+        // When
+        ValDerivationNode result = ExpressionSimplifier.simplify(fullExpression);
+
+        // Then
+        assertNotNull(result, "Result should not be null");
+        assertEquals("x == 6", result.getValue().toString(),
+                "#a should resolve through #b to 5 across passes, then x == 5 + 1 = x == 6");
+    }
+
+    @Test
+    void testVarToVarDoesNotAffectUserFacingVariables() {
+        // Given: x == y && x > 5
+        // Expected: x == y && x > 5 (user-facing var-to-var should not be propagated)
+
+        Expression varX = new Var("x");
+        Expression varY = new Var("y");
+        Expression xEqualsY = new BinaryExpression(varX, "==", varY);
+        Expression xGreater5 = new BinaryExpression(varX, ">", new LiteralInt(5));
+        Expression fullExpression = new BinaryExpression(xEqualsY, "&&", xGreater5);
+
+        // When
+        ValDerivationNode result = ExpressionSimplifier.simplify(fullExpression);
+
+        // Then
+        assertNotNull(result, "Result should not be null");
+        assertEquals("x == y && x > 5", result.getValue().toString(),
+                "User-facing variable equalities should not trigger var-to-var propagation");
+    }
+
+    @Test
+    void testVarToVarRemovesRedundantEquality() {
+        // Given: #ret_1 == #b_0 - 100 && #b_0 == b && b >= -128 && b <= 127
+        // Expected: #ret_1 == b - 100 && b >= -128 && b <= 127 (#b_0 replaced with b, #b_0 == b removed)
+
+        Expression ret1 = new Var("#ret_1");
+        Expression b0 = new Var("#b_0");
+        Expression b = new Var("b");
+        Expression ret1EqB0Minus100 = new BinaryExpression(ret1, "==",
+                new BinaryExpression(b0, "-", new LiteralInt(100)));
+        Expression b0EqB = new BinaryExpression(b0, "==", b);
+        Expression bGeMinus128 = new BinaryExpression(b, ">=", new UnaryExpression("-", new LiteralInt(128)));
+        Expression bLe127 = new BinaryExpression(b, "<=", new LiteralInt(127));
+        Expression and1 = new BinaryExpression(ret1EqB0Minus100, "&&", b0EqB);
+        Expression and2 = new BinaryExpression(bGeMinus128, "&&", bLe127);
+        Expression fullExpression = new BinaryExpression(and1, "&&", and2);
+
+        // When
+        ValDerivationNode result = ExpressionSimplifier.simplify(fullExpression);
+
+        // Then
+        assertNotNull(result, "Result should not be null");
+        assertEquals("#ret_1 == b - 100 && b >= -128 && b <= 127", result.getValue().toString(),
+                "Internal variable #b_0 should be replaced with b and redundant equality removed");
+        assertNotNull(result.getOrigin(), "Origin should be present showing the var-to-var derivation");
+    }
+
+    @Test
+    void testInternalToInternalReducesRedundantVariable() {
+        // Given: #a_3 == #b_7 && #a_3 > 5
+        // Expected: #b_7 > 5 (#a_3 has lower counter, so #a_3 -> #b_7)
+
+        Expression a3 = new Var("#a_3");
+        Expression b7 = new Var("#b_7");
+        Expression a3EqualsB7 = new BinaryExpression(a3, "==", b7);
+        Expression a3Greater5 = new BinaryExpression(a3, ">", new LiteralInt(5));
+        Expression fullExpression = new BinaryExpression(a3EqualsB7, "&&", a3Greater5);
+
+        ValDerivationNode result = ExpressionSimplifier.simplify(fullExpression);
+
+        assertNotNull(result);
+        assertEquals("#b_7 > 5", result.getValue().toString(),
+                "#a_3 (lower counter) should be substituted with #b_7 (higher counter)");
+    }
+
+    @Test
+    void testInternalToInternalChainWithUserFacingVariableUserFacingFirst() {
+        // Given: #b_7 == x && #a_3 == #b_7 && x > 0
+        // Expected: x > 0 (#b_7 -> x (user-facing); #a_3 has lower counter so #a_3 -> #b_7)
+
+        Expression a3 = new Var("#a_3");
+        Expression b7 = new Var("#b_7");
+        Expression x = new Var("x");
+        Expression b7EqualsX = new BinaryExpression(b7, "==", x);
+        Expression a3EqualsB7 = new BinaryExpression(a3, "==", b7);
+        Expression xGreater0 = new BinaryExpression(x, ">", new LiteralInt(0));
+        Expression and1 = new BinaryExpression(b7EqualsX, "&&", a3EqualsB7);
+        Expression fullExpression = new BinaryExpression(and1, "&&", xGreater0);
+
+        ValDerivationNode result = ExpressionSimplifier.simplify(fullExpression);
+
+        assertNotNull(result);
+        assertEquals("x > 0", result.getValue().toString(),
+                "Both internal variables should be eliminated via chain resolution");
+    }
+
+    @Test
+    void testInternalToInternalChainWithUserFacingVariableInternalFirst() {
+        // Given: #a_3 == #b_7 && #b_7 == x && x > 0
+        // Expected: x > 0 (#a_3 has lower counter so #a_3 -> #b_7; #b_7 -> x (user-facing) overwrites)
+
+        Expression a3 = new Var("#a_3");
+        Expression b7 = new Var("#b_7");
+        Expression x = new Var("x");
+        Expression a3EqualsB7 = new BinaryExpression(a3, "==", b7);
+        Expression b7EqualsX = new BinaryExpression(b7, "==", x);
+        Expression xGreater0 = new BinaryExpression(x, ">", new LiteralInt(0));
+        Expression and1 = new BinaryExpression(a3EqualsB7, "&&", b7EqualsX);
+        Expression fullExpression = new BinaryExpression(and1, "&&", xGreater0);
+
+        ValDerivationNode result = ExpressionSimplifier.simplify(fullExpression);
+
+        assertNotNull(result);
+        assertEquals("x > 0", result.getValue().toString(),
+                "Both internal variables should be eliminated via fixed-point iteration");
+    }
+
+    @Test
+    void testInternalToInternalBothResolvingToLiteral() {
+        // Given: #a_3 == #b_7 && #b_7 == 5
+        // Expected: 5 == 5 && 5 == 5 -> true (#a_3 has lower counter so #a_3 -> #b_7; #b_7 -> 5)
+
+        Expression a3 = new Var("#a_3");
+        Expression b7 = new Var("#b_7");
+        Expression five = new LiteralInt(5);
+        Expression a3EqualsB7 = new BinaryExpression(a3, "==", b7);
+        Expression b7Equals5 = new BinaryExpression(b7, "==", five);
+        Expression fullExpression = new BinaryExpression(a3EqualsB7, "&&", b7Equals5);
+
+        ValDerivationNode result = ExpressionSimplifier.simplify(fullExpression);
+
+        assertNotNull(result);
+        assertEquals("true", result.getValue().toString(),
+                "#a_3 -> #b_7 -> 5 and #b_7 -> 5; both equalities collapse to 5 == 5 -> true");
+    }
+
+    @Test
+    void testInternalToInternalNoFurtherResolution() {
+        // Given: #a_3 == #b_7 && #b_7 + 1 > 0
+        // Expected: #b_7 + 1 > 0 (#a_3 has lower counter, so #a_3 -> #b_7)
+
+        Expression a3 = new Var("#a_3");
+        Expression b7 = new Var("#b_7");
+        Expression a3EqualsB7 = new BinaryExpression(a3, "==", b7);
+        Expression b7Plus1 = new BinaryExpression(b7, "+", new LiteralInt(1));
+        Expression b7Plus1Greater0 = new BinaryExpression(b7Plus1, ">", new LiteralInt(0));
+        Expression fullExpression = new BinaryExpression(a3EqualsB7, "&&", b7Plus1Greater0);
+
+        ValDerivationNode result = ExpressionSimplifier.simplify(fullExpression);
+
+        assertNotNull(result);
+        assertEquals("#b_7 + 1 > 0", result.getValue().toString(),
+                "#a_3 (lower counter) replaced by #b_7 (higher counter); equality collapses to trivial");
+    }
+
     /**
      * Helper method to compare two derivation nodes recursively
      */
