@@ -2,6 +2,11 @@ package liquidjava.rj_language.opt;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.util.List;
+import java.util.Map;
+
+import liquidjava.processor.facade.AliasDTO;
+import liquidjava.rj_language.ast.AliasInvocation;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.LiteralBoolean;
@@ -548,6 +553,72 @@ class ExpressionSimplifierTest {
         // Then
         assertNotNull(result, "Result should not be null");
         assertEquals("a == 1", result.getValue().toString(), "Expected result to be a == 1");
+    }
+
+    @Test
+    void testByteAliasExpansion() {
+        // Given: Byte(b) with alias Byte(int b) { b >= -128 && b <= 127 }
+        AliasDTO byteAlias = new AliasDTO("Byte", List.of("int"), List.of("b"), "b >= -128 && b <= 127");
+        byteAlias.parse("");
+        Map<String, AliasDTO> aliases = Map.of("Byte", byteAlias);
+        Expression exp = new AliasInvocation("Byte", List.of(new Var("b")));
+
+        // When
+        ValDerivationNode result = ExpressionSimplifier.simplify(exp, aliases);
+
+        // Then
+        assertEquals("Byte(b)", result.getValue().toString());
+        assertNotNull(result.getOrigin(), "Origin should contain the expanded body");
+        ValDerivationNode origin = (ValDerivationNode) result.getOrigin();
+        assertEquals("b >= -128 && b <= 127", origin.getValue().toString());
+    }
+
+    @Test
+    void testPositiveAliasExpansion() {
+        // Given: Positive(x) with alias Positive(int v) { v > 0 }
+        AliasDTO positiveAlias = new AliasDTO("Positive", List.of("int"), List.of("v"), "v > 0");
+        positiveAlias.parse("");
+        Map<String, AliasDTO> aliases = Map.of("Positive", positiveAlias);
+        Expression exp = new AliasInvocation("Positive", List.of(new Var("x")));
+
+        // When
+        ValDerivationNode result = ExpressionSimplifier.simplify(exp, aliases);
+
+        // Then
+        assertEquals("Positive(x)", result.getValue().toString());
+        assertNotNull(result.getOrigin(), "Origin should contain the expanded body");
+        ValDerivationNode origin = (ValDerivationNode) result.getOrigin();
+        assertEquals("x > 0", origin.getValue().toString());
+    }
+
+    @Test
+    void testTwoArgAliasWithNormalExpression() {
+        // Given: Bounded(v, 100) && v > 50 with alias Bounded(int x, int n) { x > 0 && x < n }
+        AliasDTO boundedAlias = new AliasDTO("Bounded", List.of("int", "int"), List.of("x", "n"), "x > 0 && x < n");
+        boundedAlias.parse("");
+        Map<String, AliasDTO> aliases = Map.of("Bounded", boundedAlias);
+
+        Expression varV = new Var("v");
+        Expression bounded = new AliasInvocation("Bounded", List.of(varV, new LiteralInt(100)));
+        Expression vGt50 = new BinaryExpression(varV, ">", new LiteralInt(50));
+        Expression fullExpression = new BinaryExpression(bounded, "&&", vGt50);
+
+        // When
+        ValDerivationNode result = ExpressionSimplifier.simplify(fullExpression, aliases);
+
+        // Then
+        assertEquals("Bounded(v, 100) && v > 50", result.getValue().toString());
+        assertInstanceOf(BinaryDerivationNode.class, result.getOrigin());
+        BinaryDerivationNode binOrigin = (BinaryDerivationNode) result.getOrigin();
+        assertEquals("&&", binOrigin.getOp());
+        ValDerivationNode leftNode = binOrigin.getLeft();
+        assertEquals("Bounded(v, 100)", leftNode.getValue().toString());
+        assertNotNull(leftNode.getOrigin(), "Alias invocation should have expanded body as origin");
+        ValDerivationNode expandedBody = (ValDerivationNode) leftNode.getOrigin();
+        assertEquals("v > 0 && v < 100", expandedBody.getValue().toString());
+        ValDerivationNode rightNode = binOrigin.getRight();
+        assertEquals("v > 50", rightNode.getValue().toString());
+        assertNull(rightNode.getOrigin());
     }
 
     /**

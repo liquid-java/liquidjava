@@ -187,8 +187,14 @@ public class Predicate {
         return exp;
     }
 
-    public ValDerivationNode simplify() {
-        return ExpressionSimplifier.simplify(exp.clone());
+    public ValDerivationNode simplify(Context context) {
+        // collect aliases from context
+        Map<String, AliasDTO> aliases = new HashMap<>();
+        for (AliasWrapper aw : context.getAliases()) {
+            aliases.put(aw.getName(), aw.createAliasDTO());
+        }
+        // simplify expression
+        return ExpressionSimplifier.simplify(exp.clone(), aliases);
     }
 
     private static boolean isBooleanLiteral(Expression expr, boolean value) {

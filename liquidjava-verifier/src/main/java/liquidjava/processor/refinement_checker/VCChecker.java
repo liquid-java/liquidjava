@@ -58,8 +58,8 @@ public class VCChecker {
         }
         SMTResult result = verifySMTSubtype(expected, premises, element.getPosition());
         if (result.isError()) {
-            throw new RefinementError(element.getPosition(), expectedType.simplify(), premisesBeforeChange.simplify(),
-                    map, result.getCounterexample(), customMessage);
+            throw new RefinementError(element.getPosition(), expectedType.simplify(context),
+                    premisesBeforeChange.simplify(context), map, result.getCounterexample(), customMessage);
         }
     }
 
@@ -277,7 +277,7 @@ public class VCChecker {
         gatherVariables(found, lrv, mainVars);
         TranslationTable map = new TranslationTable();
         Predicate premises = joinPredicates(expected, mainVars, lrv, map).toConjunctions();
-        throw new RefinementError(position, expected.simplify(), premises.simplify(), map, counterexample,
+        throw new RefinementError(position, expected.simplify(context), premises.simplify(context), map, counterexample,
                 customMessage);
     }
 
@@ -288,7 +288,7 @@ public class VCChecker {
         TranslationTable map = new TranslationTable();
         VCImplication foundState = joinPredicates(found, mainVars, lrv, map);
         throw new StateRefinementError(position, expected.getExpression(),
-                foundState.toConjunctions().simplify().getValue(), map, customMessage);
+                foundState.toConjunctions().simplify(context).getValue(), map, customMessage);
     }
 
     protected void throwStateConflictError(SourcePosition position, Predicate expected) throws StateConflictError {
