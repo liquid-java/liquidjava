@@ -55,8 +55,7 @@ public class VCChecker {
         } catch (LJError e) {
             // add location info to error
             if (e.getPosition() == null) {
-                SourcePosition pos = e instanceof NotFoundError ? Utils.getFirstLJAnnotationValuePosition(element)
-                        : Utils.getFirstLJAnnotationPosition(element);
+                SourcePosition pos = Utils.getFirstLJAnnotationValuePosition(element);
                 e.setPosition(pos);
             }
             throw e;
