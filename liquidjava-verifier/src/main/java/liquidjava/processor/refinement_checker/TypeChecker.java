@@ -70,12 +70,14 @@ public abstract class TypeChecker extends CtScanner {
                 ref = Optional.of(value);
 
             } else if (an.contentEquals("liquidjava.specification.RefinementPredicate")) {
-                String value = getStringFromAnnotation(ann.getValue("value"));
-                getGhostFunction(value, element, ann.getPosition());
+                CtExpression<String> rawValue = ann.getValue("value");
+                String value = getStringFromAnnotation(rawValue);
+                getGhostFunction(value, element, rawValue.getPosition());
 
             } else if (an.contentEquals("liquidjava.specification.RefinementAlias")) {
-                String value = getStringFromAnnotation(ann.getValue("value"));
-                handleAlias(value, element, ann.getPosition());
+                CtExpression<String> rawValue = ann.getValue("value");
+                String value = getStringFromAnnotation(rawValue);
+                handleAlias(value, element, rawValue.getPosition());
             }
         }
         if (ref.isPresent()) {
@@ -116,7 +118,7 @@ public abstract class TypeChecker extends CtScanner {
             }
             if (an.contentEquals("liquidjava.specification.Ghost")) {
                 CtLiteral<String> s = (CtLiteral<String>) ann.getAllValues().get("value");
-                createStateGhost(s.getValue(), element, ann.getPosition());
+                createStateGhost(s.getValue(), element, s.getPosition());
             }
         }
     }
@@ -167,7 +169,8 @@ public abstract class TypeChecker extends CtScanner {
             return RefinementsParser.parseGhostDeclaration(value);
         } catch (LJError e) {
             // add location info to error
-            e.setPosition(position);
+            if (e.getPosition() == null)
+                e.setPosition(position);
             throw e;
         }
     }
@@ -259,7 +262,8 @@ public abstract class TypeChecker extends CtScanner {
             }
         } catch (LJError e) {
             // add location info to error
-            e.setPosition(position);
+            if (e.getPosition() == null)
+                e.setPosition(position);
             throw e;
         }
     }

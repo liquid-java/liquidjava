@@ -86,8 +86,10 @@ public class Predicate {
             return RefinementsParser.createAST(ref, prefix);
         } catch (LJError e) {
             // add location info to error
-            SourcePosition pos = Utils.getLJAnnotationPosition(element, ref);
-            e.setPosition(pos);
+            if (e.getPosition() == null) {
+                SourcePosition pos = Utils.getLJAnnotationPosition(element, ref);
+                e.setPosition(pos);
+            }
             throw e;
         }
     }

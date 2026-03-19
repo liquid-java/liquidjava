@@ -225,7 +225,8 @@ public class AuxStateHandler {
         c = c.changeOldMentions(nameOld, name);
         boolean ok = tc.checkStateSMT(new Predicate(), c.negate(), e.getPosition());
         if (ok) {
-            tc.throwStateConflictError(e.getPosition(), p);
+            SourcePosition pos = Utils.getLJAnnotationPosition(e, value);
+            tc.throwStateConflictError(pos, p);
         }
         return c1;
     }
