@@ -2,6 +2,8 @@ package liquidjava.rj_language.opt;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import liquidjava.processor.context.Context;
+import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.LiteralBoolean;
@@ -14,11 +16,16 @@ import liquidjava.rj_language.opt.derivation_node.UnaryDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.ValDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.VarDerivationNode;
 import org.junit.jupiter.api.Test;
+import spoon.Launcher;
+import spoon.reflect.factory.Factory;
 
 /**
  * Test suite for expression simplification using constant propagation and folding
  */
 class ExpressionSimplifierTest {
+
+    private final Factory factory = new Launcher().getFactory();
+    private final Context context = Context.getInstance();
 
     @Test
     void testNegation() {
@@ -740,6 +747,81 @@ class ExpressionSimplifierTest {
                 "#a_3 (lower counter) replaced by #b_7 (higher counter); equality collapses to trivial");
     }
 
+    @Test
+    void testEntailedConjunctIsRemovedButOriginIsPreserved() {
+        // Given: b >= 100 && b > 0
+        // Expected: b >= 100 (b >= 100 implies b > 0)
+
+        addIntVariableToContext("b");
+        Expression b = new Var("b");
+        Expression bGe100 = new BinaryExpression(b, ">=", new LiteralInt(100));
+        Expression bGt0 = new BinaryExpression(b, ">", new LiteralInt(0));
+        Expression fullExpression = new BinaryExpression(bGe100, "&&", bGt0);
+
+        ValDerivationNode result = ExpressionSimplifier.simplify(fullExpression);
+
+        assertNotNull(result);
+        assertEquals("b >= 100", result.getValue().toString(),
+                "The weaker conjunct should be removed when implied by the stronger one");
+
+        ValDerivationNode expectedLeft = new ValDerivationNode(bGe100, null);
+        ValDerivationNode expectedRight = new ValDerivationNode(bGt0, null);
+        ValDerivationNode expected = new ValDerivationNode(bGe100,
+                new BinaryDerivationNode(expectedLeft, expectedRight, "&&"));
+
+        assertDerivationEquals(expected, result, "Entailment simplification should preserve conjunction origin");
+    }
+
+    @Test
+    void testStrictComparisonImpliesNonStrictComparison() {
+        // Given: x > y && x >= y
+        // Expected: x > y (x > y implies x >= y)
+
+        addIntVariableToContext("x");
+        addIntVariableToContext("y");
+        Expression x = new Var("x");
+        Expression y = new Var("y");
+        Expression xGtY = new BinaryExpression(x, ">", y);
+        Expression xGeY = new BinaryExpression(x, ">=", y);
+        Expression fullExpression = new BinaryExpression(xGtY, "&&", xGeY);
+
+        ValDerivationNode result = ExpressionSimplifier.simplify(fullExpression);
+
+        assertNotNull(result);
+        assertEquals("x > y", result.getValue().toString(),
+                "The stricter comparison should be kept when it implies the weaker one");
+
+        ValDerivationNode expectedLeft = new ValDerivationNode(xGtY, null);
+        ValDerivationNode expectedRight = new ValDerivationNode(xGeY, null);
+        ValDerivationNode expected = new ValDerivationNode(xGtY,
+                new BinaryDerivationNode(expectedLeft, expectedRight, "&&"));
+
+        assertDerivationEquals(expected, result, "Strict comparison simplification should preserve conjunction origin");
+    }
+
+    @Test
+    void testEquivalentBoundsKeepOneSide() {
+        // Given: i >= 0 && 0 <= i
+        // Expected: 0 <= i (both conjuncts express the same condition)
+        addIntVariableToContext("i");
+        Expression i = new Var("i");
+        Expression zeroLeI = new BinaryExpression(new LiteralInt(0), "<=", i);
+        Expression iGeZero = new BinaryExpression(i, ">=", new LiteralInt(0));
+        Expression fullExpression = new BinaryExpression(zeroLeI, "&&", iGeZero);
+
+        ValDerivationNode result = ExpressionSimplifier.simplify(fullExpression);
+
+        assertNotNull(result);
+        assertEquals("0 <= i", result.getValue().toString(), "Equivalent bounds should collapse to a single conjunct");
+
+        ValDerivationNode expectedLeft = new ValDerivationNode(zeroLeI, null);
+        ValDerivationNode expectedRight = new ValDerivationNode(iGeZero, null);
+        ValDerivationNode expected = new ValDerivationNode(zeroLeI,
+                new BinaryDerivationNode(expectedLeft, expectedRight, "&&"));
+
+        assertDerivationEquals(expected, result, "Equivalent bounds simplification should preserve conjunction origin");
+    }
+
     /**
      * Helper method to compare two derivation nodes recursively
      */
@@ -767,5 +849,15 @@ class ExpressionSimplifierTest {
             assertEquals(expectedUnary.getOp(), actualUnary.getOp(), message + ": operators should match");
             assertDerivationEquals(expectedUnary.getOperand(), actualUnary.getOperand(), message + " > operand");
         }
+    }
+
+    /**
+     * Helper method to add an integer variable to the context Needed for tests that rely on the SMT-based implication
+     * checks The simplifier asks Z3 whether one conjunct implies another, so every variable in those expressions must
+     * be in the context
+     */
+    private void addIntVariableToContext(String name) {
+        context.addVarToContext(name, factory.Type().INTEGER_PRIMITIVE, new Predicate(),
+                factory.Code().createCodeSnippetStatement(""));
     }
 }

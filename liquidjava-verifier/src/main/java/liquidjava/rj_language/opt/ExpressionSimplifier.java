@@ -1,11 +1,15 @@
 package liquidjava.rj_language.opt;
 
+import liquidjava.processor.context.Context;
+import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.LiteralBoolean;
 import liquidjava.rj_language.opt.derivation_node.BinaryDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.DerivationNode;
 import liquidjava.rj_language.opt.derivation_node.ValDerivationNode;
+import liquidjava.smt.SMTEvaluator;
+import liquidjava.smt.SMTResult;
 
 public class ExpressionSimplifier {
 
@@ -74,6 +78,16 @@ public class ExpressionSimplifier {
                 return leftSimplified;
             }
 
+            // remove weaker conjuncts (e.g. x > 0 && x > -1 => x > 0)
+            if (implies(leftSimplified.getValue(), rightSimplified.getValue())) {
+                return new ValDerivationNode(leftSimplified.getValue(),
+                        new BinaryDerivationNode(leftSimplified, rightSimplified, "&&"));
+            }
+            if (implies(rightSimplified.getValue(), leftSimplified.getValue())) {
+                return new ValDerivationNode(rightSimplified.getValue(),
+                        new BinaryDerivationNode(leftSimplified, rightSimplified, "&&"));
+            }
+
             // return the conjunction with simplified children
             Expression newValue = new BinaryExpression(leftSimplified.getValue(), "&&", rightSimplified.getValue());
             DerivationNode newOrigin = new BinaryDerivationNode(leftSimplified, rightSimplified, "&&");
@@ -113,5 +127,18 @@ public class ExpressionSimplifier {
             }
         }
         return false;
+    }
+
+    /**
+     * Checks whether one expression implies another by asking Z3, used to remove weaker conjuncts in the simplification
+     */
+    private static boolean implies(Expression stronger, Expression weaker) {
+        try {
+            SMTResult result = new SMTEvaluator().verifySubtype(new Predicate(stronger), new Predicate(weaker),
+                    Context.getInstance());
+            return result.isOk();
+        } catch (Exception e) {
+            return false;
+        }
     }
 }
