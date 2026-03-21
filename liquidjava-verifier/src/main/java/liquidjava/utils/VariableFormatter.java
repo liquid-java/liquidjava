@@ -1,6 +1,5 @@
 package liquidjava.utils;
 
-import java.util.Arrays;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -8,7 +7,6 @@ public final class VariableFormatter {
     private static final Pattern INSTACE_VAR_PATTERN = Pattern.compile("^#(.+)_([0-9]+)$");
     private static final Pattern INSTANCE_VAR_TEXT_PATTERN = Pattern.compile("#[^\\s,;:()\\[\\]{}]+_[0-9]+");
     private static final char[] SUPERSCRIPT_CHARS = { '⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹' };
-    private static final String[] SPECIAL_IDENTIFIERS = { "fresh", "ret" };
 
     public static String formatVariable(String name) {
         if (name == null)
@@ -50,6 +48,6 @@ public final class VariableFormatter {
     }
 
     private static boolean isSpecialIdentifier(String id) {
-        return Arrays.stream(SPECIAL_IDENTIFIERS).anyMatch(s -> s.equals(id));
+        return id == "fresh" || id == "ret";
     }
 }
