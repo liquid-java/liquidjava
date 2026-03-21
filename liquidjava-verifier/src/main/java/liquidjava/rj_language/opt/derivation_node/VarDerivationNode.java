@@ -8,7 +8,7 @@ import com.google.gson.JsonSerializationContext;
 import com.google.gson.JsonSerializer;
 import com.google.gson.annotations.JsonAdapter;
 
-import liquidjava.utils.VariableNameFormatter;
+import liquidjava.utils.VariableFormatter;
 
 public class VarDerivationNode extends DerivationNode {
 
@@ -37,7 +37,7 @@ public class VarDerivationNode extends DerivationNode {
     private static class VariableNameSerializer implements JsonSerializer<String> {
         @Override
         public JsonElement serialize(String src, Type typeOfSrc, JsonSerializationContext context) {
-            return new JsonPrimitive(VariableNameFormatter.formatVariable(src));
+            return new JsonPrimitive(VariableFormatter.formatVariable(src));
         }
     }
 }

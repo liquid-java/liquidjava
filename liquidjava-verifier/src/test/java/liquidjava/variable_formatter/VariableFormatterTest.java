@@ -1,4 +1,4 @@
-package liquidjava.utils;
+package liquidjava.variable_formatter;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -6,17 +6,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import liquidjava.rj_language.ast.Var;
 import liquidjava.rj_language.opt.derivation_node.ValDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.VarDerivationNode;
+import liquidjava.utils.VariableFormatter;
+
 import org.junit.jupiter.api.Test;
 
-class VariableNameFormatterTest {
+class VariableFormatterTest {
 
     @Test
     void testInstanceVariableDisplayNameFormatting() {
-        assertEquals("x", VariableNameFormatter.formatVariable("x"));
-        assertEquals("x²", VariableNameFormatter.formatVariable("#x_2"));
-        assertEquals("#fresh¹²", VariableNameFormatter.formatVariable("#fresh_12"));
-        assertEquals("#ret³", VariableNameFormatter.formatVariable("#ret_3"));
-        assertEquals("this#Class", VariableNameFormatter.formatVariable("this#Class"));
+        assertEquals("x", VariableFormatter.formatVariable("x"));
+        assertEquals("x²", VariableFormatter.formatVariable("#x_2"));
+        assertEquals("#fresh¹²", VariableFormatter.formatVariable("#fresh_12"));
+        assertEquals("#ret³", VariableFormatter.formatVariable("#ret_3"));
+        assertEquals("this#Class", VariableFormatter.formatVariable("this#Class"));
     }
 
     @Test

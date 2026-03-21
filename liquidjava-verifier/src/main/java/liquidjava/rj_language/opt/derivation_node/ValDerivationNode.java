@@ -15,7 +15,7 @@ import liquidjava.rj_language.ast.LiteralInt;
 import liquidjava.rj_language.ast.LiteralLong;
 import liquidjava.rj_language.ast.LiteralReal;
 import liquidjava.rj_language.ast.Var;
-import liquidjava.utils.VariableNameFormatter;
+import liquidjava.utils.VariableFormatter;
 
 public class ValDerivationNode extends DerivationNode {
 
@@ -51,8 +51,8 @@ public class ValDerivationNode extends DerivationNode {
             if (exp instanceof LiteralBoolean v)
                 return new JsonPrimitive(v.isBooleanTrue());
             if (exp instanceof Var v)
-                return new JsonPrimitive(VariableNameFormatter.formatVariable(v.getName()));
-            return new JsonPrimitive(VariableNameFormatter.formatText(exp.toString()));
+                return new JsonPrimitive(VariableFormatter.formatVariable(v.getName()));
+            return new JsonPrimitive(VariableFormatter.formatText(exp.toString()));
         }
     }
 }
