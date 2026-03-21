@@ -48,6 +48,6 @@ public final class VariableFormatter {
     }
 
     private static boolean isSpecialIdentifier(String id) {
-        return id == "fresh" || id == "ret";
+        return "fresh".equals(id) || "ret".equals(id);
     }
 }
