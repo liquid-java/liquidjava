@@ -55,7 +55,9 @@ public class ObjectState {
     }
 
     public ObjectState clone() {
-        return new ObjectState(from.clone(), to.clone(), message);
+        Predicate clonedFrom = from == null ? null : from.clone();
+        Predicate clonedTo = to == null ? null : to.clone();
+        return new ObjectState(clonedFrom, clonedTo, message);
     }
 
     @Override

@@ -182,10 +182,6 @@ public class AuxStateHandler {
         if (to != null)
             state.setTo(createStatePredicate(to, f.getTargetClass(), tc, e, true, prefix));
 
-        // has from but not to, state remains the same
-        if (from != null && to == null)
-            state.setTo(createStatePredicate(from, f.getTargetClass(), tc, e, true, prefix));
-
         // has to but not from, state enters with true
         if (from == null && to != null)
             state.setFrom(new Predicate());
