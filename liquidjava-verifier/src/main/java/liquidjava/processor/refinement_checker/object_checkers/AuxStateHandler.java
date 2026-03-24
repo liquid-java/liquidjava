@@ -216,6 +216,7 @@ public class AuxStateHandler {
         CtTypeReference<?> r = tc.getFactory().Type().createReference(targetClass);
         String nameOld = String.format(Formats.INSTANCE, Keys.THIS, tc.getContext().getCounter());
         String name = String.format(Formats.INSTANCE, Keys.THIS, tc.getContext().getCounter());
+        tc.getContext().addVarToContext(Keys.THIS, r, new Predicate(), e);
         tc.getContext().addVarToContext(name, r, new Predicate(), e);
         tc.getContext().addVarToContext(nameOld, r, new Predicate(), e);
         // TODO REVIEW!!
