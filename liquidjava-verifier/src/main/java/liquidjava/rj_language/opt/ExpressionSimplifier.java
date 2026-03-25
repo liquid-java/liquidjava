@@ -18,7 +18,7 @@ public class ExpressionSimplifier {
     public static ValDerivationNode simplify(Expression exp) {
         ValDerivationNode fixedPoint = simplifyToFixedPoint(null, exp);
         ValDerivationNode simplified = simplifyValDerivationNode(fixedPoint);
-        return unwrapDerivedBooleans(simplified);
+        return unwrapBooleanLiterals(simplified);
     }
 
     /**
@@ -128,7 +128,7 @@ public class ExpressionSimplifier {
      * but only when at least one operand in the derivation is non-boolean. e.g. "x == true" where true came from "1 >
      * 0" becomes "x == 1 > 0"
      */
-    static ValDerivationNode unwrapDerivedBooleans(ValDerivationNode node) {
+    private static ValDerivationNode unwrapBooleanLiterals(ValDerivationNode node) {
         Expression value = node.getValue();
         DerivationNode origin = node.getOrigin();
 
@@ -137,8 +137,8 @@ public class ExpressionSimplifier {
 
         // unwrap binary expressions
         if (value instanceof BinaryExpression binExp && origin instanceof BinaryDerivationNode binOrigin) {
-            ValDerivationNode left = unwrapDerivedBooleans(binOrigin.getLeft());
-            ValDerivationNode right = unwrapDerivedBooleans(binOrigin.getRight());
+            ValDerivationNode left = unwrapBooleanLiterals(binOrigin.getLeft());
+            ValDerivationNode right = unwrapBooleanLiterals(binOrigin.getRight());
             if (left != binOrigin.getLeft() || right != binOrigin.getRight()) {
                 Expression newValue = new BinaryExpression(left.getValue(), binExp.getOperator(), right.getValue());
                 return new ValDerivationNode(newValue, new BinaryDerivationNode(left, right, binOrigin.getOp()));
@@ -148,7 +148,7 @@ public class ExpressionSimplifier {
 
         // unwrap unary expressions
         if (value instanceof UnaryExpression unaryExp && origin instanceof UnaryDerivationNode unaryOrigin) {
-            ValDerivationNode operand = unwrapDerivedBooleans(unaryOrigin.getOperand());
+            ValDerivationNode operand = unwrapBooleanLiterals(unaryOrigin.getOperand());
             if (operand != unaryOrigin.getOperand()) {
                 Expression newValue = new UnaryExpression(unaryExp.getOp(), operand.getValue());
                 return new ValDerivationNode(newValue, new UnaryDerivationNode(operand, unaryOrigin.getOp()));
@@ -158,8 +158,8 @@ public class ExpressionSimplifier {
 
         // boolean literal with binary origin: unwrap if at least one child is non-boolean
         if (value instanceof LiteralBoolean && origin instanceof BinaryDerivationNode binOrigin) {
-            ValDerivationNode left = unwrapDerivedBooleans(binOrigin.getLeft());
-            ValDerivationNode right = unwrapDerivedBooleans(binOrigin.getRight());
+            ValDerivationNode left = unwrapBooleanLiterals(binOrigin.getLeft());
+            ValDerivationNode right = unwrapBooleanLiterals(binOrigin.getRight());
             if (!(left.getValue() instanceof LiteralBoolean) || !(right.getValue() instanceof LiteralBoolean)) {
                 Expression newValue = new BinaryExpression(left.getValue(), binOrigin.getOp(), right.getValue());
                 return new ValDerivationNode(newValue, new BinaryDerivationNode(left, right, binOrigin.getOp()));
@@ -169,7 +169,7 @@ public class ExpressionSimplifier {
 
         // boolean literal with unary origin: unwrap if operand is non-boolean
         if (value instanceof LiteralBoolean && origin instanceof UnaryDerivationNode unaryOrigin) {
-            ValDerivationNode operand = unwrapDerivedBooleans(unaryOrigin.getOperand());
+            ValDerivationNode operand = unwrapBooleanLiterals(unaryOrigin.getOperand());
             if (!(operand.getValue() instanceof LiteralBoolean)) {
                 Expression newValue = new UnaryExpression(unaryOrigin.getOp(), operand.getValue());
                 return new ValDerivationNode(newValue, new UnaryDerivationNode(operand, unaryOrigin.getOp()));
