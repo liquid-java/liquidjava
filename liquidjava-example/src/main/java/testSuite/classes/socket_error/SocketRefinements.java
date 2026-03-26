@@ -1,9 +1,7 @@
 package testSuite.classes.socket_error;
 
 import java.net.SocketAddress;
-import liquidjava.specification.ExternalRefinementsFor;
-import liquidjava.specification.StateRefinement;
-import liquidjava.specification.StateSet;
+import liquidjava.specification.*;
 
 @ExternalRefinementsFor("java.net.Socket")
 @StateSet({"unconnected", "binded", "connected", "closed"})

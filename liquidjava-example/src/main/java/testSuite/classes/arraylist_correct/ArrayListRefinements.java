@@ -1,8 +1,6 @@
 package testSuite.classes.arraylist_correct;
 
-import liquidjava.specification.ExternalRefinementsFor;
-import liquidjava.specification.RefinementPredicate;
-import liquidjava.specification.StateRefinement;
+import liquidjava.specification.*;
 
 @ExternalRefinementsFor("java.util.ArrayList")
 public interface ArrayListRefinements<E> {

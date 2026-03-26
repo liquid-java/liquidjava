@@ -612,8 +612,7 @@ public class AuxStateHandler {
     }
 
     private static List<CtAnnotation<? extends Annotation>> getStateAnnotation(CtElement element) {
-        return element.getAnnotations().stream().filter(ann -> ann.getActualAnnotation().annotationType()
-                .getCanonicalName().contentEquals("liquidjava.specification.StateRefinement"))
-                .collect(Collectors.toList());
+        return element.getAnnotations().stream().filter(ann -> ann.getAnnotationType().getQualifiedName()
+                .contentEquals("liquidjava.specification.StateRefinement")).collect(Collectors.toList());
     }
 }
