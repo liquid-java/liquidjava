@@ -33,7 +33,7 @@ public class AuxStateHandler {
      */
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public static void handleConstructorState(CtConstructor<?> c, RefinedFunction f, TypeChecker tc) throws LJError {
-        List<CtAnnotation<? extends Annotation>> an = getStateAnnotation(c);
+        List<CtAnnotation<? extends Annotation>> an = getStateAnnotations(c);
         if (!an.isEmpty()) {
             for (CtAnnotation<? extends Annotation> a : an) {
                 Map<String, CtExpression> m = a.getAllValues();
@@ -140,7 +140,7 @@ public class AuxStateHandler {
      */
     public static void handleMethodState(CtMethod<?> method, RefinedFunction f, TypeChecker tc, String prefix)
             throws LJError {
-        List<CtAnnotation<? extends Annotation>> an = getStateAnnotation(method);
+        List<CtAnnotation<? extends Annotation>> an = getStateAnnotations(method);
         if (!an.isEmpty()) {
             setFunctionStates(f, an, tc, method, prefix);
         }
@@ -611,7 +611,7 @@ public class AuxStateHandler {
         return null;
     }
 
-    private static List<CtAnnotation<? extends Annotation>> getStateAnnotation(CtElement element) {
+    private static List<CtAnnotation<? extends Annotation>> getStateAnnotations(CtElement element) {
         return element.getAnnotations().stream().filter(ann -> ann.getAnnotationType().getQualifiedName()
                 .contentEquals("liquidjava.specification.StateRefinement")).collect(Collectors.toList());
     }
