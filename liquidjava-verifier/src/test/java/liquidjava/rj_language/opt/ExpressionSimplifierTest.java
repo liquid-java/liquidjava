@@ -118,7 +118,7 @@ class ExpressionSimplifierTest {
         // Then
         assertNotNull(result, "Result should not be null");
         assertInstanceOf(LiteralBoolean.class, result.getValue(), "Result should be a boolean");
-        assertFalse(((LiteralBoolean) result.getValue()).isBooleanTrue(), "Expected result to befalse");
+        assertFalse((result.getValue()).isBooleanTrue(), "Expected result to be false");
 
         // (y || true) && y == false => false || true = true
         ValDerivationNode valFalseForY = new ValDerivationNode(new LiteralBoolean(false), new VarDerivationNode("y"));

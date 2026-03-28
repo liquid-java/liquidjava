@@ -19,8 +19,7 @@ public class ExpressionSimplifier {
      * expanding aliases Returns a derivation node representing the tree of simplifications applied
      */
     public static ValDerivationNode simplify(Expression exp, Map<String, AliasDTO> aliases) {
-        ValDerivationNode node = new ValDerivationNode(exp, null);
-        ValDerivationNode fixedPoint = simplifyToFixedPoint(node, exp);
+        ValDerivationNode fixedPoint = simplifyToFixedPoint(null, exp);
         ValDerivationNode simplified = simplifyValDerivationNode(fixedPoint);
         ValDerivationNode unwrapped = unwrapBooleanLiterals(simplified);
         return AliasExpansion.expand(unwrapped, aliases);
