@@ -220,8 +220,8 @@ public class Predicate {
     }
 
     /**
-     * Creates a new predicate representing the conjunction of c1 and c2
-     * Contains simplification rules for redundant conjuncts such as not adding conjunct if already present in conjunction
+     * Creates a new predicate representing the conjunction of c1 and c2 Contains simplification rules for redundant
+     * conjuncts such as not adding conjunct if already present in conjunction
      */
     public static Predicate createConjunction(Predicate c1, Predicate c2) {
         // simplification: (true && x) = x, (false && x) = false
