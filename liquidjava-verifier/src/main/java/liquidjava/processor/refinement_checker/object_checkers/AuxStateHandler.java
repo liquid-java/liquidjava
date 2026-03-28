@@ -359,7 +359,7 @@ public class AuxStateHandler {
      */
     public static void checkTargetChanges(TypeChecker tc, RefinedFunction f, CtExpression<?> target2,
             Map<String, String> map, CtElement invocation) throws LJError {
-        String parentTargetName = searchFistVariableTarget(tc, target2, invocation);
+        String parentTargetName = prepareInvocationTarget(tc, target2, invocation);
         VariableInstance target = getTarget(invocation);
         if (target != null) {
             if (f.hasStateChange() && !f.getFromStates().isEmpty()) {
@@ -576,7 +576,7 @@ public class AuxStateHandler {
      *
      * @return the name of the parent target
      */
-    static String searchFistVariableTarget(TypeChecker tc, CtElement target2, CtElement invocation) {
+    public static String prepareInvocationTarget(TypeChecker tc, CtElement target2, CtElement invocation) {
         if (target2 instanceof CtVariableRead<?> v) {
             // v--------- field read
             // means invocation is in a form of `t.method(args)`
