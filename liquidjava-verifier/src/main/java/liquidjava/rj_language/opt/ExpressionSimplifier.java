@@ -27,8 +27,8 @@ public class ExpressionSimplifier {
      */
     private static ValDerivationNode simplifyToFixedPoint(ValDerivationNode current, Expression prevExp) {
         // apply propagation and folding
-        ValDerivationNode prop = ConstantPropagation.propagate(prevExp, current);
-        ValDerivationNode fold = ConstantFolding.fold(prop);
+        ValDerivationNode prop = VariablePropagation.propagate(prevExp, current);
+        ValDerivationNode fold = ExpressionFolding.fold(prop);
         ValDerivationNode simplified = simplifyValDerivationNode(fold);
         Expression currExp = simplified.getValue();
 
