@@ -552,6 +552,7 @@ class ExpressionSimplifierTest {
         assertEquals("a == 1", result.getValue().toString(), "Expected result to be a == 1");
     }
 
+    @Test
     void testShouldNotOversimplifyToTrue() {
         // Given: x > 5 && x == y && y == 10
         // Iteration 1: resolves y == 10, substitutes y -> 10: x > 5 && x == 10
