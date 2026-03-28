@@ -207,6 +207,9 @@ public class Predicate {
         return expr instanceof LiteralBoolean && expr.isBooleanTrue() == value;
     }
 
+    /**
+     * Checks if c2 is a conjunct in c1
+     */
     private static boolean containsConjunct(Predicate c1, Predicate c2) {
         if (c1.toString().equals(c2.toString()))
             return true;
@@ -216,6 +219,10 @@ public class Predicate {
         return false;
     }
 
+    /**
+     * Creates a new predicate representing the conjunction of c1 and c2
+     * Contains simplification rules for redundant conjuncts such as not adding conjunct if already present in conjunction
+     */
     public static Predicate createConjunction(Predicate c1, Predicate c2) {
         // simplification: (true && x) = x, (false && x) = false
         if (isBooleanLiteral(c1.getExpression(), true))
@@ -227,9 +234,11 @@ public class Predicate {
         if (isBooleanLiteral(c2.getExpression(), false))
             return c2;
 
-        // check if c2 is already present in the conjunctions of c1
+        // check if conjunct is already present in the conjunction
         if (containsConjunct(c1, c2))
             return c1;
+        if (containsConjunct(c2, c1))
+            return c2;
 
         return new Predicate(new BinaryExpression(c1.getExpression(), Ops.AND, c2.getExpression()));
     }
