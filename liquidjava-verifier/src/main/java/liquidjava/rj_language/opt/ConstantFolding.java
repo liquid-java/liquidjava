@@ -172,18 +172,24 @@ public class ConstantFolding {
             // !true => false, !false => true
             boolean value = operand.isBooleanTrue();
             Expression res = new LiteralBoolean(!value);
-            return new ValDerivationNode(res, new UnaryDerivationNode(operandNode, operator));
+            DerivationNode origin = operandNode.getOrigin() != null ? new UnaryDerivationNode(operandNode, operator)
+                    : null;
+            return new ValDerivationNode(res, origin);
         }
         // unary minus
         if ("-".equals(operator)) {
             // -(x) => -x
             if (operand instanceof LiteralInt) {
                 Expression res = new LiteralInt(-((LiteralInt) operand).getValue());
-                return new ValDerivationNode(res, new UnaryDerivationNode(operandNode, operator));
+                DerivationNode origin = operandNode.getOrigin() != null ? new UnaryDerivationNode(operandNode, operator)
+                        : null;
+                return new ValDerivationNode(res, origin);
             }
             if (operand instanceof LiteralReal) {
                 Expression res = new LiteralReal(-((LiteralReal) operand).getValue());
-                return new ValDerivationNode(res, new UnaryDerivationNode(operandNode, operator));
+                DerivationNode origin = operandNode.getOrigin() != null ? new UnaryDerivationNode(operandNode, operator)
+                        : null;
+                return new ValDerivationNode(res, origin);
             }
         }
 
