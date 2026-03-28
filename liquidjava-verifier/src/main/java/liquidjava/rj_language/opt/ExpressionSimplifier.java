@@ -2,11 +2,16 @@ package liquidjava.rj_language.opt;
 
 import liquidjava.processor.context.Context;
 import liquidjava.rj_language.Predicate;
+import java.util.Map;
+
+import liquidjava.processor.facade.AliasDTO;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.LiteralBoolean;
+import liquidjava.rj_language.ast.UnaryExpression;
 import liquidjava.rj_language.opt.derivation_node.BinaryDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.DerivationNode;
+import liquidjava.rj_language.opt.derivation_node.UnaryDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.ValDerivationNode;
 import liquidjava.smt.SMTEvaluator;
 import liquidjava.smt.SMTResult;
@@ -14,27 +19,38 @@ import liquidjava.smt.SMTResult;
 public class ExpressionSimplifier {
 
     /**
-     * Simplifies an expression by applying constant propagation, constant folding and removing redundant conjuncts
-     * Returns a derivation node representing the tree of simplifications applied
+     * Simplifies an expression by applying constant propagation, constant folding, removing redundant conjuncts and
+     * expanding aliases Returns a derivation node representing the tree of simplifications applied
      */
-    public static ValDerivationNode simplify(Expression exp) {
+    public static ValDerivationNode simplify(Expression exp, Map<String, AliasDTO> aliases) {
         ValDerivationNode fixedPoint = simplifyToFixedPoint(null, exp);
-        return simplifyValDerivationNode(fixedPoint);
+        ValDerivationNode simplified = simplifyValDerivationNode(fixedPoint);
+        ValDerivationNode unwrapped = unwrapBooleanLiterals(simplified);
+        return AliasExpansion.expand(unwrapped, aliases);
+    }
+
+    public static ValDerivationNode simplify(Expression exp) {
+        return simplify(exp, Map.of());
     }
 
     /**
      * Recursively applies propagation and folding until the expression stops changing (fixed point) Stops early if the
-     * expression simplifies to 'true', which means we've simplified too much
+     * expression simplifies to a boolean literal, which means we've simplified too much
      */
     private static ValDerivationNode simplifyToFixedPoint(ValDerivationNode current, Expression prevExp) {
         // apply propagation and folding
-        ValDerivationNode prop = ConstantPropagation.propagate(prevExp, current);
-        ValDerivationNode fold = ConstantFolding.fold(prop);
+        ValDerivationNode prop = VariablePropagation.propagate(prevExp, current);
+        ValDerivationNode fold = ExpressionFolding.fold(prop);
         ValDerivationNode simplified = simplifyValDerivationNode(fold);
         Expression currExp = simplified.getValue();
 
         // fixed point reached
         if (current != null && currExp.equals(current.getValue())) {
+            return current;
+        }
+
+        // prevent oversimplification
+        if (current != null && currExp instanceof LiteralBoolean && !(current.getValue() instanceof LiteralBoolean)) {
             return current;
         }
 
@@ -90,8 +106,12 @@ public class ExpressionSimplifier {
 
             // return the conjunction with simplified children
             Expression newValue = new BinaryExpression(leftSimplified.getValue(), "&&", rightSimplified.getValue());
-            DerivationNode newOrigin = new BinaryDerivationNode(leftSimplified, rightSimplified, "&&");
-            return new ValDerivationNode(newValue, newOrigin);
+            // only create origin if at least one child has a meaningful origin
+            if (leftSimplified.getOrigin() != null || rightSimplified.getOrigin() != null) {
+                DerivationNode newOrigin = new BinaryDerivationNode(leftSimplified, rightSimplified, "&&");
+                return new ValDerivationNode(newValue, newOrigin);
+            }
+            return new ValDerivationNode(newValue, null);
         }
         // no simplification
         return node;
@@ -127,6 +147,63 @@ public class ExpressionSimplifier {
             }
         }
         return false;
+    }
+
+    /**
+     * Recursively traverses the derivation tree and replaces boolean literals with the expressions that produced them,
+     * but only when at least one operand in the derivation is non-boolean. e.g. "x == true" where true came from "1 >
+     * 0" becomes "x == 1 > 0"
+     */
+    private static ValDerivationNode unwrapBooleanLiterals(ValDerivationNode node) {
+        Expression value = node.getValue();
+        DerivationNode origin = node.getOrigin();
+
+        if (origin == null)
+            return node;
+
+        // unwrap binary expressions
+        if (value instanceof BinaryExpression binExp && origin instanceof BinaryDerivationNode binOrigin) {
+            ValDerivationNode left = unwrapBooleanLiterals(binOrigin.getLeft());
+            ValDerivationNode right = unwrapBooleanLiterals(binOrigin.getRight());
+            if (left != binOrigin.getLeft() || right != binOrigin.getRight()) {
+                Expression newValue = new BinaryExpression(left.getValue(), binExp.getOperator(), right.getValue());
+                return new ValDerivationNode(newValue, new BinaryDerivationNode(left, right, binOrigin.getOp()));
+            }
+            return node;
+        }
+
+        // unwrap unary expressions
+        if (value instanceof UnaryExpression unaryExp && origin instanceof UnaryDerivationNode unaryOrigin) {
+            ValDerivationNode operand = unwrapBooleanLiterals(unaryOrigin.getOperand());
+            if (operand != unaryOrigin.getOperand()) {
+                Expression newValue = new UnaryExpression(unaryExp.getOp(), operand.getValue());
+                return new ValDerivationNode(newValue, new UnaryDerivationNode(operand, unaryOrigin.getOp()));
+            }
+            return node;
+        }
+
+        // boolean literal with binary origin: unwrap if at least one child is non-boolean
+        if (value instanceof LiteralBoolean && origin instanceof BinaryDerivationNode binOrigin) {
+            ValDerivationNode left = unwrapBooleanLiterals(binOrigin.getLeft());
+            ValDerivationNode right = unwrapBooleanLiterals(binOrigin.getRight());
+            if (!(left.getValue() instanceof LiteralBoolean) || !(right.getValue() instanceof LiteralBoolean)) {
+                Expression newValue = new BinaryExpression(left.getValue(), binOrigin.getOp(), right.getValue());
+                return new ValDerivationNode(newValue, new BinaryDerivationNode(left, right, binOrigin.getOp()));
+            }
+            return node;
+        }
+
+        // boolean literal with unary origin: unwrap if operand is non-boolean
+        if (value instanceof LiteralBoolean && origin instanceof UnaryDerivationNode unaryOrigin) {
+            ValDerivationNode operand = unwrapBooleanLiterals(unaryOrigin.getOperand());
+            if (!(operand.getValue() instanceof LiteralBoolean)) {
+                Expression newValue = new UnaryExpression(unaryOrigin.getOp(), operand.getValue());
+                return new ValDerivationNode(newValue, new UnaryDerivationNode(operand, unaryOrigin.getOp()));
+            }
+            return node;
+        }
+
+        return node;
     }
 
     /**

@@ -47,7 +47,7 @@ public class ExternalRefinementTypeChecker extends TypeChecker {
             this.prefix = literal.getValue();
             if (!classExists(prefix)) {
                 String message = String.format("Could not find class '%s'", prefix);
-                diagnostics.add(new ExternalClassNotFoundWarning(externalRef.get().getPosition(), message, prefix));
+                diagnostics.add(new ExternalClassNotFoundWarning(literal.getPosition(), message, prefix));
                 return;
             }
             getRefinementFromAnnotation(intrface);

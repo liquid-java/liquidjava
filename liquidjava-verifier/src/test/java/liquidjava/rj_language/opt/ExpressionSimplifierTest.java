@@ -4,14 +4,21 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import liquidjava.processor.context.Context;
 import liquidjava.rj_language.Predicate;
+import java.util.List;
+import java.util.Map;
+
+import liquidjava.processor.facade.AliasDTO;
+import liquidjava.rj_language.ast.AliasInvocation;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
+import liquidjava.rj_language.ast.Ite;
 import liquidjava.rj_language.ast.LiteralBoolean;
 import liquidjava.rj_language.ast.LiteralInt;
 import liquidjava.rj_language.ast.UnaryExpression;
 import liquidjava.rj_language.ast.Var;
 import liquidjava.rj_language.opt.derivation_node.BinaryDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.DerivationNode;
+import liquidjava.rj_language.opt.derivation_node.IteDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.UnaryDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.ValDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.VarDerivationNode;
@@ -118,7 +125,7 @@ class ExpressionSimplifierTest {
         // Then
         assertNotNull(result, "Result should not be null");
         assertInstanceOf(LiteralBoolean.class, result.getValue(), "Result should be a boolean");
-        assertFalse(((LiteralBoolean) result.getValue()).isBooleanTrue(), "Expected result to befalse");
+        assertFalse((result.getValue()).isBooleanTrue(), "Expected result to be false");
 
         // (y || true) && y == false => false || true = true
         ValDerivationNode valFalseForY = new ValDerivationNode(new LiteralBoolean(false), new VarDerivationNode("y"));
@@ -127,9 +134,7 @@ class ExpressionSimplifierTest {
         ValDerivationNode trueFromOr = new ValDerivationNode(new LiteralBoolean(true), orFalseTrue);
 
         // !true = false
-        ValDerivationNode valTrue2 = new ValDerivationNode(new LiteralBoolean(true), null);
-        UnaryDerivationNode notOp = new UnaryDerivationNode(valTrue2, "!");
-        ValDerivationNode falseFromNot = new ValDerivationNode(new LiteralBoolean(false), notOp);
+        ValDerivationNode falseFromNot = new ValDerivationNode(new LiteralBoolean(false), null);
 
         // true && false = false
         BinaryDerivationNode andTrueFalse = new BinaryDerivationNode(trueFromOr, falseFromNot, "&&");
@@ -194,10 +199,8 @@ class ExpressionSimplifierTest {
         BinaryDerivationNode div6By2 = new BinaryDerivationNode(val6, val2, "/");
         ValDerivationNode val3 = new ValDerivationNode(new LiteralInt(3), div6By2);
 
-        // -5 from unary negation of 5
-        ValDerivationNode val5 = new ValDerivationNode(new LiteralInt(5), null);
-        UnaryDerivationNode unaryNeg5 = new UnaryDerivationNode(val5, "-");
-        ValDerivationNode valNeg5 = new ValDerivationNode(new LiteralInt(-5), unaryNeg5);
+        // -5 is a literal with no origin
+        ValDerivationNode valNeg5 = new ValDerivationNode(new LiteralInt(-5), null);
 
         // 3 + (-5) = -2
         BinaryDerivationNode add3AndNeg5 = new BinaryDerivationNode(val3, valNeg5, "+");
@@ -250,13 +253,13 @@ class ExpressionSimplifierTest {
         // When
         ValDerivationNode result = ExpressionSimplifier.simplify(fullExpression);
 
-        // Then
+        // Then: boolean literals are unwrapped to show the verified conditions
         assertNotNull(result, "Result should not be null");
         assertNotNull(result.getValue(), "Result value should not be null");
-        assertInstanceOf(LiteralBoolean.class, result.getValue(), "Result should be a boolean literal");
-        assertTrue(result.getValue().isBooleanTrue(), "Expected result to be true");
+        assertEquals("14 == 14 && 5 == 5 && 7 == 7 && 14 == 14", result.getValue().toString(),
+                "All verified conditions should be visible instead of collapsed to true");
 
-        // 5 * 2 + 7 - 3
+        // 5 * 2 + 7 - 3 = 14
         ValDerivationNode val5 = new ValDerivationNode(new LiteralInt(5), new VarDerivationNode("a"));
         ValDerivationNode val2 = new ValDerivationNode(new LiteralInt(2), null);
         BinaryDerivationNode mult5Times2 = new BinaryDerivationNode(val5, val2, "*");
@@ -273,39 +276,45 @@ class ExpressionSimplifierTest {
         // 14 from variable c
         ValDerivationNode val14Right = new ValDerivationNode(new LiteralInt(14), new VarDerivationNode("c"));
 
-        // 14 == 14
+        // 14 == 14 (unwrapped from true)
         BinaryDerivationNode compare14 = new BinaryDerivationNode(val14Left, val14Right, "==");
-        ValDerivationNode trueFromComparison = new ValDerivationNode(new LiteralBoolean(true), compare14);
+        Expression expr14Eq14 = new BinaryExpression(new LiteralInt(14), "==", new LiteralInt(14));
+        ValDerivationNode compare14Node = new ValDerivationNode(expr14Eq14, compare14);
 
-        // a == 5 => true
+        // a == 5 => 5 == 5 (unwrapped from true)
         ValDerivationNode val5ForCompA = new ValDerivationNode(new LiteralInt(5), new VarDerivationNode("a"));
         ValDerivationNode val5Literal = new ValDerivationNode(new LiteralInt(5), null);
         BinaryDerivationNode compareA5 = new BinaryDerivationNode(val5ForCompA, val5Literal, "==");
-        ValDerivationNode trueFromA = new ValDerivationNode(new LiteralBoolean(true), compareA5);
+        Expression expr5Eq5 = new BinaryExpression(new LiteralInt(5), "==", new LiteralInt(5));
+        ValDerivationNode compare5Node = new ValDerivationNode(expr5Eq5, compareA5);
 
-        // b == 7 => true
+        // b == 7 => 7 == 7 (unwrapped from true)
         ValDerivationNode val7ForCompB = new ValDerivationNode(new LiteralInt(7), new VarDerivationNode("b"));
         ValDerivationNode val7Literal = new ValDerivationNode(new LiteralInt(7), null);
         BinaryDerivationNode compareB7 = new BinaryDerivationNode(val7ForCompB, val7Literal, "==");
-        ValDerivationNode trueFromB = new ValDerivationNode(new LiteralBoolean(true), compareB7);
+        Expression expr7Eq7 = new BinaryExpression(new LiteralInt(7), "==", new LiteralInt(7));
+        ValDerivationNode compare7Node = new ValDerivationNode(expr7Eq7, compareB7);
 
-        // (a == 5) && (b == 7) => true
-        BinaryDerivationNode andAB = new BinaryDerivationNode(trueFromA, trueFromB, "&&");
-        ValDerivationNode trueFromAB = new ValDerivationNode(new LiteralBoolean(true), andAB);
+        // (5 == 5) && (7 == 7) (unwrapped from true)
+        BinaryDerivationNode andAB = new BinaryDerivationNode(compare5Node, compare7Node, "&&");
+        Expression expr5And7 = new BinaryExpression(expr5Eq5, "&&", expr7Eq7);
+        ValDerivationNode and5And7Node = new ValDerivationNode(expr5And7, andAB);
 
-        // c == 14 => true
+        // c == 14 => 14 == 14 (unwrapped from true)
         ValDerivationNode val14ForCompC = new ValDerivationNode(new LiteralInt(14), new VarDerivationNode("c"));
         ValDerivationNode val14Literal = new ValDerivationNode(new LiteralInt(14), null);
         BinaryDerivationNode compareC14 = new BinaryDerivationNode(val14ForCompC, val14Literal, "==");
-        ValDerivationNode trueFromC = new ValDerivationNode(new LiteralBoolean(true), compareC14);
+        Expression expr14Eq14b = new BinaryExpression(new LiteralInt(14), "==", new LiteralInt(14));
+        ValDerivationNode compare14bNode = new ValDerivationNode(expr14Eq14b, compareC14);
 
-        // ((a == 5) && (b == 7)) && (c == 14) => true
-        BinaryDerivationNode andABC = new BinaryDerivationNode(trueFromAB, trueFromC, "&&");
-        ValDerivationNode trueFromAllConditions = new ValDerivationNode(new LiteralBoolean(true), andABC);
+        // ((5 == 5) && (7 == 7)) && (14 == 14) (unwrapped from true)
+        BinaryDerivationNode andABC = new BinaryDerivationNode(and5And7Node, compare14bNode, "&&");
+        Expression exprConditions = new BinaryExpression(expr5And7, "&&", expr14Eq14b);
+        ValDerivationNode conditionsNode = new ValDerivationNode(exprConditions, andABC);
 
-        // 14 == 14 => true
-        BinaryDerivationNode finalAnd = new BinaryDerivationNode(trueFromComparison, trueFromAllConditions, "&&");
-        ValDerivationNode expected = new ValDerivationNode(new LiteralBoolean(true), finalAnd);
+        // (14 == 14) && ((5 == 5 && 7 == 7) && 14 == 14)
+        BinaryDerivationNode finalAnd = new BinaryDerivationNode(compare14Node, conditionsNode, "&&");
+        ValDerivationNode expected = new ValDerivationNode(result.getValue(), finalAnd);
 
         // Compare the derivation trees
         assertDerivationEquals(expected, result, "");
@@ -558,6 +567,141 @@ class ExpressionSimplifierTest {
     }
 
     @Test
+    void testShouldNotOversimplifyToTrue() {
+        // Given: x > 5 && x == y && y == 10
+        // Iteration 1: resolves y == 10, substitutes y -> 10: x > 5 && x == 10
+        // Iteration 2: resolves x == 10, substitutes x -> 10: 10 > 5 && 10 == 10 -> true
+        // Expected: x > 5 && x == 10 (should NOT simplify to true)
+
+        Expression varX = new Var("x");
+        Expression varY = new Var("y");
+        Expression five = new LiteralInt(5);
+        Expression ten = new LiteralInt(10);
+
+        Expression xGreater5 = new BinaryExpression(varX, ">", five);
+        Expression xEqualsY = new BinaryExpression(varX, "==", varY);
+        Expression yEquals10 = new BinaryExpression(varY, "==", ten);
+
+        Expression firstAnd = new BinaryExpression(xGreater5, "&&", xEqualsY);
+        Expression fullExpression = new BinaryExpression(firstAnd, "&&", yEquals10);
+
+        // When
+        ValDerivationNode result = ExpressionSimplifier.simplify(fullExpression);
+
+        // Then
+        assertNotNull(result, "Result should not be null");
+        assertFalse(result.getValue() instanceof LiteralBoolean,
+                "Should not oversimplify to a boolean literal, but got: " + result.getValue());
+        assertEquals("x > 5 && x == 10", result.getValue().toString(),
+                "Should stop simplification before collapsing to true");
+    }
+
+    @Test
+    void testShouldUnwrapBooleanInEquality() {
+        // Given: x == (1 > 0)
+        // Without unwrapping: x == true (unhelpful - hides what "true" came from)
+        // Expected: x == 1 > 0 (unwrapped to show the original comparison)
+
+        Expression varX = new Var("x");
+        Expression one = new LiteralInt(1);
+        Expression zero = new LiteralInt(0);
+        Expression oneGreaterZero = new BinaryExpression(one, ">", zero);
+        Expression fullExpression = new BinaryExpression(varX, "==", oneGreaterZero);
+
+        // When
+        ValDerivationNode result = ExpressionSimplifier.simplify(fullExpression);
+
+        // Then
+        assertNotNull(result, "Result should not be null");
+        assertEquals("x == 1 > 0", result.getValue().toString(),
+                "Boolean in equality should be unwrapped to show the original comparison");
+    }
+
+    @Test
+    void testShouldUnwrapBooleanInEqualityWithPropagation() {
+        // Given: x == (a > b) && a == 3 && b == 1
+        // Without unwrapping: x == true (unhelpful)
+        // Expected: x == 3 > 1 (unwrapped and propagated)
+
+        Expression varX = new Var("x");
+        Expression varA = new Var("a");
+        Expression varB = new Var("b");
+        Expression aGreaterB = new BinaryExpression(varA, ">", varB);
+        Expression xEqualsComp = new BinaryExpression(varX, "==", aGreaterB);
+
+        Expression three = new LiteralInt(3);
+        Expression aEquals3 = new BinaryExpression(varA, "==", three);
+        Expression one = new LiteralInt(1);
+        Expression bEquals1 = new BinaryExpression(varB, "==", one);
+
+        Expression conditions = new BinaryExpression(aEquals3, "&&", bEquals1);
+        Expression fullExpression = new BinaryExpression(xEqualsComp, "&&", conditions);
+
+        // When
+        ValDerivationNode result = ExpressionSimplifier.simplify(fullExpression);
+
+        // Then
+        assertNotNull(result, "Result should not be null");
+        assertEquals("x == 3 > 1", result.getValue().toString(),
+                "Boolean in equality should be unwrapped after propagation");
+    }
+
+    @Test
+    void testShouldNotUnwrapBooleanWithBooleanChildren() {
+        // Given: (y || true) && !true && y == false
+        // Expected: false (both children of the fold are boolean, so no unwrapping needed)
+
+        Expression varY = new Var("y");
+        Expression trueExp = new LiteralBoolean(true);
+        Expression yOrTrue = new BinaryExpression(varY, "||", trueExp);
+        Expression notTrue = new UnaryExpression("!", trueExp);
+        Expression falseExp = new LiteralBoolean(false);
+        Expression yEqualsFalse = new BinaryExpression(varY, "==", falseExp);
+
+        Expression firstAnd = new BinaryExpression(yOrTrue, "&&", notTrue);
+        Expression fullExpression = new BinaryExpression(firstAnd, "&&", yEqualsFalse);
+
+        // When
+        ValDerivationNode result = ExpressionSimplifier.simplify(fullExpression);
+
+        // Then: false stays as false since both sides in the derivation are booleans
+        assertNotNull(result, "Result should not be null");
+        assertInstanceOf(LiteralBoolean.class, result.getValue(), "Result should remain a boolean");
+        assertFalse(result.getValue().isBooleanTrue(), "Expected result to be false");
+    }
+
+    @Test
+    void testShouldUnwrapNestedBooleanInEquality() {
+        // Given: x == (a + b > 10) && a == 3 && b == 5
+        // Without unwrapping: x == true (unhelpful)
+        // Expected: x == 8 > 10 (shows the actual comparison that produced the boolean)
+
+        Expression varX = new Var("x");
+        Expression varA = new Var("a");
+        Expression varB = new Var("b");
+        Expression aPlusB = new BinaryExpression(varA, "+", varB);
+        Expression ten = new LiteralInt(10);
+        Expression comparison = new BinaryExpression(aPlusB, ">", ten);
+        Expression xEqualsComp = new BinaryExpression(varX, "==", comparison);
+
+        Expression three = new LiteralInt(3);
+        Expression aEquals3 = new BinaryExpression(varA, "==", three);
+        Expression five = new LiteralInt(5);
+        Expression bEquals5 = new BinaryExpression(varB, "==", five);
+
+        Expression conditions = new BinaryExpression(aEquals3, "&&", bEquals5);
+        Expression fullExpression = new BinaryExpression(xEqualsComp, "&&", conditions);
+
+        // When
+        ValDerivationNode result = ExpressionSimplifier.simplify(fullExpression);
+
+        // Then
+        assertNotNull(result, "Result should not be null");
+        assertEquals("x == 8 > 10", result.getValue().toString(),
+                "Boolean in equality should be unwrapped to show the computed comparison");
+    }
+
+    @Test
     void testVarToVarPropagationWithInternalVariable() {
         // Given: #x_0 == a && #x_0 > 5
         // Expected: a > 5 (internal #x_0 substituted with user-facing a)
@@ -712,7 +856,7 @@ class ExpressionSimplifierTest {
     @Test
     void testInternalToInternalBothResolvingToLiteral() {
         // Given: #a_3 == #b_7 && #b_7 == 5
-        // Expected: 5 == 5 && 5 == 5 -> true (#a_3 has lower counter so #a_3 -> #b_7; #b_7 -> 5)
+        // Expected: 5 == 5 && 5 == 5 (#a_3 has lower counter so #a_3 -> #b_7; #b_7 -> 5)
 
         Expression a3 = new Var("#a_3");
         Expression b7 = new Var("#b_7");
@@ -724,8 +868,8 @@ class ExpressionSimplifierTest {
         ValDerivationNode result = ExpressionSimplifier.simplify(fullExpression);
 
         assertNotNull(result);
-        assertEquals("true", result.getValue().toString(),
-                "#a_3 -> #b_7 -> 5 and #b_7 -> 5; both equalities collapse to 5 == 5 -> true");
+        assertEquals("5 == 5 && 5 == 5", result.getValue().toString(),
+                "#a_3 -> #b_7 -> 5 and #b_7 -> 5; both equalities collapse to 5 == 5");
     }
 
     @Test
@@ -822,6 +966,142 @@ class ExpressionSimplifierTest {
         assertDerivationEquals(expected, result, "Equivalent bounds simplification should preserve conjunction origin");
     }
 
+    @Test
+    void testIteTrueConditionSimplifiesToThenBranch() {
+        // Given: true ? a : b
+        // Expected: a
+
+        Expression expr = new Ite(new LiteralBoolean(true), new Var("a"), new Var("b"));
+
+        // When
+        ValDerivationNode result = ExpressionSimplifier.simplify(expr);
+
+        // Then
+        assertNotNull(result, "Result should not be null");
+        assertEquals("a", result.getValue().toString(), "Expected result to be a");
+
+        ValDerivationNode conditionNode = new ValDerivationNode(new LiteralBoolean(true), null);
+        ValDerivationNode thenNode = new ValDerivationNode(new Var("a"), null);
+        ValDerivationNode elseNode = new ValDerivationNode(new Var("b"), null);
+        IteDerivationNode iteOrigin = new IteDerivationNode(conditionNode, thenNode, elseNode);
+        ValDerivationNode expected = new ValDerivationNode(new Var("a"), iteOrigin);
+
+        assertDerivationEquals(expected, result, "");
+    }
+
+    @Test
+    void testIteFalseConditionSimplifiesToElseBranch() {
+        // Given: false ? a : b
+        // Expected: b
+
+        Expression expr = new Ite(new LiteralBoolean(false), new Var("a"), new Var("b"));
+
+        // When
+        ValDerivationNode result = ExpressionSimplifier.simplify(expr);
+
+        // Then
+        assertNotNull(result, "Result should not be null");
+        assertEquals("b", result.getValue().toString(), "Expected result to be b");
+
+        ValDerivationNode conditionNode = new ValDerivationNode(new LiteralBoolean(false), null);
+        ValDerivationNode thenNode = new ValDerivationNode(new Var("a"), null);
+        ValDerivationNode elseNode = new ValDerivationNode(new Var("b"), null);
+        IteDerivationNode iteOrigin = new IteDerivationNode(conditionNode, thenNode, elseNode);
+        ValDerivationNode expected = new ValDerivationNode(new Var("b"), iteOrigin);
+
+        assertDerivationEquals(expected, result, "");
+    }
+
+    @Test
+    void testIteEqualBranchesSimplifiesToBranch() {
+        // Given: cond ? b : b
+        // Expected: b
+
+        Expression branch = new Var("b");
+        Expression expr = new Ite(new Var("cond"), branch, branch.clone());
+
+        // When
+        ValDerivationNode result = ExpressionSimplifier.simplify(expr);
+
+        // Then
+        assertNotNull(result, "Result should not be null");
+        assertEquals("b", result.getValue().toString(), "Expected result to be b");
+
+        ValDerivationNode conditionNode = new ValDerivationNode(new Var("cond"), null);
+        ValDerivationNode thenNode = new ValDerivationNode(new Var("b"), null);
+        ValDerivationNode elseNode = new ValDerivationNode(new Var("b"), null);
+        IteDerivationNode iteOrigin = new IteDerivationNode(conditionNode, thenNode, elseNode);
+        ValDerivationNode expected = new ValDerivationNode(new Var("b"), iteOrigin);
+
+        assertDerivationEquals(expected, result, "");
+    }
+
+    @Test
+    void testByteAliasExpansion() {
+        // Given: Byte(b) with alias Byte(int b) { b >= -128 && b <= 127 }
+        AliasDTO byteAlias = new AliasDTO("Byte", List.of("int"), List.of("b"), "b >= -128 && b <= 127");
+        byteAlias.parse("");
+        Map<String, AliasDTO> aliases = Map.of("Byte", byteAlias);
+        Expression exp = new AliasInvocation("Byte", List.of(new Var("b")));
+
+        // When
+        ValDerivationNode result = ExpressionSimplifier.simplify(exp, aliases);
+
+        // Then
+        assertEquals("Byte(b)", result.getValue().toString());
+        assertNotNull(result.getOrigin(), "Origin should contain the expanded body");
+        ValDerivationNode origin = (ValDerivationNode) result.getOrigin();
+        assertEquals("b >= -128 && b <= 127", origin.getValue().toString());
+    }
+
+    @Test
+    void testPositiveAliasExpansion() {
+        // Given: Positive(x) with alias Positive(int v) { v > 0 }
+        AliasDTO positiveAlias = new AliasDTO("Positive", List.of("int"), List.of("v"), "v > 0");
+        positiveAlias.parse("");
+        Map<String, AliasDTO> aliases = Map.of("Positive", positiveAlias);
+        Expression exp = new AliasInvocation("Positive", List.of(new Var("x")));
+
+        // When
+        ValDerivationNode result = ExpressionSimplifier.simplify(exp, aliases);
+
+        // Then
+        assertEquals("Positive(x)", result.getValue().toString());
+        assertNotNull(result.getOrigin(), "Origin should contain the expanded body");
+        ValDerivationNode origin = (ValDerivationNode) result.getOrigin();
+        assertEquals("x > 0", origin.getValue().toString());
+    }
+
+    @Test
+    void testTwoArgAliasWithNormalExpression() {
+        // Given: Bounded(v, 100) && v > 50 with alias Bounded(int x, int n) { x > 0 && x < n }
+        AliasDTO boundedAlias = new AliasDTO("Bounded", List.of("int", "int"), List.of("x", "n"), "x > 0 && x < n");
+        boundedAlias.parse("");
+        Map<String, AliasDTO> aliases = Map.of("Bounded", boundedAlias);
+
+        Expression varV = new Var("v");
+        Expression bounded = new AliasInvocation("Bounded", List.of(varV, new LiteralInt(100)));
+        Expression vGt50 = new BinaryExpression(varV, ">", new LiteralInt(50));
+        Expression fullExpression = new BinaryExpression(bounded, "&&", vGt50);
+
+        // When
+        ValDerivationNode result = ExpressionSimplifier.simplify(fullExpression, aliases);
+
+        // Then
+        assertEquals("Bounded(v, 100) && v > 50", result.getValue().toString());
+        assertInstanceOf(BinaryDerivationNode.class, result.getOrigin());
+        BinaryDerivationNode binOrigin = (BinaryDerivationNode) result.getOrigin();
+        assertEquals("&&", binOrigin.getOp());
+        ValDerivationNode leftNode = binOrigin.getLeft();
+        assertEquals("Bounded(v, 100)", leftNode.getValue().toString());
+        assertNotNull(leftNode.getOrigin(), "Alias invocation should have expanded body as origin");
+        ValDerivationNode expandedBody = (ValDerivationNode) leftNode.getOrigin();
+        assertEquals("v > 0 && v < 100", expandedBody.getValue().toString());
+        ValDerivationNode rightNode = binOrigin.getRight();
+        assertEquals("v > 50", rightNode.getValue().toString());
+        assertNull(rightNode.getOrigin());
+    }
+
     /**
      * Helper method to compare two derivation nodes recursively
      */
@@ -848,6 +1128,11 @@ class ExpressionSimplifierTest {
             UnaryDerivationNode actualUnary = (UnaryDerivationNode) actual;
             assertEquals(expectedUnary.getOp(), actualUnary.getOp(), message + ": operators should match");
             assertDerivationEquals(expectedUnary.getOperand(), actualUnary.getOperand(), message + " > operand");
+        } else if (expected instanceof IteDerivationNode expectedIte) {
+            IteDerivationNode actualIte = (IteDerivationNode) actual;
+            assertDerivationEquals(expectedIte.getCondition(), actualIte.getCondition(), message + " > condition");
+            assertDerivationEquals(expectedIte.getThenBranch(), actualIte.getThenBranch(), message + " > then");
+            assertDerivationEquals(expectedIte.getElseBranch(), actualIte.getElseBranch(), message + " > else");
         }
     }
 

@@ -1,5 +1,6 @@
 package liquidjava.utils;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -22,6 +23,7 @@ import spoon.reflect.reference.CtTypeReference;
 public class Utils {
 
     private static final Set<String> DEFAULT_NAMES = Set.of("old", "length", "addToIndex", "getFromIndex");
+    private static final List<String> REFINEMENT_KEYS = List.of("value", "to", "from");
 
     public static CtTypeReference<?> getType(String type, Factory factory) {
         // TODO: complete with other types
@@ -54,28 +56,42 @@ public class Utils {
         return pos.getFile().getAbsolutePath();
     }
 
-    public static SourcePosition getLJAnnotationPosition(CtElement element, String refinement) {
-        return element.getAnnotations().stream()
-                .filter(a -> isLiquidJavaAnnotation(a) && hasRefinementValue(a, "\"" + refinement + "\"")).findFirst()
-                .map(CtElement::getPosition).orElse(element.getPosition());
+    // Get the position of the annotation with the given value
+    public static SourcePosition getLJAnnotationPosition(CtElement element, String value) {
+        String quotedValue = "\"" + value + "\"";
+        return getLiquidJavaAnnotations(element)
+                .flatMap(annotation -> getLJAnnotationValues(annotation)
+                        .filter(expr -> quotedValue.equals(expr.toString()))
+                        .map(expr -> expr.getPosition() != null ? expr.getPosition() : annotation.getPosition()))
+                .findFirst().orElse(element.getPosition());
     }
 
+    // Get the position of the first LJ annotation on the element
     public static SourcePosition getFirstLJAnnotationPosition(CtElement element) {
-        return element.getAnnotations().stream().filter(Utils::isLiquidJavaAnnotation).map(CtElement::getPosition)
-                .min((p1, p2) -> {
-                    if (p1.getLine() != p2.getLine())
-                        return Integer.compare(p1.getLine(), p2.getLine());
-                    return Integer.compare(p1.getColumn(), p2.getColumn());
-                }).orElse(element.getPosition());
+        return getLiquidJavaAnnotations(element).map(CtAnnotation::getPosition).filter(pos -> pos != null).findFirst()
+                .orElse(element.getPosition());
+    }
+
+    // Get the position of the first value of the first LJ annotation on the element
+    public static SourcePosition getFirstLJAnnotationValuePosition(CtElement element) {
+        return getLiquidJavaAnnotations(element)
+                .map(annotation -> getLJAnnotationValues(annotation).map(CtElement::getPosition)
+                        .filter(pos -> pos != null).findFirst()
+                        .orElse(annotation.getPosition() != null ? annotation.getPosition() : element.getPosition()))
+                .findFirst().orElse(element.getPosition());
+    }
+
+    private static Stream<CtAnnotation<?>> getLiquidJavaAnnotations(CtElement element) {
+        return element.getAnnotations().stream().filter(Utils::isLiquidJavaAnnotation);
     }
 
     private static boolean isLiquidJavaAnnotation(CtAnnotation<?> annotation) {
         return annotation.getAnnotationType().getQualifiedName().startsWith("liquidjava.specification");
     }
 
-    private static boolean hasRefinementValue(CtAnnotation<?> annotation, String refinement) {
-        Map<String, ?> values = annotation.getValues();
-        return Stream.of("value", "to", "from").anyMatch(key -> refinement.equals(String.valueOf(values.get(key))));
+    private static Stream<CtElement> getLJAnnotationValues(CtAnnotation<?> annotation) {
+        Map<String, ?> values = annotation.getAllValues();
+        return REFINEMENT_KEYS.stream().map(values::get).filter(CtElement.class::isInstance).map(CtElement.class::cast);
     }
 
     public static SourcePosition getRealPosition(CtElement element) {

@@ -1,7 +1,9 @@
 package liquidjava.processor.refinement_checker;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.Stack;
 import java.util.function.Consumer;
@@ -12,9 +14,13 @@ import liquidjava.diagnostics.TranslationTable;
 import liquidjava.processor.VCImplication;
 import liquidjava.processor.context.*;
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.ast.Expression;
+import liquidjava.rj_language.ast.Ite;
+import liquidjava.rj_language.ast.Var;
 import liquidjava.smt.Counterexample;
 import liquidjava.smt.SMTEvaluator;
 import liquidjava.smt.SMTResult;
+import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Keys;
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.CtElement;
@@ -53,13 +59,17 @@ public class VCChecker {
             expected = expectedType.changeStatesToRefinements(filtered, s).changeAliasToRefinement(context, f);
         } catch (LJError e) {
             // add location info to error
-            e.setPosition(element.getPosition());
+            if (e.getPosition() == null) {
+                SourcePosition pos = Utils.getFirstLJAnnotationValuePosition(element);
+                e.setPosition(pos);
+            }
             throw e;
         }
-        SMTResult result = verifySMTSubtype(expected, premises, element.getPosition());
+        SourcePosition annotationValuePos = Utils.getFirstLJAnnotationValuePosition(element);
+        SMTResult result = verifySMTSubtype(expected, premises, annotationValuePos);
         if (result.isError()) {
-            throw new RefinementError(element.getPosition(), expectedType.simplify(), premisesBeforeChange.simplify(),
-                    map, result.getCounterexample(), customMessage);
+            throw new RefinementError(element.getPosition(), expectedType.simplify(context),
+                    premisesBeforeChange.simplify(context), map, result.getCounterexample(), customMessage);
         }
     }
 
@@ -94,7 +104,9 @@ public class VCChecker {
         try {
             return new SMTEvaluator().verifySubtype(found, expected, context);
         } catch (LJError e) {
-            e.setPosition(position);
+            if (e.getPosition() == null) {
+                e.setPosition(position);
+            }
             throw e;
         } catch (Exception e) {
             throw new CustomError(e.getMessage(), position);
@@ -191,7 +203,18 @@ public class VCChecker {
 
         for (RefinedVariable var : vars) { // join refinements of vars
             addMap(var, map);
-            VCImplication si = new VCImplication(var.getName(), var.getType(), var.getRefinement());
+
+            // if the last instance is already in vars, it is already in the premises
+            // adding "var == lastInstance" would create a contradictory cycle (e.g. x == x + 1 for x = x + 1)
+            // so we need to use main refinement to avoid this
+            Predicate refinement = var.getRefinement();
+            if (var instanceof Variable v) {
+                Optional<VariableInstance> lastInst = v.getLastInstance();
+                if (lastInst.isPresent() && vars.contains(lastInst.get())
+                        && hasDependencyCycle(lastInst.get(), var.getName(), vars, new HashSet<>()))
+                    refinement = v.getMainRefinement();
+            }
+            VCImplication si = new VCImplication(var.getName(), var.getType(), refinement);
             if (lastSi != null) {
                 lastSi.setNext(si);
                 lastSi = si;
@@ -268,6 +291,22 @@ public class VCChecker {
                 .forEach(pathVariables::remove);
     }
 
+    private boolean hasDependencyCycle(RefinedVariable rv, String var, List<RefinedVariable> vars, Set<String> seen) {
+        if (!seen.add(rv.getName()))
+            return false;
+        Expression e = rv.getRefinement().getExpression();
+        return hasVariable(e, var) || vars.stream().filter(o -> hasVariable(e, o.getName()))
+                .anyMatch(o -> hasDependencyCycle(o, var, vars, seen));
+    }
+
+    private boolean hasVariable(Expression exp, String var) {
+        if (exp instanceof Var v)
+            return v.getName().equals(var);
+        if (exp instanceof Ite ite)
+            return hasVariable(ite.getThen(), var) || hasVariable(ite.getElse(), var);
+        return exp.getChildren().stream().anyMatch(c -> hasVariable(c, var));
+    }
+
     // Errors---------------------------------------------------------------------------------------------------
 
     protected void throwRefinementError(SourcePosition position, Predicate expected, Predicate found,
@@ -277,7 +316,7 @@ public class VCChecker {
         gatherVariables(found, lrv, mainVars);
         TranslationTable map = new TranslationTable();
         Predicate premises = joinPredicates(expected, mainVars, lrv, map).toConjunctions();
-        throw new RefinementError(position, expected.simplify(), premises.simplify(), map, counterexample,
+        throw new RefinementError(position, expected.simplify(context), premises.simplify(context), map, counterexample,
                 customMessage);
     }
 
@@ -288,7 +327,7 @@ public class VCChecker {
         TranslationTable map = new TranslationTable();
         VCImplication foundState = joinPredicates(found, mainVars, lrv, map);
         throw new StateRefinementError(position, expected.getExpression(),
-                foundState.toConjunctions().simplify().getValue(), map, customMessage);
+                foundState.toConjunctions().simplify(context).getValue(), map, customMessage);
     }
 
     protected void throwStateConflictError(SourcePosition position, Predicate expected) throws StateConflictError {
