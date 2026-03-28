@@ -70,4 +70,15 @@ public class Var extends Expression {
             return name.equals(other.name);
         }
     }
+
+    public boolean isInternal() {
+        return name.startsWith("#");
+    }
+
+    public int getCounter() {
+        if (!isInternal())
+            throw new IllegalStateException("Cannot get counter of non-internal variable");
+        int lastUnderscore = name.lastIndexOf('_');
+        return Integer.parseInt(name.substring(lastUnderscore + 1));
+    }
 }

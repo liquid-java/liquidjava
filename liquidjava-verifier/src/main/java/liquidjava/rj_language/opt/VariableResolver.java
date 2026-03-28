@@ -52,6 +52,19 @@ public class VariableResolver {
                 map.put(var.getName(), right.clone());
             } else if (right instanceof Var var && left.isLiteral()) {
                 map.put(var.getName(), left.clone());
+            } else if (left instanceof Var leftVar && right instanceof Var rightVar) {
+                // to substitute internal variable with user-facing variable
+                if (leftVar.isInternal() && !rightVar.isInternal()) {
+                    map.put(leftVar.getName(), right.clone());
+                } else if (rightVar.isInternal() && !leftVar.isInternal()) {
+                    map.put(rightVar.getName(), left.clone());
+                } else if (leftVar.isInternal() && rightVar.isInternal()) {
+                    // to substitute the lower-counter variable with the higher-counter one
+                    boolean isLeftCounterLower = leftVar.getCounter() <= rightVar.getCounter();
+                    Var lowerVar = isLeftCounterLower ? leftVar : rightVar;
+                    Var higherVar = isLeftCounterLower ? rightVar : leftVar;
+                    map.putIfAbsent(lowerVar.getName(), higherVar.clone());
+                }
             }
         }
     }

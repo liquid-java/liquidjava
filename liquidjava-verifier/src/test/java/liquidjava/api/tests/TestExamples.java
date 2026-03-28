@@ -11,8 +11,8 @@ import java.util.Optional;
 import java.util.stream.Stream;
 import liquidjava.api.CommandLineLauncher;
 import liquidjava.diagnostics.Diagnostics;
+import liquidjava.diagnostics.errors.*;
 
-import liquidjava.diagnostics.errors.LJError;
 import org.junit.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;

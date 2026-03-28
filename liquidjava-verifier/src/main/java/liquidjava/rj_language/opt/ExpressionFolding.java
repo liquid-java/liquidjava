@@ -3,20 +3,22 @@ package liquidjava.rj_language.opt;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.GroupExpression;
+import liquidjava.rj_language.ast.Ite;
 import liquidjava.rj_language.ast.LiteralBoolean;
 import liquidjava.rj_language.ast.LiteralInt;
 import liquidjava.rj_language.ast.LiteralReal;
 import liquidjava.rj_language.ast.UnaryExpression;
 import liquidjava.rj_language.opt.derivation_node.BinaryDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.DerivationNode;
+import liquidjava.rj_language.opt.derivation_node.IteDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.UnaryDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.ValDerivationNode;
 
-public class ConstantFolding {
+public class ExpressionFolding {
 
     /**
-     * Performs constant folding on a derivation node by evaluating nodes with constant values. Returns a new derivation
-     * node representing the folding steps taken
+     * Performs expression folding on a derivation node by evaluating nodes when possible. Returns a new derivation node
+     * representing the folding steps taken
      */
     public static ValDerivationNode fold(ValDerivationNode node) {
         Expression exp = node.getValue();
@@ -25,6 +27,9 @@ public class ConstantFolding {
 
         if (exp instanceof UnaryExpression)
             return foldUnary(node);
+
+        if (exp instanceof Ite)
+            return foldIte(node);
 
         if (exp instanceof GroupExpression group) {
             if (group.getChildren().size() == 1) {
@@ -35,7 +40,7 @@ public class ConstantFolding {
     }
 
     /**
-     * Folds a binary expression node if both children are constant values (e.g. 1 + 2 => 3)
+     * Folds a binary expression node (e.g. 1 + 2 => 3)
      */
     private static ValDerivationNode foldBinary(ValDerivationNode node) {
         BinaryExpression binExp = (BinaryExpression) node.getValue();
@@ -148,7 +153,7 @@ public class ConstantFolding {
     }
 
     /**
-     * Folds a unary expression node if the child (operand) is a constant value (e.g. !true => false)
+     * Folds a unary expression node (e.g. !true => false)
      */
     private static ValDerivationNode foldUnary(ValDerivationNode node) {
         UnaryExpression unaryExp = (UnaryExpression) node.getValue();
@@ -172,23 +177,70 @@ public class ConstantFolding {
             // !true => false, !false => true
             boolean value = operand.isBooleanTrue();
             Expression res = new LiteralBoolean(!value);
-            return new ValDerivationNode(res, new UnaryDerivationNode(operandNode, operator));
+            DerivationNode origin = operandNode.getOrigin() != null ? new UnaryDerivationNode(operandNode, operator)
+                    : null;
+            return new ValDerivationNode(res, origin);
         }
         // unary minus
         if ("-".equals(operator)) {
             // -(x) => -x
             if (operand instanceof LiteralInt) {
                 Expression res = new LiteralInt(-((LiteralInt) operand).getValue());
-                return new ValDerivationNode(res, new UnaryDerivationNode(operandNode, operator));
+                DerivationNode origin = operandNode.getOrigin() != null ? new UnaryDerivationNode(operandNode, operator)
+                        : null;
+                return new ValDerivationNode(res, origin);
             }
             if (operand instanceof LiteralReal) {
                 Expression res = new LiteralReal(-((LiteralReal) operand).getValue());
-                return new ValDerivationNode(res, new UnaryDerivationNode(operandNode, operator));
+                DerivationNode origin = operandNode.getOrigin() != null ? new UnaryDerivationNode(operandNode, operator)
+                        : null;
+                return new ValDerivationNode(res, origin);
             }
         }
 
         // no folding
         DerivationNode origin = operandNode.getOrigin() != null ? new UnaryDerivationNode(operandNode, operator) : null;
         return new ValDerivationNode(unaryExp, origin);
+    }
+
+    /**
+     * Folds ternary expressions by checking if condition is a boolean literal or both branches are the same
+     */
+    private static ValDerivationNode foldIte(ValDerivationNode node) {
+        Ite iteExp = (Ite) node.getValue();
+
+        ValDerivationNode condNode = fold(new ValDerivationNode(iteExp.getCondition(), null));
+        ValDerivationNode thenNode = fold(new ValDerivationNode(iteExp.getThen(), null));
+        ValDerivationNode elseNode = fold(new ValDerivationNode(iteExp.getElse(), null));
+
+        Expression condition = condNode.getValue();
+        Expression thenExp = thenNode.getValue();
+        Expression elseExp = elseNode.getValue();
+
+        iteExp.setChild(0, condition);
+        iteExp.setChild(1, thenExp);
+        iteExp.setChild(2, elseExp);
+
+        // if condition is a boolean literal, select the corresponding branch: true ? a : b => a, false ? a : b => b
+        if (condition instanceof LiteralBoolean boolCond) {
+            Expression selected = boolCond.isBooleanTrue() ? thenExp : elseExp;
+            DerivationNode origin = new IteDerivationNode(condNode, thenNode, elseNode);
+            return new ValDerivationNode(selected, origin);
+        }
+
+        // if both branches are the same, return one of them (e.g. cond ? b : b => b)
+        if (thenExp.equals(elseExp)) {
+            DerivationNode origin = new IteDerivationNode(condNode, thenNode, elseNode);
+            return new ValDerivationNode(thenExp, origin);
+        }
+
+        // no folding, but keep track of the folding steps in the origin
+        DerivationNode origin = hasIteChildOrigin(condNode, thenNode, elseNode)
+                ? new IteDerivationNode(condNode, thenNode, elseNode) : node.getOrigin();
+        return new ValDerivationNode(iteExp, origin);
+    }
+
+    private static boolean hasIteChildOrigin(ValDerivationNode cond, ValDerivationNode then, ValDerivationNode els) {
+        return cond.getOrigin() != null || then.getOrigin() != null || els.getOrigin() != null;
     }
 }

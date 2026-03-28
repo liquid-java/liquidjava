@@ -1,7 +1,9 @@
 package liquidjava.processor.refinement_checker;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.Stack;
 import java.util.function.Consumer;
@@ -12,6 +14,9 @@ import liquidjava.diagnostics.TranslationTable;
 import liquidjava.processor.VCImplication;
 import liquidjava.processor.context.*;
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.ast.Expression;
+import liquidjava.rj_language.ast.Ite;
+import liquidjava.rj_language.ast.Var;
 import liquidjava.smt.Counterexample;
 import liquidjava.smt.SMTEvaluator;
 import liquidjava.smt.SMTResult;
@@ -191,7 +196,18 @@ public class VCChecker {
 
         for (RefinedVariable var : vars) { // join refinements of vars
             addMap(var, map);
-            VCImplication si = new VCImplication(var.getName(), var.getType(), var.getRefinement());
+
+            // if the last instance is already in vars, it is already in the premises
+            // adding "var == lastInstance" would create a contradictory cycle (e.g. x == x + 1 for x = x + 1)
+            // so we need to use main refinement to avoid this
+            Predicate refinement = var.getRefinement();
+            if (var instanceof Variable v) {
+                Optional<VariableInstance> lastInst = v.getLastInstance();
+                if (lastInst.isPresent() && vars.contains(lastInst.get())
+                        && hasDependencyCycle(lastInst.get(), var.getName(), vars, new HashSet<>()))
+                    refinement = v.getMainRefinement();
+            }
+            VCImplication si = new VCImplication(var.getName(), var.getType(), refinement);
             if (lastSi != null) {
                 lastSi.setNext(si);
                 lastSi = si;
@@ -266,6 +282,22 @@ public class VCChecker {
     void removePathVariableThatIncludes(String otherVar) {
         pathVariables.stream().filter(rv -> rv.getRefinement().getVariableNames().contains(otherVar)).toList()
                 .forEach(pathVariables::remove);
+    }
+
+    private boolean hasDependencyCycle(RefinedVariable rv, String var, List<RefinedVariable> vars, Set<String> seen) {
+        if (!seen.add(rv.getName()))
+            return false;
+        Expression e = rv.getRefinement().getExpression();
+        return hasVariable(e, var) || vars.stream().filter(o -> hasVariable(e, o.getName()))
+                .anyMatch(o -> hasDependencyCycle(o, var, vars, seen));
+    }
+
+    private boolean hasVariable(Expression exp, String var) {
+        if (exp instanceof Var v)
+            return v.getName().equals(var);
+        if (exp instanceof Ite ite)
+            return hasVariable(ite.getThen(), var) || hasVariable(ite.getElse(), var);
+        return exp.getChildren().stream().anyMatch(c -> hasVariable(c, var));
     }
 
     // Errors---------------------------------------------------------------------------------------------------
