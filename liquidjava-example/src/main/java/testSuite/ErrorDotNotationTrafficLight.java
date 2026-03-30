@@ -1,4 +1,3 @@
-// State Refinement Error
 package testSuite;
 
 import liquidjava.specification.StateRefinement;
@@ -22,7 +21,7 @@ public class ErrorDotNotationTrafficLight {
     public static void main(String[] args) {
         ErrorDotNotationTrafficLight tl = new ErrorDotNotationTrafficLight();
         tl.transitionToAmber();
-        tl.transitionToGreen(); // error
+        tl.transitionToGreen(); // State Refinement Error
         tl.transitionToRed();
     }
 }

@@ -1,12 +1,11 @@
-// Not Found Error
 package testSuite;
 
 import liquidjava.specification.Refinement;
 
 public class ErrorGhostNotFound {
 
-    public void test() {
-        @Refinement("notFound(x)")
+    public static void main(String[] args) {
+        @Refinement("notFound(x)") // Not Found Error
         int x = 5;
     }
 }

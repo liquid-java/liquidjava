@@ -1,4 +1,3 @@
-// Refinement Error
 package testSuite;
 
 import liquidjava.specification.Refinement;
@@ -14,6 +13,6 @@ public class ErrorLenZeroIntArray {
 
     public static void main(String[] args) {
         int[] a = new int[0];
-        getIndexWithVal(a, 0, 6);
+        getIndexWithVal(a, 0, 6); // Refinement Error
     }
 }

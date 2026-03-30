@@ -1,4 +1,3 @@
-// Refinement Error
 package testSuite;
 
 import liquidjava.specification.Refinement;
@@ -13,6 +12,6 @@ public class ErrorBooleanLiteral {
         boolean k = (a < 11);
 
         @Refinement("_ == false")
-        boolean t = !(a == 12);
+        boolean t = !(a == 12); // Refinement Error
     }
 }

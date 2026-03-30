@@ -1,4 +1,3 @@
-// State Refinement Error
 package testSuite.field_updates;
 
 import liquidjava.specification.StateRefinement;
@@ -13,6 +12,6 @@ public class ErrorFieldUpdate {
 
         ErrorFieldUpdate t = new ErrorFieldUpdate();
         t.n = -1;
-        t.shouldFailIfFieldIsNegative();
+        t.shouldFailIfFieldIsNegative(); // State Refinement Error
     }
 }

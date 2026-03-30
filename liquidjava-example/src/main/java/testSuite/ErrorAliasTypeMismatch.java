@@ -1,4 +1,3 @@
-// Argument Mismatch Error
 package testSuite;
 
 import liquidjava.specification.Refinement;
@@ -13,7 +12,7 @@ public class ErrorAliasTypeMismatch {
         @Refinement("PtGrade(_)")
         double positiveGrade2 = 20 * 0.5 + 20 * 0.5;
 
-        @Refinement("Positive(_)")
+        @Refinement("Positive(_)") // Argument Mismatch Error
         double positive = positiveGrade2;
     }
 }

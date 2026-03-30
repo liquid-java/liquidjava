@@ -11,7 +11,7 @@
 
 	<groupId>io.github.liquid-java</groupId>
 	<artifactId>liquidjava-verifier</artifactId>
-	<version>0.0.16</version>
+	<version>0.0.18</version>
 	<name>liquidjava-verifier</name>
 	<description>LiquidJava Verifier</description>
 	<url>https://github.com/liquid-java/liquidjava</url>
@@ -93,6 +93,9 @@
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
 				<version>3.2.1</version>
+				<configuration>
+					<trimStackTrace>true</trimStackTrace>
+				</configuration>
 			</plugin>
 
 			<plugin>

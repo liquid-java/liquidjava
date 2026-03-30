@@ -1,4 +1,3 @@
-// Refinement Error
 package testSuite;
 
 import liquidjava.specification.Refinement;
@@ -11,6 +10,6 @@ public class ErrorDependentRefinement {
         @Refinement("bigger > 20")
         int bigger = 50;
         @Refinement("_ > smaller  && _ < bigger")
-        int middle = 21;
+        int middle = 21; // Refinement Error
     }
 }

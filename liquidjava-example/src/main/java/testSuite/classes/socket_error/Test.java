@@ -15,7 +15,7 @@ public class Test {
         Socket socket = new Socket();
         socket.bind(new InetSocketAddress(inetAddress, port));
         //		socket.connect(new InetSocketAddress(inetAddress, port));
-        socket.sendUrgentData(90);
+        socket.sendUrgentData(90); // State Refinement Error
         socket.close();
     }
 }

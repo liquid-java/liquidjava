@@ -1,10 +1,7 @@
 package testSuite.classes.state_multiple_cases_correct;
 
 import java.io.InputStream;
-import liquidjava.specification.ExternalRefinementsFor;
-import liquidjava.specification.Refinement;
-import liquidjava.specification.StateRefinement;
-import liquidjava.specification.StateSet;
+import liquidjava.specification.*;
 
 // https://docs.oracle.com/javase/7/docs/api/java/io/InputStreamReader.html
 @ExternalRefinementsFor("java.io.InputStreamReader")

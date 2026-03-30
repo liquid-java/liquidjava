@@ -1,4 +1,3 @@
-// Refinement Error
 package testSuite;
 
 import liquidjava.specification.Refinement;
@@ -13,6 +12,6 @@ public class ErrorAssignementAfterDeclaration {
         u = 11 + z;
         u = z * 2;
         u = 30 + z;
-        u = 500; // error
+        u = 500; // Refinement Error
     }
 }

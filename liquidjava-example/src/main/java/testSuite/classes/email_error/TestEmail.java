@@ -7,7 +7,7 @@ public class TestEmail {
         Email e = new Email();
         e.from("me");
         // missing to
-        e.subject("not important");
+        e.subject("not important"); // State Refinement Error
         e.body("body");
         e.build();
     }

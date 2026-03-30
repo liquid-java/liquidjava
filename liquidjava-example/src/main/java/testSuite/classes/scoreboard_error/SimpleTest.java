@@ -5,7 +5,7 @@ public class SimpleTest {
 		Scoreboard sb = new Scoreboard();
 		sb.inc();
 		sb.dec();
-		sb.dec(); // error, underflow
+		sb.dec(); // State Refinement Error
 		sb.finish();
 	}
 }

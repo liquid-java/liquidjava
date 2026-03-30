@@ -1,4 +1,3 @@
-// Refinement Error
 package testSuite;
 
 import liquidjava.specification.Refinement;
@@ -10,6 +9,6 @@ public class ErrorAliasSimple {
 
     public static void main(String[] args) {
         @Refinement("PtGrade(_)")
-        double positiveGrade2 = 20 * 0.5 + 20 * 0.6;
+        double positiveGrade2 = 20 * 0.5 + 20 * 0.6; // Refinement Error
     }
 }

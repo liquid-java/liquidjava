@@ -1,4 +1,3 @@
-// Refinement Error
 package testSuite;
 
 import liquidjava.specification.Refinement;
@@ -15,6 +14,6 @@ public class ErrorAlias {
 
     public static void main(String[] args) {
         @Refinement("InRange( _, 10, 15)")
-        int j = getNum();
+        int j = getNum(); // Refinement Error
     }
 }

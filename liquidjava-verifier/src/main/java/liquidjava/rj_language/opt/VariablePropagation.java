@@ -6,6 +6,7 @@ import liquidjava.rj_language.ast.UnaryExpression;
 import liquidjava.rj_language.ast.Var;
 import liquidjava.rj_language.opt.derivation_node.BinaryDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.DerivationNode;
+import liquidjava.rj_language.opt.derivation_node.IteDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.UnaryDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.ValDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.VarDerivationNode;
@@ -13,12 +14,12 @@ import liquidjava.rj_language.opt.derivation_node.VarDerivationNode;
 import java.util.HashMap;
 import java.util.Map;
 
-public class ConstantPropagation {
+public class VariablePropagation {
 
     /**
-     * Performs constant propagation on an expression, by substituting variables with their constant values. Uses the
-     * VariableResolver to extract variable equalities from the expression first. Returns a derivation node representing
-     * the propagation steps taken.
+     * Performs constant and variable propagation on an expression, by substituting variables. Uses the VariableResolver
+     * to extract variable equalities from the expression first. Returns a derivation node representing the propagation
+     * steps taken.
      */
     public static ValDerivationNode propagate(Expression exp, ValDerivationNode previousOrigin) {
         Map<String, Expression> substitutions = VariableResolver.resolve(exp);
@@ -32,7 +33,7 @@ public class ConstantPropagation {
     }
 
     /**
-     * Recursively performs constant propagation on an expression (e.g. x + y && x == 1 && y == 2 => 1 + 2)
+     * Recursively performs propagation on an expression (e.g. x + y && x == 1 && y == 2 => 1 + 2)
      */
     private static ValDerivationNode propagateRecursive(Expression exp, Map<String, Expression> subs,
             Map<String, DerivationNode> varOrigins) {
@@ -134,6 +135,10 @@ public class ConstantPropagation {
             extractVarOrigins(binOrigin.getRight(), varOrigins);
         } else if (origin instanceof UnaryDerivationNode unaryOrigin) {
             extractVarOrigins(unaryOrigin.getOperand(), varOrigins);
+        } else if (origin instanceof IteDerivationNode iteOrigin) {
+            extractVarOrigins(iteOrigin.getCondition(), varOrigins);
+            extractVarOrigins(iteOrigin.getThenBranch(), varOrigins);
+            extractVarOrigins(iteOrigin.getElseBranch(), varOrigins);
         } else if (origin instanceof ValDerivationNode valOrigin) {
             extractVarOrigins(valOrigin, varOrigins);
         }

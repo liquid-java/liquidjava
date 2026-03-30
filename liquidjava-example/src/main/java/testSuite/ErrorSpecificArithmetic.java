@@ -1,4 +1,3 @@
-// Refinement Error
 package testSuite;
 
 import liquidjava.specification.Refinement;
@@ -13,6 +12,6 @@ public class ErrorSpecificArithmetic {
         a = 6;
         b = a * 2;
         @Refinement("_ > 20")
-        int c = b * -1;
+        int c = b * -1; // Refinement Error
     }
 }

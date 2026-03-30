@@ -64,18 +64,20 @@ public abstract class TypeChecker extends CtScanner {
         Optional<Predicate> constr = Optional.empty();
         Optional<String> ref = Optional.empty();
         for (CtAnnotation<? extends Annotation> ann : element.getAnnotations()) {
-            String an = ann.getActualAnnotation().annotationType().getCanonicalName();
+            String an = ann.getAnnotationType().getQualifiedName();
             if (an.contentEquals("liquidjava.specification.Refinement")) {
                 String value = getStringFromAnnotation(ann.getValue("value"));
                 ref = Optional.of(value);
 
             } else if (an.contentEquals("liquidjava.specification.RefinementPredicate")) {
-                String value = getStringFromAnnotation(ann.getValue("value"));
-                getGhostFunction(value, element, ann.getPosition());
+                CtExpression<String> rawValue = ann.getValue("value");
+                String value = getStringFromAnnotation(rawValue);
+                getGhostFunction(value, element, rawValue.getPosition());
 
             } else if (an.contentEquals("liquidjava.specification.RefinementAlias")) {
-                String value = getStringFromAnnotation(ann.getValue("value"));
-                handleAlias(value, element, ann.getPosition());
+                CtExpression<String> rawValue = ann.getValue("value");
+                String value = getStringFromAnnotation(rawValue);
+                handleAlias(value, element, rawValue.getPosition());
             }
         }
         if (ref.isPresent()) {
@@ -93,7 +95,7 @@ public abstract class TypeChecker extends CtScanner {
     @SuppressWarnings({ "rawtypes" })
     public Optional<String> getMessageFromAnnotation(CtElement element) {
         for (CtAnnotation<? extends Annotation> ann : element.getAnnotations()) {
-            String an = ann.getActualAnnotation().annotationType().getCanonicalName();
+            String an = ann.getAnnotationType().getQualifiedName();
             if (an.contentEquals("liquidjava.specification.Refinement")) {
                 Map<String, CtExpression> values = ann.getAllValues();
                 String msg = getStringFromAnnotation((values.get("msg")));
@@ -109,14 +111,14 @@ public abstract class TypeChecker extends CtScanner {
     public void handleStateSetsFromAnnotation(CtElement element) throws LJError {
         int set = 0;
         for (CtAnnotation<? extends Annotation> ann : element.getAnnotations()) {
-            String an = ann.getActualAnnotation().annotationType().getCanonicalName();
+            String an = ann.getAnnotationType().getQualifiedName();
             if (an.contentEquals("liquidjava.specification.StateSet")) {
                 set++;
                 createStateSet((CtNewArray<String>) ann.getAllValues().get("value"), set, element);
             }
             if (an.contentEquals("liquidjava.specification.Ghost")) {
                 CtLiteral<String> s = (CtLiteral<String>) ann.getAllValues().get("value");
-                createStateGhost(s.getValue(), element, ann.getPosition());
+                createStateGhost(s.getValue(), element, s.getPosition());
             }
         }
     }
@@ -167,7 +169,8 @@ public abstract class TypeChecker extends CtScanner {
             return RefinementsParser.parseGhostDeclaration(value);
         } catch (LJError e) {
             // add location info to error
-            e.setPosition(position);
+            if (e.getPosition() == null)
+                e.setPosition(position);
             throw e;
         }
     }
@@ -259,14 +262,15 @@ public abstract class TypeChecker extends CtScanner {
             }
         } catch (LJError e) {
             // add location info to error
-            e.setPosition(position);
+            if (e.getPosition() == null)
+                e.setPosition(position);
             throw e;
         }
     }
 
     Optional<CtAnnotation<?>> getExternalRefinement(CtInterface<?> intrface) {
         for (CtAnnotation<? extends Annotation> ann : intrface.getAnnotations())
-            if (ann.getActualAnnotation().annotationType().getCanonicalName()
+            if (ann.getAnnotationType().getQualifiedName()
                     .contentEquals("liquidjava.specification.ExternalRefinementsFor")) {
                 return Optional.of(ann);
             }

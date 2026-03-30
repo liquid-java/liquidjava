@@ -1,4 +1,3 @@
-// Refinement Error
 package testSuite;
 
 import liquidjava.specification.Refinement;
@@ -22,6 +21,6 @@ public class ErrorBooleanFunInvocation {
         boolean o = !(a == 12);
 
         @Refinement("_ == true")
-        boolean m = greaterThanTen(a);
+        boolean m = greaterThanTen(a); // Refinement Error
     }
 }

@@ -1,4 +1,3 @@
-// Argument Mismatch Error
 package testSuite;
 
 import liquidjava.specification.Refinement;
@@ -9,7 +8,7 @@ import liquidjava.specification.RefinementAlias;
 public class ErrorAliasEmptyArguments {
 
     public static void main(String[] args) {
-        @Refinement("InRange()")
+        @Refinement("InRange()") // Argument Mismatch Error
         int j = 15;
     }
 }

@@ -1,11 +1,10 @@
-// State Refinement Error
 package testSuite;
 
 import liquidjava.specification.Refinement;
 import liquidjava.specification.StateRefinement;
 import liquidjava.specification.StateSet;
 
-@StateSet({"green", "amber", "red"})
+@StateSet({ "green", "amber", "red" })
 public class ErrorTrafficLightRGB {
 
     @Refinement("r >= 0 && r <= 255")
@@ -45,10 +44,10 @@ public class ErrorTrafficLightRGB {
         b = 1;
     }
 
-    public static void name() {
+    public static void main(String[] args) {
         ErrorTrafficLightRGB tl = new ErrorTrafficLightRGB();
         tl.transitionToAmber();
         tl.transitionToRed();
-        tl.transitionToAmber();
+        tl.transitionToAmber(); // State Refinement Error
     }
 }

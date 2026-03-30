@@ -15,6 +15,7 @@ import liquidjava.rj_language.ast.LiteralInt;
 import liquidjava.rj_language.ast.LiteralLong;
 import liquidjava.rj_language.ast.LiteralReal;
 import liquidjava.rj_language.ast.Var;
+import liquidjava.utils.VariableFormatter;
 
 public class ValDerivationNode extends DerivationNode {
 
@@ -41,17 +42,17 @@ public class ValDerivationNode extends DerivationNode {
         public JsonElement serialize(Expression exp, Type typeOfSrc, JsonSerializationContext context) {
             if (exp == null)
                 return JsonNull.INSTANCE;
-            if (exp instanceof LiteralInt)
-                return new JsonPrimitive(((LiteralInt) exp).getValue());
-            if (exp instanceof LiteralLong)
-                return new JsonPrimitive(((LiteralLong) exp).getValue());
-            if (exp instanceof LiteralReal)
-                return new JsonPrimitive(((LiteralReal) exp).getValue());
-            if (exp instanceof LiteralBoolean)
-                return new JsonPrimitive(exp.isBooleanTrue());
-            if (exp instanceof Var)
-                return new JsonPrimitive(((Var) exp).getName());
-            return new JsonPrimitive(exp.toString());
+            if (exp instanceof LiteralInt v)
+                return new JsonPrimitive(v.getValue());
+            if (exp instanceof LiteralLong v)
+                return new JsonPrimitive(v.getValue());
+            if (exp instanceof LiteralReal v)
+                return new JsonPrimitive(v.getValue());
+            if (exp instanceof LiteralBoolean v)
+                return new JsonPrimitive(v.isBooleanTrue());
+            if (exp instanceof Var v)
+                return new JsonPrimitive(VariableFormatter.formatVariable(v.getName()));
+            return new JsonPrimitive(VariableFormatter.formatText(exp.toString()));
         }
     }
 }

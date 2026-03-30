@@ -9,6 +9,6 @@ public class Test {
         isr.read();
         isr.close();
         isr.getEncoding();
-        isr.read();
+        isr.read(); // State Refinement Error
     }
 }

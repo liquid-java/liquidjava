@@ -1,4 +1,3 @@
-// Argument Mismatch Error
 package testSuite;
 
 import liquidjava.specification.Refinement;
@@ -9,6 +8,6 @@ public class ErrorGhostNumberArgs {
     @RefinementPredicate("ghost boolean open(int)")
     @Refinement("open(1,2) == true")
     public int one() {
-        return 1;
+        return 1; // Argument Mismatch Error
     }
 }

@@ -5,6 +5,6 @@ import java.util.ArrayList;
 public class Test {
     public static void main(String[] args) {
         ArrayList<Integer> l = new ArrayList<>();
-        l.get(0); // index out of bounds
+        l.get(0); // Refinement Error
     }
 }
