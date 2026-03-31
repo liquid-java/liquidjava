@@ -18,6 +18,8 @@ class ExpressionPrinterTest {
 
         assertEquals("x > 0", comparison.toString());
         assertEquals("!(x > 0)", new UnaryExpression("!", comparison).toString());
+        assertEquals("-(-x)",
+                new UnaryExpression("-", new GroupExpression(new UnaryExpression("-", new Var("x")))).toString());
     }
 
     @Test
@@ -31,6 +33,16 @@ class ExpressionPrinterTest {
         assertEquals("a - (a + b)", new BinaryExpression(new Var("a"), "-", sum).toString());
         assertEquals("a + b + c", new BinaryExpression(sum, "+", new Var("c")).toString());
         assertEquals("b * c * c", new BinaryExpression(product, "*", new Var("c")).toString());
+    }
+
+    @Test
+    void preservesExplicitGroupingOnRightHandSide() {
+        Expression groupedSum = new GroupExpression(new BinaryExpression(new Var("b"), "+", new Var("c")));
+        Expression groupedComparison = new GroupExpression(
+                new BinaryExpression(new LiteralInt(1), ">", new LiteralInt(0)));
+
+        assertEquals("a - (b + c)", new BinaryExpression(new Var("a"), "-", groupedSum).toString());
+        assertEquals("x == (1 > 0)", new BinaryExpression(new Var("x"), "==", groupedComparison).toString());
     }
 
     @Test
@@ -58,6 +70,9 @@ class ExpressionPrinterTest {
         assertEquals("a ? (b ? c : d) : e",
                 new Ite(new Var("a"), new Ite(new Var("b"), new Var("c"), new Var("d")), new Var("e")).toString());
         assertEquals("a ? b : c ? d : e", new Ite(new Var("a"), new Var("b"), nestedElse).toString());
+        assertEquals("(a ? b : c) ? d : e", new Ite(new GroupExpression(ite), new Var("d"), new Var("e")).toString());
+        assertEquals("a ? b : (c ? d : e)",
+                new Ite(new Var("a"), new Var("b"), new GroupExpression(nestedElse)).toString());
         assertEquals("a ? b : c", new Ite(new Var("a"), new Var("b"), new Var("c")).toString());
     }
 }

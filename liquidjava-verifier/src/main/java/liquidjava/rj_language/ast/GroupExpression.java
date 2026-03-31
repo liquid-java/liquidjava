@@ -21,12 +21,7 @@ public class GroupExpression extends Expression {
     }
 
     public String toString() {
-        return getExpression().toString();
-    }
-
-    @Override
-    protected Precedence getPrecedence() {
-        return getExpression().getPrecedence();
+        return ExpressionPrinter.print(this);
     }
 
     @Override

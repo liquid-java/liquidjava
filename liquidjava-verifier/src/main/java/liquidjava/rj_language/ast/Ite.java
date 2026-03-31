@@ -31,20 +31,8 @@ public class Ite extends Expression {
     }
 
     @Override
-    protected Precedence getPrecedence() {
-        return Precedence.TERNARY;
-    }
-
-    private String formatCondition(Expression operand) {
-        if (operand instanceof Ite)
-            return parenthesize(operand);
-
-        return formatChild(operand);
-    }
-
-    @Override
     public String toString() {
-        return formatCondition(getCondition()) + " ? " + formatCondition(getThen()) + " : " + formatChild(getElse());
+        return ExpressionPrinter.print(this);
     }
 
     @Override

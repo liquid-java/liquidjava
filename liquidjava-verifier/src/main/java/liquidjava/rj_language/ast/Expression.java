@@ -36,39 +36,6 @@ public abstract class Expression {
 
     public abstract String toString();
 
-    protected enum Precedence {
-        TERNARY, IMPLICATION, OR, AND, COMPARISON, ADDITIVE, MULTIPLICATIVE, PREFIX, ATOMIC;
-
-        private boolean isLowerThan(Precedence other) {
-            return ordinal() < other.ordinal();
-        }
-
-        protected static Precedence fromOperator(String op) {
-            return switch (op) {
-            case "-->" -> IMPLICATION;
-            case "||" -> OR;
-            case "&&" -> AND;
-            case "==", "!=", ">=", ">", "<=", "<" -> COMPARISON;
-            case "+", "-" -> ADDITIVE;
-            case "*", "/", "%" -> MULTIPLICATIVE;
-            default -> ATOMIC;
-            };
-        }
-    }
-
-    protected Precedence getPrecedence() {
-        return Precedence.ATOMIC;
-    }
-
-    protected String parenthesize(Expression expression) {
-        return "(" + expression.toString() + ")";
-    }
-
-    protected String formatChild(Expression child) {
-        boolean needsParentheses = child.getPrecedence().isLowerThan(getPrecedence());
-        return needsParentheses ? parenthesize(child) : child.toString();
-    }
-
     List<Expression> children = new ArrayList<>();
 
     public void addChild(Expression e) {
