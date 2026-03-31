@@ -603,7 +603,7 @@ class ExpressionSimplifierTest {
 
         // Then
         assertNotNull(result, "Result should not be null");
-        assertEquals("x == (1 > 0)", result.getValue().toString(),
+        assertEquals("x == (1 > 0)", result.getValue().toDisplayString(),
                 "Boolean in equality should be unwrapped to show the original comparison");
     }
 
@@ -631,7 +631,7 @@ class ExpressionSimplifierTest {
 
         // Then
         assertNotNull(result, "Result should not be null");
-        assertEquals("x == (3 > 1)", result.getValue().toString(),
+        assertEquals("x == (3 > 1)", result.getValue().toDisplayString(),
                 "Boolean in equality should be unwrapped after propagation");
     }
 
@@ -685,7 +685,7 @@ class ExpressionSimplifierTest {
 
         // Then
         assertNotNull(result, "Result should not be null");
-        assertEquals("x == (8 > 10)", result.getValue().toString(),
+        assertEquals("x == (8 > 10)", result.getValue().toDisplayString(),
                 "Boolean in equality should be unwrapped to show the computed comparison");
     }
 

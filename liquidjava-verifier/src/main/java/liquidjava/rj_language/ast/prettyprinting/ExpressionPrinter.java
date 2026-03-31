@@ -1,8 +1,21 @@
-package liquidjava.rj_language.ast;
+package liquidjava.rj_language.ast.prettyprinting;
 
 import java.util.stream.Collectors;
 
-import liquidjava.diagnostics.errors.LJError;
+import liquidjava.rj_language.ast.AliasInvocation;
+import liquidjava.rj_language.ast.BinaryExpression;
+import liquidjava.rj_language.ast.Expression;
+import liquidjava.rj_language.ast.FunctionInvocation;
+import liquidjava.rj_language.ast.GroupExpression;
+import liquidjava.rj_language.ast.Ite;
+import liquidjava.rj_language.ast.LiteralBoolean;
+import liquidjava.rj_language.ast.LiteralChar;
+import liquidjava.rj_language.ast.LiteralInt;
+import liquidjava.rj_language.ast.LiteralLong;
+import liquidjava.rj_language.ast.LiteralReal;
+import liquidjava.rj_language.ast.LiteralString;
+import liquidjava.rj_language.ast.UnaryExpression;
+import liquidjava.rj_language.ast.Var;
 import liquidjava.rj_language.visitors.ExpressionVisitor;
 import liquidjava.utils.Utils;
 
@@ -136,17 +149,17 @@ public class ExpressionPrinter implements ExpressionVisitor<String> {
 
     @Override
     public String visitLiteralBoolean(LiteralBoolean lit) {
-        return Boolean.toString(lit.value);
+        return lit.toString();
     }
 
     @Override
     public String visitLiteralChar(LiteralChar lit) {
-        return "'" + lit.getValue() + "'";
+        return lit.toString();
     }
 
     @Override
     public String visitLiteralReal(LiteralReal lit) {
-        return Double.toString(lit.getValue());
+        return lit.toString();
     }
 
     @Override
@@ -161,6 +174,6 @@ public class ExpressionPrinter implements ExpressionVisitor<String> {
 
     @Override
     public String visitVar(Var var) {
-        return var.getName();
+        return VariableFormatter.format(var.getName());
     }
 }

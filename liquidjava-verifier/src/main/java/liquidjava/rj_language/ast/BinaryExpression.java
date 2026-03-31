@@ -42,7 +42,7 @@ public class BinaryExpression extends Expression {
 
     @Override
     public String toString() {
-        return ExpressionPrinter.print(this);
+        return getFirstOperand().toString() + " " + op + " " + getSecondOperand().toString();
     }
 
     @Override

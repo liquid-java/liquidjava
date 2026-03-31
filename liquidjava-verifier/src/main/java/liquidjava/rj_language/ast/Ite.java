@@ -32,7 +32,7 @@ public class Ite extends Expression {
 
     @Override
     public String toString() {
-        return ExpressionPrinter.print(this);
+        return getCondition().toString() + " ? " + getThen().toString() + " : " + getElse().toString();
     }
 
     @Override

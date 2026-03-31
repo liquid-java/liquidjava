@@ -29,7 +29,7 @@ public class UnaryExpression extends Expression {
 
     @Override
     public String toString() {
-        return ExpressionPrinter.print(this);
+        return op + getExpression().toString();
     }
 
     @Override

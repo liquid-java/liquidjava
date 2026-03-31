@@ -2,6 +2,8 @@ package liquidjava.rj_language.ast;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
+
 import liquidjava.diagnostics.errors.LJError;
 import liquidjava.rj_language.visitors.ExpressionVisitor;
 import liquidjava.utils.Utils;
@@ -35,7 +37,8 @@ public class FunctionInvocation extends Expression {
 
     @Override
     public String toString() {
-        return ExpressionPrinter.print(this);
+        return Utils.getSimpleName(name) + "("
+                + getArgs().stream().map(Expression::toString).collect(Collectors.joining(",")) + ")";
     }
 
     @Override

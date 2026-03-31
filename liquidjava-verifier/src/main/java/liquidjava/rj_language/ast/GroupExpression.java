@@ -21,7 +21,7 @@ public class GroupExpression extends Expression {
     }
 
     public String toString() {
-        return ExpressionPrinter.print(this);
+        return getExpression().toString();
     }
 
     @Override
