@@ -3,6 +3,9 @@ package liquidjava.rj_language.ast.prettyprinting;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Formats internal variable names into a cleaner display representation using superscript notation
+ */
 public final class VariableFormatter {
     private static final Pattern INSTACE_VAR_PATTERN = Pattern.compile("^#(.+)_([0-9]+)$");
     private static final char[] SUPERSCRIPT_CHARS = { '⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹' };

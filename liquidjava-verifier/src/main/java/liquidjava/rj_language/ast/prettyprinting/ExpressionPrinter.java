@@ -19,6 +19,9 @@ import liquidjava.rj_language.ast.Var;
 import liquidjava.rj_language.visitors.ExpressionVisitor;
 import liquidjava.utils.Utils;
 
+/**
+ * Pretty printer for expressions that preserves only the parentheses required by precedence and associativty
+ */
 public class ExpressionPrinter implements ExpressionVisitor<String> {
 
     private enum Precedence {
