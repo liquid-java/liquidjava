@@ -20,7 +20,8 @@ import liquidjava.rj_language.visitors.ExpressionVisitor;
 import liquidjava.utils.Utils;
 
 /**
- * Pretty printer for expressions that preserves only the parentheses required by precedence and associativty
+ * Pretty printer for expressions that preserves only the parentheses required by precedence and associativity rules
+ * Also formats variable names using {@link VariableFormatter}
  */
 public class ExpressionPrinter implements ExpressionVisitor<String> {
 
