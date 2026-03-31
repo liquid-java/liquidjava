@@ -28,8 +28,13 @@ public class UnaryExpression extends Expression {
     }
 
     @Override
+    protected Precedence getPrecedence() {
+        return Precedence.PREFIX;
+    }
+
+    @Override
     public String toString() {
-        return op + getExpression().toString();
+        return op + formatChild(getExpression());
     }
 
     @Override

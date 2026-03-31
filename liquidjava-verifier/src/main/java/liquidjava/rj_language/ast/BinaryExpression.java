@@ -40,14 +40,31 @@ public class BinaryExpression extends Expression {
         return !isLogicOperation() && !isBooleanOperation();
     }
 
+    private boolean isAssociative() {
+        return op.equals("&&") || op.equals("||") || op.equals("+") || op.equals("*");
+    }
+
     @Override
-    public <T> T accept(ExpressionVisitor<T> visitor) throws LJError {
-        return visitor.visitBinaryExpression(this);
+    protected Precedence getPrecedence() {
+        return Precedence.fromOperator(op);
+    }
+
+    private String formatRightOperand(Expression operand) {
+        if (operand.getPrecedence() == getPrecedence() && operand instanceof BinaryExpression right)
+            if (!isAssociative() || !op.equals(right.getOperator()))
+                return parenthesize(operand);
+
+        return formatChild(operand);
     }
 
     @Override
     public String toString() {
-        return getFirstOperand().toString() + " " + op + " " + getSecondOperand().toString();
+        return formatChild(getFirstOperand()) + " " + op + " " + formatRightOperand(getSecondOperand());
+    }
+
+    @Override
+    public <T> T accept(ExpressionVisitor<T> visitor) throws LJError {
+        return visitor.visitBinaryExpression(this);
     }
 
     @Override

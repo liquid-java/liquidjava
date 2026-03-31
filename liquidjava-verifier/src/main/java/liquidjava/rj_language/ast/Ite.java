@@ -31,8 +31,20 @@ public class Ite extends Expression {
     }
 
     @Override
+    protected Precedence getPrecedence() {
+        return Precedence.TERNARY;
+    }
+
+    private String formatCondition(Expression operand) {
+        if (operand instanceof Ite)
+            return parenthesize(operand);
+
+        return formatChild(operand);
+    }
+
+    @Override
     public String toString() {
-        return getCondition().toString() + " ? " + getThen().toString() + " : " + getElse().toString();
+        return formatCondition(getCondition()) + " ? " + formatCondition(getThen()) + " : " + formatChild(getElse());
     }
 
     @Override

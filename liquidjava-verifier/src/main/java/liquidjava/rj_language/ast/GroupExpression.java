@@ -25,6 +25,11 @@ public class GroupExpression extends Expression {
     }
 
     @Override
+    protected Precedence getPrecedence() {
+        return getExpression().getPrecedence();
+    }
+
+    @Override
     public void getVariableNames(List<String> toAdd) {
         getExpression().getVariableNames(toAdd);
     }
