@@ -1,4 +1,4 @@
-package liquidjava.rj_language.ast.prettyprinting;
+package liquidjava.rj_language.ast.formatter;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;

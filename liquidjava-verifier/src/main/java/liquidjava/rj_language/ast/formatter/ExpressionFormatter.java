@@ -1,4 +1,4 @@
-package liquidjava.rj_language.ast.prettyprinting;
+package liquidjava.rj_language.ast.formatter;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -21,41 +21,41 @@ import liquidjava.rj_language.visitors.ExpressionVisitor;
 import liquidjava.utils.Utils;
 
 /**
- * Pretty printer for expressions that preserves only the parentheses required by precedence and associativity rules
+ * Formatter expressions that preserves only the parentheses required by precedence and associativity rules
  * Also formats variable names using {@link VariableFormatter}
  */
-public class ExpressionPrinter implements ExpressionVisitor<String> {
+public class ExpressionFormatter implements ExpressionVisitor<String> {
 
-    public static String print(Expression expression) {
-        return new ExpressionPrinter().render(expression);
+    public static String format(Expression expression) {
+        return new ExpressionFormatter().formatExpression(expression);
     }
 
-    private String render(Expression expression) {
+    private String formatExpression(Expression expression) {
         return expression.accept(this);
     }
 
-    private String renderWithOptionalParentheses(Expression child, boolean shouldWrap) {
+    private String formatParentheses(Expression child, boolean shouldWrap) {
         if (shouldWrap)
-            return "(" + render(child) + ")";
+            return "(" + formatExpression(child) + ")";
         if (child instanceof GroupExpression group)
-            return "(" + render(group.getExpression()) + ")";
-        return render(child);
+            return "(" + formatExpression(group.getExpression()) + ")";
+        return formatExpression(child);
     }
 
-    private String renderOperand(Expression parent, Expression child) {
-        return renderWithOptionalParentheses(child, needsParentheses(parent, child));
+    private String formatOperand(Expression parent, Expression child) {
+        return formatParentheses(child, needsParentheses(parent, child));
     }
 
-    private String renderRightOperand(BinaryExpression parent, Expression child) {
-        return renderWithOptionalParentheses(child, needsRightParentheses(parent, child));
+    private String formatRightOperand(BinaryExpression parent, Expression child) {
+        return formatParentheses(child, needsRightParentheses(parent, child));
     }
 
-    private String renderConditionOperand(Expression child) {
-        return renderWithOptionalParentheses(child, child instanceof Ite);
+    private String formatCondition(Expression child) {
+        return formatParentheses(child, child instanceof Ite);
     }
 
-    private String renderArguments(List<Expression> args) {
-        return args.stream().map(expression -> renderWithOptionalParentheses(expression, false))
+    private String formatArguments(List<Expression> args) {
+        return args.stream().map(expression -> formatParentheses(expression, false))
                 .collect(Collectors.joining(", "));
     }
 
@@ -82,29 +82,29 @@ public class ExpressionPrinter implements ExpressionVisitor<String> {
 
     @Override
     public String visitAliasInvocation(AliasInvocation alias) {
-        return alias.getName() + "(" + renderArguments(alias.getArgs()) + ")";
+        return alias.getName() + "(" + formatArguments(alias.getArgs()) + ")";
     }
 
     @Override
     public String visitBinaryExpression(BinaryExpression exp) {
-        return renderOperand(exp, exp.getFirstOperand()) + " " + exp.getOperator() + " "
-                + renderRightOperand(exp, exp.getSecondOperand());
+        return formatOperand(exp, exp.getFirstOperand()) + " " + exp.getOperator() + " "
+                + formatRightOperand(exp, exp.getSecondOperand());
     }
 
     @Override
     public String visitFunctionInvocation(FunctionInvocation fun) {
-        return Utils.getSimpleName(fun.getName()) + "(" + renderArguments(fun.getArgs()) + ")";
+        return Utils.getSimpleName(fun.getName()) + "(" + formatArguments(fun.getArgs()) + ")";
     }
 
     @Override
     public String visitGroupExpression(GroupExpression exp) {
-        return "(" + render(exp.getExpression()) + ")";
+        return "(" + formatExpression(exp.getExpression()) + ")";
     }
 
     @Override
     public String visitIte(Ite ite) {
-        return renderConditionOperand(ite.getCondition()) + " ? " + renderConditionOperand(ite.getThen()) + " : "
-                + renderOperand(ite, ite.getElse());
+        return formatCondition(ite.getCondition()) + " ? " + formatCondition(ite.getThen()) + " : "
+                + formatOperand(ite, ite.getElse());
     }
 
     @Override
@@ -139,7 +139,7 @@ public class ExpressionPrinter implements ExpressionVisitor<String> {
 
     @Override
     public String visitUnaryExpression(UnaryExpression exp) {
-        return exp.getOp() + renderOperand(exp, exp.getExpression());
+        return exp.getOp() + formatOperand(exp, exp.getExpression());
     }
 
     @Override

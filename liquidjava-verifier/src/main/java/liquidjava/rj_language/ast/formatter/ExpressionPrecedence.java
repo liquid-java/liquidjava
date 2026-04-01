@@ -1,4 +1,4 @@
-package liquidjava.rj_language.ast.prettyprinting;
+package liquidjava.rj_language.ast.formatter;
 
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;

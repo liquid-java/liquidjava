@@ -6,7 +6,7 @@ import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.TranslationTable;
 import liquidjava.rj_language.ast.Var;
-import liquidjava.rj_language.ast.prettyprinting.VariableFormatter;
+import liquidjava.rj_language.ast.formatter.VariableFormatter;
 import liquidjava.rj_language.opt.derivation_node.ValDerivationNode;
 import liquidjava.smt.Counterexample;
 import spoon.reflect.cu.SourcePosition;
