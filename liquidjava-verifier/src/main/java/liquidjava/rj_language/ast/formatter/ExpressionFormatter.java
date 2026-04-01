@@ -3,6 +3,7 @@ package liquidjava.rj_language.ast.formatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.AliasInvocation;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
@@ -25,6 +26,10 @@ import liquidjava.utils.Utils;
  * variable names using {@link VariableFormatter}
  */
 public class ExpressionFormatter implements ExpressionVisitor<String> {
+
+    public static String format(Predicate predicate) {
+        return format(predicate.getExpression());
+    }
 
     public static String format(Expression expression) {
         return new ExpressionFormatter().formatExpression(expression);
