@@ -26,14 +26,6 @@ import liquidjava.utils.Utils;
  */
 public class ExpressionPrinter implements ExpressionVisitor<String> {
 
-    private enum Precedence {
-        TERNARY, IMPLICATION, OR, AND, COMPARISON, ADDITIVE, MULTIPLICATIVE, PREFIX, ATOMIC;
-
-        private boolean isLowerThan(Precedence other) {
-            return ordinal() < other.ordinal();
-        }
-    }
-
     public static String print(Expression expression) {
         return new ExpressionPrinter().render(expression);
     }
@@ -62,15 +54,20 @@ public class ExpressionPrinter implements ExpressionVisitor<String> {
         return renderWithOptionalParentheses(child, child instanceof Ite);
     }
 
+    private String renderArguments(List<Expression> args) {
+        return args.stream().map(expression -> renderWithOptionalParentheses(expression, false))
+                .collect(Collectors.joining(", "));
+    }
+
     private boolean needsParentheses(Expression parent, Expression child) {
-        return precedence(child).isLowerThan(precedence(parent));
+        return ExpressionPrecedence.of(child).isLowerThan(ExpressionPrecedence.of(parent));
     }
 
     private boolean needsRightParentheses(BinaryExpression parent, Expression child) {
         if (needsParentheses(parent, child))
             return true;
 
-        if (precedence(child) != precedence(parent))
+        if (ExpressionPrecedence.of(child) != ExpressionPrecedence.of(parent))
             return false;
 
         if (child instanceof BinaryExpression right)
@@ -79,37 +76,13 @@ public class ExpressionPrinter implements ExpressionVisitor<String> {
         return false;
     }
 
-    private Precedence precedence(Expression expression) {
-        if (expression instanceof GroupExpression group)
-            return precedence(group.getExpression());
-        if (expression instanceof Ite)
-            return Precedence.TERNARY;
-        if (expression instanceof UnaryExpression)
-            return Precedence.PREFIX;
-        if (expression instanceof BinaryExpression binary)
-            return precedence(binary.getOperator());
-        return Precedence.ATOMIC;
-    }
-
-    private Precedence precedence(String operator) {
-        return switch (operator) {
-        case "-->" -> Precedence.IMPLICATION;
-        case "||" -> Precedence.OR;
-        case "&&" -> Precedence.AND;
-        case "==", "!=", ">=", ">", "<=", "<" -> Precedence.COMPARISON;
-        case "+", "-" -> Precedence.ADDITIVE;
-        case "*", "/", "%" -> Precedence.MULTIPLICATIVE;
-        default -> Precedence.ATOMIC;
-        };
-    }
-
     private boolean isAssociative(String operator) {
         return operator.equals("&&") || operator.equals("||") || operator.equals("+") || operator.equals("*");
     }
 
     @Override
     public String visitAliasInvocation(AliasInvocation alias) {
-        return alias.getName() + "(" + renderArguments(alias.getArgs(), ", ") + ")";
+        return alias.getName() + "(" + renderArguments(alias.getArgs()) + ")";
     }
 
     @Override
@@ -120,7 +93,7 @@ public class ExpressionPrinter implements ExpressionVisitor<String> {
 
     @Override
     public String visitFunctionInvocation(FunctionInvocation fun) {
-        return Utils.getSimpleName(fun.getName()) + "(" + renderArguments(fun.getArgs(), ",") + ")";
+        return Utils.getSimpleName(fun.getName()) + "(" + renderArguments(fun.getArgs()) + ")";
     }
 
     @Override
@@ -172,10 +145,5 @@ public class ExpressionPrinter implements ExpressionVisitor<String> {
     @Override
     public String visitVar(Var var) {
         return VariableFormatter.format(var.getName());
-    }
-
-    private String renderArguments(List<Expression> args, String separator) {
-        return args.stream().map(expression -> renderWithOptionalParentheses(expression, false))
-                .collect(Collectors.joining(separator));
     }
 }
