@@ -1,13 +1,9 @@
 package liquidjava.rj_language.ast;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import liquidjava.rj_language.opt.derivation_node.ValDerivationNode;
-import liquidjava.rj_language.opt.derivation_node.VarDerivationNode;
 import org.junit.jupiter.api.Test;
 
-class ExpressionPrinterTest {
+class ExpressionFormatterTest {
 
     @Test
     void printsUnaryWithoutExtraParenthesesForAtoms() {
