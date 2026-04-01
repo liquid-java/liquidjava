@@ -6,13 +6,13 @@ import org.junit.jupiter.api.Test;
 class ExpressionFormatterTest {
 
     @Test
-    void printsUnaryWithoutExtraParenthesesForAtoms() {
+    void formatsUnaryAtoms() {
         assertEquals("!x", new UnaryExpression("!", new Var("x")).toDisplayString());
         assertEquals("!false", new UnaryExpression("!", new LiteralBoolean(false)).toDisplayString());
     }
 
     @Test
-    void formatsInternalVariablesWithSuperscripts() {
+    void formatsInternalVariables() {
         assertEquals("x", new Var("x").toDisplayString());
         assertEquals("x²", new Var("#x_2").toDisplayString());
         assertEquals("#fresh¹²", new Var("#fresh_12").toDisplayString());
@@ -21,7 +21,7 @@ class ExpressionFormatterTest {
     }
 
     @Test
-    void printsUnaryWithParenthesesForCompoundOperands() {
+    void formatsUnaryCompounds() {
         Expression comparison = new BinaryExpression(new Var("x"), ">", new LiteralInt(0));
 
         assertEquals("x > 0", comparison.toDisplayString());
@@ -31,7 +31,7 @@ class ExpressionFormatterTest {
     }
 
     @Test
-    void printsBinaryExpressionsWithOperatorPrecedence() {
+    void formatsBinaryPrecedence() {
         Expression sum = new BinaryExpression(new Var("a"), "+", new Var("b"));
         Expression product = new BinaryExpression(new Var("b"), "*", new Var("c"));
 
@@ -44,7 +44,7 @@ class ExpressionFormatterTest {
     }
 
     @Test
-    void preservesExplicitGroupingOnRightHandSide() {
+    void formatsRightGrouping() {
         Expression groupedSum = new GroupExpression(new BinaryExpression(new Var("b"), "+", new Var("c")));
         Expression groupedComparison = new GroupExpression(
                 new BinaryExpression(new LiteralInt(1), ">", new LiteralInt(0)));
@@ -54,7 +54,7 @@ class ExpressionFormatterTest {
     }
 
     @Test
-    void printsLogicalExpressionsWithNeededParentheses() {
+    void formatsLogicalExpressions() {
         Expression andExpression = new BinaryExpression(new Var("a"), "&&", new Var("b"));
         Expression orExpression = new BinaryExpression(new Var("b"), "||", new Var("c"));
         Expression implication = new BinaryExpression(new Var("b"), "-->", new Var("c"));
@@ -69,7 +69,7 @@ class ExpressionFormatterTest {
     }
 
     @Test
-    void printsTernaryExpressionsWithNeededParentheses() {
+    void formatsTernaryExpressions() {
         Expression ite = new Ite(new Var("a"), new Var("b"), new Var("c"));
         Expression nestedElse = new Ite(new Var("c"), new Var("d"), new Var("e"));
 
