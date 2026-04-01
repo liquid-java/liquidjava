@@ -1,5 +1,6 @@
 package liquidjava.rj_language.ast.prettyprinting;
 
+import java.util.List;
 import java.util.stream.Collectors;
 
 import liquidjava.rj_language.ast.AliasInvocation;
@@ -41,34 +42,28 @@ public class ExpressionPrinter implements ExpressionVisitor<String> {
         return expression.accept(this);
     }
 
-    private String renderChild(Expression child) {
+    private String renderWithOptionalParentheses(Expression child, boolean shouldWrap) {
+        if (shouldWrap)
+            return "(" + render(child) + ")";
         if (child instanceof GroupExpression group)
             return "(" + render(group.getExpression()) + ")";
         return render(child);
     }
 
     private String renderOperand(Expression parent, Expression child) {
-        if (needsParentheses(parent, child))
-            return "(" + render(child) + ")";
-        return renderChild(child);
+        return renderWithOptionalParentheses(child, needsParentheses(parent, child));
     }
 
     private String renderRightOperand(BinaryExpression parent, Expression child) {
-        if (needsRightParentheses(parent, child))
-            return "(" + render(child) + ")";
-        return renderChild(child);
+        return renderWithOptionalParentheses(child, needsRightParentheses(parent, child));
     }
 
     private String renderConditionOperand(Expression child) {
-        if (child instanceof Ite)
-            return "(" + render(child) + ")";
-        return renderChild(child);
+        return renderWithOptionalParentheses(child, child instanceof Ite);
     }
 
     private boolean needsParentheses(Expression parent, Expression child) {
-        if (precedence(child).isLowerThan(precedence(parent)))
-            return true;
-        return false;
+        return precedence(child).isLowerThan(precedence(parent));
     }
 
     private boolean needsRightParentheses(BinaryExpression parent, Expression child) {
@@ -114,8 +109,7 @@ public class ExpressionPrinter implements ExpressionVisitor<String> {
 
     @Override
     public String visitAliasInvocation(AliasInvocation alias) {
-        return alias.getName() + "(" + alias.getArgs().stream().map(this::renderChild).collect(Collectors.joining(", "))
-                + ")";
+        return alias.getName() + "(" + renderArguments(alias.getArgs(), ", ") + ")";
     }
 
     @Override
@@ -126,8 +120,7 @@ public class ExpressionPrinter implements ExpressionVisitor<String> {
 
     @Override
     public String visitFunctionInvocation(FunctionInvocation fun) {
-        return Utils.getSimpleName(fun.getName()) + "("
-                + fun.getArgs().stream().map(this::renderChild).collect(Collectors.joining(",")) + ")";
+        return Utils.getSimpleName(fun.getName()) + "(" + renderArguments(fun.getArgs(), ",") + ")";
     }
 
     @Override
@@ -179,5 +172,10 @@ public class ExpressionPrinter implements ExpressionVisitor<String> {
     @Override
     public String visitVar(Var var) {
         return VariableFormatter.format(var.getName());
+    }
+
+    private String renderArguments(List<Expression> args, String separator) {
+        return args.stream().map(expression -> renderWithOptionalParentheses(expression, false))
+                .collect(Collectors.joining(separator));
     }
 }
