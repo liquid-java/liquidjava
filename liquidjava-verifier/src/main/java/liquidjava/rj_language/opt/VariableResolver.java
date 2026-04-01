@@ -146,15 +146,15 @@ public class VariableResolver {
         return false;
     }
 
-    private static boolean isInternal(Var var) {
-        return var.getName().startsWith("#");
-    }
-
     private static int getCounter(Var var) {
         if (!isInternal(var))
             throw new IllegalStateException("Cannot get counter of non-internal variable");
         int lastUnderscore = var.getName().lastIndexOf('_');
         return Integer.parseInt(var.getName().substring(lastUnderscore + 1));
+    }
+
+    private static boolean isInternal(Var var) {
+        return var.getName().startsWith("#");
     }
 
     private static boolean isReturnVar(Var var) {
