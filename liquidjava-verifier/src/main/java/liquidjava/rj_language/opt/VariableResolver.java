@@ -11,6 +11,9 @@ import liquidjava.rj_language.ast.Var;
 
 public class VariableResolver {
 
+    private static final String RET_PREFIX = "#ret_";
+    private static final String FRESH_PREFIX = "#fresh_";
+
     /**
      * Extracts variables with constant values from an expression
      * 
@@ -54,19 +57,28 @@ public class VariableResolver {
                 map.put(var.getName(), left.clone());
             } else if (left instanceof Var leftVar && right instanceof Var rightVar) {
                 // to substitute internal variable with user-facing variable
-                if (leftVar.isInternal() && !rightVar.isInternal()) {
+                if (leftVar.isInternal() && !rightVar.isInternal() && !isReturnVar(leftVar)) {
                     map.put(leftVar.getName(), right.clone());
-                } else if (rightVar.isInternal() && !leftVar.isInternal()) {
+                } else if (rightVar.isInternal() && !leftVar.isInternal() && !isReturnVar(rightVar)) {
                     map.put(rightVar.getName(), left.clone());
                 } else if (leftVar.isInternal() && rightVar.isInternal()) {
                     // to substitute the lower-counter variable with the higher-counter one
                     boolean isLeftCounterLower = leftVar.getCounter() <= rightVar.getCounter();
                     Var lowerVar = isLeftCounterLower ? leftVar : rightVar;
                     Var higherVar = isLeftCounterLower ? rightVar : leftVar;
-                    map.putIfAbsent(lowerVar.getName(), higherVar.clone());
+                    if (!isReturnVar(lowerVar) && !isFreshVar(higherVar))
+                        map.putIfAbsent(lowerVar.getName(), higherVar.clone());
                 }
             }
         }
+    }
+
+    private static boolean isReturnVar(Var var) {
+        return var.getName().startsWith(RET_PREFIX);
+    }
+
+    private static boolean isFreshVar(Var var) {
+        return var.getName().startsWith(FRESH_PREFIX);
     }
 
     /**
