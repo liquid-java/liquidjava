@@ -21,8 +21,8 @@ import liquidjava.rj_language.visitors.ExpressionVisitor;
 import liquidjava.utils.Utils;
 
 /**
- * Formatter expressions that preserves only the parentheses required by precedence and associativity rules
- * Also formats variable names using {@link VariableFormatter}
+ * Formatter for expressions that only adds parentheses when required by precedence and associativity rules and formats
+ * variable names using {@link VariableFormatter}
  */
 public class ExpressionFormatter implements ExpressionVisitor<String> {
 
@@ -55,8 +55,7 @@ public class ExpressionFormatter implements ExpressionVisitor<String> {
     }
 
     private String formatArguments(List<Expression> args) {
-        return args.stream().map(expression -> formatParentheses(expression, false))
-                .collect(Collectors.joining(", "));
+        return args.stream().map(expression -> formatParentheses(expression, false)).collect(Collectors.joining(", "));
     }
 
     private boolean needsParentheses(Expression parent, Expression child) {
