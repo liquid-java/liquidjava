@@ -11,9 +11,6 @@ import liquidjava.rj_language.ast.Var;
 
 public class VariableResolver {
 
-    private static final String RET_PREFIX = "#ret_";
-    private static final String FRESH_PREFIX = "#fresh_";
-
     /**
      * Extracts variables with constant values from an expression
      * 
@@ -161,10 +158,10 @@ public class VariableResolver {
     }
 
     private static boolean isReturnVar(Var var) {
-        return var.getName().startsWith(RET_PREFIX);
+        return var.getName().startsWith("#ret_");
     }
 
     private static boolean isFreshVar(Var var) {
-        return var.getName().startsWith(FRESH_PREFIX);
+        return var.getName().startsWith("#fresh_");
     }
 }
