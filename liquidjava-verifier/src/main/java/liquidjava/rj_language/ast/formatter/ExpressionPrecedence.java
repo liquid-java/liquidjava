@@ -7,7 +7,7 @@ import liquidjava.rj_language.ast.Ite;
 import liquidjava.rj_language.ast.UnaryExpression;
 
 public enum ExpressionPrecedence {
-    TERNARY, IMPLICATION, OR, AND, COMPARISON, ADDITIVE, MULTIPLICATIVE, PREFIX, ATOMIC;
+    TERNARY, IMPLICATION, OR, AND, COMPARISON, ADDITIVE, MULTIPLICATIVE, UNARY, ATOMIC;
 
     public boolean isLowerThan(ExpressionPrecedence other) {
         return ordinal() < other.ordinal();
@@ -19,7 +19,7 @@ public enum ExpressionPrecedence {
         if (expression instanceof Ite)
             return TERNARY;
         if (expression instanceof UnaryExpression)
-            return PREFIX;
+            return UNARY;
         if (expression instanceof BinaryExpression binary)
             return of(binary.getOperator());
         return ATOMIC;
