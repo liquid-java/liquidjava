@@ -34,7 +34,7 @@ public class TestUtils {
      * @param path
      */
     public static boolean shouldPass(String path) {
-        return path.toLowerCase().contains("correct") || path.toLowerCase().contains("warning");
+        return path.toLowerCase().contains("correct");
     }
 
     /**

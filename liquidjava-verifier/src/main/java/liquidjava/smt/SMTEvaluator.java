@@ -50,4 +50,18 @@ public class SMTEvaluator {
         }
         return SMTResult.ok();
     }
+
+    public boolean isUnsatisfiable(Predicate predicate, Context context) throws Exception {
+        try {
+            Expression exp = predicate.getExpression();
+            try (TranslatorToZ3 tz3 = new TranslatorToZ3(context)) {
+                ExpressionToZ3Visitor visitor = new ExpressionToZ3Visitor(tz3);
+                Expr<?> e = exp.accept(visitor);
+                Solver solver = tz3.makeSolverForExpression(e);
+                return solver.check().equals(Status.UNSATISFIABLE);
+            }
+        } catch (Z3Exception e) {
+            throw new Z3Exception(e.getLocalizedMessage());
+        }
+    }
 }

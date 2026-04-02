@@ -6,7 +6,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import liquidjava.diagnostics.Diagnostics;
 import liquidjava.diagnostics.errors.*;
+import liquidjava.diagnostics.warnings.UnsatRefinementWarning;
 import liquidjava.processor.context.AliasWrapper;
 import liquidjava.processor.context.Context;
 import liquidjava.processor.context.GhostFunction;
@@ -16,6 +18,7 @@ import liquidjava.processor.facade.AliasDTO;
 import liquidjava.processor.facade.GhostDTO;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.parsing.RefinementsParser;
+import liquidjava.smt.SMTEvaluator;
 import liquidjava.smt.SMTResult;
 import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Formats;
@@ -29,6 +32,9 @@ import spoon.reflect.declaration.CtAnnotation;
 import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtInterface;
+import spoon.reflect.declaration.CtMethod;
+import spoon.reflect.declaration.CtTypedElement;
+import spoon.reflect.declaration.CtVariable;
 import spoon.reflect.factory.Factory;
 import spoon.reflect.reference.CtTypeReference;
 import spoon.reflect.visitor.CtScanner;
@@ -40,6 +46,7 @@ public abstract class TypeChecker extends CtScanner {
     protected final Context context;
     protected final Factory factory;
     protected final VCChecker vcChecker;
+    private final Diagnostics diagnostics = Diagnostics.getInstance();
 
     public TypeChecker(Context context, Factory factory) {
         this.context = context;
@@ -87,9 +94,44 @@ public abstract class TypeChecker extends CtScanner {
                 throw new InvalidRefinementError(position, "Refinement predicate must be a boolean expression",
                         ref.get());
             }
+            checkRefinementSatisfiability(ref.get(), p, element);
             constr = Optional.of(p);
         }
         return constr;
+    }
+
+    private void checkRefinementSatisfiability(String refinement, Predicate predicate, CtElement element) {
+        context.enterContext();
+        try {
+            Predicate p = new Predicate();
+            CtTypeReference<?> annotationType = element instanceof CtTypedElement<?> typedElement
+                    ? typedElement.getType() : null;
+            if (annotationType != null && !context.hasVariable(Keys.WILDCARD))
+                context.addVarToContext(Keys.WILDCARD, annotationType, p, element);
+
+            if (element instanceof CtVariable<?> variable && !context.hasVariable(variable.getSimpleName()))
+                context.addVarToContext(variable.getSimpleName(), variable.getType(), p, element);
+
+            if (element instanceof CtMethod<?> method && method.getType() != null && !context.hasVariable("return"))
+                context.addVarToContext("return", method.getType(), p, element);
+
+            String qualifiedClassName = getQualifiedClassName(element);
+            if (qualifiedClassName != null && !context.hasVariable(Keys.THIS))
+                context.addVarToContext(Keys.THIS, factory.Type().createReference(qualifiedClassName), p, element);
+
+            Predicate refinementPredicate = predicate.changeStatesToRefinements(context.getGhostStates(),
+                    new String[] { Keys.WILDCARD, Keys.THIS });
+            refinementPredicate = refinementPredicate.changeAliasToRefinement(context, factory);
+
+            if (new SMTEvaluator().isUnsatisfiable(refinementPredicate, context)) {
+                SourcePosition position = Utils.getLJAnnotationPosition(element, refinement);
+                diagnostics.add(new UnsatRefinementWarning(position, "This refinement can never be true", refinement));
+            }
+        } catch (Exception e) {
+            // ignore
+        } finally {
+            context.exitContext();
+        }
     }
 
     @SuppressWarnings({ "rawtypes" })
