@@ -94,7 +94,8 @@ public abstract class TypeChecker extends CtScanner {
                 throw new InvalidRefinementError(position, "Refinement predicate must be a boolean expression",
                         ref.get());
             }
-            checkRefinementSatisfiability(ref.get(), p, element);
+            if (!Boolean.TRUE.equals(element.getMetadata(Keys.REFINEMENT_SAT_CHECK)))
+                checkRefinementSatisfiability(ref.get(), p, element);
             constr = Optional.of(p);
         }
         return constr;
@@ -127,6 +128,7 @@ public abstract class TypeChecker extends CtScanner {
                 SourcePosition position = Utils.getLJAnnotationPosition(element, refinement);
                 diagnostics.add(new UnsatRefinementWarning(position, "This refinement can never be true", refinement));
             }
+            element.putMetadata(Keys.REFINEMENT_SAT_CHECK, true); // for caching the satisfiability check result
         } catch (Exception e) {
             // ignore
         } finally {
