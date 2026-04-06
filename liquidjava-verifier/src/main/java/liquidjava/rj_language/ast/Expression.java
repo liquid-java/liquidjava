@@ -81,6 +81,16 @@ public abstract class Expression {
         return false;
     }
 
+    public List<Expression> getConjuncts() {
+        if (this instanceof BinaryExpression binaryExpression && "&&".equals(binaryExpression.getOperator())) {
+            List<Expression> conjuncts = new ArrayList<>();
+            conjuncts.addAll(binaryExpression.getFirstOperand().getConjuncts());
+            conjuncts.addAll(binaryExpression.getSecondOperand().getConjuncts());
+            return conjuncts;
+        }
+        return List.of(this);
+    }
+
     /**
      * Substitutes the expression first given expression by the second
      *

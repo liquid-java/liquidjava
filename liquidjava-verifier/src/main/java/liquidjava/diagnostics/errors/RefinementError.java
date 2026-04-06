@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.TranslationTable;
+import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.opt.derivation_node.ValDerivationNode;
 import liquidjava.smt.Counterexample;
 import liquidjava.utils.VariableFormatter;
@@ -46,16 +47,17 @@ public class RefinementError extends LJError {
 
         List<String> foundVarNames = new ArrayList<>();
         found.getValue().getVariableNames(foundVarNames);
+        List<String> foundAssignments = found.getValue().getConjuncts().stream().map(Expression::toString).toList();
         String counterexampleString = counterexample.assignments().stream()
-                // only include variables that appear in the found value
-                .filter(a -> foundVarNames.contains(a.first()))
+                // only include variables that appear in the found value and are not already fixed there
+                .filter(a -> foundVarNames.contains(a.first())
+                        && !foundAssignments.contains(a.first() + " == " + a.second()))
                 // format as "var == value"
                 .map(a -> VariableFormatter.formatVariable(a.first()) + " == " + a.second())
                 // join with "&&"
                 .collect(Collectors.joining(" && "));
 
-        String foundString = VariableFormatter.formatText(found.getValue().toString());
-        if (counterexampleString.isEmpty() || counterexampleString.equals(foundString))
+        if (counterexampleString.isEmpty())
             return null;
 
         return counterexampleString;
