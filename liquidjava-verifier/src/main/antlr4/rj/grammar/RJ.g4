@@ -67,10 +67,10 @@ literal:
 //----------------------- Declarations -----------------------
 
 alias:
-	'type'? ID_UPPER '(' argDeclID ')' '{' pred '}';
+	ID_UPPER '(' argDeclID ')' '{' pred '}';
 
 ghost:
-	'ghost'? type ID ('(' argDecl? ')')?;
+	type ID ('(' argDecl? ')')?;
 
 argDecl:
 	type ID? (',' argDecl)?;

@@ -10,7 +10,7 @@ import liquidjava.specification.StateRefinement;
 @ExternalRefinementsFor("java.io.InputStreamReader")
 public interface InputStreamReaderRefs {
 
-    @RefinementPredicate("boolean open(InputStreamReader i)")
+    @RefinementPredicate("boolean open(InputStreamReader)")
     @StateRefinement(to = "open(this)")
     public void InputStreamReader(InputStream in);
 

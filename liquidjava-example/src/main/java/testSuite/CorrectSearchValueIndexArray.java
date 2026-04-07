@@ -5,7 +5,7 @@ import liquidjava.specification.RefinementPredicate;
 
 public class CorrectSearchValueIndexArray {
 
-    @RefinementPredicate("ghost int length(int[])")
+    @RefinementPredicate("int length(int[])")
     @Refinement("(_ >= -1) && (_ < length(l))")
     public static int getIndexWithValue(
             @Refinement("length(l) > 0") int[] l, @Refinement("i >= 0 && i < length(l)") int i, int val) {

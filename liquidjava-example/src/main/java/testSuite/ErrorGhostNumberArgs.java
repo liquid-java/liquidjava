@@ -5,7 +5,7 @@ import liquidjava.specification.RefinementPredicate;
 
 public class ErrorGhostNumberArgs {
 
-    @RefinementPredicate("ghost boolean open(int)")
+    @RefinementPredicate("boolean open(int)")
     @Refinement("open(1,2) == true")
     public int one() {
         return 1; // Argument Mismatch Error
