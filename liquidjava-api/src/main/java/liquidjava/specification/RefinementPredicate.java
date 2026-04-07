@@ -7,17 +7,18 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Annotation that allows the creation of ghost variables or refinement aliases within method or constructor scope.
+ * Annotation that allows the creation of custom ghost functions within classes or interfaces.
  * <p>
- * This annotation enables the declaration of ghosts and refinement aliases.
+ * This annotation enables the declaration of custom ghost functions.
  * <p>
  * <strong>Example:</strong>
  * <pre>
  * {@code
- * @RefinementPredicate("ghost int size")
- * @RefinementPredicate("type Nat(int x) { x > 0 }")
- * public void process() {
- *     // ...
+ * @RefinementPredicate("int totalPrice(Order o)")
+ * public class Order {
+ *     @StateRefinement(to = "totalPrice(this) == 0")
+ *     public Order() {
+ *     }
  * }
  * }
  * </pre>
@@ -27,18 +28,17 @@ import java.lang.annotation.Target;
  * @author Catarina Gamboa
  */
 @Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.METHOD, ElementType.CONSTRUCTOR})
+@Target({ElementType.TYPE})
 @Repeatable(RefinementPredicateMultiple.class)
 public @interface RefinementPredicate {
 
     /**
-     * The refinement predicate string, which can define a ghost variable or a refinement alias.
+     * The refinement predicate string, which defines a ghost function declaration.
      * <p>
      * <strong>Example:</strong>
      * <pre>
      * {@code
-     * @RefinementPredicate("ghost int size")
-     * @RefinementPredicate("type Nat(int x) { x > 0 }")
+     * @RefinementPredicate("int totalPrice(Order o)")
      * }
      * </pre>
      */

@@ -5,9 +5,9 @@ import liquidjava.specification.StateRefinement;
 import liquidjava.specification.StateSet;
 
 @StateSet({"empty", "addingItems", "checkout", "closed"})
+@RefinementPredicate("int countItems(OrderSimple o)")
 public class OrderSimple {
 
-    @RefinementPredicate("int countItems(OrderSimple o)")
     @StateRefinement(to = "(countItems(this) == 0) && empty(this)")
     public OrderSimple() {}
 

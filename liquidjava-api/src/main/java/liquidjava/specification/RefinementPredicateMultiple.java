@@ -11,7 +11,7 @@ import java.lang.annotation.Target;
  * @author Catarina Gamboa
  */
 @Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.METHOD, ElementType.CONSTRUCTOR})
+@Target({ElementType.TYPE})
 public @interface RefinementPredicateMultiple {
     RefinementPredicate[] value();
 }

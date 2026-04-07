@@ -3,8 +3,8 @@ package testingInProgress;
 import liquidjava.specification.RefinementPredicate;
 import liquidjava.specification.StateRefinement;
 
+@RefinementPredicate("int lengthS(StringBuilder s)")
 public interface StringBuilderRefinements {
-    @RefinementPredicate("int lengthS(StringBuilder s)")
     @StateRefinement(to = "lengthS() == 0")
     public void StringBuilder();
 

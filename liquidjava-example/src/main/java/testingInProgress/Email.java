@@ -9,13 +9,13 @@ import liquidjava.specification.StateRefinement;
 // Suppose there is only one acceptable order to construct the email
 // add sender -> add multiple receivers -> add subject <optional> -> add body -> build()
 @SuppressWarnings("unused")
+@RefinementPredicate("int state(Email e)")
 public class Email {
     private String sender;
     private List<String> receiver;
     private String subject;
     private String body;
 
-    @RefinementPredicate("int state(Email e)")
     @StateRefinement(to = "state(this) == 1")
     public Email() {
         receiver = new ArrayList<>();

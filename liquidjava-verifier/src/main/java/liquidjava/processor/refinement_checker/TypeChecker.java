@@ -29,6 +29,7 @@ import spoon.reflect.declaration.CtAnnotation;
 import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtInterface;
+import spoon.reflect.declaration.CtType;
 import spoon.reflect.factory.Factory;
 import spoon.reflect.reference.CtTypeReference;
 import spoon.reflect.visitor.CtScanner;
@@ -233,10 +234,9 @@ public abstract class TypeChecker extends CtScanner {
 
     protected void getGhostFunction(String value, CtElement element, SourcePosition position) throws LJError {
         GhostDTO f = getGhostDeclaration(value, position);
-        if (element.getParent()instanceof CtClass<?> klass) {
-            GhostFunction gh = new GhostFunction(f, factory, klass.getQualifiedName());
-            context.addGhostFunction(gh);
-        }
+        CtType<?> type = element instanceof CtType<?> t ? t : element.getParent()instanceof CtType<?> t ? t : null;
+        if (type != null)
+            context.addGhostFunction(new GhostFunction(f, factory, type.getQualifiedName()));
     }
 
     protected void handleAlias(String ref, CtElement element, SourcePosition position) throws LJError {
