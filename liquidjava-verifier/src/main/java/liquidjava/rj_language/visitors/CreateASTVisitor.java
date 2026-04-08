@@ -51,6 +51,7 @@ import rj.grammar.RJParser.PredGroupContext;
 import rj.grammar.RJParser.PredLogicContext;
 import rj.grammar.RJParser.PredNegateContext;
 import rj.grammar.RJParser.ProgContext;
+import rj.grammar.RJParser.ResultContext;
 import rj.grammar.RJParser.StartContext;
 import rj.grammar.RJParser.StartPredContext;
 import rj.grammar.RJParser.VarContext;
@@ -158,10 +159,14 @@ public class CreateASTVisitor {
             return create(((LitContext) rc).literal());
         else if (rc instanceof VarContext) {
             return new Var(((VarContext) rc).ID().getText());
-
-        } else {
+        } else if (rc instanceof ResultContext) {
+            return new Var("#result");
+        } else if (rc instanceof InvocationContext) {
             return create(((InvocationContext) rc).functionCall());
+        } else {
+            throw new IllegalStateException("Unknown literalExpression: " + rc.getClass());
         }
+
     }
 
     private Expression functionCallCreate(FunctionCallContext rc) throws LJError {
