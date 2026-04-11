@@ -28,7 +28,7 @@ import java.lang.annotation.Target;
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.TYPE})
-@Repeatable(StateSets.class)
+@Repeatable(StateSet.Multiple.class)
 public @interface StateSet {
 
     /**
@@ -42,4 +42,13 @@ public @interface StateSet {
      * </pre>
      */
     String[] value();
+
+    /**
+     * Container annotation used by {@link Repeatable} to support multiple state sets.
+     */
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target({ElementType.TYPE})
+    @interface Multiple {
+        StateSet[] value();
+    }
 }

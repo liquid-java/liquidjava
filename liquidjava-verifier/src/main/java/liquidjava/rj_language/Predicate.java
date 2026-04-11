@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import liquidjava.api.CommandLineLauncher;
 import liquidjava.diagnostics.errors.LJError;
 import liquidjava.processor.context.AliasWrapper;
 import liquidjava.processor.context.Context;
@@ -206,6 +207,9 @@ public class Predicate {
         Map<String, AliasDTO> aliases = new HashMap<>();
         for (AliasWrapper aw : context.getAliases()) {
             aliases.put(aw.getName(), aw.createAliasDTO());
+        }
+        if (CommandLineLauncher.cmdArgs.debugMode) {
+            return new ValDerivationNode(exp.clone(), null);
         }
         // simplify expression
         return ExpressionSimplifier.simplify(exp.clone(), aliases);

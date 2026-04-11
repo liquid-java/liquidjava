@@ -10,6 +10,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.errors.*;
+import liquidjava.api.CommandLineLauncher;
 import liquidjava.diagnostics.TranslationTable;
 import liquidjava.processor.VCImplication;
 import liquidjava.processor.context.*;
@@ -22,6 +23,7 @@ import liquidjava.smt.SMTEvaluator;
 import liquidjava.smt.SMTResult;
 import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Keys;
+import liquidjava.utils.Utils;
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.factory.Factory;
@@ -102,6 +104,12 @@ public class VCChecker {
      */
     public SMTResult verifySMTSubtype(Predicate expected, Predicate found, SourcePosition position) throws LJError {
         try {
+            if (CommandLineLauncher.cmdArgs.debugMode) {
+                String exp = Utils.getExpressionFromPosition(position);
+                System.out.println(String.format("%s <: %s %s at %s", expected, found,
+                        exp != null ? String.format("on expression '%s'", exp) : "",
+                        position.getFile().getName() + ":" + position.getLine()));
+            }
             return new SMTEvaluator().verifySubtype(found, expected, context);
         } catch (LJError e) {
             if (e.getPosition() == null) {

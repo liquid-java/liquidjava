@@ -2,7 +2,6 @@ package liquidjava.diagnostics.errors;
 
 import liquidjava.diagnostics.TranslationTable;
 import liquidjava.rj_language.ast.Expression;
-import liquidjava.utils.VariableFormatter;
 import spoon.reflect.cu.SourcePosition;
 
 /**
@@ -17,11 +16,11 @@ public class StateRefinementError extends LJError {
 
     public StateRefinementError(SourcePosition position, Expression expected, Expression found,
             TranslationTable translationTable, String customMessage) {
-        super("State Refinement Error", String.format("Expected state %s but found %s",
-                VariableFormatter.formatText(expected.toString()), VariableFormatter.formatText(found.toString())),
+        super("State Refinement Error",
+                String.format("Expected state %s but found %s", expected.toDisplayString(), found.toDisplayString()),
                 position, translationTable, customMessage);
-        this.expected = VariableFormatter.formatText(expected.toString());
-        this.found = VariableFormatter.formatText(found.toString());
+        this.expected = expected.toDisplayString();
+        this.found = found.toDisplayString();
     }
 
     public String getExpected() {

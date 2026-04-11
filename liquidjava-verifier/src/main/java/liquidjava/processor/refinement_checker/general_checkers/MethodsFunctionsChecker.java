@@ -286,15 +286,21 @@ public class MethodsFunctionsChecker {
             return new HashMap<>();
         Map<String, String> map = mapInvocation(arguments, f);
 
-        if (target != null) {
-            AuxStateHandler.checkTargetChanges(rtc, f, target, map, invocation);
-        }
+        if (target != null)
+            AuxStateHandler.prepareInvocationTarget(rtc, target, invocation);
+
         if (f.allRefinementsTrue()) {
+            if (target != null)
+                AuxStateHandler.checkTargetChanges(rtc, f, target, map, invocation);
+
             invocation.putMetadata(Keys.REFINEMENT, new Predicate());
             return map;
         }
 
         checkParameters(invocation, arguments, f, map);
+
+        if (target != null)
+            AuxStateHandler.checkTargetChanges(rtc, f, target, map, invocation);
 
         // -- Part 2: Apply changes
         // applyRefinementsToArguments(element, arguments, f, map);

@@ -7,8 +7,13 @@ import liquidjava.diagnostics.Diagnostics;
 import liquidjava.diagnostics.errors.LJError;
 import liquidjava.processor.context.Context;
 import liquidjava.processor.refinement_checker.general_checkers.MethodsFunctionsChecker;
+import liquidjava.rj_language.Predicate;
+import liquidjava.utils.constants.Formats;
+import liquidjava.utils.constants.Types;
 import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtConstructor;
+import spoon.reflect.declaration.CtEnum;
+import spoon.reflect.declaration.CtEnumValue;
 import spoon.reflect.declaration.CtInterface;
 import spoon.reflect.declaration.CtMethod;
 import spoon.reflect.declaration.CtType;
@@ -115,5 +120,16 @@ public class MethodsFirstChecker extends TypeChecker {
             diagnostics.add(e);
         }
         context.exitContext();
+    }
+
+    @Override
+    public <T extends Enum<?>> void visitCtEnum(CtEnum<T> enumRead) {
+        String enumName = enumRead.getSimpleName();
+        String qualifiedEnumName = enumRead.getQualifiedName();
+        for (CtEnumValue<?> ev : enumRead.getEnumValues()) {
+            String varName = String.format(Formats.ENUM, enumName, ev.getSimpleName());
+            context.addGlobalVariableToContext(varName, qualifiedEnumName, enumRead.getReference(), null);
+        }
+        super.visitCtEnum(enumRead);
     }
 }

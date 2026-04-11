@@ -54,16 +54,17 @@ public class VariableResolver {
                 map.put(var.getName(), left.clone());
             } else if (left instanceof Var leftVar && right instanceof Var rightVar) {
                 // to substitute internal variable with user-facing variable
-                if (leftVar.isInternal() && !rightVar.isInternal()) {
+                if (isInternal(leftVar) && !isInternal(rightVar) && !isReturnVar(leftVar)) {
                     map.put(leftVar.getName(), right.clone());
-                } else if (rightVar.isInternal() && !leftVar.isInternal()) {
+                } else if (isInternal(rightVar) && !isInternal(leftVar) && !isReturnVar(rightVar)) {
                     map.put(rightVar.getName(), left.clone());
-                } else if (leftVar.isInternal() && rightVar.isInternal()) {
+                } else if (isInternal(leftVar) && isInternal(rightVar)) {
                     // to substitute the lower-counter variable with the higher-counter one
-                    boolean isLeftCounterLower = leftVar.getCounter() <= rightVar.getCounter();
+                    boolean isLeftCounterLower = getCounter(leftVar) <= getCounter(rightVar);
                     Var lowerVar = isLeftCounterLower ? leftVar : rightVar;
                     Var higherVar = isLeftCounterLower ? rightVar : leftVar;
-                    map.putIfAbsent(lowerVar.getName(), higherVar.clone());
+                    if (!isReturnVar(lowerVar) && !isFreshVar(higherVar))
+                        map.putIfAbsent(lowerVar.getName(), higherVar.clone());
                 }
             }
         }
@@ -143,5 +144,24 @@ public class VariableResolver {
 
         // usage not found
         return false;
+    }
+
+    private static int getCounter(Var var) {
+        if (!isInternal(var))
+            throw new IllegalStateException("Cannot get counter of non-internal variable");
+        int lastUnderscore = var.getName().lastIndexOf('_');
+        return Integer.parseInt(var.getName().substring(lastUnderscore + 1));
+    }
+
+    private static boolean isInternal(Var var) {
+        return var.getName().startsWith("#");
+    }
+
+    private static boolean isReturnVar(Var var) {
+        return var.getName().startsWith("#ret_");
+    }
+
+    private static boolean isFreshVar(Var var) {
+        return var.getName().startsWith("#fresh_");
     }
 }

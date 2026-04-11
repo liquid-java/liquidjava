@@ -2,7 +2,6 @@ package liquidjava.api;
 
 import java.io.File;
 import java.util.Arrays;
-import java.util.List;
 
 import liquidjava.diagnostics.Diagnostics;
 import liquidjava.diagnostics.errors.CustomError;
@@ -10,6 +9,7 @@ import liquidjava.diagnostics.warnings.CustomWarning;
 import liquidjava.processor.RefinementProcessor;
 import liquidjava.processor.context.ContextHistory;
 import liquidjava.specification.Refinement;
+import picocli.CommandLine;
 import spoon.Launcher;
 import spoon.compiler.Environment;
 import spoon.processing.ProcessingManager;
@@ -21,18 +21,23 @@ public class CommandLineLauncher {
 
     private static final Diagnostics diagnostics = Diagnostics.getInstance();
     private static final ContextHistory contextHistory = ContextHistory.getInstance();
+    public static final CommandLineArgs cmdArgs = new CommandLineArgs();
 
     public static void main(String[] args) {
-        if (args.length == 0) {
-            System.out.println("No input paths provided");
-            System.out.println("\nUsage: ./liquidjava <...paths>");
-            System.out.println("  <...paths>: Paths to be verified by LiquidJava");
-            System.out.println(
-                    "\nExample: ./liquidjava liquidjava-example/src/main/java/test liquidjava-example/src/main/java/testingInProgress/Account.java");
+        CommandLine cmd = new CommandLine(cmdArgs);
+        cmd.parseArgs(args);
+
+        if (cmd.isUsageHelpRequested()) {
+            cmd.usage(System.out);
             return;
         }
-        List<String> paths = Arrays.asList(args);
-        launch(paths.toArray(new String[0]));
+
+        if (cmd.isVersionHelpRequested()) {
+            System.out.println("liquidjava " + cmdArgs.getVersionString());
+            return;
+        }
+
+        launch(cmdArgs.paths.stream().toArray(String[]::new));
 
         // print diagnostics
         if (diagnostics.foundWarning()) {
@@ -40,9 +45,10 @@ public class CommandLineLauncher {
         }
         if (diagnostics.foundError()) {
             System.out.println(diagnostics.getErrorOutput());
-        } else {
-            System.out.println("Correct! Passed Verification.");
+            return;
         }
+
+        System.out.println("Correct! Passed Verification.");
     }
 
     public static void launch(String... paths) {
