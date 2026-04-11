@@ -142,4 +142,30 @@ class VariableResolverTest {
         assertEquals(1, result.size(), "Should only extract used variable z");
         assertEquals("3", result.get("z").toString());
     }
+
+    @Test
+    void testReturnVariableIsNotSubstituted() {
+        // #ret_1 == x && x > 0 should not substitute #ret_1 with x
+        Expression ret = new Var("#ret_1");
+        Expression x = new Var("x");
+        Expression xGreaterZero = new BinaryExpression(x, ">", new LiteralInt(0));
+        Expression retEqualsX = new BinaryExpression(ret, "==", x);
+        Expression fullExpr = new BinaryExpression(xGreaterZero, "&&", retEqualsX);
+
+        Map<String, Expression> result = VariableResolver.resolve(fullExpr);
+        assertTrue(result.isEmpty(), "Return variables should not be substituted with another variable");
+    }
+
+    @Test
+    void testFreshVariableIsNotUsedAsSubstitutionTarget() {
+        // #tmp_1 > 0 && #tmp_1 == #fresh_2 should not substitute #tmp_1 with #fresh_2
+        Expression internal = new Var("#tmp_1");
+        Expression fresh = new Var("#fresh_2");
+        Expression internalGreaterZero = new BinaryExpression(internal, ">", new LiteralInt(0));
+        Expression internalEqualsFresh = new BinaryExpression(internal, "==", fresh);
+        Expression fullExpr = new BinaryExpression(internalGreaterZero, "&&", internalEqualsFresh);
+
+        Map<String, Expression> result = VariableResolver.resolve(fullExpr);
+        assertTrue(result.isEmpty(), "Fresh variables should not replace another variable");
+    }
 }

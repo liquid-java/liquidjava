@@ -11,6 +11,7 @@ import liquidjava.diagnostics.errors.NotFoundError;
 import liquidjava.processor.context.Context;
 import liquidjava.processor.context.GhostFunction;
 import liquidjava.processor.facade.AliasDTO;
+import liquidjava.rj_language.ast.formatter.ExpressionFormatter;
 import liquidjava.rj_language.ast.typing.TypeInfer;
 import liquidjava.rj_language.visitors.ExpressionVisitor;
 import liquidjava.utils.Utils;
@@ -35,6 +36,10 @@ public abstract class Expression {
     public abstract Expression clone();
 
     public abstract String toString();
+
+    public String toDisplayString() {
+        return ExpressionFormatter.format(this);
+    }
 
     List<Expression> children = new ArrayList<>();
 

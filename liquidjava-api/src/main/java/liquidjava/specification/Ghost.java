@@ -26,7 +26,7 @@ import java.lang.annotation.Target;
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.TYPE})
-@Repeatable(GhostMultiple.class)
+@Repeatable(Ghost.Multiple.class)
 public @interface Ghost {
 
     /**
@@ -40,4 +40,13 @@ public @interface Ghost {
      * </pre>
      */
     String value();
+
+    /**
+     * Container annotation used by {@link Repeatable} to support multiple ghost declarations.
+     */
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target({ElementType.TYPE})
+    @interface Multiple {
+        Ghost[] value();
+    }
 }

@@ -4,11 +4,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import liquidjava.api.CommandLineLauncher;
 import liquidjava.diagnostics.TranslationTable;
 import liquidjava.rj_language.ast.Expression;
+import liquidjava.rj_language.ast.formatter.VariableFormatter;
 import liquidjava.rj_language.opt.derivation_node.ValDerivationNode;
 import liquidjava.smt.Counterexample;
-import liquidjava.utils.VariableFormatter;
 import spoon.reflect.cu.SourcePosition;
 
 /**
@@ -24,10 +25,8 @@ public class RefinementError extends LJError {
 
     public RefinementError(SourcePosition position, ValDerivationNode expected, ValDerivationNode found,
             TranslationTable translationTable, Counterexample counterexample, String customMessage) {
-        super("Refinement Error",
-                String.format("%s is not a subtype of %s", VariableFormatter.formatText(found.getValue().toString()),
-                        VariableFormatter.formatText(expected.getValue().toString())),
-                position, translationTable, customMessage);
+        super("Refinement Error", String.format("%s is not a subtype of %s", found.getValue().toDisplayString(),
+                expected.getValue().toDisplayString()), position, translationTable, customMessage);
         this.expected = expected;
         this.found = found;
         this.counterexample = counterexample;
@@ -50,10 +49,10 @@ public class RefinementError extends LJError {
         List<String> foundAssignments = found.getValue().getConjuncts().stream().map(Expression::toString).toList();
         String counterexampleString = counterexample.assignments().stream()
                 // only include variables that appear in the found value and are not already fixed there
-                .filter(a -> foundVarNames.contains(a.first())
-                        && !foundAssignments.contains(a.first() + " == " + a.second()))
+                .filter(a -> CommandLineLauncher.cmdArgs.debugMode || (foundVarNames.contains(a.first())
+                        && !foundAssignments.contains(a.first() + " == " + a.second())))
                 // format as "var == value"
-                .map(a -> VariableFormatter.formatVariable(a.first()) + " == " + a.second())
+                .map(a -> VariableFormatter.format(a.first()) + " == " + a.second())
                 // join with "&&"
                 .collect(Collectors.joining(" && "));
 

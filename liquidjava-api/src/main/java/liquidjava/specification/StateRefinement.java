@@ -28,7 +28,7 @@ import java.lang.annotation.Target;
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.CONSTRUCTOR})
-@Repeatable(StateRefinementMultiple.class)
+@Repeatable(StateRefinement.Multiple.class)
 public @interface StateRefinement {
 
     /**
@@ -66,4 +66,13 @@ public @interface StateRefinement {
      * </pre>
      */
     String msg() default "";
+
+    /**
+     * Container annotation used by {@link Repeatable} to support multiple state transitions.
+     */
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target({ElementType.METHOD, ElementType.CONSTRUCTOR})
+    @interface Multiple {
+        StateRefinement[] value();
+    }
 }
