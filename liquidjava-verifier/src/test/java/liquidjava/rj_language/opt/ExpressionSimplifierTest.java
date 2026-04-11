@@ -23,7 +23,7 @@ import liquidjava.rj_language.opt.derivation_node.VarDerivationNode;
 import org.junit.jupiter.api.Test;
 
 /**
- * Test suite for expression simplification using constant propagation and folding
+ * Test suite for expression simplification
  */
 class ExpressionSimplifierTest {
 
@@ -562,8 +562,6 @@ class ExpressionSimplifierTest {
     @Test
     void testShouldNotOversimplifyToTrue() {
         // Given: x > 5 && x == y && y == 10
-        // Iteration 1: resolves y == 10, substitutes y -> 10: x > 5 && x == 10
-        // Iteration 2: resolves x == 10, substitutes x -> 10: 10 > 5 && 10 == 10 -> true
         // Expected: x > 5 && x == 10 (should NOT simplify to true)
 
         Expression varX = new Var("x");
@@ -592,8 +590,7 @@ class ExpressionSimplifierTest {
     @Test
     void testShouldUnwrapBooleanInEquality() {
         // Given: x == (1 > 0)
-        // Without unwrapping: x == true (unhelpful - hides what "true" came from)
-        // Expected: x == 1 > 0 (unwrapped to show the original comparison)
+        // Expected: x == (1 > 0) (unwrapped to show the original comparison)
 
         Expression varX = new Var("x");
         Expression one = new LiteralInt(1);
@@ -606,15 +603,14 @@ class ExpressionSimplifierTest {
 
         // Then
         assertNotNull(result, "Result should not be null");
-        assertEquals("x == 1 > 0", result.getValue().toString(),
+        assertEquals("x == (1 > 0)", result.getValue().toDisplayString(),
                 "Boolean in equality should be unwrapped to show the original comparison");
     }
 
     @Test
     void testShouldUnwrapBooleanInEqualityWithPropagation() {
         // Given: x == (a > b) && a == 3 && b == 1
-        // Without unwrapping: x == true (unhelpful)
-        // Expected: x == 3 > 1 (unwrapped and propagated)
+        // Expected: x == (3 > 1) (unwrapped and propagated)
 
         Expression varX = new Var("x");
         Expression varA = new Var("a");
@@ -635,7 +631,7 @@ class ExpressionSimplifierTest {
 
         // Then
         assertNotNull(result, "Result should not be null");
-        assertEquals("x == 3 > 1", result.getValue().toString(),
+        assertEquals("x == (3 > 1)", result.getValue().toDisplayString(),
                 "Boolean in equality should be unwrapped after propagation");
     }
 
@@ -666,8 +662,7 @@ class ExpressionSimplifierTest {
     @Test
     void testShouldUnwrapNestedBooleanInEquality() {
         // Given: x == (a + b > 10) && a == 3 && b == 5
-        // Without unwrapping: x == true (unhelpful)
-        // Expected: x == 8 > 10 (shows the actual comparison that produced the boolean)
+        // Expected: x == (8 > 10) (shows the actual comparison that produced the boolean)
 
         Expression varX = new Var("x");
         Expression varA = new Var("a");
@@ -690,7 +685,7 @@ class ExpressionSimplifierTest {
 
         // Then
         assertNotNull(result, "Result should not be null");
-        assertEquals("x == 8 > 10", result.getValue().toString(),
+        assertEquals("x == (8 > 10)", result.getValue().toDisplayString(),
                 "Boolean in equality should be unwrapped to show the computed comparison");
     }
 

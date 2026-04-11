@@ -28,7 +28,7 @@ import java.lang.annotation.Target;
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.TYPE})
-@Repeatable(RefinementAliasMultiple.class)
+@Repeatable(RefinementAlias.Multiple.class)
 public @interface RefinementAlias {
 
     /**
@@ -42,4 +42,13 @@ public @interface RefinementAlias {
      * </pre>
      */
     String value();
+
+    /**
+     * Container annotation used by {@link Repeatable} to support multiple refinement aliases.
+     */
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target({ElementType.TYPE})
+    @interface Multiple {
+        RefinementAlias[] value();
+    }
 }

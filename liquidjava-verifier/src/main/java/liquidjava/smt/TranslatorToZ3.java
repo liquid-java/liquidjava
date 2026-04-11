@@ -3,6 +3,7 @@ package liquidjava.smt;
 import com.microsoft.z3.ArithExpr;
 import com.microsoft.z3.ArrayExpr;
 import com.microsoft.z3.BoolExpr;
+import com.microsoft.z3.EnumSort;
 import com.microsoft.z3.Expr;
 import com.microsoft.z3.FPExpr;
 import com.microsoft.z3.FuncDecl;
@@ -26,6 +27,7 @@ import liquidjava.diagnostics.errors.NotFoundError;
 import liquidjava.processor.context.AliasWrapper;
 import liquidjava.utils.Pair;
 import liquidjava.utils.Utils;
+import liquidjava.utils.constants.Formats;
 import liquidjava.utils.constants.Keys;
 import com.microsoft.z3.enumerations.Z3_sort_kind;
 
@@ -119,6 +121,11 @@ public class TranslatorToZ3 implements AutoCloseable {
         Expr<?> expr = getVariableTranslation(name); // int[] not in varTranslation
         exprToNameTranslation.put(expr, name); // Track for readable labels
         return expr;
+    }
+
+    public Expr<?> makeEnum(String enumTypeName, String enumConstantName) throws LJError {
+        String varName = String.format(Formats.ENUM, enumTypeName, enumConstantName);
+        return getVariableTranslation(varName);
     }
 
     public Expr<?> makeFunctionInvocation(String name, Expr<?>[] params) throws LJError {

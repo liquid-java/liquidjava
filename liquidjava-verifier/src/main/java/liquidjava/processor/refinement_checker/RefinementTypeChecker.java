@@ -269,7 +269,11 @@ public class RefinementTypeChecker extends TypeChecker {
             String targetName = fieldRead.getTarget().toString();
             fieldRead.putMetadata(Keys.REFINEMENT, Predicate.createEquals(Predicate.createVar(Keys.WILDCARD),
                     BuiltinFunctionPredicate.length(targetName, fieldRead)));
-
+        } else if (fieldRead.getVariable().getDeclaringType().isEnum()) {
+            String target = fieldRead.getVariable().getDeclaringType().getSimpleName();
+            String enumLiteral = String.format(Formats.ENUM, target, fieldName);
+            fieldRead.putMetadata(Keys.REFINEMENT,
+                    Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), Predicate.createVar(enumLiteral)));
         } else {
             fieldRead.putMetadata(Keys.REFINEMENT, new Predicate());
             // TODO DO WE WANT THIS OR TO SHOW ERROR MESSAGE?

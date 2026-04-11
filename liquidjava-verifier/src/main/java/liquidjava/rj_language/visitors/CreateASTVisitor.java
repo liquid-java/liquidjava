@@ -7,6 +7,7 @@ import liquidjava.diagnostics.errors.LJError;
 import liquidjava.diagnostics.errors.SyntaxError;
 import liquidjava.rj_language.ast.AliasInvocation;
 import liquidjava.rj_language.ast.BinaryExpression;
+import liquidjava.rj_language.ast.Enum;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.FunctionInvocation;
 import liquidjava.rj_language.ast.GroupExpression;
@@ -19,6 +20,7 @@ import liquidjava.rj_language.ast.LiteralString;
 import liquidjava.rj_language.ast.UnaryExpression;
 import liquidjava.rj_language.ast.Var;
 import liquidjava.utils.Utils;
+import liquidjava.utils.constants.Formats;
 import liquidjava.utils.constants.Keys;
 
 import org.antlr.v4.runtime.tree.ParseTree;
@@ -26,6 +28,7 @@ import org.apache.commons.lang3.NotImplementedException;
 import rj.grammar.RJParser.AliasCallContext;
 import rj.grammar.RJParser.ArgsContext;
 import rj.grammar.RJParser.DotCallContext;
+import rj.grammar.RJParser.EnumContext;
 import rj.grammar.RJParser.ExpBoolContext;
 import rj.grammar.RJParser.ExpContext;
 import rj.grammar.RJParser.ExpGroupContext;
@@ -156,9 +159,10 @@ public class CreateASTVisitor {
             return new GroupExpression(create(((LitGroupContext) rc).literalExpression()));
         else if (rc instanceof LitContext)
             return create(((LitContext) rc).literal());
-        else if (rc instanceof VarContext) {
+        else if (rc instanceof VarContext)
             return new Var(((VarContext) rc).ID().getText());
-
+        else if (rc instanceof EnumContext) {
+            return enumCreate((EnumContext) rc);
         } else {
             return create(((InvocationContext) rc).functionCall());
         }
@@ -232,6 +236,12 @@ public class CreateASTVisitor {
                 le.add(create(oc));
             }
         return le;
+    }
+
+    private Enum enumCreate(EnumContext enumContext) {
+        String enumText = enumContext.enumerate().getText();
+        String[] parts = enumText.split("\\.");
+        return new Enum(parts[0], parts[1]);
     }
 
     private Expression literalCreate(LiteralContext literalContext) throws LJError {

@@ -28,7 +28,7 @@ import java.lang.annotation.Target;
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.CONSTRUCTOR})
-@Repeatable(RefinementPredicateMultiple.class)
+@Repeatable(RefinementPredicate.Multiple.class)
 public @interface RefinementPredicate {
 
     /**
@@ -43,4 +43,13 @@ public @interface RefinementPredicate {
      * </pre>
      */
     String value();
+
+    /**
+     * Container annotation used by {@link Repeatable} to support multiple refinement predicates.
+     */
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target({ElementType.METHOD, ElementType.CONSTRUCTOR})
+    @interface Multiple {
+        RefinementPredicate[] value();
+    }
 }
