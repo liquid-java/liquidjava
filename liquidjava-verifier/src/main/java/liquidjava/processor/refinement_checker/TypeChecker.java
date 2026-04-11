@@ -101,6 +101,11 @@ public abstract class TypeChecker extends CtScanner {
         return constr;
     }
 
+    /**
+     * Performs a best-effort satisfiability check for a refinement reporting a warning if unsat. Runs an SMT check on a
+     * temporary scope and if the refinement mentions other names that are still unavailable at this point, the SMT
+     * check fails and that failure is ignored.
+     */
     private void checkRefinementSatisfiability(String refinement, Predicate predicate, CtElement element) {
         context.enterContext();
         try {
