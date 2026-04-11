@@ -18,6 +18,7 @@ public class LiteralString extends Expression {
         return visitor.visitLiteralString(this);
     }
 
+    @Override
     public String toString() {
         return value;
     }

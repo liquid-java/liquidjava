@@ -41,13 +41,13 @@ public class BinaryExpression extends Expression {
     }
 
     @Override
-    public <T> T accept(ExpressionVisitor<T> visitor) throws LJError {
-        return visitor.visitBinaryExpression(this);
+    public String toString() {
+        return getFirstOperand().toString() + " " + op + " " + getSecondOperand().toString();
     }
 
     @Override
-    public String toString() {
-        return getFirstOperand().toString() + " " + op + " " + getSecondOperand().toString();
+    public <T> T accept(ExpressionVisitor<T> visitor) throws LJError {
+        return visitor.visitBinaryExpression(this);
     }
 
     @Override

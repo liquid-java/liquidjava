@@ -38,12 +38,14 @@ literalExpression:
 	|	literal						#lit
 	| 	ID 							#var
 	|	functionCall				#invocation
+	|	enumerate					#enum
 	;
 
- functionCall:
+functionCall:
  		ghostCall
  	|	aliasCall
-	|	dotCall;
+	|	dotCall
+	;
 
 dotCall:
 		OBJECT_TYPE '(' args? ')'
@@ -54,6 +56,9 @@ ghostCall:
 
 aliasCall:
 	ID_UPPER '(' args? ')';
+
+enumerate: 
+	ENUM;
 
 args:	pred (',' pred)* ;
 
@@ -94,6 +99,7 @@ ARITHOP : '+'|'*'|'/'|'%';//|'-';
 
 BOOL    : 'true' | 'false';
 ID_UPPER: ([A-Z][a-zA-Z0-9]*);
+ENUM: [A-Z][a-zA-Z0-9_]* '.' [A-Z][a-zA-Z0-9_]*;
 OBJECT_TYPE:
 		  (([a-zA-Z][a-zA-Z0-9]+) ('.' [a-zA-Z][a-zA-Z0-9]*)+);
 ID     	: '#'*[a-zA-Z_][a-zA-Z0-9_#]*;
