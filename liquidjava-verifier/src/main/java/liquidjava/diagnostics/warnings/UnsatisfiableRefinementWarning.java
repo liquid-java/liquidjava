@@ -7,12 +7,12 @@ import spoon.reflect.cu.SourcePosition;
  * 
  * @see LJWarning
  */
-public class UnsatRefinementWarning extends LJWarning {
+public class UnsatisfiableRefinementWarning extends LJWarning {
 
     private final String refinement;
 
-    public UnsatRefinementWarning(SourcePosition position, String message, String refinement) {
-        super(message, position);
+    public UnsatisfiableRefinementWarning(SourcePosition position, String refinement) {
+        super("This refinement can never be true", position);
         this.refinement = refinement;
     }
 

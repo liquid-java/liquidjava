@@ -8,7 +8,7 @@ import java.util.Optional;
 
 import liquidjava.diagnostics.Diagnostics;
 import liquidjava.diagnostics.errors.*;
-import liquidjava.diagnostics.warnings.UnsatRefinementWarning;
+import liquidjava.diagnostics.warnings.UnsatisfiableRefinementWarning;
 import liquidjava.processor.context.AliasWrapper;
 import liquidjava.processor.context.Context;
 import liquidjava.processor.context.GhostFunction;
@@ -131,7 +131,7 @@ public abstract class TypeChecker extends CtScanner {
 
             if (new SMTEvaluator().isUnsatisfiable(refinementPredicate, context)) {
                 SourcePosition position = Utils.getLJAnnotationPosition(element, refinement);
-                diagnostics.add(new UnsatRefinementWarning(position, "This refinement can never be true", refinement));
+                diagnostics.add(new UnsatisfiableRefinementWarning(position, refinement));
             }
             element.putMetadata(Keys.REFINEMENT_SAT_CHECK, true); // for caching the satisfiability check result
         } catch (Exception e) {
