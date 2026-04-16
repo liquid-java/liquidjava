@@ -3,9 +3,9 @@ package testSuite;
 import liquidjava.specification.Refinement;
 import liquidjava.specification.RefinementPredicate;
 
+@RefinementPredicate("int length(int[])")
 public class ErrorImplementationSearchValueIntArray {
 
-    @RefinementPredicate("ghost int length(int[])")
     @Refinement("(_ >= -1) && (_ < length(l))")
     public static int getIndexWithValue(
             @Refinement("length(l) > 0") int[] l, @Refinement("i >= 0 && i < length(l)") int i, int val) {

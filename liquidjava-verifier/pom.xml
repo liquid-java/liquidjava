@@ -11,7 +11,7 @@
 
 	<groupId>io.github.liquid-java</groupId>
 	<artifactId>liquidjava-verifier</artifactId>
-	<version>0.0.18</version>
+	<version>0.0.19</version>
 	<name>liquidjava-verifier</name>
 	<description>LiquidJava Verifier</description>
 	<url>https://github.com/liquid-java/liquidjava</url>
@@ -304,7 +304,7 @@
 		<dependency>
 			<groupId>io.github.liquid-java</groupId>
 			<artifactId>liquidjava-api</artifactId>
-			<version>0.0.4</version>
+			<version>0.0.5</version>
 		</dependency>
 
 		<dependency>
@@ -319,6 +319,11 @@
 			<version>2.10.1</version>
 		</dependency>
 
+		<dependency>
+			<groupId>info.picocli</groupId>
+			<artifactId>picocli</artifactId>
+			<version>4.7.7</version>
+		</dependency>
 	</dependencies>
 	<dependencyManagement>
 		<dependencies>

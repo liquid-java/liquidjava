@@ -14,13 +14,13 @@ import liquidjava.specification.StateRefinement;
 @RefinementAlias("SenderSet  (Email e) { state(e) == 2}")
 @RefinementAlias("ReceiverSet(Email e) { state(e) == 3}")
 @RefinementAlias("BodySet    (Email e) { state(e) == 4}")
+@RefinementPredicate("int state(Email e)")
 public class Email {
     private String sender;
     private List<String> receiver;
     private String subject;
     private String body;
 
-    @RefinementPredicate("int state(Email e)")
     @StateRefinement(to = "EmptyEmail(this)")
     public Email() {
         receiver = new ArrayList<>();

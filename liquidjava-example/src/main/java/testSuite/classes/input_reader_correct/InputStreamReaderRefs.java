@@ -8,9 +8,9 @@ import liquidjava.specification.StateRefinement;
 
 // https://docs.oracle.com/javase/7/docs/api/java/io/InputStreamReader.html
 @ExternalRefinementsFor("java.io.InputStreamReader")
+@RefinementPredicate("boolean open(InputStreamReader)")
 public interface InputStreamReaderRefs {
 
-    @RefinementPredicate("boolean open(InputStreamReader i)")
     @StateRefinement(to = "open(this)")
     public void InputStreamReader(InputStream in);
 

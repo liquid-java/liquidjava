@@ -4,7 +4,7 @@ import liquidjava.specification.Refinement;
 import liquidjava.specification.RefinementAlias;
 
 @RefinementAlias("Positive(int x) { x > 0}")
-@RefinementAlias("type CarAcceptableYears(int x) { x > 1800 && x < 2050}")
+@RefinementAlias("CarAcceptableYears(int x) { x > 1800 && x < 2050}")
 @RefinementAlias("GreaterThan(int x, int y) {x > y}")
 public class Car {
 

@@ -10,13 +10,13 @@ import liquidjava.specification.StateRefinement;
 // add sender -> add multiple receivers -> add subject <optional> -> add body -> build()
 // @RefinementAlias("EmptyEmail(Email e) { state(e) == 1}")
 @SuppressWarnings("unused")
+@RefinementPredicate("int state(Email e)")
 public class Email {
     private String sender;
     private List<String> receiver;
     private String subject;
     private String body;
 
-    @RefinementPredicate("int state(Email e)")
     @StateRefinement(to = "state(this) == 1")
     public Email() {
         receiver = new ArrayList<>();

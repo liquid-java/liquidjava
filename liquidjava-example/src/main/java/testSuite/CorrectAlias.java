@@ -4,7 +4,7 @@ import liquidjava.specification.Refinement;
 import liquidjava.specification.RefinementAlias;
 
 @SuppressWarnings("unused")
-@RefinementAlias("type PtGrade(int x) { x >= 0 && x <= 20}")
+@RefinementAlias("PtGrade(int x) { x >= 0 && x <= 20}")
 public class CorrectAlias {
 
     public static void main(String[] args) {

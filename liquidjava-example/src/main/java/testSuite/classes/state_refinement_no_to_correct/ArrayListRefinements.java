@@ -5,9 +5,9 @@ import liquidjava.specification.RefinementPredicate;
 import liquidjava.specification.StateRefinement;
 
 @ExternalRefinementsFor("java.util.ArrayList")
+@RefinementPredicate("int size(ArrayList l)")
 public interface ArrayListRefinements<E> {
 
-    @RefinementPredicate("int size(ArrayList l)")
     @StateRefinement(to = "size(this) == 0")
     public void ArrayList();
 
