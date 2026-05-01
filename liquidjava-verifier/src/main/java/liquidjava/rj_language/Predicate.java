@@ -14,6 +14,7 @@ import liquidjava.processor.context.GhostFunction;
 import liquidjava.processor.context.GhostState;
 import liquidjava.processor.facade.AliasDTO;
 import liquidjava.rj_language.ast.BinaryExpression;
+import liquidjava.rj_language.ast.Enum;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.FunctionInvocation;
 import liquidjava.rj_language.ast.GroupExpression;
@@ -25,6 +26,7 @@ import liquidjava.rj_language.ast.LiteralLong;
 import liquidjava.rj_language.ast.LiteralReal;
 import liquidjava.rj_language.ast.UnaryExpression;
 import liquidjava.rj_language.ast.Var;
+import liquidjava.utils.StaticConstants;
 import liquidjava.rj_language.opt.derivation_node.ValDerivationNode;
 import liquidjava.rj_language.opt.ExpressionSimplifier;
 import liquidjava.rj_language.parsing.RefinementsParser;
@@ -75,6 +77,42 @@ public class Predicate {
         if (!(exp instanceof GroupExpression)) {
             exp = new GroupExpression(exp);
         }
+        exp = resolveStaticFinalConstants(exp, element);
+    }
+
+    /**
+     * Walks {@code root}, replacing {@link Enum} nodes that resolve (via reflection, java.lang fallback, or imports
+     * declared in {@code context}'s compilation unit) to a {@code static final} primitive/String constant with the
+     * corresponding literal node. User-defined enums and unresolvable references are left untouched.
+     */
+    private static Expression resolveStaticFinalConstants(Expression root, CtElement context) throws LJError {
+        List<Enum> enums = new ArrayList<>();
+        collectEnums(root, enums);
+        Expression e = root;
+        for (Enum en : enums) {
+            Object v = StaticConstants.resolve(en.getTypeName(), en.getConstName(), context);
+            Predicate lit = StaticConstants.asLiteralPredicate(v);
+            if (lit != null) {
+                e = e.substitute(en, lit.getExpression());
+                continue;
+            }
+            String suggested = StaticConstants.findJdkImportCandidate(en.getTypeName(), en.getConstName());
+            if (suggested != null) {
+                SourcePosition pos = context == null ? null : Utils.getLJAnnotationPosition(context, en.toString());
+                throw new liquidjava.diagnostics.errors.CustomError(String.format(
+                        "Could not resolve '%s.%s' in refinement. "
+                                + "If you meant the static final constant, add: import %s;",
+                        en.getTypeName(), en.getConstName(), suggested), pos);
+            }
+        }
+        return e;
+    }
+
+    private static void collectEnums(Expression e, List<Enum> out) {
+        if (e instanceof Enum en)
+            out.add(en);
+        for (Expression c : e.getChildren())
+            collectEnums(c, out);
     }
 
     /** Create a predicate with the expression true */
