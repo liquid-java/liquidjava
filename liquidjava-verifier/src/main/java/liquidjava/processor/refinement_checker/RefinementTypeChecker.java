@@ -13,6 +13,7 @@ import liquidjava.processor.refinement_checker.general_checkers.OperationsChecke
 import liquidjava.processor.refinement_checker.object_checkers.AuxStateHandler;
 import liquidjava.rj_language.BuiltinFunctionPredicate;
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.ast.LiteralString;
 import liquidjava.utils.constants.Formats;
 import liquidjava.utils.constants.Keys;
 import liquidjava.utils.constants.Types;
@@ -274,11 +275,59 @@ public class RefinementTypeChecker extends TypeChecker {
             String enumLiteral = String.format(Formats.ENUM, target, fieldName);
             fieldRead.putMetadata(Keys.REFINEMENT,
                     Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), Predicate.createVar(enumLiteral)));
+        } else if (tryStaticFinalConstantRefinement(fieldRead)) {
+            // refinement metadata set by helper
         } else {
             fieldRead.putMetadata(Keys.REFINEMENT, new Predicate());
             // TODO DO WE WANT THIS OR TO SHOW ERROR MESSAGE?
         }
         super.visitCtFieldRead(fieldRead);
+    }
+
+    /** Resolve a {@code static final} primitive/String constant to {@code #wild == <literal>}. */
+    private <T> boolean tryStaticFinalConstantRefinement(CtFieldRead<T> fieldRead) {
+        CtFieldReference<T> ref = fieldRead.getVariable();
+        if (!ref.isStatic() || !ref.isFinal())
+            return false;
+
+        Object value = null;
+        CtField<?> decl = ref.getFieldDeclaration();
+        if (decl != null && decl.getDefaultExpression()instanceof CtLiteral<?> lit)
+            value = lit.getValue();
+        if (value == null) {
+            try {
+                if (ref.getActualField()instanceof java.lang.reflect.Field jf) {
+                    jf.setAccessible(true);
+                    value = jf.get(null);
+                }
+            } catch (Throwable ignored) {
+                // ClassNotFound / IllegalAccess / ExceptionInInitializerError — fall through.
+            }
+        }
+
+        Predicate literal = literalPredicateFor(value);
+        if (literal == null)
+            return false;
+        fieldRead.putMetadata(Keys.REFINEMENT, Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), literal));
+        return true;
+    }
+
+    private static Predicate literalPredicateFor(Object value) {
+        if (value instanceof Boolean)
+            return Predicate.createLit(value.toString(), Types.BOOLEAN);
+        if (value instanceof Integer || value instanceof Short || value instanceof Byte)
+            return Predicate.createLit(value.toString(), Types.INT);
+        if (value instanceof Long)
+            return Predicate.createLit(value.toString(), Types.LONG);
+        if (value instanceof Float)
+            return Predicate.createLit(value.toString(), Types.FLOAT);
+        if (value instanceof Double)
+            return Predicate.createLit(value.toString(), Types.DOUBLE);
+        if (value instanceof Character)
+            return Predicate.createLit("'" + value + "'", Types.CHAR);
+        if (value instanceof String s)
+            return new Predicate(new LiteralString("\"" + s + "\""));
+        return null;
     }
 
     @Override
