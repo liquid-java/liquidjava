@@ -11,7 +11,11 @@ import spoon.reflect.declaration.CtCompilationUnit;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtField;
 import spoon.reflect.declaration.CtImport;
+import spoon.reflect.declaration.CtImportKind;
+import spoon.reflect.declaration.CtType;
 import spoon.reflect.reference.CtFieldReference;
+import spoon.reflect.reference.CtPackageReference;
+import spoon.reflect.reference.CtTypeReference;
 
 /** Resolution of {@code static final} primitive/String constants used in refinement predicates and field reads. */
 public final class StaticConstants {
@@ -28,35 +32,85 @@ public final class StaticConstants {
             return lit.getValue();
         try {
             return ref.getActualField()instanceof Field jf ? readStaticFinal(jf) : null;
-        } catch (Throwable ignored) {
+        } catch (RuntimeException | LinkageError ignored) {
+            // Spoon throws SpoonClassNotFoundException; reflection can throw LinkageError. Fall through.
             return null;
         }
     }
 
     /**
      * Resolve a {@code TypeName.CONST_NAME} reference (as it appears inside a refinement predicate string) via
-     * reflection. Tries {@code typeName} as-given, then {@code java.lang.}, then class names imported by
-     * {@code context}'s compilation unit (single-type and on-demand imports). {@code context} may be {@code null}.
+     * reflection. Resolution order matches Java scoping rules: fully-qualified name → explicit imports of
+     * {@code context}'s compilation unit (single-type and on-demand) → implicit {@code java.lang}. {@code context} may
+     * be {@code null}.
      */
     public static Object resolve(String typeName, String constName, CtElement context) {
         Object v = lookup(typeName, constName);
-        if (v == null)
-            v = lookup("java.lang." + typeName, constName);
-        if (v != null || context == null || context.getPosition() == null || !context.getPosition().isValidPosition())
+        if (v != null)
             return v;
-        CtCompilationUnit cu = context.getPosition().getCompilationUnit();
-        if (cu == null)
+        String fqn = findFqnInImports(typeName, constName, localImports(context));
+        if (fqn != null)
+            return lookup(fqn, constName);
+        return lookup("java.lang." + typeName, constName);
+    }
+
+    /**
+     * Look for a candidate class in any compilation unit's imports across the same Spoon model — useful for "did you
+     * forget an import?" hints when the user already imported {@code typeName} in another file. Returns the
+     * fully-qualified class name of the first match, or {@code null}.
+     */
+    public static String findImportCandidate(String typeName, String constName, CtElement context) {
+        if (context == null || context.getFactory() == null)
             return null;
-        for (CtImport imp : cu.getImports()) {
-            if (imp.getReference() == null)
-                continue;
-            String full = imp.getReference().toString();
-            String candidate = full.endsWith("." + typeName) || full.equals(typeName) ? full
-                    : full.endsWith(".*") ? full.substring(0, full.length() - 1) + typeName : null;
-            if (candidate != null && (v = lookup(candidate, constName)) != null)
-                return v;
+        for (CtCompilationUnit cu : context.getFactory().CompilationUnit().getMap().values()) {
+            String fqn = findFqnInImports(typeName, constName, cu.getImports());
+            if (fqn != null)
+                return fqn;
         }
         return null;
+    }
+
+    /** Whether a {@link CtType} with the given simple name is present in {@code context}'s Spoon model. */
+    public static boolean userTypeExists(String simpleName, CtElement context) {
+        if (context == null || context.getFactory() == null)
+            return false;
+        for (CtType<?> t : context.getFactory().Type().getAll(true))
+            if (simpleName.equals(t.getSimpleName()))
+                return true;
+        return false;
+    }
+
+    private static Iterable<CtImport> localImports(CtElement context) {
+        if (context == null || context.getPosition() == null || !context.getPosition().isValidPosition())
+            return java.util.Collections.emptyList();
+        CtCompilationUnit cu = context.getPosition().getCompilationUnit();
+        return cu == null ? java.util.Collections.emptyList() : cu.getImports();
+    }
+
+    private static String findFqnInImports(String typeName, String constName, Iterable<CtImport> imports) {
+        for (CtImport imp : imports) {
+            String candidate = importCandidate(imp, typeName);
+            if (candidate != null && lookup(candidate, constName) != null)
+                return candidate;
+        }
+        return null;
+    }
+
+    private static String importCandidate(CtImport imp, String typeName) {
+        if (imp.getReference() == null)
+            return null;
+        // Use Spoon's typed APIs so nested classes get their binary name (Map$Entry, not Map.Entry).
+        if (imp.getImportKind() == CtImportKind.TYPE && imp.getReference()instanceof CtTypeReference<?> tref) {
+            String fqn = tref.getQualifiedName();
+            if (fqn.equals(typeName) || fqn.endsWith("." + typeName) || fqn.endsWith("$" + typeName))
+                return fqn;
+            return null;
+        }
+        if (imp.getImportKind() == CtImportKind.ALL_TYPES && imp.getReference()instanceof CtPackageReference pref) {
+            String pkg = pref.getQualifiedName();
+            return pkg.isEmpty() ? typeName : pkg + "." + typeName;
+        }
+        return null; // FIELD / METHOD / ALL_STATIC_MEMBERS / UNRESOLVED — not relevant for type resolution.
     }
 
     /** Wrap a resolved value as an RJ literal predicate, or {@code null} if its type is not modeled. */
@@ -78,26 +132,6 @@ public final class StaticConstants {
         return null;
     }
 
-    /**
-     * Speculative scan of common JDK packages for a class named {@code typeName} that has a {@code static final}
-     * primitive/String field {@code constName}. Returns the fully-qualified class name (e.g.
-     * {@code "javax.imageio.ImageWriteParam"}) of the first match, or {@code null} if no JDK match is found. Used to
-     * suggest a missing import when {@link #resolve(String, String, CtElement)} fails.
-     */
-    public static String findJdkImportCandidate(String typeName, String constName) {
-        for (String pkg : JDK_PACKAGE_HINTS) {
-            String fqn = pkg + "." + typeName;
-            if (lookup(fqn, constName) != null)
-                return fqn;
-        }
-        return null;
-    }
-
-    private static final String[] JDK_PACKAGE_HINTS = { "java.io", "java.util", "java.util.concurrent",
-            "java.util.regex", "java.nio", "java.nio.charset", "java.nio.file", "java.text", "java.time", "java.math",
-            "java.net", "java.awt", "java.awt.event", "javax.swing", "javax.imageio", "javax.sound.sampled",
-            "java.security", "java.sql" };
-
     private static Object lookup(String className, String fieldName) {
         try {
             return readStaticFinal(Class.forName(className).getField(fieldName));
@@ -112,7 +146,8 @@ public final class StaticConstants {
         try {
             jf.setAccessible(true);
             return jf.get(null);
-        } catch (Throwable ignored) {
+        } catch (IllegalAccessException | LinkageError ignored) {
+            // LinkageError covers ExceptionInInitializerError, NoClassDefFoundError, etc.
             return null;
         }
     }

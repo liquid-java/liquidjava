@@ -96,14 +96,16 @@ public class Predicate {
                 e = e.substitute(en, lit.getExpression());
                 continue;
             }
-            String suggested = StaticConstants.findJdkImportCandidate(en.getTypeName(), en.getConstName());
-            if (suggested != null) {
-                SourcePosition pos = context == null ? null : Utils.getLJAnnotationPosition(context, en.toString());
-                throw new liquidjava.diagnostics.errors.CustomError(String.format(
-                        "Could not resolve '%s.%s' in refinement. "
-                                + "If you meant the static final constant, add: import %s;",
-                        en.getTypeName(), en.getConstName(), suggested), pos);
-            }
+            if (StaticConstants.userTypeExists(en.getTypeName(), context))
+                continue; // likely a user-defined enum/class — let SMT translation handle it
+            SourcePosition pos = context == null ? null : Utils.getLJAnnotationPosition(context, en.toString());
+            String suggested = StaticConstants.findImportCandidate(en.getTypeName(), en.getConstName(), context);
+            String hint = suggested != null ? "add: import " + suggested + ";"
+                    : "add an import for '" + en.getTypeName() + "' if it is a Java class with a static final field.";
+            throw new liquidjava.diagnostics.errors.CustomError(
+                    String.format("Could not resolve '%s.%s' in refinement. If you meant the static final constant, %s",
+                            en.getTypeName(), en.getConstName(), hint),
+                    pos);
         }
         return e;
     }
@@ -115,7 +117,12 @@ public class Predicate {
             collectEnums(c, out);
     }
 
-    /** Create a predicate with the expression true */
+    /**
+     * Wrap an already-built expression in a {@link Predicate}. Unlike the string-parsing constructors, this does NOT
+     * run static-final-constant resolution. Callers are responsible for ensuring {@code e} contains no
+     * {@link liquidjava.rj_language.ast.Enum Enum} nodes that should be resolved to literals; in practice this is fine
+     * for AST clones and rewrites that started life from the string constructor.
+     */
     public Predicate(Expression e) {
         exp = e;
     }
