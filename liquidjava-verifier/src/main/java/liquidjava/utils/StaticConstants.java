@@ -23,7 +23,16 @@ public final class StaticConstants {
     private StaticConstants() {
     }
 
-    /** Resolve a Spoon field reference to its compile-time constant value, source AST first then reflection. */
+    /**
+     * Resolve a Spoon {@code static final} field reference to its compile-time value, so reads like
+     * {@code Integer.MAX_VALUE} or {@code MyConfig.LIMIT} fold to literals before SMT translation.
+     *
+     * <p>Tries the source AST first ({@link CtLiteral} initializer in Spoon's model), then reflection via
+     * {@link CtFieldReference#getActualField()} + {@link #readStaticFinal}. Returns {@code null} if the field
+     * isn't static-final, has a non-literal initializer, or any lookup step fails.
+     *
+     * @see #resolve(String, String, CtElement) sibling for refinement-string {@code Type.CONST} references
+     */
     public static Object resolve(CtFieldReference<?> ref) {
         if (!ref.isStatic() || !ref.isFinal())
             return null;
@@ -132,6 +141,15 @@ public final class StaticConstants {
         return null;
     }
 
+    /**
+     * Reflectively read {@code className.fieldName} as a {@code public static final} constant — e.g.
+     * {@code lookup("java.lang.Integer", "MAX_VALUE")} returns {@code 2147483647}, which is how
+     * {@code Integer.MAX_VALUE} gets baked into the AST before SMT translation.
+     *
+     * <p>Returns {@code null} on any failure ({@link ClassNotFoundException}, {@link NoSuchFieldException},
+     * {@link LinkageError}, {@link SecurityException}, or non-static-final) so callers can fall through to the
+     * next resolution strategy without a try/catch. Only public fields are visible to {@link Class#getField}.
+     */
     private static Object lookup(String className, String fieldName) {
         try {
             return readStaticFinal(Class.forName(className).getField(fieldName));

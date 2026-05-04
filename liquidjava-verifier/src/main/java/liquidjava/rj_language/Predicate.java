@@ -98,6 +98,7 @@ public class Predicate {
             }
             if (StaticConstants.userTypeExists(en.getTypeName(), context))
                 continue; // likely a user-defined enum/class — let SMT translation handle it
+            // unresolvable reference — throw an error with a helpful message and import suggestion if possible
             SourcePosition pos = context == null ? null : Utils.getLJAnnotationPosition(context, en.toString());
             String suggested = StaticConstants.findImportCandidate(en.getTypeName(), en.getConstName(), context);
             String hint = suggested != null ? "add: import " + suggested + ";"
