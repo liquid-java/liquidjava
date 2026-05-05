@@ -27,6 +27,26 @@ public class VCImplication {
         next = c;
     }
 
+    public String getName() {
+        return name;
+    }
+
+    public CtTypeReference<?> getType() {
+        return type;
+    }
+
+    public Predicate getRefinement() {
+        return refinement;
+    }
+
+    public void setRefinement(Predicate refinement) {
+        this.refinement = refinement;
+    }
+
+    public VCImplication getNext() {
+        return next;
+    }
+
     public String toString() {
         if (name != null && type != null) {
             String qualType = type.getQualifiedName();

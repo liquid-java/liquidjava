@@ -212,7 +212,7 @@ public class ExpressionSimplifier {
     private static boolean implies(Expression stronger, Expression weaker) {
         try {
             SMTResult result = new SMTEvaluator().verifySubtype(new Predicate(stronger), new Predicate(weaker),
-                    Context.getInstance());
+                    Context.getInstance(), true);
             return result.isOk();
         } catch (Exception e) {
             return false;
