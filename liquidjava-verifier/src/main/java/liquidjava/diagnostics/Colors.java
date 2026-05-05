@@ -2,13 +2,13 @@ package liquidjava.diagnostics;
 
 // ANSI color codes
 public class Colors {
-    public static final String RESET = "[0m";
-    public static final String GREY = "[90m";
-    public static final String RED = "[31m";
-    public static final String GREEN = "[32m";
-    public static final String YELLOW = "[33m";
-    public static final String BLUE = "[34m";
-    public static final String CYAN = "[36m";
-    public static final String BOLD_RED = "[1;31m";
-    public static final String BOLD_YELLOW = "[1;33m";
+    public static final String RESET = "\u001B[0m";
+    public static final String GREY = "\u001B[90m";
+    public static final String RED = "\u001B[31m";
+    public static final String GREEN = "\u001B[32m";
+    public static final String YELLOW = "\u001B[33m";
+    public static final String BLUE = "\u001B[34m";
+    public static final String CYAN = "\u001B[36m";
+    public static final String BOLD_RED = "\u001B[1;31m";
+    public static final String BOLD_YELLOW = "\u001B[1;33m";
 }
