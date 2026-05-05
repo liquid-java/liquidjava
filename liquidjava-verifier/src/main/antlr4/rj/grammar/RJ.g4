@@ -1,41 +1,31 @@
 grammar RJ;
 
 
-prog: start | ;
+prog: start EOF;
 start:
 		pred	#startPred
 	|	alias	#startAlias
 	|	ghost	#startGhost
 	;
 
+//----------------------- Predicates -----------------------
 
 pred:
-		'(' pred ')'				#predGroup
-	|	'!' pred					#predNegate
-	|	pred LOGOP pred 			#predLogic
-	|	pred '?' pred ':' pred		#ite
-	|	exp							#predExp
+		'-' pred					#opMinus
+	|	'!' pred					#opNot
+	|	'(' pred ')'				#predGroup
+	|	literalExpression			#opLiteral
+	|	pred MULOP pred				#opArith
+	|	pred ('+'|'-') pred			#opArith
+	|	pred BOOLOP pred			#expBool
+	|	pred '&&' pred 				#predLogic
+	|	pred '||' pred 				#predLogic
+	|	<assoc=right> pred '-->' pred #predLogic
+	|	<assoc=right> pred '?' pred ':' pred #ite
 	;
-
-exp:
-		'(' exp ')'					#expGroup
-	|	exp BOOLOP exp				#expBool
-	|	operand						#expOperand
-	;
-
-operand:
-		literalExpression			#opLiteral
-	|	operand ARITHOP	operand		#opArith
-	|	operand '-'	operand			#opSub
-	|	'-' operand					#opMinus
-	|	'!' operand					#opNot
-	|	'(' operand ')'				#opGroup
-	;
-
 
 literalExpression:
-		'(' literalExpression ')'	#litGroup
-	|	literal						#lit
+		literal						#lit
 	| 	ID 							#var
 	|	functionCall				#invocation
 	|	enumerate					#enum
@@ -93,9 +83,8 @@ type:
 	|	type '[]';
 
 
-LOGOP   : '&&'|'||'| '-->';
 BOOLOP	 : '=='|'!='|'>='|'>'|'<='|'<';
-ARITHOP : '+'|'*'|'/'|'%';//|'-';
+MULOP   : '*'|'/'|'%';
 
 BOOL    : 'true' | 'false';
 ID_UPPER: ([A-Z][a-zA-Z0-9]*);

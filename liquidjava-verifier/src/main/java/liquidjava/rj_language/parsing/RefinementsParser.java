@@ -71,7 +71,7 @@ public class RefinementsParser {
     private static Optional<String> getErrors(String toParse) {
         RJErrorListener err = new RJErrorListener();
         RJParser parser = createParser(toParse, err);
-        parser.start(); // all consumed
+        parser.prog(); // all consumed
         if (err.getErrors() > 0)
             return Optional.of(err.getMessages());
         return Optional.empty();
