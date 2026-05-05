@@ -69,7 +69,7 @@ public final class DebugLog {
             System.out.println(SMT_TAG + "   " + c);
         }
         System.out.println(SMT_TAG + SEPARATOR);
-        System.out.println(SMT_TAG + "   "  + formatConclusion(conclusion));
+        System.out.println(SMT_TAG + "   " + formatConclusion(conclusion));
     }
 
     /**
@@ -222,8 +222,44 @@ public final class DebugLog {
         if (!enabled()) {
             return;
         }
-        System.out.println(SMT_TAG + " result: " + Colors.RED + "SAT (subtype fails)" + Colors.RESET
-                + "; counterexample: " + counterexample);
+        String header = SMT_TAG + " result: " + Colors.RED + "SAT (subtype fails)" + Colors.RESET;
+        String pretty = formatCounterexample(counterexample);
+        if (pretty == null) {
+            System.out.println(header);
+        } else if (pretty.contains("\n")) {
+            System.out.println(header + Colors.GREY + " — counterexample:" + Colors.RESET);
+            System.out.println(pretty);
+        } else {
+            System.out.println(header + Colors.GREY + " — counterexample: " + Colors.RESET + pretty);
+        }
+    }
+
+    /**
+     * Render a {@link liquidjava.smt.Counterexample} as {@code lhs = value} pairs. Single assignment goes inline;
+     * multiple assignments are listed one per indented line. Returns {@code null} when there is nothing useful to show
+     * — caller prints just the SAT header.
+     */
+    private static String formatCounterexample(Object counterexample) {
+        if (!(counterexample instanceof liquidjava.smt.Counterexample ce)) {
+            return counterexample == null ? null : counterexample.toString();
+        }
+        var pairs = ce.assignments();
+        if (pairs == null || pairs.isEmpty()) {
+            return null;
+        }
+        if (pairs.size() == 1) {
+            var p = pairs.get(0);
+            return p.first() + " = " + p.second();
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < pairs.size(); i++) {
+            var p = pairs.get(i);
+            if (i > 0) {
+                sb.append('\n');
+            }
+            sb.append(SMT_TAG).append("     ").append(p.first()).append(" = ").append(p.second());
+        }
+        return sb.toString();
     }
 
     public static void smtUnknown() {
