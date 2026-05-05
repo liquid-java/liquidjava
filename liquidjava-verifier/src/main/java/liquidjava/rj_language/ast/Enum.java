@@ -9,6 +9,13 @@ public class Enum extends Expression {
 
     private final String typeName;
     private final String constName;
+    /**
+     * If this {@code Type.CONST} reference resolved to a Java {@code static final} primitive/String constant, the
+     * corresponding RJ literal expression is stashed here so the SMT translator can emit a binding axiom
+     * ({@code Type.CONST == literalValue}) while preserving the symbolic name in the AST. {@code null} for user-defined
+     * enum constants and for unresolvable references.
+     */
+    private Expression resolvedLiteral;
 
     public Enum(String typeName, String constName) {
         this.typeName = typeName;
@@ -21,6 +28,14 @@ public class Enum extends Expression {
 
     public String getConstName() {
         return constName;
+    }
+
+    public Expression getResolvedLiteral() {
+        return resolvedLiteral;
+    }
+
+    public void setResolvedLiteral(Expression resolvedLiteral) {
+        this.resolvedLiteral = resolvedLiteral;
     }
 
     @Override
@@ -69,6 +84,8 @@ public class Enum extends Expression {
 
     @Override
     public Expression clone() {
-        return new Enum(typeName, constName);
+        Enum c = new Enum(typeName, constName);
+        c.resolvedLiteral = resolvedLiteral == null ? null : resolvedLiteral.clone();
+        return c;
     }
 }

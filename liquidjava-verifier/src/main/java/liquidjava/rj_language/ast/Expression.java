@@ -25,6 +25,18 @@ public abstract class Expression {
 
     public abstract void getVariableNames(List<String> toAdd);
 
+    /**
+     * Collect dotted names ({@code Type.CONST}) of {@link Enum} nodes that have been resolved to a Java
+     * {@code static final} literal value. Used by the counterexample renderer to keep these constants in the displayed
+     * model even though they are not program variables.
+     */
+    public void getResolvedConstantNames(List<String> toAdd) {
+        if (this instanceof liquidjava.rj_language.ast.Enum en && en.getResolvedLiteral() != null)
+            toAdd.add(en.getTypeName() + "." + en.getConstName());
+        for (Expression c : getChildren())
+            c.getResolvedConstantNames(toAdd);
+    }
+
     public abstract void getStateInvocations(List<String> toAdd, List<String> all);
 
     public abstract boolean isBooleanTrue();

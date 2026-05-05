@@ -42,6 +42,17 @@ public class TranslatorToZ3 implements AutoCloseable {
     private final Map<String, FuncDecl<?>> funcTranslation = new HashMap<>();
     private final Map<String, Expr<?>> funcAppTranslation = new HashMap<>();
     private final Map<Expr<?>, String> exprToNameTranslation = new HashMap<>();
+    /**
+     * Z3 constants for resolved {@code static final} references (e.g. {@code Integer.MAX_VALUE}). Keyed by the dotted
+     * symbolic name so the same constant is reused across the query and the binding axiom is emitted once.
+     */
+    private final Map<String, Expr<?>> staticConstantTranslation = new HashMap<>();
+    /**
+     * Equality axioms binding each {@link #staticConstantTranslation} entry to its compile-time literal value.
+     * Conjoined into every solver built by {@link #makeSolverForExpression} so the constant is always pinned but still
+     * appears symbolically in counterexample models.
+     */
+    private final List<BoolExpr> staticConstantAxioms = new ArrayList<>();
 
     public TranslatorToZ3(liquidjava.processor.context.Context context) {
         TranslatorContextToZ3.translateVariables(z3, context.getContext(), varTranslation);
@@ -54,6 +65,8 @@ public class TranslatorToZ3 implements AutoCloseable {
     @SuppressWarnings("unchecked")
     public Solver makeSolverForExpression(Expr<?> e) {
         Solver solver = z3.mkSolver();
+        for (BoolExpr axiom : staticConstantAxioms)
+            solver.add(axiom);
         solver.add((BoolExpr) e);
         return solver;
     }
@@ -126,6 +139,24 @@ public class TranslatorToZ3 implements AutoCloseable {
     public Expr<?> makeEnum(String enumTypeName, String enumConstantName) throws LJError {
         String varName = String.format(Formats.ENUM, enumTypeName, enumConstantName);
         return getVariableTranslation(varName);
+    }
+
+    /**
+     * Declare (or look up) a Z3 constant named {@code Type.CONST} for a resolved Java {@code static final} reference,
+     * and emit a single equality axiom binding it to its compile-time literal value. Subsequent calls with the same
+     * name reuse the existing constant. The axiom is added to every solver built via {@link #makeSolverForExpression},
+     * so the constant always evaluates to its literal value while still appearing symbolically in error messages and
+     * counterexample models.
+     */
+    public Expr<?> makeStaticConstant(String typeName, String constName, Expr<?> literalValue) {
+        String name = String.format(Formats.ENUM, typeName, constName);
+        Expr<?> cached = staticConstantTranslation.get(name);
+        if (cached != null)
+            return cached;
+        Expr<?> constant = z3.mkConst(name, literalValue.getSort());
+        staticConstantTranslation.put(name, constant);
+        staticConstantAxioms.add(z3.mkEq(constant, literalValue));
+        return constant;
     }
 
     public Expr<?> makeFunctionInvocation(String name, Expr<?>[] params) throws LJError {

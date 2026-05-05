@@ -124,6 +124,8 @@ public class ExpressionToZ3Visitor implements ExpressionVisitor<Expr<?>> {
 
     @Override
     public Expr<?> visitEnum(Enum en) throws LJError {
+        if (en.getResolvedLiteral() != null)
+            return ctx.makeStaticConstant(en.getTypeName(), en.getConstName(), en.getResolvedLiteral().accept(this));
         return ctx.makeEnum(en.getTypeName(), en.getConstName());
     }
 }

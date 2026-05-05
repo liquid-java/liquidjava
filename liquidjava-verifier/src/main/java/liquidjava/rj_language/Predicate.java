@@ -81,19 +81,21 @@ public class Predicate {
     }
 
     /**
-     * Walks {@code root}, replacing {@link Enum} nodes that resolve (via reflection, java.lang fallback, or imports
+     * Walks {@code root}, decorating {@link Enum} nodes that resolve (via reflection, java.lang fallback, or imports
      * declared in {@code context}'s compilation unit) to a {@code static final} primitive/String constant with the
-     * corresponding literal node. User-defined enums and unresolvable references are left untouched.
+     * corresponding literal expression via {@link Enum#setResolvedLiteral}. The AST shape is preserved, so error
+     * messages and counterexamples can render the symbolic {@code Type.CONST} form; the SMT translator emits the
+     * literal binding axiom from the decoration. User-defined enums and unresolvable-but-known-type references are left
+     * untouched (the SMT side handles them as user enum constants).
      */
     private static Expression resolveStaticFinalConstants(Expression root, CtElement context) throws LJError {
         List<Enum> enums = new ArrayList<>();
         collectEnums(root, enums);
-        Expression e = root;
         for (Enum en : enums) {
             Object v = StaticConstants.resolve(en.getTypeName(), en.getConstName(), context);
             Predicate lit = StaticConstants.asLiteralPredicate(v);
             if (lit != null) {
-                e = e.substitute(en, lit.getExpression());
+                en.setResolvedLiteral(lit.getExpression());
                 continue;
             }
             if (StaticConstants.userTypeExists(en.getTypeName(), context))
@@ -108,7 +110,7 @@ public class Predicate {
                             en.getTypeName(), en.getConstName(), hint),
                     pos);
         }
-        return e;
+        return root;
     }
 
     private static void collectEnums(Expression e, List<Enum> out) {
