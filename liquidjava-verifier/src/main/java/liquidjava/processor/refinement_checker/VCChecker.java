@@ -10,7 +10,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.errors.*;
-import liquidjava.api.CommandLineLauncher;
+import liquidjava.diagnostics.DebugLog;
 import liquidjava.diagnostics.TranslationTable;
 import liquidjava.processor.VCImplication;
 import liquidjava.processor.context.*;
@@ -103,14 +103,14 @@ public class VCChecker {
      * @return the result of the verification, containing a counterexample if the verification fails
      */
     public SMTResult verifySMTSubtype(Predicate expected, Predicate found, SourcePosition position) throws LJError {
+        DebugLog.info("discharging to SMT", expected, found, position);
+        return dischargeToSMT(expected, found, position, false);
+    }
+
+    private SMTResult dischargeToSMT(Predicate expected, Predicate found, SourcePosition position, boolean silent)
+            throws LJError {
         try {
-            if (CommandLineLauncher.cmdArgs.debugMode) {
-                String exp = Utils.getExpressionFromPosition(position);
-                System.out.println(String.format("%s <: %s %s at %s", expected, found,
-                        exp != null ? String.format("on expression '%s'", exp) : "",
-                        position.getFile().getName() + ":" + position.getLine()));
-            }
-            return new SMTEvaluator().verifySubtype(found, expected, context);
+            return new SMTEvaluator().verifySubtype(found, expected, context, silent);
         } catch (LJError e) {
             if (e.getPosition() == null) {
                 e.setPosition(position);
@@ -134,6 +134,14 @@ public class VCChecker {
      */
     public SMTResult verifySMTSubtypeStates(Predicate type, Predicate expectedType, List<GhostState> states,
             SourcePosition position, Factory factory) throws LJError {
+        return verifySMTSubtypeStates(type, expectedType, states, position, factory, false);
+    }
+
+    public SMTResult verifySMTSubtypeStates(Predicate type, Predicate expectedType, List<GhostState> states,
+            SourcePosition position, Factory factory, boolean silent) throws LJError {
+        if (!silent) {
+            DebugLog.info("checking subtyping (states)", expectedType, type, position);
+        }
         List<RefinedVariable> lrv = new ArrayList<>(), mainVars = new ArrayList<>();
         gatherVariables(expectedType, lrv, mainVars);
         gatherVariables(type, lrv, mainVars);
@@ -149,8 +157,8 @@ public class VCChecker {
         Predicate expected = expectedType.changeStatesToRefinements(filtered, s).changeAliasToRefinement(context,
                 factory);
 
-        // check subtyping
-        return verifySMTSubtype(expected, premises, position);
+        // check subtyping (skip the inner INFO line — outer states-level INFO above is enough)
+        return dischargeToSMT(expected, premises, position, silent);
     }
 
     /**
@@ -350,4 +358,5 @@ public class VCChecker {
         joinPredicates(expectedType, mainVars, lrv, map);
         return map;
     }
+
 }

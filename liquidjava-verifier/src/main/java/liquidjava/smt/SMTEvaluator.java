@@ -7,6 +7,7 @@ import com.microsoft.z3.Solver;
 import com.microsoft.z3.Status;
 import com.microsoft.z3.Z3Exception;
 
+import liquidjava.diagnostics.DebugLog;
 import liquidjava.processor.context.Context;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.Expression;
@@ -16,14 +17,22 @@ public class SMTEvaluator {
     /**
      * Verifies that subRef is a subtype of supRef by checking the satisfiability of subRef && !supRef. Creates a parser
      * for our SMT-ready refinement language and discharges the verification to Z3
-     * 
+     *
      * @param subRef
      * @param supRef
      * @param context
-     * 
+     *
      * @return the result of the verification, containing a counterexample if the verification fails
      */
     public SMTResult verifySubtype(Predicate subRef, Predicate supRef, Context context) throws Exception {
+        return verifySubtype(subRef, supRef, context, false);
+    }
+
+    public SMTResult verifySubtype(Predicate subRef, Predicate supRef, Context context, boolean silent)
+            throws Exception {
+        if (!silent) {
+            DebugLog.smtStart(subRef, supRef);
+        }
         Predicate toVerify = Predicate.createConjunction(subRef, supRef.negate());
         try {
             Expression exp = toVerify.getExpression();
@@ -37,7 +46,17 @@ public class SMTEvaluator {
                 if (result.equals(Status.SATISFIABLE)) {
                     Model model = solver.getModel();
                     Counterexample counterexample = tz3.getCounterexample(model);
+                    if (!silent) {
+                        DebugLog.smtSat(counterexample);
+                    }
                     return SMTResult.error(counterexample);
+                }
+                if (!silent) {
+                    if (result.equals(Status.UNKNOWN)) {
+                        DebugLog.smtUnknown();
+                    } else {
+                        DebugLog.smtUnsat();
+                    }
                 }
             }
         } catch (SyntaxException e) {

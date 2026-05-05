@@ -220,7 +220,7 @@ public class AuxStateHandler {
         Predicate c1 = isTo ? getMissingStates(targetClass, tc, p) : p;
         Predicate c = c1.substituteVariable(Keys.THIS, name);
         c = c.changeOldMentions(nameOld, name);
-        boolean ok = tc.checkStateSMT(new Predicate(), c.negate(), e.getPosition());
+        boolean ok = tc.checkStateSMT(new Predicate(), c.negate(), e.getPosition(), true);
         if (ok) {
             SourcePosition pos = Utils.getLJAnnotationPosition(e, value);
             tc.throwStateConflictError(pos, p);

@@ -373,8 +373,13 @@ public abstract class TypeChecker extends CtScanner {
     }
 
     public boolean checkStateSMT(Predicate prevState, Predicate expectedState, SourcePosition p) throws LJError {
+        return checkStateSMT(prevState, expectedState, p, false);
+    }
+
+    public boolean checkStateSMT(Predicate prevState, Predicate expectedState, SourcePosition p, boolean silent)
+            throws LJError {
         SMTResult result = vcChecker.verifySMTSubtypeStates(prevState, expectedState, context.getGhostStates(), p,
-                factory);
+                factory, silent);
         return result.isOk();
     }
 
