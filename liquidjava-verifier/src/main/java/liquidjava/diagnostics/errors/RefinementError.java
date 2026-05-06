@@ -50,6 +50,7 @@ public class RefinementError extends LJError {
         // subtyping check, so the counterexample maps the symbolic name back to its compile-time value
         found.getValue().getResolvedConstantNames(foundVarNames);
         expected.getValue().getResolvedConstantNames(foundVarNames);
+        List<String> foundAssignments = found.getValue().getConjuncts().stream().map(Expression::toString).toList();
         String counterexampleString = counterexample.assignments().stream()
                 // only include variables that appear in the found value and are not already fixed there
                 .filter(a -> CommandLineLauncher.cmdArgs.debugMode || (foundVarNames.contains(a.first())
