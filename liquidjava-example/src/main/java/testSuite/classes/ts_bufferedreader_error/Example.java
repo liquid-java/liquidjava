@@ -17,7 +17,7 @@ class ConfigLoader {
 
     String loadFirstSetting(String configPath, String defaultValue) throws IOException {
         BufferedReader reader = new BufferedReader(new FileReader(configPath));
-        
+
         String header = reader.readLine();
         if (header.isEmpty()) {
             reader.close();

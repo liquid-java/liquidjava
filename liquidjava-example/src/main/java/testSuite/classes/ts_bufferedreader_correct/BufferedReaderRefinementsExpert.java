@@ -1,4 +1,4 @@
-package testSuite.classes.ts_bufferedreader_error;
+package testSuite.classes.ts_bufferedreader_correct;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.stream.Stream;

@@ -25,7 +25,9 @@ import spoon.reflect.code.CtArrayWrite;
 import spoon.reflect.code.CtAssignment;
 import spoon.reflect.code.CtBinaryOperator;
 import spoon.reflect.code.CtBlock;
+import spoon.reflect.code.CtBreak;
 import spoon.reflect.code.CtConditional;
+import spoon.reflect.code.CtContinue;
 import spoon.reflect.code.CtConstructorCall;
 import spoon.reflect.code.CtExpression;
 import spoon.reflect.code.CtFieldRead;
@@ -39,6 +41,7 @@ import spoon.reflect.code.CtNewClass;
 import spoon.reflect.code.CtReturn;
 import spoon.reflect.code.CtStatement;
 import spoon.reflect.code.CtThisAccess;
+import spoon.reflect.code.CtThrow;
 import spoon.reflect.code.CtUnaryOperator;
 import spoon.reflect.code.CtVariableAccess;
 import spoon.reflect.code.CtVariableRead;
@@ -399,37 +402,36 @@ public class RefinementTypeChecker extends TypeChecker {
     }
 
     /**
-     * Returns true when a condition's refinement gives no useful information about which branch may run.
+     * A condition is uninformative when its refinement is the trivial {@code true} predicate yet the expression itself
+     * is not a boolean literal — i.e. the verifier has no symbolic information to relate the branch to. Treating such a
+     * condition as {@code true} would force every if-then to be taken, producing spurious state-refinement errors.
      */
     private boolean isUninformativeCondition(Predicate conditionRefinement, CtExpression<Boolean> condition) {
-        if (!conditionRefinement.isBooleanTrue()) {
+        if (!conditionRefinement.isBooleanTrue())
             return false;
-        }
-        if (condition instanceof CtLiteral<?> literal && literal.getValue() instanceof Boolean) {
-            return false;
-        }
-        return true;
+        return !(condition instanceof CtLiteral<?> literal && literal.getValue() instanceof Boolean);
     }
 
     /**
-     * Best-effort normal-completion check for branch joins. Branches that end in {@code return} cannot contribute state
-     * to the code following the {@code if}.
+     * Best-effort normal-completion check (JLS §14.21): branches that always {@code return} or {@code throw} cannot
+     * contribute state to code following the {@code if}, so their post-context must be discarded at the join.
      */
     private boolean canCompleteNormally(CtStatement statement) {
-        if (statement == null) {
+        if (statement == null)
             return true;
-        }
-        if (statement instanceof CtReturn<?>) {
+        if (statement instanceof CtReturn<?> || statement instanceof CtThrow || statement instanceof CtBreak
+                || statement instanceof CtContinue)
             return false;
-        }
         if (statement instanceof CtBlock<?> block) {
             List<CtStatement> statements = block.getStatements();
             return statements.isEmpty() || canCompleteNormally(statements.get(statements.size() - 1));
         }
         if (statement instanceof CtIf nestedIf) {
             CtStatement elseStatement = nestedIf.getElseStatement();
-            return canCompleteNormally(nestedIf.getThenStatement()) || elseStatement == null
-                    || canCompleteNormally(elseStatement);
+            // No else means the false path always falls through.
+            if (elseStatement == null)
+                return true;
+            return canCompleteNormally(nestedIf.getThenStatement()) || canCompleteNormally(elseStatement);
         }
         return true;
     }
