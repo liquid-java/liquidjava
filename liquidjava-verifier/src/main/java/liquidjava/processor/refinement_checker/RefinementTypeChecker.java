@@ -13,6 +13,7 @@ import liquidjava.processor.refinement_checker.general_checkers.OperationsChecke
 import liquidjava.processor.refinement_checker.object_checkers.AuxStateHandler;
 import liquidjava.rj_language.BuiltinFunctionPredicate;
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.ast.Enum;
 import liquidjava.utils.StaticConstants;
 import liquidjava.utils.constants.Formats;
 import liquidjava.utils.constants.Keys;
@@ -284,12 +285,16 @@ public class RefinementTypeChecker extends TypeChecker {
         super.visitCtFieldRead(fieldRead);
     }
 
-    /** Resolve a {@code static final} primitive/String constant to {@code #wild == <literal>}. */
+    /** Resolve a {@code static final} primitive/String constant to {@code #wild == Type.CONST}. */
     private <T> boolean tryStaticFinalConstantRefinement(CtFieldRead<T> fieldRead) {
         Predicate literal = StaticConstants.asLiteralPredicate(StaticConstants.resolve(fieldRead.getVariable()));
         if (literal == null)
             return false;
-        fieldRead.putMetadata(Keys.REFINEMENT, Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), literal));
+        Enum constant = new Enum(fieldRead.getVariable().getDeclaringType().getSimpleName(),
+                fieldRead.getVariable().getSimpleName());
+        constant.setResolvedLiteral(literal.getExpression());
+        fieldRead.putMetadata(Keys.REFINEMENT,
+                Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), new Predicate(constant)));
         return true;
     }
 
