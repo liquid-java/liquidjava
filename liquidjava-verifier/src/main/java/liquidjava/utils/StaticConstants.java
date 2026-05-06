@@ -4,6 +4,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.ast.LiteralChar;
 import liquidjava.rj_language.ast.LiteralString;
 import liquidjava.utils.constants.Types;
 import spoon.reflect.code.CtLiteral;
@@ -170,8 +171,8 @@ public final class StaticConstants {
             return Predicate.createLit(value.toString(), Types.FLOAT);
         if (value instanceof Double)
             return Predicate.createLit(value.toString(), Types.DOUBLE);
-        if (value instanceof Character)
-            return Predicate.createLit("'" + value + "'", Types.CHAR);
+        if (value instanceof Character c)
+            return new Predicate(new LiteralChar(c));
         if (value instanceof String s)
             return new Predicate(new LiteralString("\"" + s + "\""));
         return null;
