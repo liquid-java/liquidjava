@@ -38,8 +38,9 @@ public final class StaticConstants {
         if (!ref.isStatic() || !ref.isFinal())
             return null;
         CtField<?> decl = ref.getFieldDeclaration();
-        if (decl != null && decl.getDefaultExpression()instanceof CtLiteral<?> lit && lit.getValue() != null)
-            return lit.getValue();
+        Object v = sourceLiteralValue(decl);
+        if (v != null)
+            return v;
         try {
             return ref.getActualField()instanceof Field jf ? readStaticFinal(jf) : null;
         } catch (RuntimeException | LinkageError ignored) {
@@ -49,18 +50,19 @@ public final class StaticConstants {
     }
 
     /**
-     * Resolve a {@code TypeName.CONST_NAME} reference (as it appears inside a refinement predicate string) via
-     * reflection. Resolution order matches Java scoping rules: fully-qualified name → explicit imports of
-     * {@code context}'s compilation unit (single-type and on-demand) → implicit {@code java.lang}. {@code context} may
-     * be {@code null}.
+     * Resolve a {@code TypeName.CONST_NAME} reference (as it appears inside a refinement predicate string). Resolution
+     * order matches Java scoping rules: fully-qualified/source-model name → explicit imports of {@code context}'s
+     * compilation unit (single-type and on-demand) → implicit {@code java.lang}. {@code context} may be {@code null}.
      */
     public static Object resolve(String typeName, String constName, CtElement context) {
-        Object v = lookup(typeName, constName);
+        Object v = lookupConstant(typeName, constName, context);
         if (v != null)
             return v;
-        String fqn = findFqnInImports(typeName, constName, localImports(context));
-        if (fqn != null)
-            return lookup(fqn, constName);
+        for (CtImport imp : localImports(context)) {
+            String candidate = importCandidate(imp, typeName);
+            if (candidate != null && (v = lookupConstant(candidate, constName, context)) != null)
+                return v;
+        }
         return lookup("java.lang." + typeName, constName);
     }
 
@@ -121,6 +123,39 @@ public final class StaticConstants {
             return pkg.isEmpty() ? typeName : pkg + "." + typeName;
         }
         return null; // FIELD / METHOD / ALL_STATIC_MEMBERS / UNRESOLVED — not relevant for type resolution.
+    }
+
+    private static Object lookupConstant(String typeName, String constName, CtElement context) {
+        Object v = lookup(typeName, constName);
+        return v != null ? v : lookupSource(typeName, constName, context);
+    }
+
+    private static Object lookupSource(String typeName, String constName, CtElement context) {
+        if (context == null || context.getFactory() == null)
+            return null;
+        String currentPackage = packageName(context.getParent(CtType.class));
+        for (CtType<?> t : context.getFactory().Type().getAll(true)) {
+            boolean matches = typeName.equals(t.getQualifiedName())
+                    || typeName.equals(t.getSimpleName()) && packageName(t).equals(currentPackage);
+            if (matches) {
+                Object v = sourceLiteralValue(t.getField(constName));
+                if (v != null)
+                    return v;
+            }
+        }
+        return null;
+    }
+
+    private static Object sourceLiteralValue(CtField<?> field) {
+        if (field == null || !field.isStatic() || !field.isFinal())
+            return null;
+        return field.getDefaultExpression()instanceof CtLiteral<?> lit ? lit.getValue() : null;
+    }
+
+    private static String packageName(CtType<?> type) {
+        if (type == null || type.getPackage() == null)
+            return "";
+        return type.getPackage().getQualifiedName();
     }
 
     /** Wrap a resolved value as an RJ literal predicate, or {@code null} if its type is not modeled. */
