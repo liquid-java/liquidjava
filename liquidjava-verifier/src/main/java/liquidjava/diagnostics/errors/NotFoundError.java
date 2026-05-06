@@ -18,6 +18,10 @@ public class NotFoundError extends LJError {
         this(null, name, kind, null);
     }
 
+    public NotFoundError(SourcePosition position, String name, String kind) {
+        this(position, name, kind, null);
+    }
+
     public NotFoundError(SourcePosition position, String name, String kind, TranslationTable translationTable) {
         super("Not Found Error", String.format("%s '%s' not found", kind, name), position, translationTable);
         this.name = Utils.getSimpleName(name);

@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 
 import liquidjava.api.CommandLineLauncher;
 import liquidjava.diagnostics.errors.LJError;
+import liquidjava.diagnostics.errors.NotFoundError;
 import liquidjava.processor.context.AliasWrapper;
 import liquidjava.processor.context.Context;
 import liquidjava.processor.context.GhostFunction;
@@ -103,12 +104,12 @@ public class Predicate {
             // unresolvable reference — throw an error with a helpful message and import suggestion if possible
             SourcePosition pos = context == null ? null : Utils.getLJAnnotationPosition(context, en.toString());
             String suggested = StaticConstants.findImportCandidate(en.getTypeName(), en.getConstName(), context);
-            String hint = suggested != null ? "add: import " + suggested + ";"
-                    : "add an import for '" + en.getTypeName() + "' if it is a Java class with a static final field.";
-            throw new liquidjava.diagnostics.errors.CustomError(
-                    String.format("Could not resolve '%s.%s' in refinement. If you meant the static final constant, %s",
-                            en.getTypeName(), en.getConstName(), hint),
-                    pos);
+            String hint = suggested != null ? "Add: import " + suggested + ";"
+                    : "Add an import for '" + en.getTypeName() + "' if it is a Java class with a static final field";
+            String name = en.getTypeName() + "." + en.getConstName();
+            NotFoundError error = new NotFoundError(pos, name, "Constant");
+            error.setHint(hint);
+            throw error;
         }
         return root;
     }

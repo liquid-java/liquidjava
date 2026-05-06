@@ -14,6 +14,7 @@ public class LJDiagnostic extends RuntimeException {
     private final String customMessage;
     private String file;
     private SourcePosition position;
+    private String hint;
     private static final String PIPE = " | ";
 
     public LJDiagnostic(String title, String message, SourcePosition pos, String accentColor, String customMessage) {
@@ -38,7 +39,7 @@ public class LJDiagnostic extends RuntimeException {
     }
 
     public String getDetails() {
-        return ""; // to be overridden by subclasses
+        return hint != null ? hint : "";
     }
 
     public SourcePosition getPosition() {
@@ -58,6 +59,10 @@ public class LJDiagnostic extends RuntimeException {
 
     public String getAccentColor() {
         return accentColor;
+    }
+
+    public void setHint(String hint) {
+        this.hint = hint;
     }
 
     @Override
