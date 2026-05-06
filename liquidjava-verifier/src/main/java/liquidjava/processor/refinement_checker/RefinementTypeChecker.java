@@ -24,6 +24,7 @@ import spoon.reflect.code.CtArrayRead;
 import spoon.reflect.code.CtArrayWrite;
 import spoon.reflect.code.CtAssignment;
 import spoon.reflect.code.CtBinaryOperator;
+import spoon.reflect.code.CtBlock;
 import spoon.reflect.code.CtConditional;
 import spoon.reflect.code.CtConstructorCall;
 import spoon.reflect.code.CtExpression;
@@ -36,6 +37,7 @@ import spoon.reflect.code.CtLocalVariable;
 import spoon.reflect.code.CtNewArray;
 import spoon.reflect.code.CtNewClass;
 import spoon.reflect.code.CtReturn;
+import spoon.reflect.code.CtStatement;
 import spoon.reflect.code.CtThisAccess;
 import spoon.reflect.code.CtUnaryOperator;
 import spoon.reflect.code.CtVariableAccess;
@@ -336,18 +338,30 @@ public class RefinementTypeChecker extends TypeChecker {
         CtExpression<Boolean> exp = ifElement.getCondition();
         Predicate expRefs = getExpressionRefinements(exp);
 
-        String freshVarName = String.format(Formats.FRESH, context.getCounter());
-        expRefs = expRefs.substituteVariable(Keys.WILDCARD, freshVarName);
-        Predicate lastExpRefs = substituteAllVariablesForLastInstance(expRefs);
-        expRefs = Predicate.createConjunction(expRefs, lastExpRefs);
+        String pathVarName;
+        RefinedVariable freshRV;
+        if (isUninformativeCondition(expRefs, exp)) {
+            // No refinement means the condition is unknown, not true.
+            String conditionVarName = String.format(Formats.FRESH, context.getCounter());
+            context.addInstanceToContext(conditionVarName, factory.Type().BOOLEAN_PRIMITIVE, new Predicate(), exp);
+            expRefs = Predicate.createVar(conditionVarName);
+
+            pathVarName = String.format(Formats.FRESH, context.getCounter());
+            freshRV = context.addInstanceToContext(pathVarName, factory.Type().BOOLEAN_PRIMITIVE, expRefs, exp);
+        } else {
+            pathVarName = String.format(Formats.FRESH, context.getCounter());
+            expRefs = expRefs.substituteVariable(Keys.WILDCARD, pathVarName);
+            Predicate lastExpRefs = substituteAllVariablesForLastInstance(expRefs);
+            expRefs = Predicate.createConjunction(expRefs, lastExpRefs);
+
+            freshRV = context.addInstanceToContext(pathVarName, factory.Type().INTEGER_PRIMITIVE, expRefs, exp);
+        }
 
         // TODO Change in future
         if (expRefs.getVariableNames().contains("null")) {
             expRefs = new Predicate();
         }
 
-        RefinedVariable freshRV = context.addInstanceToContext(freshVarName, factory.Type().INTEGER_PRIMITIVE, expRefs,
-                exp);
         vcChecker.addPathVariable(freshRV);
 
         context.variablesNewIfCombination();
@@ -357,19 +371,23 @@ public class RefinementTypeChecker extends TypeChecker {
         // VISIT THEN
         context.enterContext();
         visitCtBlock(ifElement.getThenStatement());
-        context.variablesSetThenIf();
+        if (canCompleteNormally(ifElement.getThenStatement())) {
+            context.variablesSetThenIf();
+        }
         contextHistory.saveContext(ifElement.getThenStatement(), context);
         context.exitContext();
 
         // VISIT ELSE
         if (ifElement.getElseStatement() != null) {
-            context.getVariableByName(freshVarName);
+            context.getVariableByName(pathVarName);
             // expRefs = expRefs.negate();
-            context.newRefinementToVariableInContext(freshVarName, expRefs.negate());
+            context.newRefinementToVariableInContext(pathVarName, expRefs.negate());
 
             context.enterContext();
             visitCtBlock(ifElement.getElseStatement());
-            context.variablesSetElseIf();
+            if (canCompleteNormally(ifElement.getElseStatement())) {
+                context.variablesSetElseIf();
+            }
             contextHistory.saveContext(ifElement.getElseStatement(), context);
             context.exitContext();
         }
@@ -378,6 +396,42 @@ public class RefinementTypeChecker extends TypeChecker {
         context.exitContext();
         context.variablesCombineFromIf(expRefs);
         context.variablesFinishIfCombination();
+    }
+
+    /**
+     * Returns true when a condition's refinement gives no useful information about which branch may run.
+     */
+    private boolean isUninformativeCondition(Predicate conditionRefinement, CtExpression<Boolean> condition) {
+        if (!conditionRefinement.isBooleanTrue()) {
+            return false;
+        }
+        if (condition instanceof CtLiteral<?> literal && literal.getValue() instanceof Boolean) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Best-effort normal-completion check for branch joins. Branches that end in {@code return} cannot contribute state
+     * to the code following the {@code if}.
+     */
+    private boolean canCompleteNormally(CtStatement statement) {
+        if (statement == null) {
+            return true;
+        }
+        if (statement instanceof CtReturn<?>) {
+            return false;
+        }
+        if (statement instanceof CtBlock<?> block) {
+            List<CtStatement> statements = block.getStatements();
+            return statements.isEmpty() || canCompleteNormally(statements.get(statements.size() - 1));
+        }
+        if (statement instanceof CtIf nestedIf) {
+            CtStatement elseStatement = nestedIf.getElseStatement();
+            return canCompleteNormally(nestedIf.getThenStatement()) || elseStatement == null
+                    || canCompleteNormally(elseStatement);
+        }
+        return true;
     }
 
     @Override
