@@ -341,18 +341,14 @@ public class RefinementTypeChecker extends TypeChecker {
         CtExpression<Boolean> exp = ifElement.getCondition();
         Predicate expRefs = getExpressionRefinements(exp);
 
-        String pathVarName;
+        String pathVarName = String.format(Formats.FRESH, context.getCounter());
         RefinedVariable freshRV;
         if (isUninformativeCondition(expRefs, exp)) {
-            // No refinement means the condition is unknown, not true.
-            String conditionVarName = String.format(Formats.FRESH, context.getCounter());
-            context.addInstanceToContext(conditionVarName, factory.Type().BOOLEAN_PRIMITIVE, new Predicate(), exp);
-            expRefs = Predicate.createVar(conditionVarName);
-
-            pathVarName = String.format(Formats.FRESH, context.getCounter());
-            freshRV = context.addInstanceToContext(pathVarName, factory.Type().BOOLEAN_PRIMITIVE, expRefs, exp);
+            // No refinement means the condition is unknown, not true: model it as a fresh
+            // boolean so the SMT solver may pick either truth value for each branch.
+            expRefs = Predicate.createVar(pathVarName);
+            freshRV = context.addInstanceToContext(pathVarName, factory.Type().BOOLEAN_PRIMITIVE, new Predicate(), exp);
         } else {
-            pathVarName = String.format(Formats.FRESH, context.getCounter());
             expRefs = expRefs.substituteVariable(Keys.WILDCARD, pathVarName);
             Predicate lastExpRefs = substituteAllVariablesForLastInstance(expRefs);
             expRefs = Predicate.createConjunction(expRefs, lastExpRefs);
@@ -382,8 +378,6 @@ public class RefinementTypeChecker extends TypeChecker {
 
         // VISIT ELSE
         if (ifElement.getElseStatement() != null) {
-            context.getVariableByName(pathVarName);
-            // expRefs = expRefs.negate();
             context.newRefinementToVariableInContext(pathVarName, expRefs.negate());
 
             context.enterContext();
@@ -413,8 +407,14 @@ public class RefinementTypeChecker extends TypeChecker {
     }
 
     /**
-     * Best-effort normal-completion check (JLS §14.21): branches that always {@code return} or {@code throw} cannot
-     * contribute state to code following the {@code if}, so their post-context must be discarded at the join.
+     * Best-effort normal-completion check (JLS §14.21): branches that always {@code return}, {@code throw},
+     * {@code break} or {@code continue} cannot contribute state to code following the {@code if}, so their post-context
+     * must be discarded at the join.
+     *
+     * <p>
+     * Not currently handled (treated conservatively as completing normally): {@code switch} where every case exits,
+     * labeled {@code break}/{@code continue} targets, {@code try}/{@code catch}/{@code finally} flow, and infinite
+     * loops such as {@code while (true)}. Extending this list only tightens precision.
      */
     private boolean canCompleteNormally(CtStatement statement) {
         if (statement == null)
