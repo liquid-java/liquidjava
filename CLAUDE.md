@@ -62,9 +62,7 @@ Tests are discovered by `TestExamples#testPath` (parameterized) under `liquidjav
 - Single-file cases: filename starts with `Correct…` or `Error…`.
 - Directory cases: directory name contains the substring `correct` or `error`.
 - Anything else is **ignored** (so helper sources can live alongside).
-- Expected error for a failing case:
-  - Single file: write the expected error title in a comment on the **first line** of the file.
-  - Directory: place a `.expected` file in that directory containing the expected error title.
+- Expected errors for a failing case are declared with inline `// <Error Title>` comments on **the line where each error should be reported** (regex `//\s*(.*?\bError\b)`, case-insensitive — see `TestUtils#getExpectedErrorsFromFile`). Both the title and the line number must match, and the count of comments must equal the count of reported errors. Directory cases work the same way: the scanner walks every file in the directory; there are no `.expected` files.
 
 When adding new test cases, place them under `liquidjava-example/src/main/java/testSuite/` following the naming rules above — that is the only way they get picked up.
 
