@@ -25,6 +25,14 @@ public class CorrectIfThen {
         int u = pos;
     }
 
+    public void haveAnd(int a, @Refinement("b > 5")int b) {
+        @Refinement("pos > 0")
+        int pos = 10;
+        if (a > 0 && b > 0) {
+            if (a > b) pos = a - b;
+        }
+    }
+
     public static void main(String[] args) {
         @Refinement("_ < 10")
         int a = 5;
