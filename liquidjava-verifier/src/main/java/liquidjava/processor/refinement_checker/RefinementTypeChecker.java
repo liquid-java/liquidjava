@@ -343,24 +343,45 @@ public class RefinementTypeChecker extends TypeChecker {
 
         String pathVarName = String.format(Formats.FRESH, context.getCounter());
         RefinedVariable freshRV;
+
+        // When the condition's predicate uses Keys.WILDCARD as a stand-in for its boolean value (e.g. _ == true -->
+        // state(this) or _ == k), the fresh path variable IS that value — assert it true in the then branch and false
+        // in the else, since negating the whole predicate is unsound for implications and equality forms.
+        boolean valueIsCondition = false;
+        Predicate thenRefs;
+        Predicate elseRefs;
         if (isUninformativeCondition(expRefs, exp)) {
             // No refinement means the condition is unknown, not true: model it as a fresh
             // boolean so the SMT solver may pick either truth value for each branch.
             expRefs = Predicate.createVar(pathVarName);
+            thenRefs = expRefs;
+            elseRefs = expRefs.negate();
             freshRV = context.addInstanceToContext(pathVarName, factory.Type().BOOLEAN_PRIMITIVE, new Predicate(), exp);
         } else {
+            valueIsCondition = expRefs.getVariableNames().contains(Keys.WILDCARD);
             expRefs = expRefs.substituteVariable(Keys.WILDCARD, pathVarName);
             Predicate lastExpRefs = substituteAllVariablesForLastInstance(expRefs);
             expRefs = Predicate.createConjunction(expRefs, lastExpRefs);
 
-            freshRV = context.addInstanceToContext(pathVarName, factory.Type().INTEGER_PRIMITIVE, expRefs, exp);
-        }
+            // TODO Change in future
+            if (expRefs.getVariableNames().contains("null")) {
+                expRefs = new Predicate();
+                valueIsCondition = false;
+            }
 
-        // TODO Change in future
-        if (expRefs.getVariableNames().contains("null")) {
-            expRefs = new Predicate();
+            thenRefs = expRefs;
+            elseRefs = expRefs.negate();
+            if (valueIsCondition) {
+                Predicate freshIsTrue = Predicate.createEquals(Predicate.createVar(pathVarName),
+                        Predicate.createLit("true", Types.BOOLEAN));
+                Predicate freshIsFalse = Predicate.createEquals(Predicate.createVar(pathVarName),
+                        Predicate.createLit("false", Types.BOOLEAN));
+                thenRefs = Predicate.createConjunction(expRefs, freshIsTrue);
+                elseRefs = Predicate.createConjunction(expRefs, freshIsFalse);
+            }
+            
+            freshRV = context.addInstanceToContext(pathVarName, factory.Type().BOOLEAN_PRIMITIVE, thenRefs, exp);
         }
-
         vcChecker.addPathVariable(freshRV);
 
         context.variablesNewIfCombination();
@@ -378,7 +399,8 @@ public class RefinementTypeChecker extends TypeChecker {
 
         // VISIT ELSE
         if (ifElement.getElseStatement() != null) {
-            context.newRefinementToVariableInContext(pathVarName, expRefs.negate());
+            context.getVariableByName(pathVarName);
+            context.newRefinementToVariableInContext(pathVarName, elseRefs);
 
             context.enterContext();
             visitCtBlock(ifElement.getElseStatement());
@@ -389,6 +411,9 @@ public class RefinementTypeChecker extends TypeChecker {
             context.exitContext();
         }
         // end
+        // Reset the path variable's refinement to the original condition after the if,
+        // so branch-local truth assertions (and any typestate they imply) don't leak past the join.
+        context.newRefinementToVariableInContext(pathVarName, expRefs);
         vcChecker.removePathVariable(freshRV);
         context.exitContext();
         context.variablesCombineFromIf(expRefs);
