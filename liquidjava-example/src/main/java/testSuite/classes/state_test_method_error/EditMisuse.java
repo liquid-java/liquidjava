@@ -21,4 +21,14 @@ public class EditMisuse {
             edit.redo(); // State Refinement Error
         }
     }
+
+    public static void wrongTester2() { 
+        AbstractUndoableEdit edit = new AbstractUndoableEdit();
+        edit.undo(); // edit: aliveNotDone
+        if (edit.canUndo()) { // is canUndo() == true --> edit: aliveDone
+            edit.undo(); // edit: aliveNotDone
+        }
+        edit.undo(); // is "aliveDone(this)"? not in any path
+        
+    }
 }
