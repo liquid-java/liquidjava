@@ -130,6 +130,8 @@ public class Variable extends RefinedVariable {
     Optional<VariableInstance> getIfInstanceCombination(int counter, Predicate cond) {
         if (ifCombiner.isEmpty() || (!has(ifthenIndex) && !has(ifelseIndex) && !has(ifbeforeIndex)))
             return Optional.empty();
+        if (has(ifbeforeIndex) && !has(ifthenIndex) && !has(ifelseIndex))
+            return Optional.empty();
 
         String nName = String.format("#%s_%d", super.getName(), counter);
         Predicate ref = new Predicate();

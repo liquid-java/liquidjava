@@ -24,7 +24,10 @@ import spoon.reflect.code.CtArrayRead;
 import spoon.reflect.code.CtArrayWrite;
 import spoon.reflect.code.CtAssignment;
 import spoon.reflect.code.CtBinaryOperator;
+import spoon.reflect.code.CtBlock;
+import spoon.reflect.code.CtBreak;
 import spoon.reflect.code.CtConditional;
+import spoon.reflect.code.CtContinue;
 import spoon.reflect.code.CtConstructorCall;
 import spoon.reflect.code.CtExpression;
 import spoon.reflect.code.CtFieldRead;
@@ -36,7 +39,9 @@ import spoon.reflect.code.CtLocalVariable;
 import spoon.reflect.code.CtNewArray;
 import spoon.reflect.code.CtNewClass;
 import spoon.reflect.code.CtReturn;
+import spoon.reflect.code.CtStatement;
 import spoon.reflect.code.CtThisAccess;
+import spoon.reflect.code.CtThrow;
 import spoon.reflect.code.CtUnaryOperator;
 import spoon.reflect.code.CtVariableAccess;
 import spoon.reflect.code.CtVariableRead;
@@ -336,18 +341,26 @@ public class RefinementTypeChecker extends TypeChecker {
         CtExpression<Boolean> exp = ifElement.getCondition();
         Predicate expRefs = getExpressionRefinements(exp);
 
-        String freshVarName = String.format(Formats.FRESH, context.getCounter());
-        expRefs = expRefs.substituteVariable(Keys.WILDCARD, freshVarName);
-        Predicate lastExpRefs = substituteAllVariablesForLastInstance(expRefs);
-        expRefs = Predicate.createConjunction(expRefs, lastExpRefs);
+        String pathVarName = String.format(Formats.FRESH, context.getCounter());
+        RefinedVariable freshRV;
+        if (isUninformativeCondition(expRefs, exp)) {
+            // No refinement means the condition is unknown, not true: model it as a fresh
+            // boolean so the SMT solver may pick either truth value for each branch.
+            expRefs = Predicate.createVar(pathVarName);
+            freshRV = context.addInstanceToContext(pathVarName, factory.Type().BOOLEAN_PRIMITIVE, new Predicate(), exp);
+        } else {
+            expRefs = expRefs.substituteVariable(Keys.WILDCARD, pathVarName);
+            Predicate lastExpRefs = substituteAllVariablesForLastInstance(expRefs);
+            expRefs = Predicate.createConjunction(expRefs, lastExpRefs);
+
+            freshRV = context.addInstanceToContext(pathVarName, factory.Type().INTEGER_PRIMITIVE, expRefs, exp);
+        }
 
         // TODO Change in future
         if (expRefs.getVariableNames().contains("null")) {
             expRefs = new Predicate();
         }
 
-        RefinedVariable freshRV = context.addInstanceToContext(freshVarName, factory.Type().INTEGER_PRIMITIVE, expRefs,
-                exp);
         vcChecker.addPathVariable(freshRV);
 
         context.variablesNewIfCombination();
@@ -357,19 +370,21 @@ public class RefinementTypeChecker extends TypeChecker {
         // VISIT THEN
         context.enterContext();
         visitCtBlock(ifElement.getThenStatement());
-        context.variablesSetThenIf();
+        if (canCompleteNormally(ifElement.getThenStatement())) {
+            context.variablesSetThenIf();
+        }
         contextHistory.saveContext(ifElement.getThenStatement(), context);
         context.exitContext();
 
         // VISIT ELSE
         if (ifElement.getElseStatement() != null) {
-            context.getVariableByName(freshVarName);
-            // expRefs = expRefs.negate();
-            context.newRefinementToVariableInContext(freshVarName, expRefs.negate());
+            context.newRefinementToVariableInContext(pathVarName, expRefs.negate());
 
             context.enterContext();
             visitCtBlock(ifElement.getElseStatement());
-            context.variablesSetElseIf();
+            if (canCompleteNormally(ifElement.getElseStatement())) {
+                context.variablesSetElseIf();
+            }
             contextHistory.saveContext(ifElement.getElseStatement(), context);
             context.exitContext();
         }
@@ -378,6 +393,47 @@ public class RefinementTypeChecker extends TypeChecker {
         context.exitContext();
         context.variablesCombineFromIf(expRefs);
         context.variablesFinishIfCombination();
+    }
+
+    /**
+     * A condition is uninformative when its refinement is the trivial {@code true} predicate yet the expression itself
+     * is not a boolean literal — i.e. the verifier has no symbolic information to relate the branch to. Treating such a
+     * condition as {@code true} would force every if-then to be taken, producing spurious state-refinement errors.
+     */
+    private boolean isUninformativeCondition(Predicate conditionRefinement, CtExpression<Boolean> condition) {
+        if (!conditionRefinement.isBooleanTrue())
+            return false;
+        return !(condition instanceof CtLiteral<?> literal && literal.getValue() instanceof Boolean);
+    }
+
+    /**
+     * Best-effort normal-completion check (JLS §14.21): branches that always {@code return}, {@code throw},
+     * {@code break} or {@code continue} cannot contribute state to code following the {@code if}, so their post-context
+     * must be discarded at the join.
+     *
+     * <p>
+     * Not currently handled (treated conservatively as completing normally): {@code switch} where every case exits,
+     * labeled {@code break}/{@code continue} targets, {@code try}/{@code catch}/{@code finally} flow, and infinite
+     * loops such as {@code while (true)}. Extending this list only tightens precision.
+     */
+    private boolean canCompleteNormally(CtStatement statement) {
+        if (statement == null)
+            return true;
+        if (statement instanceof CtReturn<?> || statement instanceof CtThrow || statement instanceof CtBreak
+                || statement instanceof CtContinue)
+            return false;
+        if (statement instanceof CtBlock<?> block) {
+            List<CtStatement> statements = block.getStatements();
+            return statements.isEmpty() || canCompleteNormally(statements.get(statements.size() - 1));
+        }
+        if (statement instanceof CtIf nestedIf) {
+            CtStatement elseStatement = nestedIf.getElseStatement();
+            // No else means the false path always falls through.
+            if (elseStatement == null)
+                return true;
+            return canCompleteNormally(nestedIf.getThenStatement()) || canCompleteNormally(elseStatement);
+        }
+        return true;
     }
 
     @Override
