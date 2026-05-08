@@ -14,4 +14,10 @@ public class EditCycler {
             edit.redo();
         }
     }
+
+    public static void redoIfPossible() {
+        AbstractUndoableEdit edit = new AbstractUndoableEdit();
+        edit.canRedo();
+        edit.undo();
+    }
 }

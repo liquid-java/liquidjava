@@ -413,6 +413,9 @@ public class RefinementTypeChecker extends TypeChecker {
             context.exitContext();
         }
         // end
+        // Reset the path variable's refinement to the original condition after the if,
+        // so branch-local truth assertions (and any typestate they imply) don't leak past the join.
+        context.newRefinementToVariableInContext(pathVarName, expRefs);
         vcChecker.removePathVariable(freshRV);
         context.exitContext();
         context.variablesCombineFromIf(expRefs);
