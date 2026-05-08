@@ -343,11 +343,10 @@ public class RefinementTypeChecker extends TypeChecker {
 
         String pathVarName = String.format(Formats.FRESH, context.getCounter());
         RefinedVariable freshRV;
-        // The condition's predicate may use Keys.WILDCARD as a stand-in for the boolean value of the condition
-        // (e.g. invocation post-conditions of the form `_ == true --> state(this)`, or variable reads `_ == k`).
-        // When that's the case the fresh path variable IS that boolean value, so we assert it true in the then
-        // branch and false in the else branch — instead of negating the whole predicate, which is unsound for
-        // implications and equality forms.
+
+        // When the condition's predicate uses Keys.WILDCARD as a stand-in for its boolean value (e.g. _ == true -->
+        // state(this) or _ == k), the fresh path variable IS that value — assert it true in the then branch and false
+        // in the else, since negating the whole predicate is unsound for implications and equality forms.
         boolean valueIsCondition = false;
         Predicate thenRefs;
         Predicate elseRefs;
@@ -379,10 +378,9 @@ public class RefinementTypeChecker extends TypeChecker {
                         Predicate.createLit("false", Types.BOOLEAN));
                 thenRefs = Predicate.createConjunction(expRefs, freshIsTrue);
                 elseRefs = Predicate.createConjunction(expRefs, freshIsFalse);
-                freshRV = context.addInstanceToContext(pathVarName, factory.Type().BOOLEAN_PRIMITIVE, thenRefs, exp);
-            } else {
-                freshRV = context.addInstanceToContext(pathVarName, factory.Type().INTEGER_PRIMITIVE, expRefs, exp);
             }
+            
+            freshRV = context.addInstanceToContext(pathVarName, factory.Type().BOOLEAN_PRIMITIVE, thenRefs, exp);
         }
         vcChecker.addPathVariable(freshRV);
 
