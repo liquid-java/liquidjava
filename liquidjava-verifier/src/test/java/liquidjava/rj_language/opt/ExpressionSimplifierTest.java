@@ -1089,4 +1089,25 @@ class ExpressionSimplifierTest {
 
         assertDerivationEquals(expected, result, "Equivalent bounds simplification should preserve conjunction origin");
     }
+
+    @Test
+    void testSubstitutesVariableDefinedByArithmeticExpression() {
+        // Given: z == y - 2 && y == x + 1
+        // Expected: z == x + 1 - 2
+
+        Expression z = new Var("z");
+        Expression y = new Var("y");
+        Expression x = new Var("x");
+
+        Expression returnExpression = new BinaryExpression(z, "==", new BinaryExpression(y, "-", new LiteralInt(2)));
+        Expression yDefinition = new BinaryExpression(y, "==", new BinaryExpression(x, "+", new LiteralInt(1)));
+        Expression fullExpression = new BinaryExpression(returnExpression, "&&", yDefinition);
+
+        // When
+        ValDerivationNode result = ExpressionSimplifier.simplify(fullExpression);
+
+        // Then
+        assertNotNull(result, "Result should not be null");
+        assertEquals("z == x + 1 - 2", result.getValue().toString(), "Expected variable definition to be substituted");
+    }
 }
