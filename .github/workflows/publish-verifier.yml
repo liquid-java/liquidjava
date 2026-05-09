@@ -1,0 +1,45 @@
+name: Publish verifier
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish liquidjava-verifier to Maven Central
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure tag is on main
+        run: |
+          git fetch origin main
+          TAG_COMMIT="$(git rev-list -n 1 "$GITHUB_REF_NAME")"
+          git merge-base --is-ancestor "$TAG_COMMIT" origin/main
+
+      - name: Set up JDK 20
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "20"
+          cache: maven
+          server-id: central
+          server-username: CENTRAL_USERNAME
+          server-password: CENTRAL_PASSWORD
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg-passphrase: GPG_PASSPHRASE
+
+      - name: Publish verifier
+        run: ./mvnw -f liquidjava-verifier/pom.xml -B --fail-fast -Dgpg.skip=false -Dmaven.deploy.skip=false clean deploy
+        env:
+          CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
+          CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
