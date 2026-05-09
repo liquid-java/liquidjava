@@ -10,6 +10,7 @@ import liquidjava.processor.facade.AliasDTO;
 import liquidjava.rj_language.ast.AliasInvocation;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
+import liquidjava.rj_language.ast.FunctionInvocation;
 import liquidjava.rj_language.ast.Ite;
 import liquidjava.rj_language.ast.LiteralBoolean;
 import liquidjava.rj_language.ast.LiteralInt;
@@ -1132,5 +1133,29 @@ class ExpressionSimplifierTest {
         assertEquals("x + 1", ExpressionSimplifier.simplify(xMinus1Plus2).getValue().toString());
         assertEquals("x + 3", ExpressionSimplifier.simplify(xPlus1Plus2).getValue().toString());
         assertEquals("x", ExpressionSimplifier.simplify(xPlus1Minus1).getValue().toString());
+    }
+
+    @Test
+    void testFunctionInvocationEqualitiesPropagateTransitively() {
+        // Given: size(x3) == size(x2) - 1 && size(x2) == size(x1) + 1 && size(x1) == 0
+        // Expected: size(x3) == 0
+        Expression x1 = new Var("x1");
+        Expression x2 = new Var("x2");
+        Expression x3 = new Var("x3");
+        Expression sizeX1 = new FunctionInvocation("size", List.of(x1));
+        Expression sizeX2 = new FunctionInvocation("size", List.of(x2));
+        Expression sizeX3 = new FunctionInvocation("size", List.of(x3));
+
+        Expression sizeX3EqualsSizeX2Minus1 = new BinaryExpression(sizeX3, "==",
+                new BinaryExpression(sizeX2, "-", new LiteralInt(1)));
+        Expression sizeX2EqualsSizeX1Plus1 = new BinaryExpression(sizeX2, "==",
+                new BinaryExpression(sizeX1, "+", new LiteralInt(1)));
+        Expression sizeX1Equals0 = new BinaryExpression(sizeX1, "==", new LiteralInt(0));
+        Expression fullExpression = new BinaryExpression(sizeX3EqualsSizeX2Minus1, "&&",
+                new BinaryExpression(sizeX2EqualsSizeX1Plus1, "&&", sizeX1Equals0));
+
+        ValDerivationNode result = ExpressionSimplifier.simplify(fullExpression);
+
+        assertEquals("size(x3) == 0", result.getValue().toString());
     }
 }

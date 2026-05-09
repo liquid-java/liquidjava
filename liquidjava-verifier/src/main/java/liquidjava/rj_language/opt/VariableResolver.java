@@ -7,6 +7,7 @@ import java.util.Set;
 
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
+import liquidjava.rj_language.ast.FunctionInvocation;
 import liquidjava.rj_language.ast.Var;
 
 public class VariableResolver {
@@ -45,31 +46,48 @@ public class VariableResolver {
         if ("&&".equals(op)) {
             resolveRecursive(be.getFirstOperand(), map);
             resolveRecursive(be.getSecondOperand(), map);
-        } else if ("==".equals(op)) {
-            Expression left = be.getFirstOperand();
-            Expression right = be.getSecondOperand();
-            if (left instanceof Var var && right.isLiteral()) {
-                map.put(var.getName(), right.clone());
-            } else if (right instanceof Var var && left.isLiteral()) {
-                map.put(var.getName(), left.clone());
-            } else if (left instanceof Var leftVar && right instanceof Var rightVar) {
-                // to substitute internal variable with user-facing variable
-                if (isInternal(leftVar) && !isInternal(rightVar) && !isReturnVar(leftVar)) {
-                    map.put(leftVar.getName(), right.clone());
-                } else if (isInternal(rightVar) && !isInternal(leftVar) && !isReturnVar(rightVar)) {
-                    map.put(rightVar.getName(), left.clone());
-                } else if (isInternal(leftVar) && isInternal(rightVar)) {
-                    // to substitute the lower-counter variable with the higher-counter one
-                    boolean isLeftCounterLower = getCounter(leftVar) <= getCounter(rightVar);
-                    Var lowerVar = isLeftCounterLower ? leftVar : rightVar;
-                    Var higherVar = isLeftCounterLower ? rightVar : leftVar;
-                    if (!isReturnVar(lowerVar) && !isFreshVar(higherVar))
-                        map.putIfAbsent(lowerVar.getName(), higherVar.clone());
-                }
-            } else if (left instanceof Var var && !(right instanceof Var) && canSubstitute(var, right)) {
-                map.put(var.getName(), right.clone());
-            }
+            return;
         }
+        if (!"==".equals(op))
+            return;
+
+        Expression left = be.getFirstOperand();
+        Expression right = be.getSecondOperand();
+        String leftKey = substitutionKey(left);
+        String rightKey = substitutionKey(right);
+
+        if (leftKey != null && right.isLiteral()) {
+            map.put(leftKey, right.clone());
+        } else if (rightKey != null && left.isLiteral()) {
+            map.put(rightKey, left.clone());
+        } else if (left instanceof Var leftVar && right instanceof Var rightVar) {
+            // to substitute internal variable with user-facing variable
+            if (isInternal(leftVar) && !isInternal(rightVar) && !isReturnVar(leftVar)) {
+                map.put(leftVar.getName(), right.clone());
+            } else if (isInternal(rightVar) && !isInternal(leftVar) && !isReturnVar(rightVar)) {
+                map.put(rightVar.getName(), left.clone());
+            } else if (isInternal(leftVar) && isInternal(rightVar)) {
+                // to substitute the lower-counter variable with the higher-counter one
+                boolean isLeftCounterLower = getCounter(leftVar) <= getCounter(rightVar);
+                Var lowerVar = isLeftCounterLower ? leftVar : rightVar;
+                Var higherVar = isLeftCounterLower ? rightVar : leftVar;
+                if (!isReturnVar(lowerVar) && !isFreshVar(higherVar))
+                    map.putIfAbsent(lowerVar.getName(), higherVar.clone());
+            }
+        } else if (left instanceof Var var && !(right instanceof Var) && canSubstitute(var, right)) {
+            map.put(var.getName(), right.clone());
+        } else if (left instanceof FunctionInvocation && !(right instanceof Var)
+                && !right.toString().contains(leftKey)) {
+            map.put(leftKey, right.clone());
+        }
+    }
+
+    private static String substitutionKey(Expression exp) {
+        if (exp instanceof Var var)
+            return var.getName();
+        if (exp instanceof FunctionInvocation)
+            return exp.toString();
+        return null;
     }
 
     /**
@@ -129,12 +147,20 @@ public class VariableResolver {
             if (left instanceof Var v && v.getName().equals(name)
                     && (right.isLiteral() || (!(right instanceof Var) && canSubstitute(v, right))))
                 return false;
+            if (left instanceof FunctionInvocation && left.toString().equals(name)
+                    && (right.isLiteral() || (!(right instanceof Var) && !right.toString().contains(name))))
+                return false;
             if (right instanceof Var v && v.getName().equals(name) && left.isLiteral())
+                return false;
+            if (right instanceof FunctionInvocation && right.toString().equals(name) && left.isLiteral())
                 return false;
         }
 
         // usage found
         if (exp instanceof Var var && var.getName().equals(name)) {
+            return true;
+        }
+        if (exp instanceof FunctionInvocation && exp.toString().equals(name)) {
             return true;
         }
 
