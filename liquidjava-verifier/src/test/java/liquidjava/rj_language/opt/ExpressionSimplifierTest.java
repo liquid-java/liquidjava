@@ -1093,7 +1093,7 @@ class ExpressionSimplifierTest {
     @Test
     void testSubstitutesVariableDefinedByArithmeticExpression() {
         // Given: z == y - 2 && y == x + 1
-        // Expected: z == x + 1 - 2
+        // Expected: z == x - 1
 
         Expression z = new Var("z");
         Expression y = new Var("y");
@@ -1108,6 +1108,29 @@ class ExpressionSimplifierTest {
 
         // Then
         assertNotNull(result, "Result should not be null");
-        assertEquals("z == x + 1 - 2", result.getValue().toString(), "Expected variable definition to be substituted");
+        assertEquals("z == x - 1", result.getValue().toString(), "Expected variable definition to be substituted");
+    }
+
+    @Test
+    void testFoldsAdjacentIntegerConstantsInLeftAssociatedArithmetic() {
+        // Given: x + 1 - 2, x - 1 + 2, x + 1 + 2, and x + 1 - 1
+        // Expected: x - 1, x + 1, x + 3, and x
+
+        Expression x = new Var("x");
+
+        Expression xPlus1Minus2 = new BinaryExpression(new BinaryExpression(x, "+", new LiteralInt(1)), "-",
+                new LiteralInt(2));
+        Expression xMinus1Plus2 = new BinaryExpression(new BinaryExpression(x, "-", new LiteralInt(1)), "+",
+                new LiteralInt(2));
+        Expression xPlus1Plus2 = new BinaryExpression(new BinaryExpression(x, "+", new LiteralInt(1)), "+",
+                new LiteralInt(2));
+        Expression xPlus1Minus1 = new BinaryExpression(new BinaryExpression(x, "+", new LiteralInt(1)), "-",
+                new LiteralInt(1));
+
+        // When / Then
+        assertEquals("x - 1", ExpressionSimplifier.simplify(xPlus1Minus2).getValue().toString());
+        assertEquals("x + 1", ExpressionSimplifier.simplify(xMinus1Plus2).getValue().toString());
+        assertEquals("x + 3", ExpressionSimplifier.simplify(xPlus1Plus2).getValue().toString());
+        assertEquals("x", ExpressionSimplifier.simplify(xPlus1Minus1).getValue().toString());
     }
 }

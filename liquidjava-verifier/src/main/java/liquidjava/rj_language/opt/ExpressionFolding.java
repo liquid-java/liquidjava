@@ -146,6 +146,10 @@ public class ExpressionFolding {
                 return new ValDerivationNode(res, new BinaryDerivationNode(leftNode, rightNode, op));
         }
 
+        ValDerivationNode adjacentConstants = foldAdjacentIntegerConstants(leftNode, rightNode, op);
+        if (adjacentConstants != null)
+            return adjacentConstants;
+
         // no folding
         DerivationNode origin = (leftNode.getOrigin() != null || rightNode.getOrigin() != null)
                 ? new BinaryDerivationNode(leftNode, rightNode, op) : null;
@@ -242,5 +246,33 @@ public class ExpressionFolding {
 
     private static boolean hasIteChildOrigin(ValDerivationNode cond, ValDerivationNode then, ValDerivationNode els) {
         return cond.getOrigin() != null || then.getOrigin() != null || els.getOrigin() != null;
+    }
+
+    private static ValDerivationNode foldAdjacentIntegerConstants(ValDerivationNode leftNode,
+            ValDerivationNode rightNode, String op) {
+        if (!"+".equals(op) && !"-".equals(op))
+            return null;
+        if (!(rightNode.getValue()instanceof LiteralInt rightLiteral))
+            return null;
+        if (!(leftNode.getValue()instanceof BinaryExpression leftBinary))
+            return null;
+        if (!"+".equals(leftBinary.getOperator()) && !"-".equals(leftBinary.getOperator()))
+            return null;
+        if (!(leftBinary.getSecondOperand()instanceof LiteralInt leftLiteral))
+            return null;
+
+        int signedLeft = "+".equals(leftBinary.getOperator()) ? leftLiteral.getValue() : -leftLiteral.getValue();
+        int signedRight = "+".equals(op) ? rightLiteral.getValue() : -rightLiteral.getValue();
+        Expression folded = expressionWithConstant(leftBinary.getFirstOperand(), signedLeft + signedRight);
+
+        return new ValDerivationNode(folded, new BinaryDerivationNode(leftNode, rightNode, op));
+    }
+
+    private static Expression expressionWithConstant(Expression base, int constant) {
+        if (constant == 0)
+            return base.clone();
+        if (constant > 0)
+            return new BinaryExpression(base.clone(), "+", new LiteralInt(constant));
+        return new BinaryExpression(base.clone(), "-", new LiteralInt(-constant));
     }
 }
