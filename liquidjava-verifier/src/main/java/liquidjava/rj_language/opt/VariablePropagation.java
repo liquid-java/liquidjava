@@ -23,12 +23,12 @@ public class VariablePropagation {
      */
     public static ValDerivationNode propagate(Expression exp, ValDerivationNode previousOrigin) {
         Map<String, Expression> substitutions = VariableResolver.resolve(exp);
-        Map<String, Expression> constantSubstitutions = new HashMap<>();
-        Map<String, Expression> expressionSubstitutions = new HashMap<>();
+        Map<String, Expression> directSubstitutions = new HashMap<>(); // var == value or var == var 
+        Map<String, Expression> expressionSubstitutions = new HashMap<>(); // var == expression
         for (Map.Entry<String, Expression> entry : substitutions.entrySet()) {
             Expression value = entry.getValue();
             if (value.isLiteral() || value instanceof Var) {
-                constantSubstitutions.put(entry.getKey(), value);
+                directSubstitutions.put(entry.getKey(), value);
             } else {
                 expressionSubstitutions.put(entry.getKey(), value);
             }
@@ -39,8 +39,8 @@ public class VariablePropagation {
         if (previousOrigin != null) {
             extractVarOrigins(previousOrigin, varOrigins);
         }
-        Map<String, Expression> activeSubstitutions = constantSubstitutions.isEmpty() ? expressionSubstitutions
-                : constantSubstitutions;
+        Map<String, Expression> activeSubstitutions = directSubstitutions.isEmpty() ? expressionSubstitutions
+                : directSubstitutions;
         return propagateRecursive(exp, activeSubstitutions, varOrigins);
     }
 
