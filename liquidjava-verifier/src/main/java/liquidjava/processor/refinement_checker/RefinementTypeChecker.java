@@ -379,7 +379,7 @@ public class RefinementTypeChecker extends TypeChecker {
                 thenRefs = Predicate.createConjunction(expRefs, freshIsTrue);
                 elseRefs = Predicate.createConjunction(expRefs, freshIsFalse);
             }
-            
+
             freshRV = context.addInstanceToContext(pathVarName, factory.Type().BOOLEAN_PRIMITIVE, thenRefs, exp);
         }
         vcChecker.addPathVariable(freshRV);

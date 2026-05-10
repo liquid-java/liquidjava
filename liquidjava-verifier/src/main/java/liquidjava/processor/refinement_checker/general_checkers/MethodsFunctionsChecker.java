@@ -43,7 +43,6 @@ public class MethodsFunctionsChecker {
         RefinedFunction f = new RefinedFunction();
         f.setName(c.getSimpleName());
         f.setType(c.getType());
-        f.setPlacementInCode(c);
         handleFunctionRefinements(f, c, c.getParameters());
         f.setRefReturn(new Predicate());
         CtTypeReference<?> declaring = c.getDeclaringType() != null ? c.getDeclaringType().getReference() : null;
@@ -79,7 +78,6 @@ public class MethodsFunctionsChecker {
         RefinedFunction f = new RefinedFunction();
         f.setName(method.getSimpleName().replaceAll("\\p{C}", "")); // remove any empty chars from string
         f.setType(method.getType());
-        f.setPlacementInCode(method);
         f.setRefReturn(new Predicate());
 
         CtClass<?> klass = null;
@@ -117,7 +115,6 @@ public class MethodsFunctionsChecker {
         RefinedFunction f = new RefinedFunction();
         f.setName(functionName.replaceAll("\\p{C}", "")); // remove any empty chars from string
         f.setType(method.getType());
-        f.setPlacementInCode(method);
         f.setRefReturn(new Predicate());
         f.setClass(prefix);
         f.setSignature(String.format("%s.%s", prefix, method.getSignature()));
