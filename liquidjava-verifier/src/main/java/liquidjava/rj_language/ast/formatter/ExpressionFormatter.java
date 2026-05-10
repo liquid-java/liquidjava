@@ -41,15 +41,14 @@ public class ExpressionFormatter implements ExpressionVisitor<String> {
     }
 
     private String formatParentheses(Expression child, boolean shouldWrap) {
+        Expression expression = unwrapGroup(child);
         if (shouldWrap)
-            return "(" + formatExpression(child) + ")";
-        if (child instanceof GroupExpression group)
-            return "(" + formatExpression(group.getExpression()) + ")";
-        return formatExpression(child);
+            return "(" + formatExpression(expression) + ")";
+        return formatExpression(expression);
     }
 
-    private String formatOperand(Expression parent, Expression child) {
-        return formatParentheses(child, needsParentheses(parent, child));
+    private String formatLeftOperand(Expression parent, Expression child) {
+        return formatParentheses(child, needsLeftParentheses(parent, child));
     }
 
     private String formatRightOperand(BinaryExpression parent, Expression child) {
@@ -57,32 +56,56 @@ public class ExpressionFormatter implements ExpressionVisitor<String> {
     }
 
     private String formatCondition(Expression child) {
-        return formatParentheses(child, child instanceof Ite);
+        return formatParentheses(child, unwrapGroup(child) instanceof Ite);
     }
 
     private String formatArguments(List<Expression> args) {
         return args.stream().map(expression -> formatParentheses(expression, false)).collect(Collectors.joining(", "));
     }
 
+    private Expression unwrapGroup(Expression expression) {
+        while (expression instanceof GroupExpression group)
+            expression = group.getExpression();
+        return expression;
+    }
+
     private boolean needsParentheses(Expression parent, Expression child) {
         return ExpressionPrecedence.of(child).isLowerThan(ExpressionPrecedence.of(parent));
+    }
+
+    private boolean needsLeftParentheses(Expression parent, Expression child) {
+        if (needsParentheses(parent, child))
+            return true;
+
+        Expression unwrappedChild = unwrapGroup(child);
+        if (ExpressionPrecedence.of(unwrappedChild) != ExpressionPrecedence.of(parent))
+            return false;
+
+        return parent instanceof BinaryExpression binary && isRightAssociative(binary.getOperator())
+                && unwrappedChild instanceof BinaryExpression;
     }
 
     private boolean needsRightParentheses(BinaryExpression parent, Expression child) {
         if (needsParentheses(parent, child))
             return true;
 
-        if (ExpressionPrecedence.of(child) != ExpressionPrecedence.of(parent))
+        Expression unwrappedChild = unwrapGroup(child);
+        if (ExpressionPrecedence.of(unwrappedChild) != ExpressionPrecedence.of(parent))
             return false;
 
-        if (child instanceof BinaryExpression right)
-            return !isAssociative(parent.getOperator()) || !parent.getOperator().equals(right.getOperator());
+        if (unwrappedChild instanceof BinaryExpression right)
+            return !isRightAssociative(parent.getOperator())
+                    && (!isAssociative(parent.getOperator()) || !parent.getOperator().equals(right.getOperator()));
 
         return false;
     }
 
     private boolean isAssociative(String operator) {
         return operator.equals("&&") || operator.equals("||") || operator.equals("+") || operator.equals("*");
+    }
+
+    private boolean isRightAssociative(String operator) {
+        return operator.equals("-->");
     }
 
     @Override
@@ -92,7 +115,7 @@ public class ExpressionFormatter implements ExpressionVisitor<String> {
 
     @Override
     public String visitBinaryExpression(BinaryExpression exp) {
-        return formatOperand(exp, exp.getFirstOperand()) + " " + exp.getOperator() + " "
+        return formatLeftOperand(exp, exp.getFirstOperand()) + " " + exp.getOperator() + " "
                 + formatRightOperand(exp, exp.getSecondOperand());
     }
 
@@ -103,13 +126,13 @@ public class ExpressionFormatter implements ExpressionVisitor<String> {
 
     @Override
     public String visitGroupExpression(GroupExpression exp) {
-        return "(" + formatExpression(exp.getExpression()) + ")";
+        return formatExpression(exp.getExpression());
     }
 
     @Override
     public String visitIte(Ite ite) {
         return formatCondition(ite.getCondition()) + " ? " + formatCondition(ite.getThen()) + " : "
-                + formatOperand(ite, ite.getElse());
+                + formatLeftOperand(ite, ite.getElse());
     }
 
     @Override
@@ -144,7 +167,10 @@ public class ExpressionFormatter implements ExpressionVisitor<String> {
 
     @Override
     public String visitUnaryExpression(UnaryExpression exp) {
-        return exp.getOp() + formatOperand(exp, exp.getExpression());
+        Expression child = unwrapGroup(exp.getExpression());
+        boolean nestedMinus = child instanceof UnaryExpression unary && exp.getOp().equals("-")
+                && unary.getOp().equals("-");
+        return exp.getOp() + formatParentheses(child, needsParentheses(exp, child) || nestedMinus);
     }
 
     @Override

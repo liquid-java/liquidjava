@@ -1,6 +1,9 @@
 package liquidjava.rj_language.ast;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import java.util.List;
+
 import org.junit.jupiter.api.Test;
 
 class ExpressionFormatterTest {
@@ -49,6 +52,19 @@ class ExpressionFormatterTest {
     }
 
     @Test
+    void omitsUnnecessaryGroupParentheses() {
+        Expression comparison = new BinaryExpression(new FunctionInvocation("size", List.of(new Var("#stack_294"))),
+                ">", new LiteralInt(0));
+        Expression groupedComparison = new GroupExpression(comparison);
+
+        assertEquals("size(stack²⁹⁴) > 0", groupedComparison.toDisplayString());
+        assertEquals("size(stack²⁹⁴) > 0 && ready",
+                new BinaryExpression(groupedComparison, "&&", new Var("ready")).toDisplayString());
+        assertEquals("ready && size(stack²⁹⁴) > 0",
+                new BinaryExpression(new Var("ready"), "&&", groupedComparison).toDisplayString());
+    }
+
+    @Test
     void formatsRightGrouping() {
         Expression groupedSum = new GroupExpression(new BinaryExpression(new Var("b"), "+", new Var("c")));
         Expression groupedComparison = new GroupExpression(
@@ -66,7 +82,10 @@ class ExpressionFormatterTest {
 
         assertEquals("a && b || c", new BinaryExpression(andExpression, "||", new Var("c")).toDisplayString());
         assertEquals("a && (b || c)", new BinaryExpression(new Var("a"), "&&", orExpression).toDisplayString());
-        assertEquals("a --> (b --> c)", new BinaryExpression(new Var("a"), "-->", implication).toDisplayString());
+        assertEquals("a --> b --> c", new BinaryExpression(new Var("a"), "-->", implication).toDisplayString());
+        assertEquals("(a --> b) --> c",
+                new BinaryExpression(new BinaryExpression(new Var("a"), "-->", new Var("b")), "-->", new Var("c"))
+                        .toDisplayString());
         assertEquals("a && b && c", new BinaryExpression(andExpression, "&&", new Var("c")).toDisplayString());
         assertEquals("a || b || c",
                 new BinaryExpression(new BinaryExpression(new Var("a"), "||", new Var("b")), "||", new Var("c"))
@@ -86,7 +105,7 @@ class ExpressionFormatterTest {
         assertEquals("a ? b : c ? d : e", new Ite(new Var("a"), new Var("b"), nestedElse).toDisplayString());
         assertEquals("(a ? b : c) ? d : e",
                 new Ite(new GroupExpression(ite), new Var("d"), new Var("e")).toDisplayString());
-        assertEquals("a ? b : (c ? d : e)",
+        assertEquals("a ? b : c ? d : e",
                 new Ite(new Var("a"), new Var("b"), new GroupExpression(nestedElse)).toDisplayString());
         assertEquals("a ? b : c", new Ite(new Var("a"), new Var("b"), new Var("c")).toDisplayString());
     }
