@@ -23,7 +23,7 @@ public class VariablePropagation {
      */
     public static ValDerivationNode propagate(Expression exp, ValDerivationNode previousOrigin) {
         Map<String, Expression> substitutions = VariableResolver.resolve(exp);
-        Map<String, Expression> directSubstitutions = new HashMap<>(); // var == value or var == var 
+        Map<String, Expression> directSubstitutions = new HashMap<>(); // var == literal or var == var 
         Map<String, Expression> expressionSubstitutions = new HashMap<>(); // var == expression
         for (Map.Entry<String, Expression> entry : substitutions.entrySet()) {
             Expression value = entry.getValue();
