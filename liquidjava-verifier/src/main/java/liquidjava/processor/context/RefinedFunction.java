@@ -12,6 +12,7 @@ public class RefinedFunction extends Refined {
     private String targetClass;
     private List<ObjectState> stateChange;
     private String signature;
+    private PlacementInCode placementInCode;
 
     public RefinedFunction() {
         argRefinements = new ArrayList<>();
@@ -48,6 +49,18 @@ public class RefinedFunction extends Refined {
 
     public String getSignature() {
         return signature;
+    }
+
+    public void setPlacementInCode(CtElement element) {
+        placementInCode = PlacementInCode.createPlacement(element);
+    }
+
+    public void setPlacementInScope(PlacementInCode placement) {
+        placementInCode = placement;
+    }
+
+    public PlacementInCode getPlacementInCode() {
+        return placementInCode;
     }
 
     public Predicate getRenamedRefinements(Context c, CtElement element) {
