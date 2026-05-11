@@ -138,7 +138,7 @@ class VariableResolverTest {
     void testUnusedFunctionInvocationEqualityIsIgnored() {
         Expression expression = parse("x > 0 && size(stack) == 1");
         Map<String, Expression> result = VariableResolver.resolve(expression);
-        
+
         assertTrue(result.isEmpty(), "Function invocation definitions with no usage should be ignored");
     }
 }

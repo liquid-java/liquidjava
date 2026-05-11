@@ -244,7 +244,8 @@ class ExpressionSimplifierTest {
 
     @Test
     void testRealExpression() {
-        Expression expression = parse("#a_5 == -#fresh_4 && #fresh_4 == #x_2 / #y_3 && #x_2 == #x_0 && #x_0 == 6 && #y_3 == #y_1 && #y_1 == 3");
+        String input = "#a_5 == -#fresh_4 && #fresh_4 == #x_2 / #y_3 && #x_2 == #x_0 && #x_0 == 6 && #y_3 == #y_1 && #y_1 == 3";
+        Expression expression = parse(input);
         ValDerivationNode result = ExpressionSimplifier.simplify(expression);
 
         assertNotNull(result, "Result should not be null");
