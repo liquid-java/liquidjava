@@ -1158,4 +1158,38 @@ class ExpressionSimplifierTest {
 
         assertEquals("size(x3) == 0", result.getValue().toString());
     }
+
+    @Test
+    void testFunctionInvocationOnLeftBehavesLikeVariable() {
+        // Given: func(a) == func(b) && func(b) == 1
+        // Expected: func(a) == 1
+        Expression funcA = new FunctionInvocation("func", List.of(new Var("a")));
+        Expression funcB = new FunctionInvocation("func", List.of(new Var("b")));
+        Expression funcAEqualsFuncB = new BinaryExpression(funcA, "==", funcB);
+        Expression funcBEqualsOne = new BinaryExpression(funcB, "==", new LiteralInt(1));
+        Expression fullExpression = new BinaryExpression(funcAEqualsFuncB, "&&", funcBEqualsOne);
+
+        ValDerivationNode result = ExpressionSimplifier.simplify(fullExpression);
+
+        assertEquals("func(a) == 1", result.getValue().toString());
+    }
+
+    @Test
+    void testFunctionInvocationEqualitiesMixWithVariables() {
+        // Given: func(a) + x && func(a) == y && y == 1 && x == 2
+        // Expected: 3
+        Expression funcA = new FunctionInvocation("func", List.of(new Var("a")));
+        Expression x = new Var("x");
+        Expression y = new Var("y");
+        Expression addition = new BinaryExpression(funcA, "+", x);
+        Expression funcAEqualsY = new BinaryExpression(funcA, "==", y);
+        Expression yEqualsOne = new BinaryExpression(y, "==", new LiteralInt(1));
+        Expression xEqualsTwo = new BinaryExpression(x, "==", new LiteralInt(2));
+        Expression fullExpression = new BinaryExpression(addition, "&&",
+                new BinaryExpression(funcAEqualsY, "&&", new BinaryExpression(yEqualsOne, "&&", xEqualsTwo)));
+
+        ValDerivationNode result = ExpressionSimplifier.simplify(fullExpression);
+
+        assertEquals("3", result.getValue().toString());
+    }
 }

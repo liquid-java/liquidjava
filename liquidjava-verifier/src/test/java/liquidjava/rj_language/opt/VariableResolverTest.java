@@ -2,12 +2,14 @@ package liquidjava.rj_language.opt;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
+import liquidjava.rj_language.ast.FunctionInvocation;
 import liquidjava.rj_language.ast.GroupExpression;
 import liquidjava.rj_language.ast.LiteralInt;
 import liquidjava.rj_language.ast.UnaryExpression;
@@ -167,5 +169,68 @@ class VariableResolverTest {
 
         Map<String, Expression> result = VariableResolver.resolve(fullExpr);
         assertTrue(result.isEmpty(), "Fresh variables should not replace another variable");
+    }
+
+    @Test
+    void testFunctionInvocationEqualityExtractsFunctionKey() {
+        // size(stack) > 0 && size(stack) == 1 should extract size(stack) -> 1
+        Expression stack = new Var("stack");
+        Expression sizeStack = new FunctionInvocation("size", List.of(stack));
+        Expression sizeStackGreaterZero = new BinaryExpression(sizeStack, ">", new LiteralInt(0));
+        Expression sizeStackEqualsOne = new BinaryExpression(sizeStack, "==", new LiteralInt(1));
+        Expression fullExpr = new BinaryExpression(sizeStackGreaterZero, "&&", sizeStackEqualsOne);
+
+        Map<String, Expression> result = VariableResolver.resolve(fullExpr);
+
+        assertEquals(1, result.size(), "Should extract the function invocation as a substitution key");
+        assertEquals("1", result.get("size(stack)").toString());
+    }
+
+    @Test
+    void testLiteralOnLeftExtractsFunctionInvocationKey() {
+        // size(stack) > 0 && 1 == size(stack) should extract size(stack) -> 1
+        Expression stack = new Var("stack");
+        Expression sizeStack = new FunctionInvocation("size", List.of(stack));
+        Expression sizeStackGreaterZero = new BinaryExpression(sizeStack, ">", new LiteralInt(0));
+        Expression oneEqualsSizeStack = new BinaryExpression(new LiteralInt(1), "==", sizeStack);
+        Expression fullExpr = new BinaryExpression(sizeStackGreaterZero, "&&", oneEqualsSizeStack);
+
+        Map<String, Expression> result = VariableResolver.resolve(fullExpr);
+
+        assertEquals(1, result.size(), "Should extract function invocation equalities from either side");
+        assertEquals("1", result.get("size(stack)").toString());
+    }
+
+    @Test
+    void testFunctionInvocationEqualitiesResolveTransitively() {
+        // func(a) > 0 && func(a) == func(b) && func(b) == 1 should extract func(a) -> 1
+        Expression funcA = new FunctionInvocation("func", List.of(new Var("a")));
+        Expression funcB = new FunctionInvocation("func", List.of(new Var("b")));
+        Expression funcAGreaterZero = new BinaryExpression(funcA, ">", new LiteralInt(0));
+        Expression funcAEqualsFuncB = new BinaryExpression(funcA, "==", funcB);
+        Expression funcBEqualsOne = new BinaryExpression(funcB, "==", new LiteralInt(1));
+        Expression fullExpr = new BinaryExpression(funcAGreaterZero, "&&",
+                new BinaryExpression(funcAEqualsFuncB, "&&", funcBEqualsOne));
+
+        Map<String, Expression> result = VariableResolver.resolve(fullExpr);
+
+        assertEquals(2, result.size(), "Should keep the function invocation chain that was used");
+        assertEquals("1", result.get("func(a)").toString());
+        assertEquals("1", result.get("func(b)").toString());
+    }
+
+    @Test
+    void testUnusedFunctionInvocationEqualityIsIgnored() {
+        // x > 0 && size(stack) == 1 should not extract size(stack), because it is only defined
+        Expression x = new Var("x");
+        Expression stack = new Var("stack");
+        Expression sizeStack = new FunctionInvocation("size", List.of(stack));
+        Expression xGreaterZero = new BinaryExpression(x, ">", new LiteralInt(0));
+        Expression sizeStackEqualsOne = new BinaryExpression(sizeStack, "==", new LiteralInt(1));
+        Expression fullExpr = new BinaryExpression(xGreaterZero, "&&", sizeStackEqualsOne);
+
+        Map<String, Expression> result = VariableResolver.resolve(fullExpr);
+
+        assertTrue(result.isEmpty(), "Function invocation definitions with no usage should be ignored");
     }
 }

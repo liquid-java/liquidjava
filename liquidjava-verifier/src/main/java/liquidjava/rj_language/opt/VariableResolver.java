@@ -115,10 +115,10 @@ public class VariableResolver {
      * @return resolved expression
      */
     private static Expression lookup(Expression exp, Map<String, Expression> map, Set<String> seen) {
-        if (!(exp instanceof Var))
+        String name = substitutionKey(exp);
+        if (name == null)
             return exp;
 
-        String name = exp.toString();
         if (seen.contains(name))
             return exp; // circular reference
 
