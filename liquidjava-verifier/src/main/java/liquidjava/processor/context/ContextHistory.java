@@ -17,6 +17,7 @@ public class ContextHistory {
     private Set<GhostState> ghosts;
     private Set<AliasWrapper> aliases;
     private Set<RefinedVariable> globalVars;
+    private Set<RefinedFunction> methods;
 
     private ContextHistory() {
         fileScopes = new HashMap<>();
@@ -24,6 +25,7 @@ public class ContextHistory {
         globalVars = new HashSet<>();
         ghosts = new HashSet<>();
         aliases = new HashSet<>();
+        methods = new HashSet<>();
     }
 
     public static ContextHistory getInstance() {
@@ -38,6 +40,7 @@ public class ContextHistory {
         globalVars.clear();
         ghosts.clear();
         aliases.clear();
+        methods.clear();
     }
 
     public void saveContext(CtElement element, Context context) {
@@ -56,6 +59,7 @@ public class ContextHistory {
         globalVars.addAll(context.getCtxGlobalVars());
         ghosts.addAll(context.getGhostStates());
         aliases.addAll(context.getAliases());
+        methods.addAll(context.getCtxFunctions());
     }
 
     private String getScopePosition(CtElement element) {
@@ -79,6 +83,10 @@ public class ContextHistory {
 
     public Set<AliasWrapper> getAliases() {
         return aliases;
+    }
+
+    public Set<RefinedFunction> getMethods() {
+        return methods;
     }
 
     public Map<String, Set<String>> getFileScopes() {
