@@ -22,6 +22,7 @@ import liquidjava.rj_language.ast.GroupExpression;
 import org.apache.commons.lang3.NotImplementedException;
 import spoon.reflect.code.BinaryOperatorKind;
 import spoon.reflect.code.CtAssignment;
+import spoon.reflect.code.CtConditional;
 import spoon.reflect.code.CtBinaryOperator;
 import spoon.reflect.code.CtExpression;
 import spoon.reflect.code.CtFieldRead;
@@ -317,19 +318,62 @@ public class OperationsChecker {
             Predicate left = getOperatorAssignmentRefinement(binaryOperator.getLeftHandOperand());
             Predicate right = getOperatorAssignmentRefinement(binaryOperator.getRightHandOperand());
             return Predicate.createOperation(left, getOperatorFromKind(binaryOperator.getKind()), right);
+        } else if (element instanceof CtConditional<?> conditional) {
+            Predicate condition = getConditionRefinement(conditional.getCondition());
+            Predicate thenExpression = getOperatorAssignmentRefinement(conditional.getThenExpression());
+            Predicate elseExpression = getOperatorAssignmentRefinement(conditional.getElseExpression());
+            return Predicate.createITE(condition, thenExpression, elseExpression);
         } else if (element instanceof CtLiteral<?> literal) {
             if (literal.getValue() == null)
                 throw new CustomError("Null literals are not supported", literal.getPosition());
             return new Predicate(literal.getValue().toString(), element);
+        } else if (element instanceof CtInvocation<?>) {
+            VariableInstance invocationValue = (VariableInstance) element.getMetadata(Keys.TARGET);
+            if (invocationValue != null)
+                return Predicate.createVar(invocationValue.getName());
         }
-        // unwrap wildcard equality: _ == expr -> expr
-        Predicate refinement = rtc.getRefinement(element);
+        return valueFromRefinement(element, rtc.getRefinement(element));
+    }
+
+    private Predicate getConditionRefinement(CtExpression<Boolean> condition) throws LJError {
+        Predicate refinement = rtc.getRefinement(condition);
+        Optional<Predicate> value = unwrapWildcardEquality(refinement);
+        if (value.isPresent())
+            return value.get();
+        return refinement;
+    }
+
+    private Optional<Predicate> unwrapWildcardEquality(Predicate refinement) {
         Expression expression = unwrapGroupExpression(refinement.getExpression());
         if (expression instanceof BinaryExpression binaryExpression && Ops.EQ.equals(binaryExpression.getOperator())
                 && Keys.WILDCARD.equals(binaryExpression.getFirstOperand().toString())) {
-            return new Predicate(binaryExpression.getSecondOperand());
+            return Optional.of(new Predicate(binaryExpression.getSecondOperand()));
         }
-        return refinement;
+        return Optional.empty();
+    }
+
+    private Predicate valueFromRefinement(CtExpression<?> element, Predicate refinement) {
+        if (refinement == null)
+            return createFreshValue(element, new Predicate());
+
+        Optional<Predicate> value = unwrapWildcardEquality(refinement);
+        if (value.isPresent())
+            return value.get();
+
+        Expression expression = unwrapGroupExpression(refinement.getExpression());
+        boolean hasWildcard = refinement.getVariableNames().contains(Keys.WILDCARD);
+        if (!hasWildcard && !expression.isBooleanExpression())
+            return new Predicate(expression);
+
+        Predicate constraint = hasWildcard ? refinement : new Predicate();
+        return createFreshValue(element, constraint);
+    }
+
+    private Predicate createFreshValue(CtExpression<?> element, Predicate refinement) {
+        String newName = String.format(Formats.FRESH, rtc.getContext().getCounter());
+        Predicate freshRefinement = refinement.substituteVariable(Keys.WILDCARD, newName);
+        rtc.getContext().addVarToContext(newName, element.getType(), freshRefinement, element);
+        return Predicate.createVar(newName);
     }
 
     private Expression unwrapGroupExpression(Expression expression) {

@@ -194,7 +194,7 @@ public class RefinementTypeChecker extends TypeChecker {
     }
 
     @Override
-    public <T, A extends T> void visitCtOperatorAssignment(CtOperatorAssignment<T, A> assignment) {
+    public <T, A extends T> void visitCtOperatorAssignment(CtOperatorAssignment<T, A> assignment) throws LJError {
         super.visitCtOperatorAssignment(assignment);
         visitAssignment(assignment);
     }
