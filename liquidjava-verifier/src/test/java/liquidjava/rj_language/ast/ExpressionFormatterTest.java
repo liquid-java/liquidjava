@@ -51,6 +51,14 @@ class ExpressionFormatterTest {
 
     @Test
     void omitsUnnecessaryGroupParentheses() {
+        assertEquals("x", parse("(x)").toDisplayString());
+        assertEquals("x", parse("((x))").toDisplayString());
+        assertEquals("1", parse("(1)").toDisplayString());
+        assertEquals("a > 0", parse("(a > 0)").toDisplayString());
+        assertEquals("a + b + c", parse("a + (b + c)").toDisplayString());
+        assertEquals("a + b * c", parse("a + (b * c)").toDisplayString());
+        assertEquals("a && b > 0", parse("a && (b > 0)").toDisplayString());
+        assertEquals("a && b && c", parse("a && (b && c)").toDisplayString());
         assertEquals("size(stack²⁹⁴) > 0", parse("(size(#stack_294) > 0)").toDisplayString());
         assertEquals("size(stack²⁹⁴) > 0 && ready", parse("(size(#stack_294) > 0) && ready").toDisplayString());
         assertEquals("ready && size(stack²⁹⁴) > 0", parse("ready && (size(#stack_294) > 0)").toDisplayString());
@@ -59,7 +67,11 @@ class ExpressionFormatterTest {
     @Test
     void formatsRightGrouping() {
         assertEquals("a - (b + c)", parse("a - (b + c)").toDisplayString());
+        assertEquals("a - (b - c)", parse("a - (b - c)").toDisplayString());
+        assertEquals("a / (b * c)", parse("a / (b * c)").toDisplayString());
+        assertEquals("(a || b) && c", parse("(a || b) && c").toDisplayString());
         assertEquals("x == (1 > 0)", parse("x == (1 > 0)").toDisplayString());
+        assertEquals("a == (b == c)", parse("a == (b == c)").toDisplayString());
     }
 
     @Test
