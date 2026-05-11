@@ -66,6 +66,8 @@ public class VariableResolver {
                     if (!isReturnVar(lowerVar) && !isFreshVar(higherVar))
                         map.putIfAbsent(lowerVar.getName(), higherVar.clone());
                 }
+            } else if (left instanceof Var var && !(right instanceof Var) && canSubstitute(var, right)) {
+                map.put(var.getName(), right.clone());
             }
         }
     }
@@ -124,7 +126,8 @@ public class VariableResolver {
         if (exp instanceof BinaryExpression binary && "==".equals(binary.getOperator())) {
             Expression left = binary.getFirstOperand();
             Expression right = binary.getSecondOperand();
-            if (left instanceof Var v && v.getName().equals(name) && right.isLiteral())
+            if (left instanceof Var v && v.getName().equals(name)
+                    && (right.isLiteral() || (!(right instanceof Var) && canSubstitute(v, right))))
                 return false;
             if (right instanceof Var v && v.getName().equals(name) && left.isLiteral())
                 return false;
@@ -163,5 +166,23 @@ public class VariableResolver {
 
     private static boolean isFreshVar(Var var) {
         return var.getName().startsWith("#fresh_");
+    }
+
+    private static boolean canSubstitute(Var var, Expression value) {
+        return !isReturnVar(var) && !isFreshVar(var) && !containsVariable(value, var.getName());
+    }
+
+    private static boolean containsVariable(Expression exp, String name) {
+        if (exp instanceof Var var)
+            return var.getName().equals(name);
+
+        if (!exp.hasChildren())
+            return false;
+
+        for (Expression child : exp.getChildren()) {
+            if (containsVariable(child, name))
+                return true;
+        }
+        return false;
     }
 }
