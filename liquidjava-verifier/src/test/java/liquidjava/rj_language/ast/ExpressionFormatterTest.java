@@ -1,93 +1,100 @@
 package liquidjava.rj_language.ast;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import org.junit.jupiter.api.Test;
+
+import liquidjava.rj_language.parsing.RefinementsParser;
 
 class ExpressionFormatterTest {
 
+    private static Expression parse(String refinement) {
+        return RefinementsParser.createAST(refinement, "");
+    }
+
     @Test
     void formatsUnaryAtoms() {
-        assertEquals("!x", new UnaryExpression("!", new Var("x")).toDisplayString());
-        assertEquals("!false", new UnaryExpression("!", new LiteralBoolean(false)).toDisplayString());
+        assertEquals("!x", parse("!x").toDisplayString());
+        assertEquals("!false", parse("!false").toDisplayString());
     }
 
     @Test
     void formatsInternalVariables() {
-        assertEquals("x", new Var("x").toDisplayString());
-        assertEquals("x²", new Var("#x_2").toDisplayString());
-        assertEquals("#fresh¹²", new Var("#fresh_12").toDisplayString());
-        assertEquals("#ret³", new Var("#ret_3").toDisplayString());
-        assertEquals("this#Class", new Var("this#Class").toDisplayString());
+        assertEquals("x", parse("x").toDisplayString());
+        assertEquals("x²", parse("#x_2").toDisplayString());
+        assertEquals("#fresh¹²", parse("#fresh_12").toDisplayString());
+        assertEquals("#ret³", parse("#ret_3").toDisplayString());
+        assertEquals("this#Class", parse("this#Class").toDisplayString());
     }
 
     @Test
     void formatsEnums() {
-        assertEquals("Color.RED", new Enum("Color", "RED").toDisplayString());
+        assertEquals("Color.RED", parse("Color.RED").toDisplayString());
     }
 
     @Test
     void formatsUnaryCompounds() {
-        Expression comparison = new BinaryExpression(new Var("x"), ">", new LiteralInt(0));
-
-        assertEquals("x > 0", comparison.toDisplayString());
-        assertEquals("!(x > 0)", new UnaryExpression("!", comparison).toDisplayString());
-        assertEquals("-(-x)", new UnaryExpression("-", new GroupExpression(new UnaryExpression("-", new Var("x"))))
-                .toDisplayString());
+        assertEquals("x > 0", parse("x > 0").toDisplayString());
+        assertEquals("!(x > 0)", parse("!(x > 0)").toDisplayString());
+        assertEquals("-(-x)", parse("-(-x)").toDisplayString());
     }
 
     @Test
     void formatsBinaryPrecedence() {
-        Expression sum = new BinaryExpression(new Var("a"), "+", new Var("b"));
-        Expression product = new BinaryExpression(new Var("b"), "*", new Var("c"));
+        assertEquals("(a + b) * c", parse("(a + b) * c").toDisplayString());
+        assertEquals("a * (a + b)", parse("a * (a + b)").toDisplayString());
+        assertEquals("a + b * c", parse("a + b * c").toDisplayString());
+        assertEquals("a - (a + b)", parse("a - (a + b)").toDisplayString());
+        assertEquals("a + b + c", parse("a + b + c").toDisplayString());
+        assertEquals("b * c * c", parse("b * c * c").toDisplayString());
+    }
 
-        assertEquals("(a + b) * c", new BinaryExpression(sum, "*", new Var("c")).toDisplayString());
-        assertEquals("a * (a + b)", new BinaryExpression(new Var("a"), "*", sum).toDisplayString());
-        assertEquals("a + b * c", new BinaryExpression(new Var("a"), "+", product).toDisplayString());
-        assertEquals("a - (a + b)", new BinaryExpression(new Var("a"), "-", sum).toDisplayString());
-        assertEquals("a + b + c", new BinaryExpression(sum, "+", new Var("c")).toDisplayString());
-        assertEquals("b * c * c", new BinaryExpression(product, "*", new Var("c")).toDisplayString());
+    @Test
+    void omitsUnnecessaryGroupParentheses() {
+        assertEquals("x", parse("(x)").toDisplayString());
+        assertEquals("x", parse("((x))").toDisplayString());
+        assertEquals("1", parse("(1)").toDisplayString());
+        assertEquals("a > 0", parse("(a > 0)").toDisplayString());
+        assertEquals("a + b + c", parse("a + (b + c)").toDisplayString());
+        assertEquals("a + b * c", parse("a + (b * c)").toDisplayString());
+        assertEquals("a && b > 0", parse("a && (b > 0)").toDisplayString());
+        assertEquals("a && b && c", parse("a && (b && c)").toDisplayString());
+        assertEquals("size(stack²⁹⁴) > 0", parse("(size(#stack_294) > 0)").toDisplayString());
+        assertEquals("size(stack²⁹⁴) > 0 && ready", parse("(size(#stack_294) > 0) && ready").toDisplayString());
+        assertEquals("ready && size(stack²⁹⁴) > 0", parse("ready && (size(#stack_294) > 0)").toDisplayString());
     }
 
     @Test
     void formatsRightGrouping() {
-        Expression groupedSum = new GroupExpression(new BinaryExpression(new Var("b"), "+", new Var("c")));
-        Expression groupedComparison = new GroupExpression(
-                new BinaryExpression(new LiteralInt(1), ">", new LiteralInt(0)));
-
-        assertEquals("a - (b + c)", new BinaryExpression(new Var("a"), "-", groupedSum).toDisplayString());
-        assertEquals("x == (1 > 0)", new BinaryExpression(new Var("x"), "==", groupedComparison).toDisplayString());
+        assertEquals("a - (b + c)", parse("a - (b + c)").toDisplayString());
+        assertEquals("a - (b - c)", parse("a - (b - c)").toDisplayString());
+        assertEquals("a / (b * c)", parse("a / (b * c)").toDisplayString());
+        assertEquals("(a || b) && c", parse("(a || b) && c").toDisplayString());
+        assertEquals("x == (1 > 0)", parse("x == (1 > 0)").toDisplayString());
+        assertEquals("a == (b == c)", parse("a == (b == c)").toDisplayString());
     }
 
     @Test
     void formatsLogicalExpressions() {
-        Expression andExpression = new BinaryExpression(new Var("a"), "&&", new Var("b"));
-        Expression orExpression = new BinaryExpression(new Var("b"), "||", new Var("c"));
-        Expression implication = new BinaryExpression(new Var("b"), "-->", new Var("c"));
-
-        assertEquals("a && b || c", new BinaryExpression(andExpression, "||", new Var("c")).toDisplayString());
-        assertEquals("a && (b || c)", new BinaryExpression(new Var("a"), "&&", orExpression).toDisplayString());
-        assertEquals("a --> (b --> c)", new BinaryExpression(new Var("a"), "-->", implication).toDisplayString());
-        assertEquals("a && b && c", new BinaryExpression(andExpression, "&&", new Var("c")).toDisplayString());
-        assertEquals("a || b || c",
-                new BinaryExpression(new BinaryExpression(new Var("a"), "||", new Var("b")), "||", new Var("c"))
-                        .toDisplayString());
+        assertEquals("a && b || c", parse("a && b || c").toDisplayString());
+        assertEquals("a && (b || c)", parse("a && (b || c)").toDisplayString());
+        assertEquals("a --> (b --> c)", parse("a --> b --> c").toDisplayString());
+        assertEquals("a --> (b --> c)", parse("a --> (b --> c)").toDisplayString());
+        assertEquals("a --> (b --> (c --> d))", parse("a --> b --> c --> d").toDisplayString());
+        assertEquals("(a --> b) --> c", parse("(a --> b) --> c").toDisplayString());
+        assertEquals("a && b && c", parse("a && b && c").toDisplayString());
+        assertEquals("a || b || c", parse("a || b || c").toDisplayString());
     }
 
     @Test
     void formatsTernaryExpressions() {
-        Expression ite = new Ite(new Var("a"), new Var("b"), new Var("c"));
-        Expression nestedElse = new Ite(new Var("c"), new Var("d"), new Var("e"));
-
-        assertEquals("(a ? b : c) + d", new BinaryExpression(ite, "+", new Var("d")).toDisplayString());
-        assertEquals("(a ? b : c) ? d : e", new Ite(ite, new Var("d"), new Var("e")).toDisplayString());
-        assertEquals("a ? (b ? c : d) : e",
-                new Ite(new Var("a"), new Ite(new Var("b"), new Var("c"), new Var("d")), new Var("e"))
-                        .toDisplayString());
-        assertEquals("a ? b : c ? d : e", new Ite(new Var("a"), new Var("b"), nestedElse).toDisplayString());
-        assertEquals("(a ? b : c) ? d : e",
-                new Ite(new GroupExpression(ite), new Var("d"), new Var("e")).toDisplayString());
-        assertEquals("a ? b : (c ? d : e)",
-                new Ite(new Var("a"), new Var("b"), new GroupExpression(nestedElse)).toDisplayString());
-        assertEquals("a ? b : c", new Ite(new Var("a"), new Var("b"), new Var("c")).toDisplayString());
+        assertEquals("(a ? b : c) + d", parse("(a ? b : c) + d").toDisplayString());
+        assertEquals("(a ? b : c) ? d : e", parse("(a ? b : c) ? d : e").toDisplayString());
+        assertEquals("a ? (b ? c : d) : e", parse("a ? (b ? c : d) : e").toDisplayString());
+        assertEquals("a ? b : (c ? d : e)", parse("a ? b : c ? d : e").toDisplayString());
+        assertEquals("(a ? b : c) ? d : e", parse("(a ? b : c) ? d : e").toDisplayString());
+        assertEquals("a ? b : (c ? d : e)", parse("a ? b : (c ? d : e)").toDisplayString());
+        assertEquals("a ? b : (c ? d : (e ? f : g))", parse("a ? b : c ? d : e ? f : g").toDisplayString());
+        assertEquals("a ? b : c", parse("a ? b : c").toDisplayString());
     }
 }

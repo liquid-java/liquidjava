@@ -40,49 +40,68 @@ public class ExpressionFormatter implements ExpressionVisitor<String> {
         return expression.accept(this);
     }
 
-    private String formatParentheses(Expression child, boolean shouldWrap) {
+    private String formatExpression(Expression expression, boolean shouldWrap) {
+        expression = unwrapGroup(expression);
         if (shouldWrap)
-            return "(" + formatExpression(child) + ")";
-        if (child instanceof GroupExpression group)
-            return "(" + formatExpression(group.getExpression()) + ")";
-        return formatExpression(child);
+            return "(" + formatExpression(expression) + ")";
+        return formatExpression(expression);
     }
 
-    private String formatOperand(Expression parent, Expression child) {
-        return formatParentheses(child, needsParentheses(parent, child));
-    }
-
-    private String formatRightOperand(BinaryExpression parent, Expression child) {
-        return formatParentheses(child, needsRightParentheses(parent, child));
+    private String formatOperand(Expression parent, Expression child, boolean rightOperand) {
+        child = unwrapGroup(child);
+        return formatExpression(child, needsParentheses(parent, child, rightOperand));
     }
 
     private String formatCondition(Expression child) {
-        return formatParentheses(child, child instanceof Ite);
+        return formatExpression(child, unwrapGroup(child) instanceof Ite);
     }
 
     private String formatArguments(List<Expression> args) {
-        return args.stream().map(expression -> formatParentheses(expression, false)).collect(Collectors.joining(", "));
+        return args.stream().map(expression -> formatExpression(expression, false)).collect(Collectors.joining(", "));
     }
 
-    private boolean needsParentheses(Expression parent, Expression child) {
-        return ExpressionPrecedence.of(child).isLowerThan(ExpressionPrecedence.of(parent));
+    private Expression unwrapGroup(Expression expression) {
+        while (expression instanceof GroupExpression group)
+            expression = group.getExpression();
+        return expression;
     }
 
-    private boolean needsRightParentheses(BinaryExpression parent, Expression child) {
-        if (needsParentheses(parent, child))
+    private boolean needsParentheses(Expression parent, Expression child, boolean rightOperand) {
+        ExpressionPrecedence parentPrecedence = ExpressionPrecedence.of(parent);
+        ExpressionPrecedence childPrecedence = ExpressionPrecedence.of(child);
+        if (childPrecedence.isLowerThan(parentPrecedence))
             return true;
-
-        if (ExpressionPrecedence.of(child) != ExpressionPrecedence.of(parent))
+        if (childPrecedence != parentPrecedence)
             return false;
 
-        if (child instanceof BinaryExpression right)
-            return !isAssociative(parent.getOperator()) || !parent.getOperator().equals(right.getOperator());
+        if (parent instanceof BinaryExpression parentBinary && child instanceof BinaryExpression childBinary)
+            return needsBinaryParentheses(parentBinary, childBinary, rightOperand);
+
+        if (parent instanceof Ite && child instanceof Ite)
+            return true;
+
+        if (parent instanceof UnaryExpression parentUnary && child instanceof UnaryExpression childUnary)
+            return parentUnary.getOp().equals("-") && childUnary.getOp().equals("-");
 
         return false;
     }
 
+    private boolean needsBinaryParentheses(BinaryExpression parent, BinaryExpression child, boolean rightOperand) {
+        if (rightOperand) {
+            if (isRightAssociative(parent.getOperator()))
+                return true;
+            return !isRightAssociative(parent.getOperator())
+                    && (!isAssociative(parent.getOperator()) || !parent.getOperator().equals(child.getOperator()));
+        }
+        return isRightAssociative(parent.getOperator());
+    }
+
     private boolean isAssociative(String operator) {
         return operator.equals("&&") || operator.equals("||") || operator.equals("+") || operator.equals("*");
+    }
+
+    private boolean isRightAssociative(String operator) {
+        return operator.equals("-->");
     }
 
     @Override
@@ -92,8 +111,8 @@ public class ExpressionFormatter implements ExpressionVisitor<String> {
 
     @Override
     public String visitBinaryExpression(BinaryExpression exp) {
-        return formatOperand(exp, exp.getFirstOperand()) + " " + exp.getOperator() + " "
-                + formatRightOperand(exp, exp.getSecondOperand());
+        return formatOperand(exp, exp.getFirstOperand(), false) + " " + exp.getOperator() + " "
+                + formatOperand(exp, exp.getSecondOperand(), true);
     }
 
     @Override
@@ -103,13 +122,13 @@ public class ExpressionFormatter implements ExpressionVisitor<String> {
 
     @Override
     public String visitGroupExpression(GroupExpression exp) {
-        return "(" + formatExpression(exp.getExpression()) + ")";
+        return formatExpression(exp.getExpression());
     }
 
     @Override
     public String visitIte(Ite ite) {
         return formatCondition(ite.getCondition()) + " ? " + formatCondition(ite.getThen()) + " : "
-                + formatOperand(ite, ite.getElse());
+                + formatOperand(ite, ite.getElse(), true);
     }
 
     @Override
@@ -144,7 +163,7 @@ public class ExpressionFormatter implements ExpressionVisitor<String> {
 
     @Override
     public String visitUnaryExpression(UnaryExpression exp) {
-        return exp.getOp() + formatOperand(exp, exp.getExpression());
+        return exp.getOp() + formatOperand(exp, exp.getExpression(), true);
     }
 
     @Override
