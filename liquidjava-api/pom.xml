@@ -142,7 +142,8 @@
 				<configuration>
 					<publishingServerId>central</publishingServerId>
 					<skipPublishing>${maven.deploy.skip}</skipPublishing>
-					<!-- <autoPublish>true</autoPublish> -->
+					<autoPublish>true</autoPublish>
+					<waitUntil>published</waitUntil>
 				</configuration>
 			</plugin>
 		</plugins>
