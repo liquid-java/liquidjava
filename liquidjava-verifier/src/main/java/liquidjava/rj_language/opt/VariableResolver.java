@@ -74,10 +74,9 @@ public class VariableResolver {
                 if (!isReturnVar(lowerVar) && !isFreshVar(higherVar))
                     map.putIfAbsent(lowerVar.getName(), higherVar.clone());
             }
-        } else if (left instanceof Var var && !(right instanceof Var) && canSubstitute(var, right)) {
+        } else if (left instanceof Var var && canSubstitute(var, right)) {
             map.put(var.getName(), right.clone());
-        } else if (left instanceof FunctionInvocation && !(right instanceof Var)
-                && !right.toString().contains(leftKey)) {
+        } else if (left instanceof FunctionInvocation && !right.toString().contains(leftKey)) {
             map.put(leftKey, right.clone());
         }
     }
