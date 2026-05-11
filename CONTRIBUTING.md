@@ -28,6 +28,33 @@ Verify a single file from the CLI:
 
 Code formatting runs automatically via `formatter-maven-plugin` during the `validate` phase.
 
+## Release
+
+Releases are published through GitHub Actions when release tags are pushed to
+`main`:
+
+- `v*` tags publish `liquidjava-verifier` through the `publish-verifier`
+  workflow.
+- `api-v*` tags publish `liquidjava-api` through the `publish-api` workflow.
+
+Use `release.sh` from the repository root to publish a release.
+The script automatically verifies the build and tests, bumps the module version, commits the version change, creates the matching tag, and pushes them to `main`.
+
+```bash
+./release.sh verifier # publishes liquidjava-verifier
+./release.sh api      # publishes liquidjava-api
+```
+
+You can also pass the release version explicitly:
+
+```bash
+./release.sh verifier 1.2.3
+./release.sh api 1.2.3
+```
+
+Run releases from a clean `main` branch. Once the tag is pushed, the matching
+GitHub Actions workflow publishes the module to Maven Central.
+
 ## Adding test cases
 
 Tests live under `liquidjava-example/src/main/java/testSuite/` and are auto-discovered:
