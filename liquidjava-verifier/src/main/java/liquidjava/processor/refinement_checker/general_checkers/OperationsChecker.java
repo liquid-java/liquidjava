@@ -16,9 +16,13 @@ import liquidjava.utils.constants.Keys;
 import liquidjava.utils.constants.Ops;
 import liquidjava.utils.constants.Types;
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.ast.BinaryExpression;
+import liquidjava.rj_language.ast.Expression;
+import liquidjava.rj_language.ast.GroupExpression;
 import org.apache.commons.lang3.NotImplementedException;
 import spoon.reflect.code.BinaryOperatorKind;
 import spoon.reflect.code.CtAssignment;
+import spoon.reflect.code.CtConditional;
 import spoon.reflect.code.CtBinaryOperator;
 import spoon.reflect.code.CtExpression;
 import spoon.reflect.code.CtFieldRead;
@@ -26,6 +30,7 @@ import spoon.reflect.code.CtIf;
 import spoon.reflect.code.CtInvocation;
 import spoon.reflect.code.CtLiteral;
 import spoon.reflect.code.CtLocalVariable;
+import spoon.reflect.code.CtOperatorAssignment;
 import spoon.reflect.code.CtReturn;
 import spoon.reflect.code.CtUnaryOperator;
 import spoon.reflect.code.CtVariableRead;
@@ -92,6 +97,18 @@ public class OperationsChecker {
             throw new NotImplementedException("Literal type not implemented");
         }
         // TODO ADD TYPES
+    }
+
+    /**
+     * Builds the refinement for a operator assignment. Java operator assignments such as {@code x += y} are modeled as
+     * {@code x = x + y}; the returned predicate refines the assigned value as {@code _ == current(x) <op> rhs}.
+     */
+    public Predicate getOperatorAssignmentRefinement(String assignedName, CtOperatorAssignment<?, ?> assignment)
+            throws LJError {
+        Predicate left = getCurrentVariableValue(assignedName);
+        Predicate right = getOperatorAssignmentRefinement(assignment.getAssignment());
+        Predicate operation = Predicate.createOperation(left, getOperatorFromKind(assignment.getKind()), right);
+        return Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), operation);
     }
 
     /**
@@ -278,6 +295,91 @@ public class OperationsChecker {
             return new Predicate(newName, inv); // Return variable that represents the invocation
         }
         return new Predicate();
+    }
+
+    /**
+     * Returns the latest symbolic value for a variable
+     */
+    private Predicate getCurrentVariableValue(String name) {
+        Optional<VariableInstance> variableInstance = rtc.getContext().getLastVariableInstance(name);
+        return Predicate.createVar(variableInstance.map(VariableInstance::getName).orElse(name));
+    }
+
+    /**
+     * Converts a operator assignment into an arithmetic predicate operand
+     */
+    private Predicate getOperatorAssignmentRefinement(CtExpression<?> element) throws LJError {
+        if (element instanceof CtVariableRead<?> variableRead) {
+            String name = variableRead.getVariable().getSimpleName();
+            if (variableRead instanceof CtFieldRead<?>)
+                name = String.format(Formats.THIS, name);
+            return getCurrentVariableValue(name);
+        } else if (element instanceof CtBinaryOperator<?> binaryOperator) {
+            Predicate left = getOperatorAssignmentRefinement(binaryOperator.getLeftHandOperand());
+            Predicate right = getOperatorAssignmentRefinement(binaryOperator.getRightHandOperand());
+            return Predicate.createOperation(left, getOperatorFromKind(binaryOperator.getKind()), right);
+        } else if (element instanceof CtConditional<?> conditional) {
+            Predicate condition = getConditionRefinement(conditional.getCondition());
+            Predicate thenExpression = getOperatorAssignmentRefinement(conditional.getThenExpression());
+            Predicate elseExpression = getOperatorAssignmentRefinement(conditional.getElseExpression());
+            return Predicate.createITE(condition, thenExpression, elseExpression);
+        } else if (element instanceof CtLiteral<?> literal) {
+            if (literal.getValue() == null)
+                throw new CustomError("Null literals are not supported", literal.getPosition());
+            return new Predicate(literal.getValue().toString(), element);
+        } else if (element instanceof CtInvocation<?>) {
+            VariableInstance invocationValue = (VariableInstance) element.getMetadata(Keys.TARGET);
+            if (invocationValue != null)
+                return Predicate.createVar(invocationValue.getName());
+        }
+        return valueFromRefinement(element, rtc.getRefinement(element));
+    }
+
+    private Predicate getConditionRefinement(CtExpression<Boolean> condition) throws LJError {
+        Predicate refinement = rtc.getRefinement(condition);
+        Optional<Predicate> value = unwrapWildcardEquality(refinement);
+        if (value.isPresent())
+            return value.get();
+        return refinement;
+    }
+
+    private Optional<Predicate> unwrapWildcardEquality(Predicate refinement) {
+        Expression expression = unwrapGroupExpression(refinement.getExpression());
+        if (expression instanceof BinaryExpression binaryExpression && Ops.EQ.equals(binaryExpression.getOperator())
+                && Keys.WILDCARD.equals(binaryExpression.getFirstOperand().toString())) {
+            return Optional.of(new Predicate(binaryExpression.getSecondOperand()));
+        }
+        return Optional.empty();
+    }
+
+    private Predicate valueFromRefinement(CtExpression<?> element, Predicate refinement) {
+        if (refinement == null)
+            return createFreshValue(element, new Predicate());
+
+        Optional<Predicate> value = unwrapWildcardEquality(refinement);
+        if (value.isPresent())
+            return value.get();
+
+        Expression expression = unwrapGroupExpression(refinement.getExpression());
+        boolean hasWildcard = refinement.getVariableNames().contains(Keys.WILDCARD);
+        if (!hasWildcard && !expression.isBooleanExpression())
+            return new Predicate(expression);
+
+        Predicate constraint = hasWildcard ? refinement : new Predicate();
+        return createFreshValue(element, constraint);
+    }
+
+    private Predicate createFreshValue(CtExpression<?> element, Predicate refinement) {
+        String newName = String.format(Formats.FRESH, rtc.getContext().getCounter());
+        Predicate freshRefinement = refinement.substituteVariable(Keys.WILDCARD, newName);
+        rtc.getContext().addVarToContext(newName, element.getType(), freshRefinement, element);
+        return Predicate.createVar(newName);
+    }
+
+    private Expression unwrapGroupExpression(Expression expression) {
+        while (expression instanceof GroupExpression groupExpression)
+            expression = groupExpression.getExpression();
+        return expression;
     }
 
     /**

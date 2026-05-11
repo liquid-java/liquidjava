@@ -38,6 +38,7 @@ import spoon.reflect.code.CtLiteral;
 import spoon.reflect.code.CtLocalVariable;
 import spoon.reflect.code.CtNewArray;
 import spoon.reflect.code.CtNewClass;
+import spoon.reflect.code.CtOperatorAssignment;
 import spoon.reflect.code.CtReturn;
 import spoon.reflect.code.CtStatement;
 import spoon.reflect.code.CtThisAccess;
@@ -186,10 +187,23 @@ public class RefinementTypeChecker extends TypeChecker {
         }
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public <T, A extends T> void visitCtAssignment(CtAssignment<T, A> assignment) throws LJError {
         super.visitCtAssignment(assignment);
+        visitAssignment(assignment);
+    }
+
+    @Override
+    public <T, A extends T> void visitCtOperatorAssignment(CtOperatorAssignment<T, A> assignment) throws LJError {
+        super.visitCtOperatorAssignment(assignment);
+        visitAssignment(assignment);
+    }
+
+    /**
+     * Handles simple and operator assignments after Spoon has visited their children
+     */
+    @SuppressWarnings("unchecked")
+    private <T, A extends T> void visitAssignment(CtAssignment<T, A> assignment) throws LJError {
         CtExpression<T> ex = assignment.getAssigned();
 
         if (ex instanceof CtVariableWriteImpl) {
@@ -495,7 +509,7 @@ public class RefinementTypeChecker extends TypeChecker {
             CtElement parentElem, CtElement varDecl) throws LJError {
         getPutVariableMetadata(ex, name);
 
-        Predicate refinementFound = getRefinement(assignment);
+        Predicate refinementFound = getAssignmentRefinement(name, assignment, parentElem);
         if (refinementFound == null) {
             RefinedVariable rv = context.getVariableByName(name);
             if (rv instanceof Variable) {
@@ -510,6 +524,17 @@ public class RefinementTypeChecker extends TypeChecker {
 
         vcChecker.removePathVariableThatIncludes(name); // AQUI!!
         checkVariableRefinements(refinementFound, name, type, parentElem, varDecl);
+    }
+
+    /**
+     * Get the refinement for operator assignments (e.g. x += 1)
+     */
+    private Predicate getAssignmentRefinement(String name, CtExpression<?> assignment, CtElement parentElem)
+            throws LJError {
+        if (parentElem instanceof CtOperatorAssignment<?, ?> operatorAssignment) {
+            return otc.getOperatorAssignmentRefinement(name, operatorAssignment);
+        }
+        return getRefinement(assignment);
     }
 
     private Predicate getExpressionRefinements(CtExpression<?> element) throws LJError {
