@@ -77,6 +77,9 @@ public class ExpressionFormatter implements ExpressionVisitor<String> {
         if (parent instanceof BinaryExpression parentBinary && child instanceof BinaryExpression childBinary)
             return needsBinaryParentheses(parentBinary, childBinary, rightOperand);
 
+        if (parent instanceof Ite && child instanceof Ite)
+            return true;
+
         if (parent instanceof UnaryExpression parentUnary && child instanceof UnaryExpression childUnary)
             return parentUnary.getOp().equals("-") && childUnary.getOp().equals("-");
 
@@ -84,9 +87,12 @@ public class ExpressionFormatter implements ExpressionVisitor<String> {
     }
 
     private boolean needsBinaryParentheses(BinaryExpression parent, BinaryExpression child, boolean rightOperand) {
-        if (rightOperand)
+        if (rightOperand) {
+            if (isRightAssociative(parent.getOperator()))
+                return true;
             return !isRightAssociative(parent.getOperator())
                     && (!isAssociative(parent.getOperator()) || !parent.getOperator().equals(child.getOperator()));
+        }
         return isRightAssociative(parent.getOperator());
     }
 

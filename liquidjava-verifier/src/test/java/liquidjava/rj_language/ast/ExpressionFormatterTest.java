@@ -66,7 +66,9 @@ class ExpressionFormatterTest {
     void formatsLogicalExpressions() {
         assertEquals("a && b || c", parse("a && b || c").toDisplayString());
         assertEquals("a && (b || c)", parse("a && (b || c)").toDisplayString());
-        assertEquals("a --> b --> c", parse("a --> b --> c").toDisplayString());
+        assertEquals("a --> (b --> c)", parse("a --> b --> c").toDisplayString());
+        assertEquals("a --> (b --> c)", parse("a --> (b --> c)").toDisplayString());
+        assertEquals("a --> (b --> (c --> d))", parse("a --> b --> c --> d").toDisplayString());
         assertEquals("(a --> b) --> c", parse("(a --> b) --> c").toDisplayString());
         assertEquals("a && b && c", parse("a && b && c").toDisplayString());
         assertEquals("a || b || c", parse("a || b || c").toDisplayString());
@@ -77,9 +79,10 @@ class ExpressionFormatterTest {
         assertEquals("(a ? b : c) + d", parse("(a ? b : c) + d").toDisplayString());
         assertEquals("(a ? b : c) ? d : e", parse("(a ? b : c) ? d : e").toDisplayString());
         assertEquals("a ? (b ? c : d) : e", parse("a ? (b ? c : d) : e").toDisplayString());
-        assertEquals("a ? b : c ? d : e", parse("a ? b : c ? d : e").toDisplayString());
+        assertEquals("a ? b : (c ? d : e)", parse("a ? b : c ? d : e").toDisplayString());
         assertEquals("(a ? b : c) ? d : e", parse("(a ? b : c) ? d : e").toDisplayString());
-        assertEquals("a ? b : c ? d : e", parse("a ? b : (c ? d : e)").toDisplayString());
+        assertEquals("a ? b : (c ? d : e)", parse("a ? b : (c ? d : e)").toDisplayString());
+        assertEquals("a ? b : (c ? d : (e ? f : g))", parse("a ? b : c ? d : e ? f : g").toDisplayString());
         assertEquals("a ? b : c", parse("a ? b : c").toDisplayString());
     }
 }
