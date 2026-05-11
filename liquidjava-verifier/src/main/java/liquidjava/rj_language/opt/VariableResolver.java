@@ -76,7 +76,7 @@ public class VariableResolver {
             }
         } else if (left instanceof Var var && canSubstitute(var, right)) {
             map.put(var.getName(), right.clone());
-        } else if (left instanceof FunctionInvocation && !right.toString().contains(leftKey)) {
+        } else if (left instanceof FunctionInvocation && !containsExpression(right, left)) {
             map.put(leftKey, right.clone());
         }
     }
@@ -147,7 +147,7 @@ public class VariableResolver {
                     && (right.isLiteral() || (!(right instanceof Var) && canSubstitute(v, right))))
                 return false;
             if (left instanceof FunctionInvocation && left.toString().equals(name)
-                    && (right.isLiteral() || (!(right instanceof Var) && !right.toString().contains(name))))
+                    && (right.isLiteral() || (!(right instanceof Var) && !containsExpression(right, left))))
                 return false;
             if (right instanceof Var v && v.getName().equals(name) && left.isLiteral())
                 return false;
@@ -206,6 +206,20 @@ public class VariableResolver {
 
         for (Expression child : exp.getChildren()) {
             if (containsVariable(child, name))
+                return true;
+        }
+        return false;
+    }
+
+    private static boolean containsExpression(Expression exp, Expression target) {
+        if (exp.equals(target))
+            return true;
+
+        if (!exp.hasChildren())
+            return false;
+
+        for (Expression child : exp.getChildren()) {
+            if (containsExpression(child, target))
                 return true;
         }
         return false;

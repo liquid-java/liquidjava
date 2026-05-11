@@ -135,6 +135,15 @@ class VariableResolverTest {
     }
 
     @Test
+    void testFunctionInvocationNamesAreMatchedStructurally() {
+        Expression expression = parse("f(a) > 0 && f(a) == ff(a) + b");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
+
+        assertEquals(1, result.size(), "Should not treat ff(a) as a use of f(a)");
+        assertEquals("ff(a) + b", result.get("f(a)").toString());
+    }
+
+    @Test
     void testUnusedFunctionInvocationEqualityIsIgnored() {
         Expression expression = parse("x > 0 && size(stack) == 1");
         Map<String, Expression> result = VariableResolver.resolve(expression);
