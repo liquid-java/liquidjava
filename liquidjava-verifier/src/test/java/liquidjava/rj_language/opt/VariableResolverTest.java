@@ -2,47 +2,32 @@ package liquidjava.rj_language.opt;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
-import liquidjava.rj_language.ast.FunctionInvocation;
-import liquidjava.rj_language.ast.GroupExpression;
-import liquidjava.rj_language.ast.LiteralInt;
-import liquidjava.rj_language.ast.UnaryExpression;
-import liquidjava.rj_language.ast.Var;
+import liquidjava.rj_language.parsing.RefinementsParser;
 
 class VariableResolverTest {
 
+    private static Expression parse(String refinement) {
+        return RefinementsParser.createAST(refinement, "");
+    }
+
     @Test
     void testSingleEqualityNotExtracted() {
-        // x == 1 should not extract because it's a single equality
-        Expression varX = new Var("x");
-        Expression one = new LiteralInt(1);
-        Expression xEquals1 = new BinaryExpression(varX, "==", one);
-        Map<String, Expression> result = VariableResolver.resolve(xEquals1);
+        Expression expression = parse("x == 1");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
+
         assertTrue(result.isEmpty(), "Single equality should not extract variable mapping");
     }
 
     @Test
     void testConjunctionExtractsVariables() {
-        // x + y && x == 1 && y == 2 should extract x -> 1, y -> 2
-        Expression varX = new Var("x");
-        Expression varY = new Var("y");
-        Expression one = new LiteralInt(1);
-        Expression two = new LiteralInt(2);
+        Expression expression = parse("x + y && x == 1 && y == 2");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
 
-        Expression xPlusY = new BinaryExpression(varX, "+", varY);
-        Expression xEquals1 = new BinaryExpression(varX, "==", one);
-        Expression yEquals2 = new BinaryExpression(varY, "==", two);
-
-        Expression conditions = new BinaryExpression(xEquals1, "&&", yEquals2);
-        Expression fullExpr = new BinaryExpression(xPlusY, "&&", conditions);
-
-        Map<String, Expression> result = VariableResolver.resolve(fullExpr);
         assertEquals(2, result.size(), "Should extract both variables");
         assertEquals("1", result.get("x").toString());
         assertEquals("2", result.get("y").toString());
@@ -50,137 +35,81 @@ class VariableResolverTest {
 
     @Test
     void testSingleComparisonNotExtracted() {
-        // x > 0 should not extract anything
-        Expression varX = new Var("x");
-        Expression zero = new LiteralInt(0);
-        Expression xGreaterZero = new BinaryExpression(varX, ">", zero);
+        Expression expression = parse("x > 0");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
 
-        Map<String, Expression> result = VariableResolver.resolve(xGreaterZero);
         assertTrue(result.isEmpty(), "Single comparison should not extract variable mapping");
     }
 
     @Test
     void testSingleArithmeticExpression() {
-        // x + 1 should not extract anything
-        Expression varX = new Var("x");
-        Expression one = new LiteralInt(1);
-        Expression xPlusOne = new BinaryExpression(varX, "+", one);
+        Expression expression = parse("x + 1");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
 
-        Map<String, Expression> result = VariableResolver.resolve(xPlusOne);
         assertTrue(result.isEmpty(), "Single arithmetic expression should not extract variable mapping");
     }
 
     @Test
     void testDisjunctionWithEqualities() {
-        // x == 1 || y == 2 should not extract anything
-        Expression varX = new Var("x");
-        Expression varY = new Var("y");
-        Expression one = new LiteralInt(1);
-        Expression two = new LiteralInt(2);
+        Expression expression = parse("x == 1 || y == 2");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
 
-        Expression xEquals1 = new BinaryExpression(varX, "==", one);
-        Expression yEquals2 = new BinaryExpression(varY, "==", two);
-        Expression disjunction = new BinaryExpression(xEquals1, "||", yEquals2);
-
-        Map<String, Expression> result = VariableResolver.resolve(disjunction);
         assertTrue(result.isEmpty(), "Disjunction should not extract variable mappings");
     }
 
     @Test
     void testNegatedEquality() {
-        // !(x == 1) should not extract because it's a single equality
-        Expression varX = new Var("x");
-        Expression one = new LiteralInt(1);
-        Expression xEquals1 = new BinaryExpression(varX, "==", one);
-        Expression notXEquals1 = new UnaryExpression("!", xEquals1);
+        Expression expression = parse("!(x == 1)");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
 
-        Map<String, Expression> result = VariableResolver.resolve(notXEquals1);
         assertTrue(result.isEmpty(), "Negated equality should not extract variable mapping");
     }
 
     @Test
     void testGroupedEquality() {
-        // (x == 1) should not extract because it's a single equality
-        Expression varX = new Var("x");
-        Expression one = new LiteralInt(1);
-        Expression xEquals1 = new BinaryExpression(varX, "==", one);
-        Expression grouped = new GroupExpression(xEquals1);
+        Expression expression = parse("(x == 1)");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
 
-        Map<String, Expression> result = VariableResolver.resolve(grouped);
         assertTrue(result.isEmpty(), "Grouped single equality should not extract variable mapping");
     }
 
     @Test
     void testCircularDependency() {
-        // x == y && y == x should not extract anything due to circular dependency
-        Expression varX = new Var("x");
-        Expression varY = new Var("y");
+        Expression expression = parse("x == y && y == x");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
 
-        Expression xEqualsY = new BinaryExpression(varX, "==", varY);
-        Expression yEqualsX = new BinaryExpression(varY, "==", varX);
-        Expression conjunction = new BinaryExpression(xEqualsY, "&&", yEqualsX);
-
-        Map<String, Expression> result = VariableResolver.resolve(conjunction);
         assertTrue(result.isEmpty(), "Circular dependency should not extract variable mappings");
     }
 
     @Test
     void testUnusedEqualitiesShouldBeIgnored() {
-        // z > 0 && x == 1 && y == 2 && z == 3
-        Expression varX = new Var("x");
-        Expression varY = new Var("y");
-        Expression varZ = new Var("z");
-        Expression one = new LiteralInt(1);
-        Expression two = new LiteralInt(2);
-        Expression three = new LiteralInt(3);
-        Expression zero = new LiteralInt(0);
-        Expression zGreaterZero = new BinaryExpression(varZ, ">", zero);
-        Expression xEquals1 = new BinaryExpression(varX, "==", one);
-        Expression yEquals2 = new BinaryExpression(varY, "==", two);
-        Expression zEquals3 = new BinaryExpression(varZ, "==", three);
-        Expression conditions = new BinaryExpression(xEquals1, "&&", new BinaryExpression(yEquals2, "&&", zEquals3));
-        Expression fullExpr = new BinaryExpression(zGreaterZero, "&&", conditions);
-        Map<String, Expression> result = VariableResolver.resolve(fullExpr);
+        Expression expression = parse("z > 0 && x == 1 && y == 2 && z == 3");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
+
         assertEquals(1, result.size(), "Should only extract used variable z");
         assertEquals("3", result.get("z").toString());
     }
 
     @Test
     void testReturnVariableIsNotSubstituted() {
-        // #ret_1 == x && x > 0 should not substitute #ret_1 with x
-        Expression ret = new Var("#ret_1");
-        Expression x = new Var("x");
-        Expression xGreaterZero = new BinaryExpression(x, ">", new LiteralInt(0));
-        Expression retEqualsX = new BinaryExpression(ret, "==", x);
-        Expression fullExpr = new BinaryExpression(xGreaterZero, "&&", retEqualsX);
+        Expression expression = parse("x > 0 && #ret_1 == x");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
 
-        Map<String, Expression> result = VariableResolver.resolve(fullExpr);
         assertTrue(result.isEmpty(), "Return variables should not be substituted with another variable");
     }
 
     @Test
     void testFreshVariableIsNotUsedAsSubstitutionTarget() {
-        // #tmp_1 > 0 && #tmp_1 == #fresh_2 should not substitute #tmp_1 with #fresh_2
-        Expression internal = new Var("#tmp_1");
-        Expression fresh = new Var("#fresh_2");
-        Expression internalGreaterZero = new BinaryExpression(internal, ">", new LiteralInt(0));
-        Expression internalEqualsFresh = new BinaryExpression(internal, "==", fresh);
-        Expression fullExpr = new BinaryExpression(internalGreaterZero, "&&", internalEqualsFresh);
+        Expression expression = parse("#tmp_1 > 0 && #tmp_1 == #fresh_2");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
 
-        Map<String, Expression> result = VariableResolver.resolve(fullExpr);
         assertTrue(result.isEmpty(), "Fresh variables should not replace another variable");
     }
 
     @Test
     void testFunctionInvocationEqualityExtractsFunctionKey() {
-        // size(stack) > 0 && size(stack) == 1 should extract size(stack) -> 1
-        Expression stack = new Var("stack");
-        Expression sizeStack = new FunctionInvocation("size", List.of(stack));
-        Expression sizeStackGreaterZero = new BinaryExpression(sizeStack, ">", new LiteralInt(0));
-        Expression sizeStackEqualsOne = new BinaryExpression(sizeStack, "==", new LiteralInt(1));
-        Expression fullExpr = new BinaryExpression(sizeStackGreaterZero, "&&", sizeStackEqualsOne);
-
-        Map<String, Expression> result = VariableResolver.resolve(fullExpr);
+        Expression expression = parse("size(stack) > 0 && size(stack) == 1");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
 
         assertEquals(1, result.size(), "Should extract the function invocation as a substitution key");
         assertEquals("1", result.get("size(stack)").toString());
@@ -188,14 +117,8 @@ class VariableResolverTest {
 
     @Test
     void testLiteralOnLeftExtractsFunctionInvocationKey() {
-        // size(stack) > 0 && 1 == size(stack) should extract size(stack) -> 1
-        Expression stack = new Var("stack");
-        Expression sizeStack = new FunctionInvocation("size", List.of(stack));
-        Expression sizeStackGreaterZero = new BinaryExpression(sizeStack, ">", new LiteralInt(0));
-        Expression oneEqualsSizeStack = new BinaryExpression(new LiteralInt(1), "==", sizeStack);
-        Expression fullExpr = new BinaryExpression(sizeStackGreaterZero, "&&", oneEqualsSizeStack);
-
-        Map<String, Expression> result = VariableResolver.resolve(fullExpr);
+        Expression expression = parse("size(stack) > 0 && 1 == size(stack)");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
 
         assertEquals(1, result.size(), "Should extract function invocation equalities from either side");
         assertEquals("1", result.get("size(stack)").toString());
@@ -203,16 +126,8 @@ class VariableResolverTest {
 
     @Test
     void testFunctionInvocationEqualitiesResolveTransitively() {
-        // func(a) > 0 && func(a) == func(b) && func(b) == 1 should extract func(a) -> 1
-        Expression funcA = new FunctionInvocation("func", List.of(new Var("a")));
-        Expression funcB = new FunctionInvocation("func", List.of(new Var("b")));
-        Expression funcAGreaterZero = new BinaryExpression(funcA, ">", new LiteralInt(0));
-        Expression funcAEqualsFuncB = new BinaryExpression(funcA, "==", funcB);
-        Expression funcBEqualsOne = new BinaryExpression(funcB, "==", new LiteralInt(1));
-        Expression fullExpr = new BinaryExpression(funcAGreaterZero, "&&",
-                new BinaryExpression(funcAEqualsFuncB, "&&", funcBEqualsOne));
-
-        Map<String, Expression> result = VariableResolver.resolve(fullExpr);
+        Expression expression = parse("func(a) > 0 && func(a) == func(b) && func(b) == 1");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
 
         assertEquals(2, result.size(), "Should keep the function invocation chain that was used");
         assertEquals("1", result.get("func(a)").toString());
@@ -221,16 +136,9 @@ class VariableResolverTest {
 
     @Test
     void testUnusedFunctionInvocationEqualityIsIgnored() {
-        // x > 0 && size(stack) == 1 should not extract size(stack), because it is only defined
-        Expression x = new Var("x");
-        Expression stack = new Var("stack");
-        Expression sizeStack = new FunctionInvocation("size", List.of(stack));
-        Expression xGreaterZero = new BinaryExpression(x, ">", new LiteralInt(0));
-        Expression sizeStackEqualsOne = new BinaryExpression(sizeStack, "==", new LiteralInt(1));
-        Expression fullExpr = new BinaryExpression(xGreaterZero, "&&", sizeStackEqualsOne);
-
-        Map<String, Expression> result = VariableResolver.resolve(fullExpr);
-
+        Expression expression = parse("x > 0 && size(stack) == 1");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
+        
         assertTrue(result.isEmpty(), "Function invocation definitions with no usage should be ignored");
     }
 }
