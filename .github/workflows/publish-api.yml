@@ -38,7 +38,8 @@ jobs:
           gpg-passphrase: GPG_PASSPHRASE
 
       - name: Publish API
-        run: ./mvnw -f liquidjava-api/pom.xml -B --fail-fast -Dgpg.skip=false -Dmaven.deploy.skip=false clean deploy
+        working-directory: liquidjava-api
+        run: ../mvnw -B --fail-fast -Dgpg.skip=false -Dmaven.deploy.skip=false clean deploy
         env:
           CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
           CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}

@@ -37,8 +37,13 @@ jobs:
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
           gpg-passphrase: GPG_PASSPHRASE
 
+      - name: Install API dependency
+        working-directory: liquidjava-api
+        run: ../mvnw -B --fail-fast -Dgpg.skip=true -Dmaven.deploy.skip=true clean install
+
       - name: Publish verifier
-        run: ./mvnw -f liquidjava-verifier/pom.xml -B --fail-fast -Dgpg.skip=false -Dmaven.deploy.skip=false clean deploy
+        working-directory: liquidjava-verifier
+        run: ../mvnw -B --fail-fast -Dgpg.skip=false -Dmaven.deploy.skip=false clean deploy
         env:
           CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
           CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}

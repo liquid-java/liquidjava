@@ -19,6 +19,7 @@ fi
 MODULE_DIR="liquidjava-$MODULE"
 POM="$MODULE_DIR/pom.xml"
 
+# resolve release version
 if [ -z "$VERSION" ]; then
     CURRENT_VERSION=$(perl -0ne "print \$1 if m#<artifactId>\\Q$MODULE_DIR\\E</artifactId>\\s*<version>([^<]+)</version>#" "$POM")
 
@@ -53,6 +54,7 @@ else
     TAG="v$VERSION"
 fi
 
+# validate release state
 CURRENT_BRANCH=$(git branch --show-current)
 if [ "$CURRENT_BRANCH" != "main" ]; then
     echo "Release must be run from main. Current branch: $CURRENT_BRANCH"
@@ -70,8 +72,20 @@ if git rev-parse "$TAG" >/dev/null 2>&1; then
     exit 1
 fi
 
-./mvnw -f "$POM" -B --fail-fast -Dgpg.skip=true -Dmaven.deploy.skip=true clean verify
+# verify module build
+if [ "$MODULE" = "verifier" ]; then
+    (
+        cd liquidjava-api
+        ../mvnw -B --fail-fast -Dgpg.skip=true -Dmaven.deploy.skip=true clean install
+    )
+fi
 
+(
+    cd "$MODULE_DIR"
+    ../mvnw -B --fail-fast -Dgpg.skip=true -Dmaven.deploy.skip=true clean verify
+)
+
+# update release version
 perl -0pi -e "s#(<artifactId>$MODULE_DIR</artifactId>\\s*<version>)[^<]+(</version>)#\${1}$VERSION\${2}#" "$POM"
 
 if git diff --quiet -- "$POM"; then
@@ -79,6 +93,7 @@ if git diff --quiet -- "$POM"; then
     exit 1
 fi
 
+# publish release tag
 git add "$POM"
 git commit -m "Release $MODULE_DIR $VERSION"
 git tag "$TAG"
