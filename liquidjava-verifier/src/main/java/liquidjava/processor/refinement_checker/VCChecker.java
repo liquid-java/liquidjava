@@ -391,8 +391,10 @@ public class VCChecker {
         gatherVariables(found, lrv, mainVars);
         TranslationTable map = new TranslationTable();
         VCImplication foundState = joinPredicates(found, mainVars, lrv, map);
-        throw new StateRefinementError(position, expected.getExpression(),
-                foundState.toConjunctions().simplify(context).getValue(), map, customMessage);
+        Predicate foundConjunction = new Predicate(foundState.toConjunctions().simplify(context).getValue())
+                .addDerivedStateEqualities(context.getGhostStates());
+        throw new StateRefinementError(position, expected.getExpression(), foundConjunction.getExpression(), map,
+                customMessage);
     }
 
     protected void throwStateConflictError(SourcePosition position, Predicate expected) throws StateConflictError {
