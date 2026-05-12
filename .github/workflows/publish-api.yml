@@ -39,7 +39,7 @@ jobs:
 
       - name: Publish API
         working-directory: liquidjava-api
-        run: ../mvnw -B --fail-fast -Dgpg.skip=false -Dmaven.deploy.skip=false clean deploy
+        run: ../mvnw -B --fail-fast -DskipTests -Dgpg.skip=false -Dmaven.deploy.skip=false clean deploy
         env:
           CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
           CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}

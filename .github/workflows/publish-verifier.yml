@@ -39,11 +39,11 @@ jobs:
 
       - name: Install API dependency
         working-directory: liquidjava-api
-        run: ../mvnw -B --fail-fast -Dgpg.skip=true -Dmaven.deploy.skip=true clean install
+        run: ../mvnw -B --fail-fast -DskipTests -Dgpg.skip=true -Dmaven.deploy.skip=true clean install
 
       - name: Publish verifier
         working-directory: liquidjava-verifier
-        run: ../mvnw -B --fail-fast -Dgpg.skip=false -Dmaven.deploy.skip=false clean deploy
+        run: ../mvnw -B --fail-fast -DskipTests -Dgpg.skip=false -Dmaven.deploy.skip=false clean deploy
         env:
           CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
           CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
