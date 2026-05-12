@@ -221,6 +221,70 @@ public class Predicate {
         return new Predicate(e);
     }
 
+    public Predicate addDerivedStateEqualities(List<GhostState> ghostStates) {
+        List<Expression> conjuncts = exp.getConjuncts();
+        Map<String, String> stateToInternalState = new HashMap<>();
+        for (GhostState gs : ghostStates) {
+            if (gs.getRefinement() == null)
+                continue;
+            Expression ref = gs.getRefinement().getExpression();
+            if (ref instanceof GroupExpression ge)
+                ref = ge.getExpression();
+            if (ref instanceof BinaryExpression be && Ops.EQ.equals(be.getOperator())) {
+                FunctionInvocation state = functionInvocation(be.getFirstOperand());
+                if (state == null)
+                    state = functionInvocation(be.getSecondOperand());
+                if (state != null)
+                    stateToInternalState.put(gs.getName(), state.getName());
+            }
+        }
+
+        Predicate result = new Predicate();
+        List<Predicate> derivedStates = new ArrayList<>();
+        for (Expression conjunct : conjuncts) {
+            boolean replaced = false;
+            if (conjunct instanceof BinaryExpression be && Ops.EQ.equals(be.getOperator())) {
+                FunctionInvocation left = functionInvocation(be.getFirstOperand());
+                FunctionInvocation right = functionInvocation(be.getSecondOperand());
+                if (left != null && right != null && left.getArgs().size() == 1 && right.getArgs().size() == 1
+                        && sameName(left.getName(), right.getName())) {
+                    for (Expression stateConjunct : conjuncts) {
+                        FunctionInvocation state = functionInvocation(stateConjunct);
+                        if (state == null || state.getArgs().size() != 1)
+                            continue;
+                        for (Map.Entry<String, String> stateName : stateToInternalState.entrySet()) {
+                            if (!sameName(stateName.getKey(), state.getName())
+                                    || !sameName(stateName.getValue(), left.getName()))
+                                continue;
+
+                            Expression known = state.getArgs().get(0);
+                            Expression target = known.equals(left.getArgs().get(0)) ? right.getArgs().get(0)
+                                    : known.equals(right.getArgs().get(0)) ? left.getArgs().get(0) : null;
+                            if (target != null) {
+                                derivedStates.add(createInvocation(state.getName(), new Predicate(target)));
+                                replaced = true;
+                            }
+                        }
+                    }
+                }
+            }
+            if (!replaced)
+                result = createConjunction(result, new Predicate(conjunct));
+        }
+        for (Predicate derivedState : derivedStates)
+            result = createConjunction(result, derivedState);
+        return result;
+    }
+
+    private static FunctionInvocation functionInvocation(Expression exp) {
+        return exp instanceof GroupExpression ge ? functionInvocation(ge.getExpression())
+                : exp instanceof FunctionInvocation fi ? fi : null;
+    }
+
+    private static boolean sameName(String first, String second) {
+        return first.equals(second) || Utils.getSimpleName(first).equals(Utils.getSimpleName(second));
+    }
+
     public boolean isBooleanTrue() {
         return exp.isBooleanTrue();
     }
