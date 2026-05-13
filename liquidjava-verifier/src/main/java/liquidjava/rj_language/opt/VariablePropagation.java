@@ -2,6 +2,7 @@ package liquidjava.rj_language.opt;
 
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
+import liquidjava.rj_language.ast.FunctionInvocation;
 import liquidjava.rj_language.ast.UnaryExpression;
 import liquidjava.rj_language.ast.Var;
 import liquidjava.rj_language.opt.derivation_node.BinaryDerivationNode;
@@ -23,7 +24,7 @@ public class VariablePropagation {
      */
     public static ValDerivationNode propagate(Expression exp, ValDerivationNode previousOrigin) {
         Map<String, Expression> substitutions = VariableResolver.resolve(exp);
-        Map<String, Expression> directSubstitutions = new HashMap<>(); // var == literal or var == var 
+        Map<String, Expression> directSubstitutions = new HashMap<>(); // var == literal or var == var
         Map<String, Expression> expressionSubstitutions = new HashMap<>(); // var == expression
         for (Map.Entry<String, Expression> entry : substitutions.entrySet()) {
             Expression value = entry.getValue();
@@ -67,6 +68,12 @@ public class VariablePropagation {
 
             // no substitution
             return new ValDerivationNode(var, null);
+        }
+
+        if (exp instanceof FunctionInvocation) {
+            Expression value = subs.get(exp.toString());
+            if (value != null)
+                return new ValDerivationNode(value.clone(), new VarDerivationNode(exp.toString()));
         }
 
         // lift unary origin
