@@ -1,6 +1,7 @@
 package liquidjava.rj_language.opt;
 
 import liquidjava.rj_language.ast.BinaryExpression;
+import liquidjava.rj_language.ast.Enum;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.FunctionInvocation;
 import liquidjava.rj_language.ast.UnaryExpression;
@@ -28,7 +29,7 @@ public class VariablePropagation {
         Map<String, Expression> expressionSubstitutions = new HashMap<>(); // var == expression
         for (Map.Entry<String, Expression> entry : substitutions.entrySet()) {
             Expression value = entry.getValue();
-            if (value.isLiteral() || value instanceof Var) {
+            if (value.isLiteral() || value instanceof Var || value instanceof Enum) {
                 directSubstitutions.put(entry.getKey(), value);
             } else {
                 expressionSubstitutions.put(entry.getKey(), value);

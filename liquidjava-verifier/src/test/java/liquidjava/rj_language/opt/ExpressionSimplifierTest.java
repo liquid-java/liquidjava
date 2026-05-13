@@ -626,4 +626,36 @@ class ExpressionSimplifierTest {
 
         assertEquals("3", result.getValue().toString());
     }
+
+    @Test
+    void testEnumConstantsPropagateIntoVariableEquality() {
+        Expression expression = parse("current == mode && mode == Mode.Photo");
+        ValDerivationNode result = ExpressionSimplifier.simplify(expression);
+
+        assertEquals("current == Mode.Photo", result.getValue().toString());
+    }
+
+    @Test
+    void testEnumConstantsPropagateTransitively() {
+        Expression expression = parse("target == current && current == mode && mode == Mode.Photo");
+        ValDerivationNode result = ExpressionSimplifier.simplify(expression);
+
+        assertEquals("target == Mode.Photo", result.getValue().toString());
+    }
+
+    @Test
+    void testEnumConstantsPropagateThroughFunctionInvocations() {
+        Expression expression = parse("modeOf(x) == Mode.Photo && current == modeOf(x)");
+        ValDerivationNode result = ExpressionSimplifier.simplify(expression);
+
+        assertEquals("current == Mode.Photo", result.getValue().toString());
+    }
+
+    @Test
+    void testEnumConstantsPropagateIntoTernaryCondition() {
+        Expression expression = parse("mode == Mode.Photo && (mode == Mode.Video ? explicit(param) : start(param))");
+        ValDerivationNode result = ExpressionSimplifier.simplify(expression);
+
+        assertEquals("start(param)", result.getValue().toString());
+    }
 }
