@@ -91,6 +91,15 @@ class VariableResolverTest {
     }
 
     @Test
+    void testDifferentEqualityInIteConditionCountsAsUsage() {
+        Expression expression = parse("mode == 1 && (mode == 2 ? explicit(param) : start(param))");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
+
+        assertEquals(1, result.size(), "Ternary condition should count as a use of mode");
+        assertEquals("1", result.get("mode").toString());
+    }
+
+    @Test
     void testReturnVariableIsNotSubstituted() {
         Expression expression = parse("x > 0 && #ret_1 == x");
         Map<String, Expression> result = VariableResolver.resolve(expression);

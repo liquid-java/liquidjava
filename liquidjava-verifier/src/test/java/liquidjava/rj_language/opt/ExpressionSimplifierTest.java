@@ -458,6 +458,16 @@ class ExpressionSimplifierTest {
     }
 
     @Test
+    void testIteConditionUsesEqualityFromConjunction() {
+        Expression expr = parse("mode == 1 && (mode == 2 ? explicit(param) : start(param))");
+        ValDerivationNode result = ExpressionSimplifier.simplify(expr);
+
+        assertNotNull(result, "Result should not be null");
+        assertEquals("start(param)", result.getValue().toString(),
+                "mode == 1 should make the mode == 2 ternary condition false");
+    }
+
+    @Test
     void testByteAliasExpansion() {
         String sut = "Byte(b)";
         AliasDTO byteAlias = new AliasDTO("Byte", List.of("int"), List.of("b"), "b >= -128 && b <= 127");

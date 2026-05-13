@@ -26,7 +26,7 @@ public class VariableResolver {
         resolveRecursive(exp, map);
 
         // remove variables that were not used in the expression
-        map.entrySet().removeIf(entry -> !hasUsage(exp, entry.getKey()));
+        map.entrySet().removeIf(entry -> !hasUsage(exp, entry.getKey(), entry.getValue()));
 
         // transitively resolve variables
         return resolveTransitive(map);
@@ -138,20 +138,21 @@ public class VariableResolver {
      *
      * @return true if used, false otherwise
      */
-    private static boolean hasUsage(Expression exp, String name) {
+    private static boolean hasUsage(Expression exp, String name, Expression value) {
         // exclude own definitions
         if (exp instanceof BinaryExpression binary && "==".equals(binary.getOperator())) {
             Expression left = binary.getFirstOperand();
             Expression right = binary.getSecondOperand();
-            if (left instanceof Var v && v.getName().equals(name)
+            if (left instanceof Var v && v.getName().equals(name) && right.equals(value)
                     && (right.isLiteral() || (!(right instanceof Var) && canSubstitute(v, right))))
                 return false;
-            if (left instanceof FunctionInvocation && left.toString().equals(name)
+            if (left instanceof FunctionInvocation && left.toString().equals(name) && right.equals(value)
                     && (right.isLiteral() || (!(right instanceof Var) && !containsExpression(right, left))))
                 return false;
-            if (right instanceof Var v && v.getName().equals(name) && left.isLiteral())
+            if (right instanceof Var v && v.getName().equals(name) && left.equals(value) && left.isLiteral())
                 return false;
-            if (right instanceof FunctionInvocation && right.toString().equals(name) && left.isLiteral())
+            if (right instanceof FunctionInvocation && right.toString().equals(name) && left.equals(value)
+                    && left.isLiteral())
                 return false;
         }
 
@@ -166,7 +167,7 @@ public class VariableResolver {
         // recurse children
         if (exp.hasChildren()) {
             for (Expression child : exp.getChildren())
-                if (hasUsage(child, name))
+                if (hasUsage(child, name, value))
                     return true;
         }
 
