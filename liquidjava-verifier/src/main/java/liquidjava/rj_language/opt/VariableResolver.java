@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Set;
 
 import liquidjava.rj_language.ast.BinaryExpression;
+import liquidjava.rj_language.ast.Enum;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.FunctionInvocation;
 import liquidjava.rj_language.ast.Var;
@@ -56,9 +57,9 @@ public class VariableResolver {
         String leftKey = substitutionKey(left);
         String rightKey = substitutionKey(right);
 
-        if (leftKey != null && right.isLiteral()) {
+        if (leftKey != null && isConstant(right)) {
             map.put(leftKey, right.clone());
-        } else if (rightKey != null && left.isLiteral()) {
+        } else if (rightKey != null && isConstant(left)) {
             map.put(rightKey, left.clone());
         } else if (left instanceof Var leftVar && right instanceof Var rightVar) {
             // to substitute internal variable with user-facing variable
@@ -144,15 +145,15 @@ public class VariableResolver {
             Expression left = binary.getFirstOperand();
             Expression right = binary.getSecondOperand();
             if (left instanceof Var v && v.getName().equals(name) && right.equals(value)
-                    && (right.isLiteral() || (!(right instanceof Var) && canSubstitute(v, right))))
+                    && (isConstant(right) || (!(right instanceof Var) && canSubstitute(v, right))))
                 return false;
             if (left instanceof FunctionInvocation && left.toString().equals(name) && right.equals(value)
-                    && (right.isLiteral() || (!(right instanceof Var) && !containsExpression(right, left))))
+                    && (isConstant(right) || (!(right instanceof Var) && !containsExpression(right, left))))
                 return false;
-            if (right instanceof Var v && v.getName().equals(name) && left.equals(value) && left.isLiteral())
+            if (right instanceof Var v && v.getName().equals(name) && left.equals(value) && isConstant(left))
                 return false;
             if (right instanceof FunctionInvocation && right.toString().equals(name) && left.equals(value)
-                    && left.isLiteral())
+                    && isConstant(left))
                 return false;
         }
 
@@ -196,6 +197,10 @@ public class VariableResolver {
 
     private static boolean canSubstitute(Var var, Expression value) {
         return !isReturnVar(var) && !isFreshVar(var) && !containsVariable(value, var.getName());
+    }
+
+    private static boolean isConstant(Expression exp) {
+        return exp.isLiteral() || exp instanceof Enum;
     }
 
     private static boolean containsVariable(Expression exp, String name) {
