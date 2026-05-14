@@ -10,7 +10,6 @@ import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.GroupExpression;
-import liquidjava.rj_language.opt.derivation_node.ValDerivationNode;
 import liquidjava.smt.Counterexample;
 import liquidjava.utils.Utils;
 import spoon.reflect.cu.SourcePosition;
@@ -135,23 +134,8 @@ public final class DebugLog {
         if (!enabled()) {
             return;
         }
-        System.out.println(SMP_TAG + " Simplified " + Colors.CYAN + input + Colors.RESET + " to " + Colors.YELLOW
-                + output + Colors.RESET);
-    }
-
-    /**
-     * Print every assignment returned by the solver before error reporting filters the user-facing counterexample down
-     * to the variables mentioned in the diagnostic.
-     */
-    public static void counterexample(Counterexample counterexample) {
-        if (!enabled() || counterexample == null || counterexample.assignments().isEmpty()) {
-            return;
-        }
-        System.out
-                .println(SMP_TAG
-                        + " Counterexample: " + Colors.RED + counterexample.assignments().stream()
-                                .map(a -> a.first() + " = " + a.second()).collect(Collectors.joining(" && "))
-                        + Colors.RESET);
+        System.out.println(SMP_TAG + " Before simplification: " + Colors.YELLOW + input + Colors.RESET);
+        System.out.println(SMP_TAG + " After simplification:  " + Colors.BOLD_YELLOW + output + Colors.RESET);
     }
 
     private static String plainLabel(VCImplication node) {

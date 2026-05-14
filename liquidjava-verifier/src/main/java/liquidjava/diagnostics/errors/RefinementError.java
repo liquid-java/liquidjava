@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import liquidjava.diagnostics.DebugLog;
 import liquidjava.diagnostics.TranslationTable;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.formatter.VariableFormatter;
@@ -43,8 +42,6 @@ public class RefinementError extends LJError {
     public String getCounterExampleString() {
         if (counterexample == null || counterexample.assignments().isEmpty())
             return null;
-
-        DebugLog.counterexample(counterexample);
 
         List<String> foundVarNames = new ArrayList<>();
         found.getValue().getVariableNames(foundVarNames);
