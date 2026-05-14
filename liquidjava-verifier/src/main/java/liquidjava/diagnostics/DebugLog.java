@@ -135,7 +135,7 @@ public final class DebugLog {
         if (!enabled() || counterexample == null || counterexample.assignments().isEmpty()) {
             return;
         }
-        System.out.println(SMT_TAG + " counterexample assignments:");
+        System.out.println(SMT_TAG + " unfiltered counterexample assignments:");
         for (var assignment : counterexample.assignments()) {
             System.out.println(SMT_TAG + "     " + assignment.first() + " = " + assignment.second());
         }
