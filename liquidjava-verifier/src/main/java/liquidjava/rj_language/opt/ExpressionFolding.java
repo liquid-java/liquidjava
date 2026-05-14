@@ -1,6 +1,7 @@
 package liquidjava.rj_language.opt;
 
 import liquidjava.rj_language.ast.BinaryExpression;
+import liquidjava.rj_language.ast.Enum;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.GroupExpression;
 import liquidjava.rj_language.ast.Ite;
@@ -62,6 +63,16 @@ public class ExpressionFolding {
         Expression left = leftNode.getValue();
         Expression right = rightNode.getValue();
         String op = binExp.getOperator();
+
+        if (left instanceof Enum en && en.getResolvedLiteral() != null) {
+            left = en.getResolvedLiteral().clone();
+            leftNode = new ValDerivationNode(left, leftNode);
+        }
+        if (right instanceof Enum en && en.getResolvedLiteral() != null) {
+            right = en.getResolvedLiteral().clone();
+            rightNode = new ValDerivationNode(right, rightNode);
+        }
+
         binExp.setChild(0, left);
         binExp.setChild(1, right);
 
@@ -140,6 +151,18 @@ public class ExpressionFolding {
             case "-->" -> new LiteralBoolean(!l || r);
             case "==" -> new LiteralBoolean(l == r);
             case "!=" -> new LiteralBoolean(l != r);
+            default -> null;
+            };
+            if (res != null)
+                return new ValDerivationNode(res, new BinaryDerivationNode(leftNode, rightNode, op));
+        }
+
+        else if (left instanceof Enum leftEnum && right instanceof Enum rightEnum
+                && leftEnum.getTypeName().equals(rightEnum.getTypeName())) {
+            boolean equal = leftEnum.getConstName().equals(rightEnum.getConstName());
+            Expression res = switch (op) {
+            case "==" -> new LiteralBoolean(equal);
+            case "!=" -> new LiteralBoolean(!equal);
             default -> null;
             };
             if (res != null)

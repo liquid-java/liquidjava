@@ -8,6 +8,7 @@ import org.antlr.v4.runtime.LexerNoViableAltException;
 import org.antlr.v4.runtime.Parser;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
+import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.atn.ATNConfigSet;
 import org.antlr.v4.runtime.dfa.DFA;
 
@@ -15,6 +16,7 @@ public class RJErrorListener implements ANTLRErrorListener {
 
     private int errors;
     public List<String> msgs;
+    private String hint;
 
     public RJErrorListener() {
         super();
@@ -25,16 +27,30 @@ public class RJErrorListener implements ANTLRErrorListener {
     @Override
     public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol, int line, int charPositionInLine,
             String msg, RecognitionException e) {
-        // Hint for == instead of =
-        String hint = null;
-        if (e instanceof LexerNoViableAltException l) {
-            char c = l.getInputStream().toString().charAt(charPositionInLine);
-            if (c == '=')
-                hint = "Predicates must be compared with == instead of =";
+        if (hint == null) {
+            String input = inputFor(offendingSymbol, e);
+            int pos = charPositionInLine;
+            if (input != null && pos >= 0 && pos < input.length()) {
+                char c = input.charAt(pos);
+                // Hint for == instead of =
+                if (c == '=')
+                    hint = "Predicates must be compared with == instead of =";
+                // Hint for -> instead of --> (logical implication)
+                else if (c == '>' && pos >= 1 && input.charAt(pos - 1) == '-'
+                        && (pos < 2 || input.charAt(pos - 2) != '-'))
+                    hint = "Logical implication is --> (two dashes), not ->";
+            }
         }
         errors++;
-        String ms = "Error in " + msg + ", in the position " + charPositionInLine;
-        msgs.add(ms + (hint == null ? "" : "\n\tHint: " + hint));
+        msgs.add("Error in " + msg + ", in the position " + charPositionInLine);
+    }
+
+    private static String inputFor(Object offendingSymbol, RecognitionException e) {
+        if (e instanceof LexerNoViableAltException l)
+            return l.getInputStream().toString();
+        if (offendingSymbol instanceof Token t && t.getInputStream() != null)
+            return t.getInputStream().toString();
+        return null;
     }
 
     @Override
@@ -54,6 +70,10 @@ public class RJErrorListener implements ANTLRErrorListener {
 
     public int getErrors() {
         return errors;
+    }
+
+    public String getHint() {
+        return hint;
     }
 
     public String getMessages() {

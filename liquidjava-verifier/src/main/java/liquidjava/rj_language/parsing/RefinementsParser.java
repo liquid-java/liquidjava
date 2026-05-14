@@ -1,7 +1,5 @@
 package liquidjava.rj_language.parsing;
 
-import java.util.Optional;
-
 import liquidjava.diagnostics.errors.SyntaxError;
 import liquidjava.processor.facade.AliasDTO;
 import liquidjava.processor.facade.GhostDTO;
@@ -56,25 +54,14 @@ public class RefinementsParser {
      * Compiles the given string into a parse tree
      */
     private static ParseTree compile(String toParse, String errorMessage) throws SyntaxError {
-        Optional<String> s = getErrors(toParse);
-        if (s.isPresent())
-            throw new SyntaxError(errorMessage, toParse);
-
         RJErrorListener err = new RJErrorListener();
-        RJParser parser = createParser(toParse, err);
-        return parser.prog();
-    }
-
-    /**
-     * Checks if the given string can be parsed without syntax errors, returning the error messages if any
-     */
-    private static Optional<String> getErrors(String toParse) {
-        RJErrorListener err = new RJErrorListener();
-        RJParser parser = createParser(toParse, err);
-        parser.prog(); // all consumed
-        if (err.getErrors() > 0)
-            return Optional.of(err.getMessages());
-        return Optional.empty();
+        ParseTree tree = createParser(toParse, err).prog();
+        if (err.getErrors() > 0) {
+            SyntaxError e = new SyntaxError(errorMessage, toParse);
+            e.setHint(err.getHint());
+            throw e;
+        }
+        return tree;
     }
 
     /**
