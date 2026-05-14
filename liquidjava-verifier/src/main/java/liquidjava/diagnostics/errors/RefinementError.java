@@ -44,7 +44,7 @@ public class RefinementError extends LJError {
         if (counterexample == null || counterexample.assignments().isEmpty())
             return null;
 
-        DebugLog.counterexampleAssignments(counterexample);
+        DebugLog.counterexample(counterexample);
 
         List<String> foundVarNames = new ArrayList<>();
         found.getValue().getVariableNames(foundVarNames);

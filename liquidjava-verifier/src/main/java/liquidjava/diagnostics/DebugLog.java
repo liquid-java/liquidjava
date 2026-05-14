@@ -2,6 +2,7 @@ package liquidjava.diagnostics;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import liquidjava.api.CommandLineLauncher;
 import liquidjava.processor.VCImplication;
@@ -9,6 +10,7 @@ import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.GroupExpression;
+import liquidjava.rj_language.opt.derivation_node.ValDerivationNode;
 import liquidjava.smt.Counterexample;
 import liquidjava.utils.Utils;
 import spoon.reflect.cu.SourcePosition;
@@ -30,6 +32,7 @@ public final class DebugLog {
 
     private static final String SMT_TAG = Colors.BLUE + "[SMT]" + Colors.RESET;
     private static final String SMT_CHECK = Colors.SALMON + "[SMT CHECK]" + Colors.RESET;
+    private static final String SMP_TAG = Colors.YELLOW + "[SMP]" + Colors.RESET;
 
     private DebugLog() {
     }
@@ -124,21 +127,31 @@ public final class DebugLog {
         System.out.println(SMT_TAG + " " + formatConclusion(conclusion));
     }
 
-    public static void simplificationInput(Predicate predicate) {
+    /**
+     * Print the simplifier input and output side by side. This keeps the raw expression visible in debug traces while
+     * callers continue using the simplified expression for user-facing diagnostics.
+     */
+    public static void simplification(Expression input, Expression output) {
         if (!enabled()) {
             return;
         }
-        System.out.println(SMT_TAG + " unsimplified: " + predicate);
+        System.out.println(SMP_TAG + " Simplified " + Colors.CYAN + input + Colors.RESET + " to " + Colors.YELLOW
+                + output + Colors.RESET);
     }
 
-    public static void counterexampleAssignments(Counterexample counterexample) {
+    /**
+     * Print every assignment returned by the solver before error reporting filters the user-facing counterexample down
+     * to the variables mentioned in the diagnostic.
+     */
+    public static void counterexample(Counterexample counterexample) {
         if (!enabled() || counterexample == null || counterexample.assignments().isEmpty()) {
             return;
         }
-        System.out.println(SMT_TAG + " unfiltered counterexample assignments:");
-        for (var assignment : counterexample.assignments()) {
-            System.out.println(SMT_TAG + "     " + assignment.first() + " = " + assignment.second());
-        }
+        System.out
+                .println(SMP_TAG
+                        + " Counterexample: " + Colors.RED + counterexample.assignments().stream()
+                                .map(a -> a.first() + " = " + a.second()).collect(Collectors.joining(" && "))
+                        + Colors.RESET);
     }
 
     private static String plainLabel(VCImplication node) {
@@ -233,14 +246,14 @@ public final class DebugLog {
         if (!enabled()) {
             return;
         }
-        System.out.println(SMT_TAG + " result: " + Colors.GREEN + "UNSAT (subtype holds)" + Colors.RESET);
+        System.out.println(SMT_TAG + " Result: " + Colors.GREEN + "UNSAT (subtype holds)" + Colors.RESET);
     }
 
     public static void smtSat(Object counterexample) {
         if (!enabled()) {
             return;
         }
-        String header = SMT_TAG + " result: " + Colors.RED + "SAT (subtype fails)" + Colors.RESET;
+        String header = SMT_TAG + " Result: " + Colors.RED + "SAT (subtype fails)" + Colors.RESET;
         String pretty = formatCounterexample(counterexample);
         if (pretty == null) {
             System.out.println(header);
@@ -284,7 +297,7 @@ public final class DebugLog {
         if (!enabled()) {
             return;
         }
-        System.out.println(SMT_TAG + " result: " + Colors.YELLOW + "UNKNOWN (treated as OK)" + Colors.RESET);
+        System.out.println(SMT_TAG + " Result: " + Colors.YELLOW + "UNKNOWN (treated as OK)" + Colors.RESET);
     }
 
     /**
@@ -310,7 +323,7 @@ public final class DebugLog {
         if (!enabled()) {
             return;
         }
-        System.out.println(SMT_TAG + " result: " + Colors.RED + "ERROR" + Colors.RESET + " — "
+        System.out.println(SMT_TAG + " Result: " + Colors.RED + "ERROR" + Colors.RESET + " — "
                 + (message == null ? "(no message)" : message));
     }
 }

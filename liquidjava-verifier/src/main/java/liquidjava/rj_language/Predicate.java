@@ -252,15 +252,15 @@ public class Predicate {
     }
 
     public ValDerivationNode simplify(Context context) {
-        DebugLog.simplificationInput(this);
-
         // collect aliases from context
         Map<String, AliasDTO> aliases = new HashMap<>();
         for (AliasWrapper aw : context.getAliases()) {
             aliases.put(aw.getName(), aw.createAliasDTO());
         }
         // simplify expression
-        return ExpressionSimplifier.simplify(exp.clone(), aliases);
+        ValDerivationNode result = ExpressionSimplifier.simplify(exp.clone(), aliases);
+        DebugLog.simplification(this.getExpression(), result.getValue());
+        return result;
     }
 
     private static boolean isBooleanLiteral(Expression expr, boolean value) {
