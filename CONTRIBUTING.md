@@ -26,6 +26,7 @@ Verify a single file from the CLI:
 ./liquidjava path/to/File.java
 ```
 
+The launcher recompiles `liquidjava-api` and `liquidjava-verifier` only when local sources or Maven files have changed.
 Code formatting runs automatically via `formatter-maven-plugin` during the `validate` phase.
 
 ## Release

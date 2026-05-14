@@ -83,6 +83,7 @@ mvn exec:java -pl liquidjava-verifier -Dexec.mainClass="liquidjava.api.CommandLi
 ```
 
 If you're on Linux/macOS, you can use the `liquidjava` script (from the repository root) to simplify the process.
+The script recompiles the verifier only when local sources or Maven files have changed.
 
 **Test a correct case**:
 ```bash
