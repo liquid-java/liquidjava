@@ -123,6 +123,13 @@ public final class DebugLog {
         System.out.println(SMT_TAG + " " + formatConclusion(conclusion));
     }
 
+    public static void simplificationInput(Predicate predicate) {
+        if (!enabled()) {
+            return;
+        }
+        System.out.println(SMT_TAG + " unsimplified: " + predicate);
+    }
+
     private static String plainLabel(VCImplication node) {
         return node.getName() + " : " + simpleType(node.getType());
     }
