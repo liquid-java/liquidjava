@@ -100,6 +100,15 @@ class VariableResolverTest {
     }
 
     @Test
+    void testRepeatedEqualDefinitionCountsAsUsage() {
+        Expression expression = parse("mode == 2 && (mode == 2 ? explicit(param) : start(param))");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
+
+        assertEquals(1, result.size(), "Repeated equalities should keep one definition and treat the other as usage");
+        assertEquals("2", result.get("mode").toString());
+    }
+
+    @Test
     void testReturnVariableIsNotSubstituted() {
         Expression expression = parse("x > 0 && #ret_1 == x");
         Map<String, Expression> result = VariableResolver.resolve(expression);

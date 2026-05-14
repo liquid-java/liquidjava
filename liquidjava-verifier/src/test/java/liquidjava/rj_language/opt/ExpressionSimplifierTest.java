@@ -658,4 +658,12 @@ class ExpressionSimplifierTest {
 
         assertEquals("start(param)", result.getValue().toString());
     }
+
+    @Test
+    void testRepeatedEqualDefinitionPropagatesIntoTernaryCondition() {
+        Expression expression = parse("mode == 2 && (mode == 2 ? explicit(param) : start(param))");
+        ValDerivationNode result = ExpressionSimplifier.simplify(expression);
+
+        assertEquals("explicit(param)", result.getValue().toString());
+    }
 }

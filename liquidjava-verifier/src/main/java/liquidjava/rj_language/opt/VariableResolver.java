@@ -27,7 +27,7 @@ public class VariableResolver {
         resolveRecursive(exp, map);
 
         // remove variables that were not used in the expression
-        map.entrySet().removeIf(entry -> !hasUsage(exp, entry.getKey(), entry.getValue()));
+        map.entrySet().removeIf(entry -> !hasUsage(exp, entry.getKey(), entry.getValue(), true));
 
         // transitively resolve variables
         return resolveTransitive(map);
@@ -136,12 +136,14 @@ public class VariableResolver {
      *
      * @param exp
      * @param name
+     * @param value
+     * @param canExcludeDefinition
      *
      * @return true if used, false otherwise
      */
-    private static boolean hasUsage(Expression exp, String name, Expression value) {
+    private static boolean hasUsage(Expression exp, String name, Expression value, boolean canExcludeDefinition) {
         // exclude own definitions
-        if (exp instanceof BinaryExpression binary && "==".equals(binary.getOperator())) {
+        if (canExcludeDefinition && exp instanceof BinaryExpression binary && "==".equals(binary.getOperator())) {
             Expression left = binary.getFirstOperand();
             Expression right = binary.getSecondOperand();
             if (left instanceof Var v && v.getName().equals(name) && right.equals(value)
@@ -167,8 +169,10 @@ public class VariableResolver {
 
         // recurse children
         if (exp.hasChildren()) {
+            boolean childCanExcludeDefinition = exp instanceof BinaryExpression binary
+                    && "&&".equals(binary.getOperator());
             for (Expression child : exp.getChildren())
-                if (hasUsage(child, name, value))
+                if (hasUsage(child, name, value, childCanExcludeDefinition))
                     return true;
         }
 
