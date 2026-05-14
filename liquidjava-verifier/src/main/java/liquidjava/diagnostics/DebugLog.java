@@ -9,6 +9,7 @@ import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.GroupExpression;
+import liquidjava.smt.Counterexample;
 import liquidjava.utils.Utils;
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.reference.CtTypeReference;
@@ -128,6 +129,16 @@ public final class DebugLog {
             return;
         }
         System.out.println(SMT_TAG + " unsimplified: " + predicate);
+    }
+
+    public static void counterexampleAssignments(Counterexample counterexample) {
+        if (!enabled() || counterexample == null || counterexample.assignments().isEmpty()) {
+            return;
+        }
+        System.out.println(SMT_TAG + " counterexample assignments:");
+        for (var assignment : counterexample.assignments()) {
+            System.out.println(SMT_TAG + "     " + assignment.first() + " = " + assignment.second());
+        }
     }
 
     private static String plainLabel(VCImplication node) {

@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import liquidjava.api.CommandLineLauncher;
+import liquidjava.diagnostics.DebugLog;
 import liquidjava.diagnostics.TranslationTable;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.formatter.VariableFormatter;
@@ -44,6 +44,8 @@ public class RefinementError extends LJError {
         if (counterexample == null || counterexample.assignments().isEmpty())
             return null;
 
+        DebugLog.counterexampleAssignments(counterexample);
+
         List<String> foundVarNames = new ArrayList<>();
         found.getValue().getVariableNames(foundVarNames);
         // also keep resolved static-final constants (e.g. Integer.MAX_VALUE) referenced by either side of the
@@ -53,8 +55,8 @@ public class RefinementError extends LJError {
         List<String> foundAssignments = found.getValue().getConjuncts().stream().map(Expression::toString).toList();
         String counterexampleString = counterexample.assignments().stream()
                 // only include variables that appear in the found value and are not already fixed there
-                .filter(a -> CommandLineLauncher.cmdArgs.debugMode || (foundVarNames.contains(a.first())
-                        && !foundAssignments.contains(a.first() + " == " + a.second())))
+                .filter(a -> foundVarNames.contains(a.first())
+                        && !foundAssignments.contains(a.first() + " == " + a.second()))
                 // format as "var == value"
                 .map(a -> VariableFormatter.format(a.first()) + " == " + a.second())
                 // join with "&&"
