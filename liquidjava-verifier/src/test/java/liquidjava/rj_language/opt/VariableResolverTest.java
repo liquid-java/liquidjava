@@ -109,6 +109,26 @@ class VariableResolverTest {
     }
 
     @Test
+    void testRepeatedEqualDefinitionsInCompoundIteConditionCountAsUsage() {
+        Expression expression = parse(
+                "mode == 2 && other == 5 && ((mode == 2 && other == 5) ? explicit(param) : start(param))");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
+
+        assertEquals(2, result.size(), "Compound ternary condition should count as a use of both variables");
+        assertEquals("2", result.get("mode").toString());
+        assertEquals("5", result.get("other").toString());
+    }
+
+    @Test
+    void testRepeatedEqualDefinitionCountsAsUsageBeforeDefinitionConjunct() {
+        Expression expression = parse("(mode == 2 ? explicit(param) : start(param)) && mode == 2");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
+
+        assertEquals(1, result.size(), "Conjunct order should not affect repeated equality usage detection");
+        assertEquals("2", result.get("mode").toString());
+    }
+
+    @Test
     void testReturnVariableIsNotSubstituted() {
         Expression expression = parse("x > 0 && #ret_1 == x");
         Map<String, Expression> result = VariableResolver.resolve(expression);
