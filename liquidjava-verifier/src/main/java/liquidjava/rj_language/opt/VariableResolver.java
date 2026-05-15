@@ -137,46 +137,34 @@ public class VariableResolver {
      * @param exp
      * @param name
      * @param value
-     * @param canExcludeDefinition
+     * @param topLevel
      *
      * @return true if used, false otherwise
      */
-    private static boolean hasUsage(Expression exp, String name, Expression value, boolean canExcludeDefinition) {
-        // exclude own definitions
-        if (canExcludeDefinition && exp instanceof BinaryExpression binary && "==".equals(binary.getOperator())) {
+    private static boolean hasUsage(Expression exp, String name, Expression value, boolean topLevel) {
+        if (topLevel && exp instanceof BinaryExpression binary && "&&".equals(binary.getOperator())) {
+            return hasUsage(binary.getFirstOperand(), name, value, true)
+                    || hasUsage(binary.getSecondOperand(), name, value, true);
+        }
+
+        if (topLevel && exp instanceof BinaryExpression binary && "==".equals(binary.getOperator())) {
             Expression left = binary.getFirstOperand();
             Expression right = binary.getSecondOperand();
-            if (left instanceof Var v && v.getName().equals(name) && right.equals(value)
-                    && (isConstant(right) || (!(right instanceof Var) && canSubstitute(v, right))))
-                return false;
-            if (left instanceof FunctionInvocation && left.toString().equals(name) && right.equals(value)
-                    && (isConstant(right) || (!(right instanceof Var) && !containsExpression(right, left))))
-                return false;
-            if (right instanceof Var v && v.getName().equals(name) && left.equals(value) && isConstant(left))
-                return false;
-            if (right instanceof FunctionInvocation && right.toString().equals(name) && left.equals(value)
-                    && isConstant(left))
+            boolean leftDefinition = name.equals(substitutionKey(left)) && right.equals(value)
+                    && (isConstant(right)
+                            || (left instanceof Var v && !(right instanceof Var) && canSubstitute(v, right))
+                            || (left instanceof FunctionInvocation && !(right instanceof Var)
+                                    && !containsExpression(right, left)));
+            boolean rightDefinition = name.equals(substitutionKey(right)) && left.equals(value) && isConstant(left);
+            if (leftDefinition || rightDefinition)
                 return false;
         }
 
-        // usage found
-        if (exp instanceof Var var && var.getName().equals(name)) {
+        if (name.equals(substitutionKey(exp)))
             return true;
-        }
-        if (exp instanceof FunctionInvocation && exp.toString().equals(name)) {
-            return true;
-        }
-
-        // recurse children
-        if (exp.hasChildren()) {
-            boolean childCanExcludeDefinition = exp instanceof BinaryExpression binary
-                    && "&&".equals(binary.getOperator());
-            for (Expression child : exp.getChildren())
-                if (hasUsage(child, name, value, childCanExcludeDefinition))
-                    return true;
-        }
-
-        // usage not found
+        for (Expression child : exp.getChildren())
+            if (hasUsage(child, name, value, false))
+                return true;
         return false;
     }
 
