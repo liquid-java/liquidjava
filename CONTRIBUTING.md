@@ -23,6 +23,8 @@ To verify a single file from the CLI, run:
 ./liquidjava path/to/File.java
 ```
 
+This script recompiles `liquidjava-api` and `liquidjava-verifier` when local sources or Maven files have changed.
+
 ## Testing
 
 To run all tests, run:

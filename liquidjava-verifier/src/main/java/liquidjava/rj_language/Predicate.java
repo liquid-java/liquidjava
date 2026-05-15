@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import liquidjava.api.CommandLineLauncher;
+import liquidjava.diagnostics.DebugLog;
 import liquidjava.diagnostics.errors.LJError;
 import liquidjava.diagnostics.errors.NotFoundError;
 import liquidjava.processor.context.AliasWrapper;
@@ -257,11 +257,10 @@ public class Predicate {
         for (AliasWrapper aw : context.getAliases()) {
             aliases.put(aw.getName(), aw.createAliasDTO());
         }
-        if (CommandLineLauncher.cmdArgs.debugMode) {
-            return new ValDerivationNode(exp.clone(), null);
-        }
         // simplify expression
-        return ExpressionSimplifier.simplify(exp.clone(), aliases);
+        ValDerivationNode result = ExpressionSimplifier.simplify(exp.clone(), aliases);
+        DebugLog.simplification(this.getExpression(), result.getValue());
+        return result;
     }
 
     private static boolean isBooleanLiteral(Expression expr, boolean value) {

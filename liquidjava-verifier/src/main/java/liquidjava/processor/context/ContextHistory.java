@@ -5,6 +5,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import liquidjava.api.CommandLineLauncher;
 import liquidjava.utils.Utils;
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.CtElement;
@@ -44,6 +45,9 @@ public class ContextHistory {
     }
 
     public void saveContext(CtElement element, Context context) {
+        if (!CommandLineLauncher.cmdArgs.lspMode)
+            return;
+
         String file = Utils.getFile(element);
         if (file == null)
             return;
