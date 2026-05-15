@@ -685,6 +685,14 @@ class ExpressionSimplifierTest {
     }
 
     @Test
+    void testRepeatedFunctionInvocationDefinitionPropagatesIntoTernaryCondition() {
+        Expression expression = parse("modeOf(param) == 2 && (modeOf(param) == 2 ? explicit(param) : start(param))");
+        ValDerivationNode result = ExpressionSimplifier.simplify(expression);
+
+        assertEquals("explicit(param)", result.getValue().toString());
+    }
+
+    @Test
     void testRepeatedEqualDefinitionsPropagateIntoNestedTernaryConditions() {
         Expression expression = parse("mode == 2 && other == 3 && (mode == 2 ? (other == 3 ? a(p) : b(p)) : c(p))");
         ValDerivationNode result = ExpressionSimplifier.simplify(expression);

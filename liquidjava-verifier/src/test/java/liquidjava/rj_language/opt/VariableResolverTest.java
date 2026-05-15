@@ -129,6 +129,32 @@ class VariableResolverTest {
     }
 
     @Test
+    void testRepeatedFunctionInvocationDefinitionCountsAsUsage() {
+        Expression expression = parse("modeOf(param) == 2 && (modeOf(param) == 2 ? explicit(param) : start(param))");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
+
+        assertEquals(1, result.size(), "Function invocation definition should count repeated nested equality as usage");
+        assertEquals("2", result.get("modeOf(param)").toString());
+    }
+
+    @Test
+    void testRepeatedExpressionDefinitionCountsAsUsage() {
+        Expression expression = parse("limit == max - 1 && (limit == max - 1 ? a(p) : b(p))");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
+
+        assertEquals(1, result.size(), "Expression definition should count repeated nested equality as usage");
+        assertEquals("max - 1", result.get("limit").toString());
+    }
+
+    @Test
+    void testRepeatedTopLevelDefinitionsOnlyDoNotCountAsUsage() {
+        Expression expression = parse("mode == 2 && mode == 2");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
+
+        assertTrue(result.isEmpty(), "Repeated top-level definitions alone should not count as usage");
+    }
+
+    @Test
     void testReturnVariableIsNotSubstituted() {
         Expression expression = parse("x > 0 && #ret_1 == x");
         Map<String, Expression> result = VariableResolver.resolve(expression);
