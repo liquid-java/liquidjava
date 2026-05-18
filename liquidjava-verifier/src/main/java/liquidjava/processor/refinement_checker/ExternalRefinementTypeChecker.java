@@ -80,11 +80,11 @@ public class ExternalRefinementTypeChecker extends TypeChecker {
             }
         } else {
             if (!methodExists(targetType, method)) {
-                String message = String.format("Could not find method '%s %s' for '%s'",
-                        method.getType().getSimpleName(), method.getSignature(), prefix);
+                String signature = String.format("%s %s", method.getType().getSimpleName(), method.getSignature());
+                String message = String.format("Could not find method '%s' for '%s'", signature, prefix);
                 String[] overloads = getOverloads(targetType, method);
-                diagnostics.add(new ExternalMethodNotFoundWarning(method.getPosition(), message, method.getSignature(),
-                        prefix, overloads));
+                diagnostics.add(
+                        new ExternalMethodNotFoundWarning(method.getPosition(), message, signature, prefix, overloads));
                 return;
             }
         }
