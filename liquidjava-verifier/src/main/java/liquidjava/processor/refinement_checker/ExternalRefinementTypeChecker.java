@@ -75,8 +75,8 @@ public class ExternalRefinementTypeChecker extends TypeChecker {
                 String signature = method.getSignature();
                 String message = String.format("Could not find constructor '%s' for '%s'", signature, prefix);
                 String[] overloads = getOverloads(targetType, method);
-                diagnostics.add(new ExternalMethodNotFoundWarning(method.getPosition(), message, signature,
-                        prefix, overloads));
+                diagnostics.add(
+                        new ExternalMethodNotFoundWarning(method.getPosition(), message, signature, prefix, overloads));
             }
         } else {
             if (!methodExists(targetType, method)) {
