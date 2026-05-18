@@ -61,9 +61,9 @@ public class ExpressionSimplifier {
             String[] prev) {
         // apply propagation and folding
         ValDerivationNode prop = VariablePropagation.propagate(prevExp, current);
-        logStep(pass, prev, "constant propagation", prop.getValue());
+        logStep(pass, prev, "variable propagation", prop.getValue());
         ValDerivationNode fold = ExpressionFolding.fold(prop);
-        logStep(pass, prev, "constant folding", fold.getValue());
+        logStep(pass, prev, "expression folding", fold.getValue());
         ValDerivationNode simplified = simplifyValDerivationNode(fold);
         logStep(pass, prev, "remove redundant && (loop)", simplified.getValue());
         Expression currExp = simplified.getValue();
