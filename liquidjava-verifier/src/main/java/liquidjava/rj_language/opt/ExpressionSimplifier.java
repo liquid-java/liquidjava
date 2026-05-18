@@ -1,5 +1,6 @@
 package liquidjava.rj_language.opt;
 
+import liquidjava.diagnostics.DebugLog;
 import liquidjava.processor.context.Context;
 import liquidjava.rj_language.Predicate;
 import java.util.Map;
@@ -23,29 +24,53 @@ public class ExpressionSimplifier {
      * expanding aliases Returns a derivation node representing the tree of simplifications applied
      */
     public static ValDerivationNode simplify(Expression exp, Map<String, AliasDTO> aliases) {
-        ValDerivationNode fixedPoint = simplifyToFixedPoint(null, exp);
+        int[] pass = { 0 };
+        // String, not Expression: the simplification passes mutate the AST in place, so storing an Expression
+        // reference would always compare equal to itself after the next pass runs. Snapshot the printed form instead.
+        String[] prev = { null };
+        DebugLog.simplificationPass(0, "initial expression", exp);
+        prev[0] = exp.toString();
+        ValDerivationNode fixedPoint = simplifyToFixedPoint(null, exp, pass, prev);
+        logStep(pass, prev, "fixed-point reached", fixedPoint.getValue());
         ValDerivationNode simplified = simplifyValDerivationNode(fixedPoint);
+        logStep(pass, prev, "remove redundant &&", simplified.getValue());
         ValDerivationNode unwrapped = unwrapBooleanLiterals(simplified);
-        return AliasExpansion.expand(unwrapped, aliases);
+        logStep(pass, prev, "unwrap boolean literals", unwrapped.getValue());
+        ValDerivationNode expanded = AliasExpansion.expand(unwrapped, aliases);
+        logStep(pass, prev, "expand aliases", expanded.getValue());
+        return expanded;
     }
 
     public static ValDerivationNode simplify(Expression exp) {
         return simplify(exp, Map.of());
     }
 
+    private static void logStep(int[] pass, String[] prev, String name, Expression result) {
+        String resultStr = result.toString();
+        DebugLog.simplificationPass(++pass[0], name, prev[0], resultStr);
+        prev[0] = resultStr;
+    }
+
     /**
      * Recursively applies propagation and folding until the expression stops changing (fixed point) Stops early if the
-     * expression simplifies to a boolean literal, which means we've simplified too much
+     * expression simplifies to a boolean literal, which means we've simplified too much. {@code pass} and {@code prev}
+     * are running counters shared with {@link #simplify} so debug output keeps a single monotonic numbering and can
+     * detect no-op steps.
      */
-    private static ValDerivationNode simplifyToFixedPoint(ValDerivationNode current, Expression prevExp) {
+    private static ValDerivationNode simplifyToFixedPoint(ValDerivationNode current, Expression prevExp, int[] pass,
+            String[] prev) {
         // apply propagation and folding
         ValDerivationNode prop = VariablePropagation.propagate(prevExp, current);
+        logStep(pass, prev, "constant propagation", prop.getValue());
         ValDerivationNode fold = ExpressionFolding.fold(prop);
+        logStep(pass, prev, "constant folding", fold.getValue());
         ValDerivationNode simplified = simplifyValDerivationNode(fold);
+        logStep(pass, prev, "remove redundant && (loop)", simplified.getValue());
         Expression currExp = simplified.getValue();
 
-        // fixed point reached
-        if (current != null && currExp.equals(current.getValue())) {
+        // fixed point reached — compare on toString() because propagate/fold/reduce mutate the AST in place, so a
+        // reference-level .equals() can trivially be true on shared (mutated) nodes
+        if (current != null && currExp.toString().equals(current.getValue().toString())) {
             return current;
         }
 
@@ -55,7 +80,7 @@ public class ExpressionSimplifier {
         }
 
         // continue simplifying
-        return simplifyToFixedPoint(simplified, simplified.getValue());
+        return simplifyToFixedPoint(simplified, simplified.getValue(), pass, prev);
     }
 
     /**
@@ -84,8 +109,9 @@ public class ExpressionSimplifier {
             if (isRedundant(rightSimplified.getValue()))
                 return leftSimplified;
 
-            // collapse identical sides (x && x => x)
-            if (leftSimplified.getValue().equals(rightSimplified.getValue())) {
+            // collapse identical sides (x && x => x) — toString() avoids false positives when the two sides share a
+            // mutated AST node and false negatives are harmless (we just keep the conjunction)
+            if (leftSimplified.getValue().toString().equals(rightSimplified.getValue().toString())) {
                 return leftSimplified;
             }
 

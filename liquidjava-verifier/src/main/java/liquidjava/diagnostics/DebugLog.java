@@ -128,14 +128,136 @@ public final class DebugLog {
 
     /**
      * Print the simplifier input and output side by side. This keeps the raw expression visible in debug traces while
-     * callers continue using the simplified expression for user-facing diagnostics.
+     * callers continue using the simplified expression for user-facing diagnostics. Long predicates are split on
+     * top-level {@code &&} so each conjunct lands on its own line.
      */
     public static void simplification(Expression input, Expression output) {
         if (!enabled()) {
             return;
         }
-        System.out.println(SMP_TAG + " Before simplification: " + Colors.YELLOW + input + Colors.RESET);
-        System.out.println(SMP_TAG + " After simplification:  " + Colors.BOLD_YELLOW + output + Colors.RESET);
+        printSplitConjunction("Before simplification:", Colors.YELLOW, input);
+        printSplitConjunction("After simplification: ", Colors.BOLD_YELLOW, output);
+    }
+
+    private static void printSplitConjunction(String header, String color, Expression exp) {
+        List<Expression> conjuncts = new ArrayList<>();
+        flattenConjunction(exp, conjuncts);
+        if (conjuncts.size() <= 1) {
+            System.out.println(SMP_TAG + " " + header + " " + color + exp + Colors.RESET);
+            return;
+        }
+        System.out.println(SMP_TAG + " " + header);
+        String joiner = " " + Colors.GREY + "&&" + Colors.RESET;
+        for (int i = 0; i < conjuncts.size(); i++) {
+            String suffix = (i < conjuncts.size() - 1) ? joiner : "";
+            System.out.println(SMP_TAG + "   " + color + conjuncts.get(i) + Colors.RESET + suffix);
+        }
+    }
+
+    private static final String PASS_NAME_COLOR = Colors.GOLD;
+    private static final int PASS_NAME_WIDTH = 28;
+
+    /**
+     * One line per simplifier phase. {@code pass} is a running counter inside a single {@code simplify()} call.
+     */
+    public static void simplificationPass(int pass, String name, Expression result) {
+        if (!enabled()) {
+            return;
+        }
+        System.out.printf("%s pass %02d: %s%n %s%n", SMP_TAG, pass, paintPassName(name), result);
+    }
+
+    /**
+     * Same as {@link #simplificationPass(int, String, Expression)} but prints {@code (no change)} when the step left
+     * the expression unchanged, and otherwise emits a unified-diff-style pair (red {@code -} for the previous
+     * expression with removed tokens highlighted, green {@code +} for the new one with added tokens highlighted), so
+     * substitutions inside a long predicate are obvious at a glance.
+     *
+     * <p>
+     * {@code previous} is taken as a string rather than an {@link Expression} because the simplifier mutates the AST in
+     * place: caching an {@code Expression} reference and re-stringifying it after a later pass would yield the
+     * already-mutated form, masking real changes as "no change". The caller is expected to snapshot the printed form at
+     * the moment the previous pass ran.
+     */
+    public static void simplificationPass(int pass, String name, String previous, String result) {
+        if (!enabled()) {
+            return;
+        }
+        if (previous != null && previous.equals(result)) {
+            System.out.printf("%s pass %02d: %s %s(no change)%s%n", SMP_TAG, pass, paintPassName(name), Colors.GREY,
+                    Colors.RESET);
+            return;
+        }
+        System.out.printf("%s pass %02d: %s%s%s%n", SMP_TAG, pass, PASS_NAME_COLOR, name, Colors.RESET);
+        if (previous == null) {
+            System.out.printf("%s   %s%n", SMP_TAG, result);
+            return;
+        }
+        String[] diff = wordDiff(previous, result);
+        System.out.printf("%s   %s-%s %s%n", SMP_TAG, Colors.RED, Colors.RESET, diff[0]);
+        System.out.printf("%s   %s+%s %s%n", SMP_TAG, Colors.GREEN, Colors.RESET, diff[1]);
+    }
+
+    /**
+     * Color the pass name without breaking column alignment: pad to {@link #PASS_NAME_WIDTH} first, then wrap only the
+     * visible characters in {@link #PASS_NAME_COLOR}. The trailing spaces stay uncolored so {@code printf}'s width
+     * accounting stays correct.
+     */
+    private static String paintPassName(String name) {
+        int pad = Math.max(0, PASS_NAME_WIDTH - name.length());
+        return PASS_NAME_COLOR + name + Colors.RESET + " ".repeat(pad);
+    }
+
+    /**
+     * Word-level LCS diff. Returns {@code [previousColored, currentColored]} where tokens that don't appear in the LCS
+     * are wrapped in red (for the previous string) and green (for the current string). Splitting on a single space is
+     * intentional — the {@link Expression#toString()} output spaces operators and operands.
+     */
+    private static String[] wordDiff(String previous, String current) {
+        String[] prev = previous.split(" ");
+        String[] curr = current.split(" ");
+        int[][] dp = new int[prev.length + 1][curr.length + 1];
+        for (int i = 1; i <= prev.length; i++) {
+            for (int j = 1; j <= curr.length; j++) {
+                if (prev[i - 1].equals(curr[j - 1])) {
+                    dp[i][j] = dp[i - 1][j - 1] + 1;
+                } else {
+                    dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+                }
+            }
+        }
+        boolean[] prevKept = new boolean[prev.length];
+        boolean[] currKept = new boolean[curr.length];
+        int i = prev.length;
+        int j = curr.length;
+        while (i > 0 && j > 0) {
+            if (prev[i - 1].equals(curr[j - 1])) {
+                prevKept[i - 1] = true;
+                currKept[j - 1] = true;
+                i--;
+                j--;
+            } else if (dp[i - 1][j] >= dp[i][j - 1]) {
+                i--;
+            } else {
+                j--;
+            }
+        }
+        return new String[] { colorizeDiff(prev, prevKept, Colors.RED), colorizeDiff(curr, currKept, Colors.GREEN) };
+    }
+
+    private static String colorizeDiff(String[] tokens, boolean[] kept, String color) {
+        StringBuilder sb = new StringBuilder();
+        for (int k = 0; k < tokens.length; k++) {
+            if (k > 0) {
+                sb.append(' ');
+            }
+            if (kept[k]) {
+                sb.append(tokens[k]);
+            } else {
+                sb.append(color).append(tokens[k]).append(Colors.RESET);
+            }
+        }
+        return sb.toString();
     }
 
     private static String plainLabel(VCImplication node) {
