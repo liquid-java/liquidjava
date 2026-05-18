@@ -100,6 +100,61 @@ class VariableResolverTest {
     }
 
     @Test
+    void testRepeatedEqualDefinitionCountsAsUsage() {
+        Expression expression = parse("mode == 2 && (mode == 2 ? explicit(param) : start(param))");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
+
+        assertEquals(1, result.size(), "Repeated equalities should keep one definition and treat the other as usage");
+        assertEquals("2", result.get("mode").toString());
+    }
+
+    @Test
+    void testRepeatedEqualDefinitionsInCompoundIteConditionCountAsUsage() {
+        Expression expression = parse(
+                "mode == 2 && other == 5 && ((mode == 2 && other == 5) ? explicit(param) : start(param))");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
+
+        assertEquals(2, result.size(), "Compound ternary condition should count as a use of both variables");
+        assertEquals("2", result.get("mode").toString());
+        assertEquals("5", result.get("other").toString());
+    }
+
+    @Test
+    void testRepeatedEqualDefinitionCountsAsUsageBeforeDefinitionConjunct() {
+        Expression expression = parse("(mode == 2 ? explicit(param) : start(param)) && mode == 2");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
+
+        assertEquals(1, result.size(), "Conjunct order should not affect repeated equality usage detection");
+        assertEquals("2", result.get("mode").toString());
+    }
+
+    @Test
+    void testRepeatedFunctionInvocationDefinitionCountsAsUsage() {
+        Expression expression = parse("modeOf(param) == 2 && (modeOf(param) == 2 ? explicit(param) : start(param))");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
+
+        assertEquals(1, result.size(), "Function invocation definition should count repeated nested equality as usage");
+        assertEquals("2", result.get("modeOf(param)").toString());
+    }
+
+    @Test
+    void testRepeatedExpressionDefinitionCountsAsUsage() {
+        Expression expression = parse("limit == max - 1 && (limit == max - 1 ? a(p) : b(p))");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
+
+        assertEquals(1, result.size(), "Expression definition should count repeated nested equality as usage");
+        assertEquals("max - 1", result.get("limit").toString());
+    }
+
+    @Test
+    void testRepeatedTopLevelDefinitionsOnlyDoNotCountAsUsage() {
+        Expression expression = parse("mode == 2 && mode == 2");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
+
+        assertTrue(result.isEmpty(), "Repeated top-level definitions alone should not count as usage");
+    }
+
+    @Test
     void testReturnVariableIsNotSubstituted() {
         Expression expression = parse("x > 0 && #ret_1 == x");
         Map<String, Expression> result = VariableResolver.resolve(expression);

@@ -7,27 +7,40 @@ Thanks for your interest in contributing! This guide covers the essentials.
 - Java 20+
 - Maven 3.6+
 
-## Build & test
+## Build and Run
+
+To build the project, run:
 
 ```bash
-mvn clean install   # build everything
-mvn test            # run the test suite
+mvn clean install
 ```
 
-Run a single test:
+Code formatting runs automatically via `formatter-maven-plugin` during the `validate` phase.
 
-```bash
-mvn -pl liquidjava-verifier -Dtest=TestExamples#testMultiplePaths test
-```
-
-Verify a single file from the CLI:
+To verify a single file from the CLI, run:
 
 ```bash
 ./liquidjava path/to/File.java
 ```
 
-The launcher recompiles `liquidjava-api` and `liquidjava-verifier` only when local sources or Maven files have changed.
-Code formatting runs automatically via `formatter-maven-plugin` during the `validate` phase.
+This script recompiles `liquidjava-api` and `liquidjava-verifier` when local sources or Maven files have changed.
+
+## Testing
+
+To run all tests, run:
+
+```bash
+mvn test
+```
+
+To run specific tests, run:
+
+```bash
+mvn -pl liquidjava-verifier -Dtest=ExpressionFormatterTest test
+mvn -pl liquidjava-verifier -Dtest=ExpressionSimplifierTest test
+mvn -pl liquidjava-verifier -Dtest=RefinementsParserTest test
+mvn -pl liquidjava-verifier -Dtest=VariableResolverTest test
+```
 
 ## Release
 
