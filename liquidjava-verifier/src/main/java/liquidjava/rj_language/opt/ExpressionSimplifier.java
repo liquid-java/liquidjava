@@ -24,20 +24,15 @@ public class ExpressionSimplifier {
      * expanding aliases Returns a derivation node representing the tree of simplifications applied
      */
     public static ValDerivationNode simplify(Expression exp, Map<String, AliasDTO> aliases) {
-        int[] pass = { 0 };
-        // String, not Expression: the simplification passes mutate the AST in place, so storing an Expression
-        // reference would always compare equal to itself after the next pass runs. Snapshot the printed form instead.
-        String[] prev = { null };
-        DebugLog.simplificationPass(0, "initial expression", exp);
-        prev[0] = exp.toString();
-        ValDerivationNode fixedPoint = simplifyToFixedPoint(null, exp, pass, prev);
-        logStep(pass, prev, "fixed-point reached", fixedPoint.getValue());
+        DebugLog.simplificationStart(exp);
+        ValDerivationNode fixedPoint = simplifyToFixedPoint(null, exp);
+        DebugLog.simplificationPass("fixed-point reached", fixedPoint.getValue());
         ValDerivationNode simplified = simplifyValDerivationNode(fixedPoint);
-        logStep(pass, prev, "remove redundant &&", simplified.getValue());
+        DebugLog.simplificationPass("remove redundant &&", simplified.getValue());
         ValDerivationNode unwrapped = unwrapBooleanLiterals(simplified);
-        logStep(pass, prev, "unwrap boolean literals", unwrapped.getValue());
+        DebugLog.simplificationPass("unwrap boolean literals", unwrapped.getValue());
         ValDerivationNode expanded = AliasExpansion.expand(unwrapped, aliases);
-        logStep(pass, prev, "expand aliases", expanded.getValue());
+        DebugLog.simplificationPass("expand aliases", expanded.getValue());
         return expanded;
     }
 
@@ -45,27 +40,12 @@ public class ExpressionSimplifier {
         return simplify(exp, Map.of());
     }
 
-    private static void logStep(int[] pass, String[] prev, String name, Expression result) {
-        String resultStr = result.toString();
-        DebugLog.simplificationPass(++pass[0], name, prev[0], resultStr);
-        prev[0] = resultStr;
-    }
-
     /**
      * Recursively applies propagation and folding until the expression stops changing (fixed point) Stops early if the
-     * expression simplifies to a boolean literal, which means we've simplified too much. {@code pass} and {@code prev}
-     * are running counters shared with {@link #simplify} so debug output keeps a single monotonic numbering and can
-     * detect no-op steps.
+     * expression simplifies to a boolean literal, which means we've simplified too much.
      */
-    private static ValDerivationNode simplifyToFixedPoint(ValDerivationNode current, Expression prevExp, int[] pass,
-            String[] prev) {
-        // apply propagation and folding
-        ValDerivationNode prop = VariablePropagation.propagate(prevExp, current);
-        logStep(pass, prev, "variable propagation", prop.getValue());
-        ValDerivationNode fold = ExpressionFolding.fold(prop);
-        logStep(pass, prev, "expression folding", fold.getValue());
-        ValDerivationNode simplified = simplifyValDerivationNode(fold);
-        logStep(pass, prev, "remove redundant && (loop)", simplified.getValue());
+    private static ValDerivationNode simplifyToFixedPoint(ValDerivationNode current, Expression prevExp) {
+        ValDerivationNode simplified = simplifyOnce(current, prevExp);
         Expression currExp = simplified.getValue();
 
         // fixed point reached — compare on toString() because propagate/fold/reduce mutate the AST in place, so a
@@ -80,7 +60,17 @@ public class ExpressionSimplifier {
         }
 
         // continue simplifying
-        return simplifyToFixedPoint(simplified, simplified.getValue(), pass, prev);
+        return simplifyToFixedPoint(simplified, simplified.getValue());
+    }
+
+    private static ValDerivationNode simplifyOnce(ValDerivationNode current, Expression prevExp) {
+        ValDerivationNode prop = VariablePropagation.propagate(prevExp, current);
+        DebugLog.simplificationPass("variable propagation", prop.getValue());
+        ValDerivationNode fold = ExpressionFolding.fold(prop);
+        DebugLog.simplificationPass("expression folding", fold.getValue());
+        ValDerivationNode simplified = simplifyValDerivationNode(fold);
+        DebugLog.simplificationPass("remove redundant && (loop)", simplified.getValue());
+        return simplified;
     }
 
     /**

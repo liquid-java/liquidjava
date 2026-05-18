@@ -2,15 +2,12 @@ package liquidjava.diagnostics;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
-
 import liquidjava.api.CommandLineLauncher;
 import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.GroupExpression;
-import liquidjava.smt.Counterexample;
 import liquidjava.utils.Utils;
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.reference.CtTypeReference;
@@ -156,33 +153,45 @@ public final class DebugLog {
 
     private static final String PASS_NAME_COLOR = Colors.GOLD;
     private static final int PASS_NAME_WIDTH = 28;
+    private static int simplificationPass;
+    private static String previousSimplification;
 
     /**
-     * One line per simplifier phase. {@code pass} is a running counter inside a single {@code simplify()} call.
+     * Start a simplification log. DebugLog owns the running pass number and the previous expression snapshot because
+     * both are only needed for debug output.
      */
-    public static void simplificationPass(int pass, String name, Expression result) {
+    public static void simplificationStart(Expression input) {
         if (!enabled()) {
             return;
         }
-        System.out.printf("%s pass %02d: %s%n %s%n", SMP_TAG, pass, paintPassName(name), result);
+        previousSimplification = input.toString();
+        simplificationPass = 0;
+        printSimplificationPass(simplificationPass, "initial expression", previousSimplification);
     }
 
     /**
-     * Same as {@link #simplificationPass(int, String, Expression)} but prints {@code (no change)} when the step left
-     * the expression unchanged, and otherwise emits a unified-diff-style pair (red {@code -} for the previous
-     * expression with removed tokens highlighted, green {@code +} for the new one with added tokens highlighted), so
-     * substitutions inside a long predicate are obvious at a glance.
+     * One line per simplifier phase.
+     */
+    public static void simplificationPass(String name, Expression result) {
+        if (!enabled()) {
+            return;
+        }
+        String resultStr = result.toString();
+        printSimplificationPass(++simplificationPass, name, previousSimplification, resultStr);
+        previousSimplification = resultStr;
+    }
+
+    /**
+     * Prints {@code (no change)} when the step left the expression unchanged, and otherwise emits a unified-diff-style
+     * pair (red {@code -} for the previous expression with removed tokens highlighted, green {@code +} for the new one
+     * with added tokens highlighted), so substitutions inside a long predicate are obvious at a glance.
      *
      * <p>
      * {@code previous} is taken as a string rather than an {@link Expression} because the simplifier mutates the AST in
      * place: caching an {@code Expression} reference and re-stringifying it after a later pass would yield the
-     * already-mutated form, masking real changes as "no change". The caller is expected to snapshot the printed form at
-     * the moment the previous pass ran.
+     * already-mutated form, masking real changes as "no change".
      */
-    public static void simplificationPass(int pass, String name, String previous, String result) {
-        if (!enabled()) {
-            return;
-        }
+    private static void printSimplificationPass(int pass, String name, String previous, String result) {
         if (previous != null && previous.equals(result)) {
             System.out.printf("%s pass %02d: %s %s(no change)%s%n", SMP_TAG, pass, paintPassName(name), Colors.GREY,
                     Colors.RESET);
@@ -196,6 +205,10 @@ public final class DebugLog {
         String[] diff = wordDiff(previous, result);
         System.out.printf("%s   %s-%s %s%n", SMP_TAG, Colors.RED, Colors.RESET, diff[0]);
         System.out.printf("%s   %s+%s %s%n", SMP_TAG, Colors.GREEN, Colors.RESET, diff[1]);
+    }
+
+    private static void printSimplificationPass(int pass, String name, String result) {
+        System.out.printf("%s pass %02d: %s%n %s%n", SMP_TAG, pass, paintPassName(name), result);
     }
 
     /**
