@@ -9,20 +9,20 @@ import spoon.reflect.cu.SourcePosition;
  */
 public class ExternalMethodNotFoundWarning extends LJWarning {
 
-    private final String methodName;
+    private final String signature;
     private final String className;
     private final String[] overloads;
 
-    public ExternalMethodNotFoundWarning(SourcePosition position, String message, String methodName, String className,
+    public ExternalMethodNotFoundWarning(SourcePosition position, String message, String signature, String className,
             String[] overloads) {
         super(message, position);
-        this.methodName = methodName;
+        this.signature = signature;
         this.className = className;
         this.overloads = overloads;
     }
 
-    public String getMethodName() {
-        return methodName;
+    public String getSignature() {
+        return signature;
     }
 
     public String getClassName() {

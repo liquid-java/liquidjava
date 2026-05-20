@@ -393,7 +393,7 @@ public class VCChecker {
         VCImplication foundState = joinPredicates(found, mainVars, lrv, map);
         Predicate foundConjunction = new Predicate(foundState.toConjunctions().simplify(context).getValue())
                 .addDerivedStateEqualities(context.getGhostStates());
-        throw new StateRefinementError(position, expected.getExpression(), foundConjunction.getExpression(), map,
+        throw new StateRefinementError(position, expected.simplify(context), foundConjunction.simplify(context), map,
                 customMessage);
     }
 

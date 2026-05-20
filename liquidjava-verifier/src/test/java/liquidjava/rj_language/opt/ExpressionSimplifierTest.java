@@ -658,4 +658,53 @@ class ExpressionSimplifierTest {
 
         assertEquals("start(param)", result.getValue().toString());
     }
+
+    @Test
+    void testRepeatedEqualDefinitionPropagatesIntoTernaryCondition() {
+        Expression expression = parse("mode == 2 && (mode == 2 ? explicit(param) : start(param))");
+        ValDerivationNode result = ExpressionSimplifier.simplify(expression);
+
+        assertEquals("explicit(param)", result.getValue().toString());
+    }
+
+    @Test
+    void testRepeatedEqualDefinitionsPropagateIntoCompoundTernaryCondition() {
+        Expression expression = parse(
+                "mode == 2 && other == 5 && ((mode == 2 && other == 5) ? explicit(param) : start(param))");
+        ValDerivationNode result = ExpressionSimplifier.simplify(expression);
+
+        assertEquals("explicit(param)", result.getValue().toString());
+    }
+
+    @Test
+    void testRepeatedEqualDefinitionPropagatesWhenUsageComesFirst() {
+        Expression expression = parse("(mode == 2 ? explicit(param) : start(param)) && mode == 2");
+        ValDerivationNode result = ExpressionSimplifier.simplify(expression);
+
+        assertEquals("explicit(param)", result.getValue().toString());
+    }
+
+    @Test
+    void testRepeatedFunctionInvocationDefinitionPropagatesIntoTernaryCondition() {
+        Expression expression = parse("modeOf(param) == 2 && (modeOf(param) == 2 ? explicit(param) : start(param))");
+        ValDerivationNode result = ExpressionSimplifier.simplify(expression);
+
+        assertEquals("explicit(param)", result.getValue().toString());
+    }
+
+    @Test
+    void testRepeatedEqualDefinitionsPropagateIntoNestedTernaryConditions() {
+        Expression expression = parse("mode == 2 && other == 3 && (mode == 2 ? (other == 3 ? a(p) : b(p)) : c(p))");
+        ValDerivationNode result = ExpressionSimplifier.simplify(expression);
+
+        assertEquals("a(p)", result.getValue().toString());
+    }
+
+    @Test
+    void testRepeatedEqualDefinitionsPropagateIntoNestedTernaryElseBranch() {
+        Expression expression = parse("mode == 2 && other == 4 && (mode == 2 ? (other == 3 ? a(p) : b(p)) : c(p))");
+        ValDerivationNode result = ExpressionSimplifier.simplify(expression);
+
+        assertEquals("b(p)", result.getValue().toString());
+    }
 }

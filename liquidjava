@@ -1,4 +1,20 @@
 #!/bin/bash
+set -e
+
+cd "$(dirname "$0")"
+
+MARKER="liquidjava-verifier/target/.liquidjava-last-compile"
+
+if [ ! -d liquidjava-api/target/classes ] || \
+   [ ! -d liquidjava-verifier/target/classes ] || \
+   [ ! -f "$MARKER" ] || \
+   find pom.xml liquidjava-api/pom.xml liquidjava-api/src/main/java \
+     liquidjava-verifier/pom.xml liquidjava-verifier/src/main/java liquidjava-verifier/src/main/antlr4 \
+     -newer "$MARKER" -print -quit | grep -q .; then
+  mvn compile -pl liquidjava-verifier -am -Dmaven.compiler.useIncrementalCompilation=false
+  touch "$MARKER"
+fi
+
 mvn exec:java -pl liquidjava-verifier \
   -Dexec.mainClass="liquidjava.api.CommandLineLauncher" \
   -Dexec.args="$*"

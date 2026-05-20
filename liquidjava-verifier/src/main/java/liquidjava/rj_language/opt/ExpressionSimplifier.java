@@ -1,5 +1,6 @@
 package liquidjava.rj_language.opt;
 
+import liquidjava.diagnostics.DebugLog;
 import liquidjava.processor.context.Context;
 import liquidjava.rj_language.Predicate;
 import java.util.Map;
@@ -23,10 +24,16 @@ public class ExpressionSimplifier {
      * expanding aliases Returns a derivation node representing the tree of simplifications applied
      */
     public static ValDerivationNode simplify(Expression exp, Map<String, AliasDTO> aliases) {
+        DebugLog.simplificationStart(exp);
         ValDerivationNode fixedPoint = simplifyToFixedPoint(null, exp);
+        DebugLog.simplificationPass("fixed-point reached", fixedPoint.getValue());
         ValDerivationNode simplified = simplifyValDerivationNode(fixedPoint);
+        DebugLog.simplificationPass("remove redundant &&", simplified.getValue());
         ValDerivationNode unwrapped = unwrapBooleanLiterals(simplified);
-        return AliasExpansion.expand(unwrapped, aliases);
+        DebugLog.simplificationPass("unwrap boolean literals", unwrapped.getValue());
+        ValDerivationNode expanded = AliasExpansion.expand(unwrapped, aliases);
+        DebugLog.simplificationPass("expand aliases", expanded.getValue());
+        return expanded;
     }
 
     public static ValDerivationNode simplify(Expression exp) {
@@ -35,17 +42,15 @@ public class ExpressionSimplifier {
 
     /**
      * Recursively applies propagation and folding until the expression stops changing (fixed point) Stops early if the
-     * expression simplifies to a boolean literal, which means we've simplified too much
+     * expression simplifies to a boolean literal, which means we've simplified too much.
      */
     private static ValDerivationNode simplifyToFixedPoint(ValDerivationNode current, Expression prevExp) {
-        // apply propagation and folding
-        ValDerivationNode prop = VariablePropagation.propagate(prevExp, current);
-        ValDerivationNode fold = ExpressionFolding.fold(prop);
-        ValDerivationNode simplified = simplifyValDerivationNode(fold);
+        ValDerivationNode simplified = simplifyOnce(current, prevExp);
         Expression currExp = simplified.getValue();
 
-        // fixed point reached
-        if (current != null && currExp.equals(current.getValue())) {
+        // fixed point reached — compare on toString() because propagate/fold/reduce mutate the AST in place, so a
+        // reference-level .equals() can trivially be true on shared (mutated) nodes
+        if (current != null && currExp.toString().equals(current.getValue().toString())) {
             return current;
         }
 
@@ -56,6 +61,16 @@ public class ExpressionSimplifier {
 
         // continue simplifying
         return simplifyToFixedPoint(simplified, simplified.getValue());
+    }
+
+    private static ValDerivationNode simplifyOnce(ValDerivationNode current, Expression prevExp) {
+        ValDerivationNode prop = VariablePropagation.propagate(prevExp, current);
+        DebugLog.simplificationPass("variable propagation", prop.getValue());
+        ValDerivationNode fold = ExpressionFolding.fold(prop);
+        DebugLog.simplificationPass("expression folding", fold.getValue());
+        ValDerivationNode simplified = simplifyValDerivationNode(fold);
+        DebugLog.simplificationPass("remove redundant && (loop)", simplified.getValue());
+        return simplified;
     }
 
     /**
@@ -84,8 +99,9 @@ public class ExpressionSimplifier {
             if (isRedundant(rightSimplified.getValue()))
                 return leftSimplified;
 
-            // collapse identical sides (x && x => x)
-            if (leftSimplified.getValue().equals(rightSimplified.getValue())) {
+            // collapse identical sides (x && x => x) — toString() avoids false positives when the two sides share a
+            // mutated AST node and false negatives are harmless (we just keep the conjunction)
+            if (leftSimplified.getValue().toString().equals(rightSimplified.getValue().toString())) {
                 return leftSimplified;
             }
 

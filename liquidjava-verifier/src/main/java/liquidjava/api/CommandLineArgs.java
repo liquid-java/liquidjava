@@ -22,6 +22,9 @@ public class CommandLineArgs {
     @Option(names = { "-d", "--debug" }, description = "Enable debug mode for more detailed output")
     public boolean debugMode;
 
+    @Option(names = { "-lsp", "--language-server" }, description = "Enable language server mode for editor support")
+    public boolean lspMode;
+
     @Parameters(arity = "1..*", paramLabel = "<...paths>", description = "Paths to be verified by LiquidJava")
     public List<String> paths;
 

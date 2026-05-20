@@ -83,6 +83,17 @@ mvn exec:java -pl liquidjava-verifier -Dexec.mainClass="liquidjava.api.CommandLi
 ```
 
 If you're on Linux/macOS, you can use the `liquidjava` script (from the repository root) to simplify the process.
+The script recompiles the verifier only when local sources or Maven files have changed.
+
+The LiquidJava verifier can be run from the command line with the following options:
+
+| Option | Description |
+| --- | --- |
+| `<...paths>` | Paths (files or directories) to be verified by LiquidJava |
+| `-h`, `--help` | Show the help message with available options |
+| `-v`, `--version` | Show the current version of the verifier |
+| `-d`, `--debug` | Enable debug logging and skip expression simplification for troubleshooting |
+| `-lsp`, `--language-server` | Enable language server mode for editor support |
 
 **Test a correct case**:
 ```bash
