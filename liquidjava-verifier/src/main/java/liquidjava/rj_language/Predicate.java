@@ -257,8 +257,9 @@ public class Predicate {
         for (AliasWrapper aw : context.getAliases()) {
             aliases.put(aw.getName(), aw.createAliasDTO());
         }
-        // simplify expression
-        ValDerivationNode result = ExpressionSimplifier.simplify(exp.clone(), aliases);
+        // simplify expression — ghost states let the simplifier rewrite internal state equalities into
+        // developer-facing state predicates for error messages
+        ValDerivationNode result = ExpressionSimplifier.simplify(exp.clone(), aliases, context.getGhostStates());
         DebugLog.simplification(this.getExpression(), result.getValue());
         return result;
     }

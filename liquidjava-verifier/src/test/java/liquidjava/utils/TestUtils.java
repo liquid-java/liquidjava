@@ -17,6 +17,7 @@ import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.opt.derivation_node.BinaryDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.DerivationNode;
 import liquidjava.rj_language.opt.derivation_node.IteDerivationNode;
+import liquidjava.rj_language.opt.derivation_node.StateDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.UnaryDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.ValDerivationNode;
 import liquidjava.rj_language.opt.derivation_node.VarDerivationNode;
@@ -126,6 +127,12 @@ public class TestUtils {
             assertDerivationEquals(expectedIte.getCondition(), actualIte.getCondition(), message + " > condition");
             assertDerivationEquals(expectedIte.getThenBranch(), actualIte.getThenBranch(), message + " > then");
             assertDerivationEquals(expectedIte.getElseBranch(), actualIte.getElseBranch(), message + " > else");
+        } else if (expected instanceof StateDerivationNode expectedState) {
+            StateDerivationNode actualState = (StateDerivationNode) actual;
+            assertDerivationEquals(expectedState.getSourceEquality(), actualState.getSourceEquality(),
+                    message + " > sourceEquality");
+            assertDerivationEquals(expectedState.getSourceState(), actualState.getSourceState(),
+                    message + " > sourceState");
         }
     }
 
