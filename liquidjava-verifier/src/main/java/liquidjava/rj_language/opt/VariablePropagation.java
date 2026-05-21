@@ -15,6 +15,9 @@ import liquidjava.rj_language.opt.derivation_node.VarDerivationNode;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+
+import liquidjava.utils.Utils;
 
 public class VariablePropagation {
 
@@ -24,7 +27,27 @@ public class VariablePropagation {
      * steps taken.
      */
     public static ValDerivationNode propagate(Expression exp, ValDerivationNode previousOrigin) {
+        return propagate(exp, previousOrigin, Set.of());
+    }
+
+    /**
+     * Variant of {@link #propagate(Expression, ValDerivationNode)} that leaves ghost-state equalities intact.
+     *
+     * <p>
+     * Substitutions of the form {@code stateN(x) -> stateN(y)} (both sides invocations of a ghost-state function named
+     * in {@code protectedStateFunctions}) are dropped before propagation. Collapsing them would erase the shared middle
+     * term of an equality chain ({@code state1(a)==state1(b) && state1(b)==state1(c)}), which state-equality derivation
+     * needs whole. These equalities are an SMT artifact consumed only by error-message derivation.
+     */
+    public static ValDerivationNode propagate(Expression exp, ValDerivationNode previousOrigin,
+            Set<String> protectedStateFunctions) {
         Map<String, Expression> substitutions = VariableResolver.resolve(exp);
+        if (!protectedStateFunctions.isEmpty()) {
+            substitutions.entrySet()
+                    .removeIf(e -> isProtectedStateInvocation(e.getKey(), protectedStateFunctions)
+                            && e.getValue()instanceof FunctionInvocation fi
+                            && protectedStateFunctions.contains(Utils.getSimpleName(fi.getName())));
+        }
         Map<String, Expression> directSubstitutions = new HashMap<>(); // var == literal or var == var
         Map<String, Expression> expressionSubstitutions = new HashMap<>(); // var == expression
         for (Map.Entry<String, Expression> entry : substitutions.entrySet()) {
@@ -44,6 +67,12 @@ public class VariablePropagation {
         Map<String, Expression> activeSubstitutions = directSubstitutions.isEmpty() ? expressionSubstitutions
                 : directSubstitutions;
         return propagateRecursive(exp, activeSubstitutions, varOrigins);
+    }
+
+    /** A substitution key {@code f(...)} whose function {@code f} is one of the protected ghost-state functions. */
+    private static boolean isProtectedStateInvocation(String key, Set<String> stateFunctions) {
+        int paren = key.indexOf('(');
+        return paren > 0 && stateFunctions.contains(Utils.getSimpleName(key.substring(0, paren)));
     }
 
     /**

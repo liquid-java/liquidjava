@@ -391,10 +391,11 @@ public class VCChecker {
         gatherVariables(found, lrv, mainVars);
         TranslationTable map = new TranslationTable();
         VCImplication foundState = joinPredicates(found, mainVars, lrv, map);
-        Predicate foundConjunction = new Predicate(foundState.toConjunctions().simplify(context).getValue())
-                .addDerivedStateEqualities(context.getGhostStates());
-        throw new StateRefinementError(position, expected.simplify(context), foundConjunction.simplify(context), map,
-                customMessage);
+        // simplify(context) folds the found-state predicate and, in the same pass, rewrites internal
+        // ghost-state equalities into developer-facing state predicates (see ExpressionSimplifier /
+        // StateDerivation). The resulting ValDerivationNode keeps the provenance of that rewrite.
+        throw new StateRefinementError(position, expected.simplify(context),
+                foundState.toConjunctions().simplify(context), map, customMessage);
     }
 
     protected void throwStateConflictError(SourcePosition position, Predicate expected) throws StateConflictError {

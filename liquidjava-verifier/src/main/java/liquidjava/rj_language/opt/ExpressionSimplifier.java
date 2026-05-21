@@ -2,7 +2,9 @@ package liquidjava.rj_language.opt;
 
 import liquidjava.diagnostics.DebugLog;
 import liquidjava.processor.context.Context;
+import liquidjava.processor.context.GhostState;
 import liquidjava.rj_language.Predicate;
+import java.util.List;
 import java.util.Map;
 
 import liquidjava.processor.facade.AliasDTO;
@@ -23,9 +25,10 @@ public class ExpressionSimplifier {
      * Simplifies an expression by applying constant propagation, constant folding, removing redundant conjuncts and
      * expanding aliases Returns a derivation node representing the tree of simplifications applied
      */
-    public static ValDerivationNode simplify(Expression exp, Map<String, AliasDTO> aliases) {
+    public static ValDerivationNode simplify(Expression exp, Map<String, AliasDTO> aliases,
+            List<GhostState> ghostStates) {
         DebugLog.simplificationStart(exp);
-        ValDerivationNode fixedPoint = simplifyToFixedPoint(null, exp);
+        ValDerivationNode fixedPoint = simplifyToFixedPoint(null, exp, ghostStates);
         DebugLog.simplificationPass("fixed-point reached", fixedPoint.getValue());
         ValDerivationNode simplified = simplifyValDerivationNode(fixedPoint);
         DebugLog.simplificationPass("remove redundant &&", simplified.getValue());
@@ -36,16 +39,21 @@ public class ExpressionSimplifier {
         return expanded;
     }
 
+    public static ValDerivationNode simplify(Expression exp, Map<String, AliasDTO> aliases) {
+        return simplify(exp, aliases, List.of());
+    }
+
     public static ValDerivationNode simplify(Expression exp) {
-        return simplify(exp, Map.of());
+        return simplify(exp, Map.of(), List.of());
     }
 
     /**
      * Recursively applies propagation and folding until the expression stops changing (fixed point) Stops early if the
      * expression simplifies to a boolean literal, which means we've simplified too much.
      */
-    private static ValDerivationNode simplifyToFixedPoint(ValDerivationNode current, Expression prevExp) {
-        ValDerivationNode simplified = simplifyOnce(current, prevExp);
+    private static ValDerivationNode simplifyToFixedPoint(ValDerivationNode current, Expression prevExp,
+            List<GhostState> ghostStates) {
+        ValDerivationNode simplified = simplifyOnce(current, prevExp, ghostStates);
         Expression currExp = simplified.getValue();
 
         // fixed point reached — compare on toString() because propagate/fold/reduce mutate the AST in place, so a
@@ -60,15 +68,25 @@ public class ExpressionSimplifier {
         }
 
         // continue simplifying
-        return simplifyToFixedPoint(simplified, simplified.getValue());
+        return simplifyToFixedPoint(simplified, simplified.getValue(), ghostStates);
     }
 
-    private static ValDerivationNode simplifyOnce(ValDerivationNode current, Expression prevExp) {
-        ValDerivationNode prop = VariablePropagation.propagate(prevExp, current);
+    private static ValDerivationNode simplifyOnce(ValDerivationNode current, Expression prevExp,
+            List<GhostState> ghostStates) {
+        // Propagation is told not to collapse ghost-state equalities (stateN(x) -> stateN(y)): otherwise a
+        // chain state1(a)==state1(b) && state1(b)==state1(c) would lose its shared middle term before
+        // derivation could consume both links.
+        ValDerivationNode prop = VariablePropagation.propagate(prevExp, current,
+                StateDerivation.internalStateFunctions(ghostStates));
         DebugLog.simplificationPass("variable propagation", prop.getValue());
         ValDerivationNode fold = ExpressionFolding.fold(prop);
         DebugLog.simplificationPass("expression folding", fold.getValue());
-        ValDerivationNode simplified = simplifyValDerivationNode(fold);
+        // Derivation runs after folding: state conjuncts start life as unresolved ?: ternaries, and folding
+        // turns them into the concrete FunctionInvocation facts derivation matches. The surrounding
+        // fixed-point loop re-runs this pass, so equality chains resolve link by link across iterations.
+        ValDerivationNode derived = StateDerivation.derive(fold, ghostStates);
+        DebugLog.simplificationPass("state derivation", derived.getValue());
+        ValDerivationNode simplified = simplifyValDerivationNode(derived);
         DebugLog.simplificationPass("remove redundant && (loop)", simplified.getValue());
         return simplified;
     }
