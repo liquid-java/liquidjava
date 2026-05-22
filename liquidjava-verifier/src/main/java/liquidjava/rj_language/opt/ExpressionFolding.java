@@ -235,10 +235,20 @@ public class ExpressionFolding {
      */
     private static ValDerivationNode foldIte(ValDerivationNode node) {
         Ite iteExp = (Ite) node.getValue();
+        DerivationNode parent = node.getOrigin();
 
-        ValDerivationNode condNode = fold(new ValDerivationNode(iteExp.getCondition(), null));
-        ValDerivationNode thenNode = fold(new ValDerivationNode(iteExp.getThen(), null));
-        ValDerivationNode elseNode = fold(new ValDerivationNode(iteExp.getElse(), null));
+        ValDerivationNode condNode;
+        ValDerivationNode thenNode;
+        ValDerivationNode elseNode;
+        if (parent instanceof IteDerivationNode iteOrigin) {
+            condNode = fold(iteOrigin.getCondition());
+            thenNode = fold(iteOrigin.getThenBranch());
+            elseNode = fold(iteOrigin.getElseBranch());
+        } else {
+            condNode = fold(new ValDerivationNode(iteExp.getCondition(), null));
+            thenNode = fold(new ValDerivationNode(iteExp.getThen(), null));
+            elseNode = fold(new ValDerivationNode(iteExp.getElse(), null));
+        }
 
         Expression condition = condNode.getValue();
         Expression thenExp = thenNode.getValue();

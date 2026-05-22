@@ -4,6 +4,8 @@ import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Enum;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.FunctionInvocation;
+import liquidjava.rj_language.ast.GroupExpression;
+import liquidjava.rj_language.ast.Ite;
 import liquidjava.rj_language.ast.UnaryExpression;
 import liquidjava.rj_language.ast.Var;
 import liquidjava.rj_language.opt.derivation_node.BinaryDerivationNode;
@@ -99,6 +101,28 @@ public class VariablePropagation {
             return (left.getOrigin() != null || right.getOrigin() != null)
                     ? new ValDerivationNode(cloned, new BinaryDerivationNode(left, right, cloned.getOperator()))
                     : new ValDerivationNode(cloned, null);
+        }
+
+        // lift ternary origin
+        if (exp instanceof Ite ite) {
+            ValDerivationNode condition = propagateRecursive(ite.getCondition(), subs, varOrigins);
+            ValDerivationNode thenBranch = propagateRecursive(ite.getThen(), subs, varOrigins);
+            ValDerivationNode elseBranch = propagateRecursive(ite.getElse(), subs, varOrigins);
+            Ite cloned = (Ite) ite.clone();
+            cloned.setChild(0, condition.getValue());
+            cloned.setChild(1, thenBranch.getValue());
+            cloned.setChild(2, elseBranch.getValue());
+
+            return (condition.getOrigin() != null || thenBranch.getOrigin() != null || elseBranch.getOrigin() != null)
+                    ? new ValDerivationNode(cloned, new IteDerivationNode(condition, thenBranch, elseBranch))
+                    : new ValDerivationNode(cloned, null);
+        }
+
+        if (exp instanceof GroupExpression group && group.getChildren().size() == 1) {
+            ValDerivationNode child = propagateRecursive(group.getExpression(), subs, varOrigins);
+            GroupExpression cloned = (GroupExpression) group.clone();
+            cloned.setChild(0, child.getValue());
+            return new ValDerivationNode(cloned, child.getOrigin());
         }
 
         // recursively propagate children

@@ -468,6 +468,22 @@ class ExpressionSimplifierTest {
     }
 
     @Test
+    void testIteConditionKeepsPropagatedVariableOrigin() {
+        Expression expr = parse("mode == 1 && (mode == 2 ? explicit(param) : start(param))");
+        ValDerivationNode result = ExpressionSimplifier.simplify(expr);
+
+        assertNotNull(result.getOrigin(), "ITE simplification should record the selected branch");
+        IteDerivationNode iteOrigin = (IteDerivationNode) result.getOrigin();
+        ValDerivationNode condition = iteOrigin.getCondition();
+        BinaryDerivationNode equality = (BinaryDerivationNode) condition.getOrigin();
+        ValDerivationNode left = equality.getLeft();
+
+        assertEquals("1", left.getValue().toString());
+        assertDerivationEquals(new VarDerivationNode("mode"), left.getOrigin(),
+                "Propagated condition value should come from the mode parameter");
+    }
+
+    @Test
     void testByteAliasExpansion() {
         String sut = "Byte(b)";
         AliasDTO byteAlias = new AliasDTO("Byte", List.of("int"), List.of("b"), "b >= -128 && b <= 127");
