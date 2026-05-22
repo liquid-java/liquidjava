@@ -374,23 +374,45 @@ public class VCChecker {
 
     // Errors---------------------------------------------------------------------------------------------------
 
+    /**
+     * Builds the {@link VCImplication} premise chain that backs an error message. Every refined variable named in
+     * {@code predicates} — and, transitively, the path variables those drag in — is gathered, and their refinements are
+     * joined into a chain.
+     *
+     * <p>
+     * Callers pass every predicate that should contribute variables, not just one: a bare predicate such as
+     * {@code true} carries no variable names and would gather nothing on its own, leaving the chain (and the displayed
+     * premises) empty. Passing both the {@code found} and {@code expected} refinements ensures the variable that is
+     * only named on one side still seeds the chain.
+     *
+     * @param map
+     *            translation table populated, as a side effect, with the gathered variables' code placements
+     * @param predicates
+     *            predicates whose variables seed the chain; {@code predicates[0]} is also passed to
+     *            {@code joinPredicates}
+     *
+     * @return the joined premise chain
+     */
+    private VCImplication buildPremiseChain(TranslationTable map, Predicate... predicates) {
+        List<RefinedVariable> lrv = new ArrayList<>(), mainVars = new ArrayList<>();
+        for (Predicate p : predicates) {
+            gatherVariables(p, lrv, mainVars);
+        }
+        return joinPredicates(predicates[0], mainVars, lrv, map);
+    }
+
     protected void throwRefinementError(SourcePosition position, Predicate expected, Predicate found,
             Counterexample counterexample, String customMessage) throws RefinementError {
-        List<RefinedVariable> lrv = new ArrayList<>(), mainVars = new ArrayList<>();
-        gatherVariables(expected, lrv, mainVars);
-        gatherVariables(found, lrv, mainVars);
         TranslationTable map = new TranslationTable();
-        Predicate premises = joinPredicates(expected, mainVars, lrv, map).toConjunctions();
+        Predicate premises = buildPremiseChain(map, expected, found).toConjunctions();
         throw new RefinementError(position, expected.simplify(context), premises.simplify(context), map, counterexample,
                 customMessage);
     }
 
     protected void throwStateRefinementError(SourcePosition position, Predicate found, Predicate expected,
             String customMessage) throws StateRefinementError {
-        List<RefinedVariable> lrv = new ArrayList<>(), mainVars = new ArrayList<>();
-        gatherVariables(found, lrv, mainVars);
         TranslationTable map = new TranslationTable();
-        VCImplication foundState = joinPredicates(found, mainVars, lrv, map);
+        VCImplication foundState = buildPremiseChain(map, expected, found);
         throw new StateRefinementError(position, expected.simplify(context),
                 foundState.toConjunctions().simplify(context), map, customMessage);
     }
@@ -401,10 +423,8 @@ public class VCChecker {
     }
 
     private TranslationTable createMap(Predicate expectedType) {
-        List<RefinedVariable> lrv = new ArrayList<>(), mainVars = new ArrayList<>();
-        gatherVariables(expectedType, lrv, mainVars);
         TranslationTable map = new TranslationTable();
-        joinPredicates(expectedType, mainVars, lrv, map);
+        buildPremiseChain(map, expectedType);
         return map;
     }
 
