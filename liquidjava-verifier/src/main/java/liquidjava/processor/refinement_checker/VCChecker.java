@@ -389,6 +389,7 @@ public class VCChecker {
             String customMessage) throws StateRefinementError {
         List<RefinedVariable> lrv = new ArrayList<>(), mainVars = new ArrayList<>();
         gatherVariables(found, lrv, mainVars);
+        gatherVariables(expected, lrv, mainVars);
         TranslationTable map = new TranslationTable();
         VCImplication foundState = joinPredicates(found, mainVars, lrv, map);
         throw new StateRefinementError(position, expected.simplify(context),
