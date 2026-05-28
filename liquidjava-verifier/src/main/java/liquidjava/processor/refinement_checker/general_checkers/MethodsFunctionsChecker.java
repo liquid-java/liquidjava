@@ -307,7 +307,7 @@ public class MethodsFunctionsChecker {
                 AuxStateHandler.checkTargetChanges(rtc, f, target, map, invocation);
 
             // Expose `_ == returnViName` so the if-condition path variable ties to this return value.
-            Predicate emptyRef = returnViName != null
+            Predicate returnRef = returnViName != null
                     ? Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), Predicate.createVar(returnViName))
                     : new Predicate();
             invocation.putMetadata(Keys.REFINEMENT, emptyRef);
