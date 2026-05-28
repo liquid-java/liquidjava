@@ -310,7 +310,7 @@ public class MethodsFunctionsChecker {
             Predicate returnRef = returnViName != null
                     ? Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), Predicate.createVar(returnViName))
                     : new Predicate();
-            invocation.putMetadata(Keys.REFINEMENT, emptyRef);
+            invocation.putMetadata(Keys.REFINEMENT, returnRef);
             return map;
         }
 
