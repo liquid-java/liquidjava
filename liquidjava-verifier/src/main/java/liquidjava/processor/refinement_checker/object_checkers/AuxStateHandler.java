@@ -209,12 +209,22 @@ public class AuxStateHandler {
             throw new InvalidRefinementError(position, "State refinement transition must be a boolean expression",
                     value);
         }
+        CtTypeReference<?> returnType = null;
+        if (isTo && e instanceof CtMethod<?> method) {
+            CtTypeReference<?> mt = method.getType();
+            if (mt != null && !"void".equals(mt.toString())) {
+                p = p.substituteVariable("return", Keys.WILDCARD);
+                returnType = mt;
+            }
+        }
         CtTypeReference<?> r = tc.getFactory().Type().createReference(targetClass);
         String nameOld = String.format(Formats.INSTANCE, Keys.THIS, tc.getContext().getCounter());
         String name = String.format(Formats.INSTANCE, Keys.THIS, tc.getContext().getCounter());
         tc.getContext().addVarToContext(Keys.THIS, r, new Predicate(), e);
         tc.getContext().addVarToContext(name, r, new Predicate(), e);
         tc.getContext().addVarToContext(nameOld, r, new Predicate(), e);
+        if (returnType != null && !tc.getContext().hasVariable(Keys.WILDCARD))
+            tc.getContext().addVarToContext(Keys.WILDCARD, returnType, new Predicate(), e);
         // TODO REVIEW!!
         // what is it for?
         Predicate c1 = isTo ? getMissingStates(targetClass, tc, p) : p;
@@ -481,7 +491,10 @@ public class AuxStateHandler {
             found = tc.checkStateSMT(prevCheck, expectState, invocation.getPosition());
             if (found && stateChange.hasTo()) {
                 String newInstanceName = String.format(Formats.INSTANCE, name, tc.getContext().getCounter());
-                Predicate transitionedState = stateChange.getTo().substituteVariable(Keys.WILDCARD, newInstanceName)
+                // Non-void: `_` is the return value; void: legacy alias for the new instance.
+                String returnViName = (String) invocation.getMetadata(Keys.RETURN_VAR_NAME);
+                String wildcardTarget = returnViName != null ? returnViName : newInstanceName;
+                Predicate transitionedState = stateChange.getTo().substituteVariable(Keys.WILDCARD, wildcardTarget)
                         .substituteVariable(Keys.THIS, newInstanceName);
                 for (String s : map.keySet()) {
                     transitionedState = transitionedState.substituteVariable(s, map.get(s));
