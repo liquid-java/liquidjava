@@ -289,6 +289,16 @@ public class MethodsFunctionsChecker {
             return new HashMap<>();
         Map<String, String> map = mapInvocation(arguments, f);
 
+        // Stable return-value name so `_`/`return` in @StateRefinement to= matches the post-call VariableInstance.
+        String returnViName = null;
+        CtTypeReference<?> retType = f.getType();
+        if (retType != null && !"void".equals(retType.toString())) {
+            returnViName = String.format(Formats.INSTANCE, f.getName(), rtc.getContext().getCounter());
+            invocation.putMetadata(Keys.RETURN_VAR_NAME, returnViName);
+            if (f.allRefinementsTrue())
+                rtc.getContext().addInstanceToContext(returnViName, retType, new Predicate(), invocation);
+        }
+
         if (target != null)
             AuxStateHandler.prepareInvocationTarget(rtc, target, invocation);
 
@@ -296,7 +306,11 @@ public class MethodsFunctionsChecker {
             if (target != null)
                 AuxStateHandler.checkTargetChanges(rtc, f, target, map, invocation);
 
-            invocation.putMetadata(Keys.REFINEMENT, new Predicate());
+            // Expose `_ == returnViName` so the if-condition path variable ties to this return value.
+            Predicate returnRef = returnViName != null
+                    ? Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), Predicate.createVar(returnViName))
+                    : new Predicate();
+            invocation.putMetadata(Keys.REFINEMENT, returnRef);
             return map;
         }
 
@@ -325,7 +339,8 @@ public class MethodsFunctionsChecker {
                     varName = v.getName();
             }
 
-            String viName = String.format(Formats.INSTANCE, f.getName(), rtc.getContext().getCounter());
+            String viName = returnViName != null ? returnViName
+                    : String.format(Formats.INSTANCE, f.getName(), rtc.getContext().getCounter());
             VariableInstance vi = (VariableInstance) rtc.getContext().addInstanceToContext(viName, f.getType(),
                     methodRef.substituteVariable(Keys.WILDCARD, viName), invocation); // TODO REVIEW!!
             if (varName != null && f.hasStateChange() && equalsThis)
