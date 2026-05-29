@@ -9,6 +9,8 @@ import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Enum;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.FunctionInvocation;
+import liquidjava.rj_language.ast.LiteralBoolean;
+import liquidjava.rj_language.ast.UnaryExpression;
 import liquidjava.rj_language.ast.Var;
 
 public class VariableResolver {
@@ -40,6 +42,18 @@ public class VariableResolver {
      * @param map
      */
     private static void resolveRecursive(Expression exp, Map<String, Expression> map) {
+        // Internal-var conjuncts assert truth: `#x` ⇒ `#x → true`, `!#x` ⇒ `#x → false`. Restricted to
+        // internal vars so user-facing predicates like `x && x` still display as `x` instead of `true`.
+        if (exp instanceof Var var && isInternal(var)) {
+            map.putIfAbsent(var.getName(), new LiteralBoolean(true));
+            return;
+        }
+        if (exp instanceof UnaryExpression unary && "!".equals(unary.getOp())
+                && unary.getExpression()instanceof Var inner && isInternal(inner)) {
+            map.putIfAbsent(inner.getName(), new LiteralBoolean(false));
+            return;
+        }
+
         if (!(exp instanceof BinaryExpression be))
             return;
 
