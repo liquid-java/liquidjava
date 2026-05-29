@@ -149,6 +149,18 @@ public class VariablePropagation {
             }
         }
 
+        // Mirror the resolver's bare-internal-var rule (`#x` ⇒ true, `!#x` ⇒ false): point #x's
+        // back-link at the conjunct that justified the substitution, so subsequent passes preserve
+        // provenance through these substitutions too.
+        if (value instanceof Var var && var.getName().startsWith("#")) {
+            DerivationNode back = origin != null ? origin : node;
+            varOrigins.putIfAbsent(var.getName(), back);
+        } else if (value instanceof UnaryExpression u && "!".equals(u.getOp()) && u.getExpression()instanceof Var inner
+                && inner.getName().startsWith("#")) {
+            DerivationNode back = origin != null ? origin : node;
+            varOrigins.putIfAbsent(inner.getName(), back);
+        }
+
         // recursively process the origin tree
         if (origin instanceof BinaryDerivationNode binOrigin) {
             extractVarOrigins(binOrigin.getLeft(), varOrigins);

@@ -214,4 +214,33 @@ class VariableResolverTest {
 
         assertTrue(result.isEmpty(), "Function invocation definitions with no usage should be ignored");
     }
+
+    @Test
+    void testBareNegatedInternalVarSubstitutesFalse() {
+        Expression expression = parse("!#fresh_1 && #fresh_1 == #hasNext_2");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
+
+        assertEquals(1, result.size(), "Should extract only the bare-conjunct substitution");
+        assertEquals("false", result.get("#fresh_1").toString(),
+                "!#fresh_1 as top-level conjunct should bind #fresh_1 to false");
+    }
+
+    @Test
+    void testBareInternalVarSubstitutesTrue() {
+        Expression expression = parse("#fresh_1 && #fresh_1 == #hasNext_2");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
+
+        assertEquals(1, result.size(), "Should extract only the bare-conjunct substitution");
+        assertEquals("true", result.get("#fresh_1").toString(),
+                "Bare #fresh_1 as top-level conjunct should bind #fresh_1 to true");
+    }
+
+    @Test
+    void testBareUserVarNotSubstituted() {
+        Expression expression = parse("x && y == x");
+        Map<String, Expression> result = VariableResolver.resolve(expression);
+
+        assertTrue(result.isEmpty(),
+                "Bare user-facing variables should not be substituted, to preserve their names in error messages");
+    }
 }
