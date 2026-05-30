@@ -87,10 +87,16 @@ public class AuxStateHandler {
      * @param tc
      */
     public static void setDefaultState(RefinedFunction f, TypeChecker tc) {
-        String klass = f.getTargetClass();
-        Predicate[] s = { Predicate.createVar(Keys.THIS) };
+        ObjectState os = new ObjectState();
+        os.setTo(getDefaultState(tc, f.getTargetClass(), Predicate.createVar(Keys.THIS)));
+        List<ObjectState> los = new ArrayList<>();
+        los.add(os);
+        f.setAllStates(los);
+    }
+
+    public static Predicate getDefaultState(TypeChecker tc, String klass, Predicate target) {
         Predicate c = new Predicate();
-        List<GhostFunction> sets = getDifferentSets(tc, klass); // ??
+        List<GhostFunction> sets = getDifferentSets(tc, klass);
         for (GhostFunction sg : sets) {
             String retType = sg.getReturnType().toString();
             Predicate typePredicate = switch (retType) {
@@ -100,14 +106,11 @@ public class AuxStateHandler {
             case "double" -> Predicate.createLit("0.0", Types.DOUBLE);
             default -> throw new RuntimeException("Ghost not implemented for type " + retType);
             };
-            Predicate p = Predicate.createEquals(Predicate.createInvocation(sg.getQualifiedName(), s), typePredicate);
+            Predicate p = Predicate.createEquals(Predicate.createInvocation(sg.getQualifiedName(), target),
+                    typePredicate);
             c = Predicate.createConjunction(c, p);
         }
-        ObjectState os = new ObjectState();
-        os.setTo(c);
-        List<ObjectState> los = new ArrayList<>();
-        los.add(os);
-        f.setAllStates(los);
+        return c;
     }
 
     /**

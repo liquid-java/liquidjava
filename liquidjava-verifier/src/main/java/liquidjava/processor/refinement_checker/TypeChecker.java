@@ -16,6 +16,7 @@ import liquidjava.processor.context.GhostState;
 import liquidjava.processor.context.RefinedVariable;
 import liquidjava.processor.facade.AliasDTO;
 import liquidjava.processor.facade.GhostDTO;
+import liquidjava.processor.refinement_checker.object_checkers.AuxStateHandler;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.parsing.RefinementsParser;
 import liquidjava.smt.SMTEvaluator;
@@ -346,6 +347,7 @@ public abstract class TypeChecker extends CtScanner {
         String newName = String.format(Formats.INSTANCE, simpleName, context.getCounter());
         Predicate correctNewRefinement = refinementFound.substituteVariable(Keys.WILDCARD, newName);
         correctNewRefinement = correctNewRefinement.substituteVariable(Keys.THIS, newName);
+        correctNewRefinement = setInitialStateIfUnknown(correctNewRefinement, type, newName);
         cEt = cEt.substituteVariable(simpleName, newName);
 
         // Substitute variable in verification
@@ -356,6 +358,12 @@ public abstract class TypeChecker extends CtScanner {
         String customMessage = getMessageFromAnnotation(variable).orElse(mainRV != null ? mainRV.getMessage() : null);
         checkSMT(cEt, usage, customMessage); // TODO CHANGE
         context.addRefinementToVariableInContext(simpleName, type, cet, usage);
+    }
+
+    private Predicate setInitialStateIfUnknown(Predicate refinement, CtTypeReference<?> type, String instanceName) {
+        if (type == null || !refinement.isBooleanTrue())
+            return refinement;
+        return AuxStateHandler.getDefaultState(this, type.getQualifiedName(), Predicate.createVar(instanceName));
     }
 
     public void checkSMT(Predicate expectedType, CtElement element) throws LJError {
