@@ -63,6 +63,22 @@ public abstract class TypeChecker extends CtScanner {
         return factory;
     }
 
+    @Override
+    public void scan(CtElement element) {
+        try {
+            super.scan(element);
+        } catch (LJError e) {
+            throw e;
+        } catch (RuntimeException e) {
+            SourcePosition position = element.getPosition();
+            String location = position.getFile().getAbsolutePath() + ":" + position.getLine();
+            String expression = Utils.getExpressionFromPosition(position);
+            String msg = String.format("\nError while checking %s\n  on %s \n  at %s\n  with %s",
+                    element.getClass().getSimpleName(), expression, location, e.getMessage());
+            throw new RuntimeException(msg, e);
+        }
+    }
+
     public Predicate getRefinement(CtElement elem) {
         Predicate c = (Predicate) elem.getMetadata(Keys.REFINEMENT);
         return c == null ? new Predicate() : c;
