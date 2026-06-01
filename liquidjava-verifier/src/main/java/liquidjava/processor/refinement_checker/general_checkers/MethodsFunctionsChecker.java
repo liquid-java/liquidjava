@@ -66,10 +66,18 @@ public class MethodsFunctionsChecker {
             RefinedFunction f = rtc.getContext().getFunction(exe.getSimpleName(),
                     exe.getDeclaringType().getQualifiedName(), paramTypes);
             if (f != null) {
+                // explicit constructor refinements
                 Map<String, String> map = checkInvocationRefinements(ctConstructorCall,
                         ctConstructorCall.getArguments(), ctConstructorCall.getTarget(), f.getName(),
                         f.getTargetClass(), paramTypes);
                 AuxStateHandler.constructorStateMetadata(Keys.REFINEMENT, f, map, ctConstructorCall);
+            } else {
+                // default constructor refinements
+                CtTypeReference<?> type = exe.getDeclaringType() != null ? exe.getDeclaringType()
+                        : ctConstructorCall.getType();
+                if (type != null)
+                    ctConstructorCall.putMetadata(Keys.REFINEMENT, AuxStateHandler.getDefaultState(rtc,
+                            type.getQualifiedName(), Predicate.createVar(Keys.THIS)));
             }
         }
     }
