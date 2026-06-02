@@ -153,13 +153,16 @@ public class ExternalRefinementTypeChecker extends TypeChecker {
         if (type1 == null || type2 == null)
             return false;
 
-        // Type variables (generics such as E, N, T) carry different names in the JDK type and in the refinement
-        // interface (e.g. Iterator's `E next()` vs a spec's `N next()`), so they never match by qualified name.
-        // Treat any two type-parameter references as compatible.
-        if (type1 instanceof CtTypeParameterReference && type2 instanceof CtTypeParameterReference)
-            return true;
+        // Type variables (generics such as E, N, T) carry different names in the JDK type
+        if (type1 instanceof CtTypeParameterReference t1 && type2 instanceof CtTypeParameterReference t2)
+            return boundName(t1).equals(boundName(t2));
 
         return type1.getQualifiedName().equals(type2.getQualifiedName());
+    }
+
+    private static String boundName(CtTypeParameterReference ref) {
+        CtTypeReference<?> bound = ref.getBoundingType();
+        return bound == null ? "java.lang.Object" : bound.getQualifiedName();
     }
 
     private boolean parametersMatch(List<?> targetParams, List<?> refinementParams) {
