@@ -24,6 +24,7 @@ import spoon.reflect.declaration.CtMethod;
 import spoon.reflect.declaration.CtParameter;
 import spoon.reflect.declaration.CtType;
 import spoon.reflect.factory.Factory;
+import spoon.reflect.reference.CtTypeParameterReference;
 import spoon.reflect.reference.CtTypeReference;
 
 public class ExternalRefinementTypeChecker extends TypeChecker {
@@ -66,10 +67,13 @@ public class ExternalRefinementTypeChecker extends TypeChecker {
 
     public <R> void visitCtMethod(CtMethod<R> method) {
         CtType<?> targetType = factory.Type().createReference(prefix).getTypeDeclaration();
-        if (!(targetType instanceof CtClass))
+        if (!(targetType instanceof CtClass) && !(targetType instanceof CtInterface))
             return;
 
-        boolean isConstructor = method.getSimpleName().equals(targetType.getSimpleName());
+        // Interfaces have no constructors; only a class can declare one, so the constructor-name shortcut
+        // (a refinement method named like the target type) only applies to class targets.
+        boolean isConstructor = targetType instanceof CtClass
+                && method.getSimpleName().equals(targetType.getSimpleName());
         if (isConstructor) {
             if (!constructorExists(targetType, method)) {
                 String signature = method.getSignature();
@@ -148,6 +152,12 @@ public class ExternalRefinementTypeChecker extends TypeChecker {
 
         if (type1 == null || type2 == null)
             return false;
+
+        // Type variables (generics such as E, N, T) carry different names in the JDK type and in the refinement
+        // interface (e.g. Iterator's `E next()` vs a spec's `N next()`), so they never match by qualified name.
+        // Treat any two type-parameter references as compatible.
+        if (type1 instanceof CtTypeParameterReference && type2 instanceof CtTypeParameterReference)
+            return true;
 
         return type1.getQualifiedName().equals(type2.getQualifiedName());
     }
