@@ -290,8 +290,8 @@ public class VCChecker {
         }
         VCImplication cSMT = new VCImplication(new Predicate());
         if (firstSi != null) {
-            lastSi.setNext(new VCImplication(expectedType));
             cSMT = firstSi.clone();
+            lastSi.setNext(new VCImplication(expectedType));
         }
         return cSMT;
     }
