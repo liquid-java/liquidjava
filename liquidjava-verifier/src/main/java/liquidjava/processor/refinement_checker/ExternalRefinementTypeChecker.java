@@ -24,6 +24,7 @@ import spoon.reflect.declaration.CtMethod;
 import spoon.reflect.declaration.CtParameter;
 import spoon.reflect.declaration.CtType;
 import spoon.reflect.factory.Factory;
+import spoon.reflect.reference.CtTypeParameterReference;
 import spoon.reflect.reference.CtTypeReference;
 
 public class ExternalRefinementTypeChecker extends TypeChecker {
@@ -66,10 +67,13 @@ public class ExternalRefinementTypeChecker extends TypeChecker {
 
     public <R> void visitCtMethod(CtMethod<R> method) {
         CtType<?> targetType = factory.Type().createReference(prefix).getTypeDeclaration();
-        if (!(targetType instanceof CtClass))
+        if (!(targetType instanceof CtClass) && !(targetType instanceof CtInterface))
             return;
 
-        boolean isConstructor = method.getSimpleName().equals(targetType.getSimpleName());
+        // Interfaces have no constructors; only a class can declare one, so the constructor-name shortcut
+        // (a refinement method named like the target type) only applies to class targets.
+        boolean isConstructor = targetType instanceof CtClass
+                && method.getSimpleName().equals(targetType.getSimpleName());
         if (isConstructor) {
             if (!constructorExists(targetType, method)) {
                 String signature = method.getSignature();
@@ -149,7 +153,16 @@ public class ExternalRefinementTypeChecker extends TypeChecker {
         if (type1 == null || type2 == null)
             return false;
 
+        // Type variables (generics such as E, N, T) carry different names in the JDK type
+        if (type1 instanceof CtTypeParameterReference t1 && type2 instanceof CtTypeParameterReference t2)
+            return boundName(t1).equals(boundName(t2));
+
         return type1.getQualifiedName().equals(type2.getQualifiedName());
+    }
+
+    private static String boundName(CtTypeParameterReference ref) {
+        CtTypeReference<?> bound = ref.getBoundingType();
+        return bound == null ? "java.lang.Object" : bound.getQualifiedName();
     }
 
     private boolean parametersMatch(List<?> targetParams, List<?> refinementParams) {
