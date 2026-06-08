@@ -47,6 +47,14 @@ public class VCImplication {
         return next;
     }
 
+    public boolean hasNext() {
+        return next != null;
+    }
+
+    public boolean hasBinder() {
+        return name != null && type != null;
+    }
+
     public String toString() {
         if (name != null && type != null) {
             String qualType = type.getQualifiedName();

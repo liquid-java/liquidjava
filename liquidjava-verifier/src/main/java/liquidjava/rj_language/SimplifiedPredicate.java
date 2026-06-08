@@ -89,6 +89,11 @@ public class SimplifiedPredicate extends Predicate {
         }
 
         @Override
+        public String toString() {
+            return name + ":" + type;
+        }
+
+        @Override
         public int hashCode() {
             return Objects.hash(name, type);
         }
