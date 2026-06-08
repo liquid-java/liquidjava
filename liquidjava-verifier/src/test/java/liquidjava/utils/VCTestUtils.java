@@ -6,8 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.SimplifiedPredicate;
 import liquidjava.rj_language.ast.Expression;
-import liquidjava.rj_language.ast.SimplifiedExpression;
 import liquidjava.rj_language.parsing.RefinementsParser;
 import spoon.Launcher;
 import spoon.reflect.reference.CtTypeReference;
@@ -52,39 +52,39 @@ public class VCTestUtils {
     }
 
     public static void assertSimplifiedVC(VCImplication implication, String... expected) {
-        ExpectedSimplifiedExpression[] expressions = java.util.Arrays.stream(expected)
-                .map(VCTestUtils::parseExpectedSimplifiedExpression).toArray(ExpectedSimplifiedExpression[]::new);
-        assertSimplifiedVC(implication, expressions);
+        ExpectedSimplifiedPredicate[] predicates = java.util.Arrays.stream(expected)
+                .map(VCTestUtils::parseExpectedSimplifiedPredicate).toArray(ExpectedSimplifiedPredicate[]::new);
+        assertSimplifiedVC(implication, predicates);
     }
 
-    public static void assertSimplifiedVC(VCImplication implication, ExpectedSimplifiedExpression... expected) {
+    public static void assertSimplifiedVC(VCImplication implication, ExpectedSimplifiedPredicate... expected) {
         VCImplication current = implication;
         for (int i = 0; i < expected.length; i++) {
-            ExpectedSimplifiedExpression expectedExpression = expected[i];
-            SimplifiedExpression expression = simplifiedExpression(current, i);
-            assertEquals(expectedExpression.simplified(), expression.getSimplifiedExpression().toString(),
+            ExpectedSimplifiedPredicate expectedPredicate = expected[i];
+            SimplifiedPredicate predicate = simplifiedPredicate(current, i);
+            assertEquals(expectedPredicate.simplified(), predicate.getSimplifiedPredicate().toString(),
                     "Unexpected simplified expression at implication " + i);
-            if (expectedExpression.origin() != null)
-                assertEquals(expectedExpression.origin(), expression.getOrigin().toString(),
+            if (expectedPredicate.origin() != null)
+                assertEquals(expectedPredicate.origin(), predicate.getOrigin().toString(),
                         "Unexpected origin expression at implication " + i);
-            if (expectedExpression.binders() != null)
-                assertEquals(expectedExpression.binders(), formatBinders(expression),
+            if (expectedPredicate.binders() != null)
+                assertEquals(expectedPredicate.binders(), formatBinders(predicate),
                         "Unexpected binders at implication " + i);
             current = current.getNext();
         }
         assertNull(current, "Expected VC chain to end after " + expected.length + " implications");
     }
 
-    public static ExpectedSimplifiedExpression simplified(String simplified) {
-        return new ExpectedSimplifiedExpression(simplified, null, null);
+    public static ExpectedSimplifiedPredicate simplified(String simplified) {
+        return new ExpectedSimplifiedPredicate(simplified, null, null);
     }
 
-    public static ExpectedSimplifiedExpression simplified(String simplified, String origin) {
-        return new ExpectedSimplifiedExpression(simplified, origin, null);
+    public static ExpectedSimplifiedPredicate simplified(String simplified, String origin) {
+        return new ExpectedSimplifiedPredicate(simplified, origin, null);
     }
 
-    public static ExpectedSimplifiedExpression simplified(String simplified, String origin, String binders) {
-        return new ExpectedSimplifiedExpression(simplified, origin, binders);
+    public static ExpectedSimplifiedPredicate simplified(String simplified, String origin, String binders) {
+        return new ExpectedSimplifiedPredicate(simplified, origin, binders);
     }
 
     public static void assertVC(VCImplication implication, String... expected) {
@@ -97,18 +97,18 @@ public class VCTestUtils {
         assertNull(current, "Expected VC chain to end after " + expected.length + " implications");
     }
 
-    public static SimplifiedExpression simplifiedExpression(VCImplication implication, int index) {
-        assertInstanceOf(SimplifiedExpression.class, implication.getRefinement().getExpression(),
-                "Expected implication " + index + " to contain a SimplifiedExpression");
-        return (SimplifiedExpression) implication.getRefinement().getExpression();
+    public static SimplifiedPredicate simplifiedPredicate(VCImplication implication, int index) {
+        assertInstanceOf(SimplifiedPredicate.class, implication.getRefinement(),
+                "Expected implication " + index + " to contain a SimplifiedPredicate");
+        return (SimplifiedPredicate) implication.getRefinement();
     }
 
-    private static String formatBinders(SimplifiedExpression expression) {
-        return expression.getBinders().stream().map(binder -> binder.getName() + ":" + binder.getType())
+    private static String formatBinders(SimplifiedPredicate predicate) {
+        return predicate.getBinders().stream().map(binder -> binder.getName() + ":" + binder.getType())
                 .collect(java.util.stream.Collectors.joining(", "));
     }
 
-    private static ExpectedSimplifiedExpression parseExpectedSimplifiedExpression(String expected) {
+    private static ExpectedSimplifiedPredicate parseExpectedSimplifiedPredicate(String expected) {
         String binders = null;
         String expression = expected.trim();
         int binderStart = expression.lastIndexOf('[');
@@ -121,9 +121,9 @@ public class VCTestUtils {
         String[] parts = expression.split("<-", 2);
         String simplified = parts[0].trim();
         String origin = parts.length > 1 ? parts[1].trim() : null;
-        return new ExpectedSimplifiedExpression(simplified, origin, binders);
+        return new ExpectedSimplifiedPredicate(simplified, origin, binders);
     }
 
-    public record ExpectedSimplifiedExpression(String simplified, String origin, String binders) {
+    public record ExpectedSimplifiedPredicate(String simplified, String origin, String binders) {
     }
 }
