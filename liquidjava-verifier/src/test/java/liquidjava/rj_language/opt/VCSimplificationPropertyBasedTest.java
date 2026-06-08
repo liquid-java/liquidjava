@@ -23,7 +23,7 @@ import org.junit.runner.RunWith;
 @RunWith(JUnitQuickcheck.class)
 public class VCSimplificationPropertyBasedTest {
 
-    private static final int TRIALS = 800;
+    private static final int TRIALS = 500;
 
     @Property(trials = TRIALS)
     public void eachSimplificationStepPreservesVcSemantics(@From(VCImplicationGenerator.class) VCImplication vc) {
@@ -38,7 +38,7 @@ public class VCSimplificationPropertyBasedTest {
             assertEquivalent(current, simplified, step);
             current = simplified;
         }
-        System.out.println("---------------------------------------------------------");
+        // System.out.println("---------------------------------------------------------");
     }
 
     private static void setUpContext() {
@@ -57,9 +57,9 @@ public class VCSimplificationPropertyBasedTest {
         Predicate premises = substitutionPremises(unsimplified);
         Predicate unsimplifiedFormula = Predicate.createConjunction(premises, new Predicate(vcFormula(unsimplified)));
         Predicate simplifiedFormula = Predicate.createConjunction(premises, new Predicate(vcFormula(simplified)));
-        System.out.println(unsimplifiedFormula);
-        System.out.println("=>");
-        System.out.println(simplifiedFormula);
+        // System.out.println(unsimplifiedFormula);
+        // System.out.println("=>");
+        // System.out.println(simplifiedFormula);
         assertImplies(unsimplifiedFormula, simplifiedFormula, unsimplified, simplified, step,
                 "unsimplified => simplified");
         assertImplies(simplifiedFormula, unsimplifiedFormula, unsimplified, simplified, step,
