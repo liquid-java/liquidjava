@@ -6,9 +6,9 @@ import java.util.Optional;
 
 import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.SimplifiedPredicate;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
-import liquidjava.rj_language.ast.SimplifiedExpression;
 import liquidjava.rj_language.ast.Var;
 
 /**
@@ -80,13 +80,12 @@ public class VCSubstitution {
      * Substitutes a source binder inside one predicate while preserving simplification metadata
      */
     private static Predicate substituteRefinement(Predicate refinement, VCImplication source, Expression value) {
-        Expression expression = refinement.getExpression();
-        Expression active = activeExpression(expression);
-        SimplifiedExpression.Binder binder = new SimplifiedExpression.Binder(source.getName(), source.getType());
+        Expression active = activeExpression(refinement);
+        SimplifiedPredicate.Binder binder = new SimplifiedPredicate.Binder(source.getName(), source.getType());
         Expression substituted = active.substitute(new Var(binder.getName()), value.clone());
 
-        return new Predicate(new SimplifiedExpression(substituted, originExpression(expression),
-                bindersAfterSubstitution(expression, active, binder)));
+        return new SimplifiedPredicate(new Predicate(substituted), originPredicate(refinement),
+                bindersAfterSubstitution(refinement, active, binder));
     }
 
     /**
@@ -101,18 +100,18 @@ public class VCSubstitution {
     /**
      * Returns the expression that should be shown as the original formula
      */
-    private static Expression originExpression(Expression expression) {
-        if (expression instanceof SimplifiedExpression simplified)
+    private static Predicate originPredicate(Predicate refinement) {
+        if (refinement instanceof SimplifiedPredicate simplified)
             return simplified.getOrigin().clone();
-        return expression.clone();
+        return refinement.clone();
     }
 
     /**
      * Builds the binder metadata after one substitution
      */
-    private static List<SimplifiedExpression.Binder> bindersAfterSubstitution(Expression expression, Expression active,
-            SimplifiedExpression.Binder binder) {
-        List<SimplifiedExpression.Binder> binders = expression instanceof SimplifiedExpression previous
+    private static List<SimplifiedPredicate.Binder> bindersAfterSubstitution(Predicate refinement, Expression active,
+            SimplifiedPredicate.Binder binder) {
+        List<SimplifiedPredicate.Binder> binders = refinement instanceof SimplifiedPredicate previous
                 ? new ArrayList<>(previous.getBinders()) : new ArrayList<>();
         if (containsVariable(active, binder.getName()) && !binders.contains(binder))
             binders.add(binder);
@@ -140,7 +139,7 @@ public class VCSubstitution {
         if (!implication.hasBinder())
             return Optional.empty();
 
-        Expression refinement = activeExpression(implication.getRefinement().getExpression());
+        Expression refinement = activeExpression(implication.getRefinement());
         if (!(refinement instanceof BinaryExpression binary) || !"==".equals(binary.getOperator()))
             return Optional.empty();
 
@@ -175,9 +174,9 @@ public class VCSubstitution {
     /**
      * Returns the expression used for matching and substitution
      */
-    private static Expression activeExpression(Expression expression) {
-        if (expression instanceof SimplifiedExpression simplified)
-            return simplified.getSimplifiedExpression().clone();
-        return expression.clone();
+    private static Expression activeExpression(Predicate refinement) {
+        if (refinement instanceof SimplifiedPredicate simplified)
+            return simplified.getSimplifiedPredicate().getExpression().clone();
+        return refinement.getExpression().clone();
     }
 }
