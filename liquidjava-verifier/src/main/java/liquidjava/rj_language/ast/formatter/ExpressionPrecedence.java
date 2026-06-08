@@ -4,7 +4,6 @@ import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.GroupExpression;
 import liquidjava.rj_language.ast.Ite;
-import liquidjava.rj_language.ast.SimplifiedExpression;
 import liquidjava.rj_language.ast.UnaryExpression;
 
 public enum ExpressionPrecedence {
@@ -17,8 +16,6 @@ public enum ExpressionPrecedence {
     public static ExpressionPrecedence of(Expression expression) {
         if (expression instanceof GroupExpression group)
             return of(group.getExpression());
-        if (expression instanceof SimplifiedExpression node)
-            return of(node.getSimplifiedExpression());
         if (expression instanceof Ite)
             return TERNARY;
         if (expression instanceof UnaryExpression)
