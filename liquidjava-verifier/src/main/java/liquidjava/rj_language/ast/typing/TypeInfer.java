@@ -57,7 +57,6 @@ public class TypeInfer {
             return functionType(ctx, (FunctionInvocation) e);
         else if (e instanceof AliasInvocation)
             return boolType(factory);
-
         return Optional.empty();
     }
 
