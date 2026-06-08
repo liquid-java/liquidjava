@@ -82,9 +82,6 @@ public abstract class Expression {
      * @return true if it is a boolean expression, false otherwise
      */
     public boolean isBooleanExpression() {
-        if (this instanceof SimplifiedExpression node) {
-            return node.getSimplifiedExpression().isBooleanExpression();
-        }
         if (this instanceof LiteralBoolean || this instanceof Ite || this instanceof AliasInvocation
                 || this instanceof FunctionInvocation) {
             return true;
@@ -102,8 +99,6 @@ public abstract class Expression {
     }
 
     public List<Expression> getConjuncts() {
-        if (this instanceof SimplifiedExpression node)
-            return node.getSimplifiedExpression().getConjuncts();
         if (this instanceof BinaryExpression binaryExpression && "&&".equals(binaryExpression.getOperator())) {
             List<Expression> conjuncts = new ArrayList<>();
             conjuncts.addAll(binaryExpression.getFirstOperand().getConjuncts());

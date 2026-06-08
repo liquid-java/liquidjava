@@ -17,7 +17,6 @@ import liquidjava.rj_language.ast.LiteralLong;
 import liquidjava.rj_language.ast.LiteralReal;
 import liquidjava.rj_language.ast.LiteralString;
 import liquidjava.rj_language.ast.Enum;
-import liquidjava.rj_language.ast.SimplifiedExpression;
 import liquidjava.rj_language.ast.UnaryExpression;
 import liquidjava.rj_language.ast.Var;
 import liquidjava.rj_language.visitors.ExpressionVisitor;
@@ -62,11 +61,9 @@ public class ExpressionFormatter implements ExpressionVisitor<String> {
     }
 
     private Expression unwrapGroup(Expression expression) {
-        while (expression instanceof GroupExpression || expression instanceof SimplifiedExpression) {
+        while (expression instanceof GroupExpression) {
             if (expression instanceof GroupExpression group)
                 expression = group.getExpression();
-            else if (expression instanceof SimplifiedExpression node)
-                expression = node.getSimplifiedExpression();
         }
         return expression;
     }
@@ -164,11 +161,6 @@ public class ExpressionFormatter implements ExpressionVisitor<String> {
     @Override
     public String visitLiteralString(LiteralString lit) {
         return lit.toString();
-    }
-
-    @Override
-    public String visitSimplifiedNode(SimplifiedExpression node) {
-        return formatExpression(node.getSimplifiedExpression());
     }
 
     @Override
