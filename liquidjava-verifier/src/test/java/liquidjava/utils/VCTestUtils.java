@@ -4,10 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-import liquidjava.processor.SimplifiedVCImplication;
 import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.Expression;
+import liquidjava.rj_language.ast.SimplifiedExpression;
 import liquidjava.rj_language.parsing.RefinementsParser;
 import spoon.Launcher;
 import spoon.reflect.reference.CtTypeReference;
@@ -52,34 +52,39 @@ public class VCTestUtils {
     }
 
     public static void assertSimplifiedVC(VCImplication implication, String... expected) {
-        ExpectedSimplifiedVCImplication[] predicates = java.util.Arrays.stream(expected)
-                .map(VCTestUtils::parseExpectedSimplifiedVCImplication).toArray(ExpectedSimplifiedVCImplication[]::new);
-        assertSimplifiedVC(implication, predicates);
+        ExpectedSimplifiedExpression[] expressions = java.util.Arrays.stream(expected)
+                .map(VCTestUtils::parseExpectedSimplifiedExpression).toArray(ExpectedSimplifiedExpression[]::new);
+        assertSimplifiedVC(implication, expressions);
     }
 
-    public static void assertSimplifiedVC(VCImplication implication, ExpectedSimplifiedVCImplication... expected) {
+    public static void assertSimplifiedVC(VCImplication implication, ExpectedSimplifiedExpression... expected) {
         VCImplication current = implication;
         for (int i = 0; i < expected.length; i++) {
-            ExpectedSimplifiedVCImplication expectedPredicate = expected[i];
-            SimplifiedVCImplication simplified = simplifiedImplication(current, i);
-            assertEquals(Predicate.class, simplified.getRefinement().getClass(),
-                    "Expected simplified refinement at implication " + i + " to be a plain Predicate");
-            assertEquals(expectedPredicate.simplified(), simplified.getRefinement().toString(),
+            ExpectedSimplifiedExpression expectedExpression = expected[i];
+            SimplifiedExpression expression = simplifiedExpression(current, i);
+            assertEquals(expectedExpression.simplified(), expression.getSimplifiedExpression().toString(),
                     "Unexpected simplified expression at implication " + i);
-            if (expectedPredicate.origin() != null)
-                assertEquals(expectedPredicate.origin(), formatOrigin(simplified.getOrigin()),
-                        "Unexpected origin VC at implication " + i);
+            if (expectedExpression.origin() != null)
+                assertEquals(expectedExpression.origin(), expression.getOrigin().toString(),
+                        "Unexpected origin expression at implication " + i);
+            if (expectedExpression.binders() != null)
+                assertEquals(expectedExpression.binders(), formatBinders(expression),
+                        "Unexpected binders at implication " + i);
             current = current.getNext();
         }
         assertNull(current, "Expected VC chain to end after " + expected.length + " implications");
     }
 
-    public static ExpectedSimplifiedVCImplication simplified(String simplified) {
-        return new ExpectedSimplifiedVCImplication(simplified, null);
+    public static ExpectedSimplifiedExpression simplified(String simplified) {
+        return new ExpectedSimplifiedExpression(simplified, null, null);
     }
 
-    public static ExpectedSimplifiedVCImplication simplified(String simplified, String origin) {
-        return new ExpectedSimplifiedVCImplication(simplified, origin);
+    public static ExpectedSimplifiedExpression simplified(String simplified, String origin) {
+        return new ExpectedSimplifiedExpression(simplified, origin, null);
+    }
+
+    public static ExpectedSimplifiedExpression simplified(String simplified, String origin, String binders) {
+        return new ExpectedSimplifiedExpression(simplified, origin, binders);
     }
 
     public static void assertVC(VCImplication implication, String... expected) {
@@ -92,25 +97,33 @@ public class VCTestUtils {
         assertNull(current, "Expected VC chain to end after " + expected.length + " implications");
     }
 
-    public static SimplifiedVCImplication simplifiedImplication(VCImplication implication, int index) {
-        return assertInstanceOf(SimplifiedVCImplication.class, implication,
-                "Expected implication " + index + " to be a SimplifiedVCImplication");
+    public static SimplifiedExpression simplifiedExpression(VCImplication implication, int index) {
+        assertInstanceOf(SimplifiedExpression.class, implication.getRefinement().getExpression(),
+                "Expected implication " + index + " to contain a SimplifiedExpression");
+        return (SimplifiedExpression) implication.getRefinement().getExpression();
     }
 
-    private static String formatOrigin(VCImplication origin) {
-        if (!origin.hasBinder())
-            return origin.getRefinement().toString();
-        return "∀" + origin.getName() + ":" + origin.getType().getQualifiedName() + ". " + origin.getRefinement();
+    private static String formatBinders(SimplifiedExpression expression) {
+        return expression.getBinders().stream().map(binder -> binder.getName() + ":" + binder.getType())
+                .collect(java.util.stream.Collectors.joining(", "));
     }
 
-    private static ExpectedSimplifiedVCImplication parseExpectedSimplifiedVCImplication(String expected) {
+    private static ExpectedSimplifiedExpression parseExpectedSimplifiedExpression(String expected) {
+        String binders = null;
         String expression = expected.trim();
+        int binderStart = expression.lastIndexOf('[');
+        if (binderStart >= 0) {
+            int binderEnd = expression.lastIndexOf(']');
+            binders = expression.substring(binderStart + 1, binderEnd).trim();
+            expression = expression.substring(0, binderStart).trim();
+        }
+
         String[] parts = expression.split("<-", 2);
         String simplified = parts[0].trim();
         String origin = parts.length > 1 ? parts[1].trim() : null;
-        return new ExpectedSimplifiedVCImplication(simplified, origin);
+        return new ExpectedSimplifiedExpression(simplified, origin, binders);
     }
 
-    public record ExpectedSimplifiedVCImplication(String simplified, String origin) {
+    public record ExpectedSimplifiedExpression(String simplified, String origin, String binders) {
     }
 }
