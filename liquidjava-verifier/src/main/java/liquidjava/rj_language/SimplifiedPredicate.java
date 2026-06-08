@@ -1,33 +1,33 @@
-package liquidjava.rj_language.ast;
+package liquidjava.rj_language;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-import liquidjava.diagnostics.errors.LJError;
-import liquidjava.rj_language.visitors.ExpressionVisitor;
 import spoon.reflect.reference.CtTypeReference;
 
-public class SimplifiedExpression extends Expression {
+public class SimplifiedPredicate extends Predicate {
 
-    private final Expression origin;
+    private final Predicate simplified;
+    private final Predicate origin;
     private final List<Binder> binders;
 
-    public SimplifiedExpression(Expression simplified, Expression origin) {
+    public SimplifiedPredicate(Predicate simplified, Predicate origin) {
         this(simplified, origin, List.of());
     }
 
-    public SimplifiedExpression(Expression simplified, Expression origin, List<Binder> binders) {
-        addChild(simplified);
+    public SimplifiedPredicate(Predicate simplified, Predicate origin, List<Binder> binders) {
+        super(simplified.getExpression());
+        this.simplified = simplified;
         this.origin = origin;
         this.binders = new ArrayList<>(binders);
     }
 
-    public Expression getSimplifiedExpression() {
-        return children.get(0);
+    public Predicate getSimplifiedPredicate() {
+        return simplified;
     }
 
-    public Expression getOrigin() {
+    public Predicate getOrigin() {
         return origin;
     }
 
@@ -36,38 +36,23 @@ public class SimplifiedExpression extends Expression {
     }
 
     @Override
-    public <T> T accept(ExpressionVisitor<T> visitor) throws LJError {
-        return visitor.visitSimplifiedNode(this);
-    }
-
-    @Override
-    public void getVariableNames(List<String> toAdd) {
-        getSimplifiedExpression().getVariableNames(toAdd);
-    }
-
-    @Override
-    public void getStateInvocations(List<String> toAdd, List<String> all) {
-        getSimplifiedExpression().getStateInvocations(toAdd, all);
-    }
-
-    @Override
     public boolean isBooleanTrue() {
-        return getSimplifiedExpression().isBooleanTrue();
+        return getSimplifiedPredicate().isBooleanTrue();
     }
 
     @Override
-    public Expression clone() {
-        return new SimplifiedExpression(getSimplifiedExpression().clone(), origin.clone(), binders);
+    public SimplifiedPredicate clone() {
+        return new SimplifiedPredicate(getSimplifiedPredicate().clone(), origin.clone(), binders);
     }
 
     @Override
     public String toString() {
-        return getSimplifiedExpression().toString();
+        return getSimplifiedPredicate().toString();
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getSimplifiedExpression(), origin, binders);
+        return Objects.hash(getSimplifiedPredicate(), origin, binders);
     }
 
     @Override
@@ -78,8 +63,8 @@ public class SimplifiedExpression extends Expression {
             return false;
         if (getClass() != obj.getClass())
             return false;
-        SimplifiedExpression other = (SimplifiedExpression) obj;
-        return getSimplifiedExpression().equals(other.getSimplifiedExpression()) && origin.equals(other.origin)
+        SimplifiedPredicate other = (SimplifiedPredicate) obj;
+        return getSimplifiedPredicate().equals(other.getSimplifiedPredicate()) && origin.equals(other.origin)
                 && binders.equals(other.binders);
     }
 

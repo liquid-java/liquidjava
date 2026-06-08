@@ -15,7 +15,6 @@ import liquidjava.rj_language.ast.LiteralInt;
 import liquidjava.rj_language.ast.LiteralLong;
 import liquidjava.rj_language.ast.LiteralReal;
 import liquidjava.rj_language.ast.LiteralString;
-import liquidjava.rj_language.ast.SimplifiedExpression;
 import liquidjava.rj_language.ast.UnaryExpression;
 import liquidjava.rj_language.ast.Var;
 import liquidjava.utils.Utils;
@@ -58,9 +57,6 @@ public class TypeInfer {
             return functionType(ctx, (FunctionInvocation) e);
         else if (e instanceof AliasInvocation)
             return boolType(factory);
-        else if (e instanceof SimplifiedExpression)
-            return getType(ctx, factory, ((SimplifiedExpression) e).getSimplifiedExpression());
-
         return Optional.empty();
     }
 

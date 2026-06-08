@@ -13,7 +13,6 @@ import liquidjava.rj_language.ast.LiteralInt;
 import liquidjava.rj_language.ast.LiteralLong;
 import liquidjava.rj_language.ast.LiteralReal;
 import liquidjava.rj_language.ast.LiteralString;
-import liquidjava.rj_language.ast.SimplifiedExpression;
 import liquidjava.rj_language.ast.UnaryExpression;
 import liquidjava.rj_language.ast.Var;
 
@@ -39,8 +38,6 @@ public interface ExpressionVisitor<T> {
     T visitLiteralReal(LiteralReal lit) throws LJError;
 
     T visitLiteralString(LiteralString lit) throws LJError;
-
-    T visitSimplifiedNode(SimplifiedExpression node) throws LJError;
 
     T visitUnaryExpression(UnaryExpression exp) throws LJError;
 
