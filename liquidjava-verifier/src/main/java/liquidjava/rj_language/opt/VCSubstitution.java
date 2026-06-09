@@ -62,22 +62,22 @@ public class VCSubstitution {
      * Substitutes a source binder inside one predicate while preserving simplification metadata
      */
     private static Predicate substituteRefinement(Predicate refinement, VCImplication source, Expression value) {
-        Expression active = refinement.getExpression().clone();
+        Expression exp = refinement.getExpression().clone();
         Binder binder = new Binder(source.getName(), source.getType());
-        Expression substituted = active.substitute(new Var(binder.getName()), value.clone());
+        Expression substituted = exp.substitute(new Var(binder.getName()), value.clone());
 
         return new SimplifiedPredicate(new Predicate(substituted), refinement.getOrigin().clone(),
-                bindersAfterSubstitution(refinement, active, binder));
+                bindersAfterSubstitution(refinement, exp, binder));
     }
 
     /**
      * Builds the binder metadata after one substitution
      */
-    private static List<Binder> bindersAfterSubstitution(Predicate refinement, Expression active,
+    private static List<Binder> bindersAfterSubstitution(Predicate refinement, Expression exp,
             SimplifiedPredicate.Binder binder) {
         List<SimplifiedPredicate.Binder> binders = refinement instanceof SimplifiedPredicate previous
                 ? new ArrayList<>(previous.getBinders()) : new ArrayList<>();
-        if (containsVariable(active, binder.getName()) && !binders.contains(binder))
+        if (containsVariable(exp, binder.getName()) && !binders.contains(binder))
             binders.add(binder);
         return binders;
     }
