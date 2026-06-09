@@ -34,7 +34,7 @@ public class VCFolding {
         Optional<Expression> folded = fold(implication.getRefinement().getExpression());
         if (folded.isPresent()) {
             VCImplication result = new SimplifiedVCImplication(implication, new Predicate(folded.get()),
-                    originFor(implication));
+                    implication.getOrigin());
             result.setNext(implication.getNext() == null ? null : implication.getNext().clone());
             return Optional.of(result);
         }
@@ -46,12 +46,6 @@ public class VCFolding {
         VCImplication result = implication.copyWithRefinement(implication.getRefinement().clone());
         result.setNext(next.get());
         return Optional.of(result);
-    }
-
-    private static VCImplication originFor(VCImplication implication) {
-        if (implication instanceof SimplifiedVCImplication simplified)
-            return simplified.getOrigin().clone();
-        return new VCImplication(implication, implication.getRefinement().clone());
     }
 
     private static Optional<Expression> fold(Expression expression) {
