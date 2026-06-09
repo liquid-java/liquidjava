@@ -29,7 +29,7 @@ public class VCSimplificationPropertyBasedTest {
         VCImplication current = vc;
 
         for (int step = 0; step < VCImplicationGenerator.BINDERS.length; step++) {
-            VCImplication simplified = VCSimplifier.simplifyOnce(current);
+            VCImplication simplified = VCSimplifier.simplify(current);
             if (sameVc(current, simplified))
                 break;
 
