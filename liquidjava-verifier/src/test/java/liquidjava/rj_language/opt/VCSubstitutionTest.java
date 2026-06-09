@@ -1,6 +1,7 @@
 package liquidjava.rj_language.opt;
 
 import static liquidjava.utils.VCTestUtils.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -20,7 +21,7 @@ class VCSubstitutionTest {
 
         VCImplication result = VCSubstitution.applyOnce(implication);
 
-        assertSimplifiedVC(result, simplified("3 > 0", "x > 0", "x:int"));
+        assertSimplifiedVC(result, simplified("3 > 0", "∀x:int. x > 0"));
     }
 
     @Test
@@ -29,7 +30,7 @@ class VCSubstitutionTest {
 
         VCImplication result = VCSubstitution.applyOnce(implication);
 
-        assertSimplifiedVC(result, simplified("3 > 0", "x > 0", "x:int"));
+        assertSimplifiedVC(result, simplified("3 > 0", "∀x:int. x > 0"));
     }
 
     @Test
@@ -38,7 +39,7 @@ class VCSubstitutionTest {
 
         VCImplication result = VCSubstitution.applyOnce(implication);
 
-        assertSimplifiedVC(result, simplified("y + 1 > y", "x > y", "x:int"));
+        assertSimplifiedVC(result, simplified("y + 1 > y", "∀x:int. x > y"));
     }
 
     @Test
@@ -47,7 +48,9 @@ class VCSubstitutionTest {
 
         VCImplication result = VCSubstitution.applyOnce(implication);
 
-        assertSimplifiedVC(result, simplified("x > 0", "x > 0", ""), simplified("x + 4 > 0", "x + y > 0", "y:int"));
+        assertVC(result, "x > 0", "x + 4 > 0");
+        assertEquals(VCImplication.class, result.getClass());
+        assertSimplifiedVC(result.getNext(), simplified("x + 4 > 0", "∀y:int. x + y > 0"));
     }
 
     @Test
@@ -56,8 +59,10 @@ class VCSubstitutionTest {
 
         VCImplication result = VCSubstitution.applyOnce(implication);
 
-        assertSimplifiedVC(result, simplified("true", "true", ""), simplified("z > 1", "z > y", "y:int"),
-                simplified("1 + z > 0", "y + z > 0", "y:int"));
+        assertVC(result, "true", "z > 1", "1 + z > 0");
+        assertEquals(VCImplication.class, result.getClass());
+        assertSimplifiedVC(result.getNext(), simplified("z > 1", "∀y:int. z > y"),
+                simplified("1 + z > 0", "∀y:int. y + z > 0"));
     }
 
     @Test
@@ -66,8 +71,8 @@ class VCSubstitutionTest {
 
         VCImplication result = VCSubstitution.applyOnce(implication);
 
-        assertSimplifiedVC(result, simplified("y == 3 + 1", "y == x + 1", "x:int"),
-                simplified("y > 3", "y > x", "x:int"));
+        assertSimplifiedVC(result, simplified("y == 3 + 1", "∀x:int. y == x + 1"),
+                simplified("y > 3", "∀x:int. y > x"));
     }
 
     @Test

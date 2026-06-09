@@ -31,6 +31,10 @@ public class VCImplication {
         this.refinement = ref;
     }
 
+    public VCImplication copyWithRefinement(Predicate refinement) {
+        return new VCImplication(this, refinement);
+    }
+
     public void setNext(VCImplication c) {
         next = c;
     }
