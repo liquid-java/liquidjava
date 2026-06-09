@@ -1,5 +1,7 @@
 package liquidjava.processor;
 
+import java.util.Objects;
+
 import liquidjava.rj_language.Predicate;
 import liquidjava.utils.Utils;
 import spoon.reflect.reference.CtTypeReference;
@@ -20,6 +22,12 @@ public class VCImplication {
     }
 
     public VCImplication(Predicate ref) {
+        this.refinement = ref;
+    }
+
+    public VCImplication(VCImplication implication, Predicate ref) {
+        this.name = implication.name;
+        this.type = implication.type;
         this.refinement = ref;
     }
 
@@ -86,5 +94,27 @@ public class VCImplication {
         if (this.next != null)
             vc.next = this.next.clone();
         return vc;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name, typeName(), refinement, next);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj)
+            return true;
+        if (obj == null)
+            return false;
+        if (getClass() != obj.getClass())
+            return false;
+        VCImplication other = (VCImplication) obj;
+        return Objects.equals(name, other.name) && Objects.equals(typeName(), other.typeName())
+                && Objects.equals(refinement, other.refinement) && Objects.equals(next, other.next);
+    }
+
+    private String typeName() {
+        return type == null ? null : type.getQualifiedName();
     }
 }

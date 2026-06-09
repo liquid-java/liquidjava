@@ -33,6 +33,7 @@ public class SimplifiedPredicate extends Predicate {
         return new Predicate(getExpression());
     }
 
+    @Override
     public Predicate getOrigin() {
         return origin;
     }

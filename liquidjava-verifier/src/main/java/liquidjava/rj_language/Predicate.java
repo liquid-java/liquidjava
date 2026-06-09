@@ -236,6 +236,11 @@ public class Predicate {
     }
 
     @Override
+    public int hashCode() {
+        return exp.hashCode();
+    }
+
+    @Override
     public boolean equals(Object obj) {
         if (this == obj)
             return true;
@@ -249,6 +254,10 @@ public class Predicate {
 
     public Expression getExpression() {
         return exp;
+    }
+
+    public Predicate getOrigin() {
+        return this;
     }
 
     public ValDerivationNode simplify(Context context) {

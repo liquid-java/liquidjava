@@ -1,6 +1,5 @@
 package liquidjava.rj_language.opt;
 
-import static liquidjava.rj_language.opt.VCSimplificationUtils.*;
 import static liquidjava.rj_language.opt.VCSubstitution.containsVariable;
 import static liquidjava.rj_language.opt.VCSubstitution.isVar;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -30,7 +29,7 @@ public class VCSimplificationPropertyBasedTest {
 
         for (int step = 0; step < VCImplicationGenerator.BINDERS.length; step++) {
             VCImplication simplified = VCSimplification.simplify(current);
-            if (sameVc(current, simplified))
+            if (current.equals(simplified))
                 break;
 
             assertEquivalent(current, simplified, step);
@@ -61,7 +60,7 @@ public class VCSimplificationPropertyBasedTest {
     }
 
     private static Expression vcFormula(VCImplication implication) {
-        Expression refinement = activeExpression(implication.getRefinement()).clone();
+        Expression refinement = implication.getRefinement().getExpression().clone();
         if (!implication.hasNext())
             return refinement;
         return new BinaryExpression(refinement, "-->", vcFormula(implication.getNext()));
@@ -80,7 +79,7 @@ public class VCSimplificationPropertyBasedTest {
         if (!implication.hasBinder())
             return false;
 
-        Expression refinement = activeExpression(implication.getRefinement());
+        Expression refinement = implication.getRefinement().getExpression().clone();
         if (!(refinement instanceof BinaryExpression binary) || !"==".equals(binary.getOperator()))
             return false;
 
