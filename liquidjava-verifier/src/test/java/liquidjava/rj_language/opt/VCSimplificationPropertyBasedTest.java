@@ -1,6 +1,6 @@
 package liquidjava.rj_language.opt;
 
-import static liquidjava.rj_language.opt.VCSubstitution.activeExpression;
+import static liquidjava.rj_language.opt.VCSimplificationUtils.*;
 import static liquidjava.rj_language.opt.VCSubstitution.containsVariable;
 import static liquidjava.rj_language.opt.VCSubstitution.isVar;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -29,7 +29,7 @@ public class VCSimplificationPropertyBasedTest {
         VCImplication current = vc;
 
         for (int step = 0; step < VCImplicationGenerator.BINDERS.length; step++) {
-            VCImplication simplified = VCSimplifier.simplify(current);
+            VCImplication simplified = VCSimplification.simplify(current);
             if (sameVc(current, simplified))
                 break;
 
@@ -45,10 +45,6 @@ public class VCSimplificationPropertyBasedTest {
             TestUtils.addIntVariableToContext(variable);
         for (String variable : VCImplicationGenerator.FREE_VARS)
             TestUtils.addIntVariableToContext(variable);
-    }
-
-    private static boolean sameVc(VCImplication left, VCImplication right) {
-        return left.toString().equals(right.toString());
     }
 
     private static void assertEquivalent(VCImplication unsimplified, VCImplication simplified, int step) {
