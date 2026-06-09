@@ -1,6 +1,6 @@
 package liquidjava.rj_language.opt;
 
-import static liquidjava.rj_language.opt.VCSubstitution.containsVariable;
+import static liquidjava.rj_language.opt.VCSubstitution.containsVar;
 import static liquidjava.rj_language.opt.VCSubstitution.isVar;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -86,8 +86,7 @@ public class VCSimplificationPropertyBasedTest {
         String name = implication.getName();
         Expression left = binary.getFirstOperand();
         Expression right = binary.getSecondOperand();
-        return isVar(left, name) && !containsVariable(right, name)
-                || isVar(right, name) && !containsVariable(left, name);
+        return isVar(left, name) && !containsVar(right, name) || isVar(right, name) && !containsVar(left, name);
     }
 
     private static void assertImplies(Predicate antecedent, Predicate consequent, VCImplication unsimplified,
