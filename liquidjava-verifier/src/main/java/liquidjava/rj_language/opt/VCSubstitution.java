@@ -4,10 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import liquidjava.processor.SimplifiedVCImplication;
 import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
-import liquidjava.rj_language.SimplifiedPredicate;
-import liquidjava.rj_language.SimplifiedPredicate.Binder;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.Var;
@@ -20,7 +19,7 @@ public class VCSubstitution {
     /**
      * A substitution discovered from an implication node
      */
-    private record Substitution(VCImplication source, Expression value) {
+    private record Substitution(VCImplication node, Expression replacement) {
     }
 
     /**
@@ -36,7 +35,7 @@ public class VCSubstitution {
         // apply only the first available substitution
         if (substitutionOpt.isPresent()) {
             VCSubstitution.Substitution substitution = substitutionOpt.get();
-            result = VCSubstitution.substitute(result, substitution.source(), substitution.value());
+            result = VCSubstitution.substitute(result, substitution.node(), substitution.replacement());
         }
         return result;
     }
@@ -44,42 +43,39 @@ public class VCSubstitution {
     /**
      * Rewrites one VC chain with a single substitution and removes its source node
      */
-    private static VCImplication substitute(VCImplication implication, VCImplication source, Expression value) {
+    private static VCImplication substitute(VCImplication implication, VCImplication node, Expression replacement) {
         if (implication == null)
             return null;
 
         // skip the source node to remove it from the chain and start substitution from the next node
-        if (implication == source)
-            return substitute(implication.getNext(), source, value);
+        if (implication == node)
+            return substitute(implication.getNext(), node, replacement);
 
-        Predicate refinement = substituteRefinement(implication.getRefinement(), source, value);
-        VCImplication result = new VCImplication(implication, refinement);
-        result.setNext(substitute(implication.getNext(), source, value));
+        VCImplication result = substituteNode(implication, node, replacement);
+        result.setNext(substitute(implication.getNext(), node, replacement));
         return result;
     }
 
     /**
-     * Substitutes a source binder inside one predicate while preserving simplification metadata
+     * Substitutes a source binder inside one VC node while preserving simplification metadata
      */
-    private static Predicate substituteRefinement(Predicate refinement, VCImplication source, Expression value) {
-        Expression exp = refinement.getExpression().clone();
-        Binder binder = new Binder(source.getName(), source.getType());
-        Expression substituted = exp.substitute(new Var(binder.getName()), value.clone());
+    private static VCImplication substituteNode(VCImplication implication, VCImplication node, Expression replacement) {
+        Expression exp = implication.getRefinement().getExpression().clone();
+        if (!containsVar(exp, node.getName()))
+            return implication.copyWithRefinement(new Predicate(exp));
 
-        return new SimplifiedPredicate(new Predicate(substituted), refinement.getOrigin().clone(),
-                bindersAfterSubstitution(refinement, exp, binder));
+        Expression substituted = exp.substitute(new Var(node.getName()), replacement.clone());
+        VCImplication origin = new VCImplication(node.getName(), node.getType(), origin(implication));
+        return new SimplifiedVCImplication(implication, new Predicate(substituted), origin);
     }
 
     /**
-     * Builds the binder metadata after one substitution
+     * Uses the earliest original predicate available when simplifying an already-simplified node
      */
-    private static List<Binder> bindersAfterSubstitution(Predicate refinement, Expression exp,
-            SimplifiedPredicate.Binder binder) {
-        List<SimplifiedPredicate.Binder> binders = refinement instanceof SimplifiedPredicate previous
-                ? new ArrayList<>(previous.getBinders()) : new ArrayList<>();
-        if (containsVariable(exp, binder.getName()) && !binders.contains(binder))
-            binders.add(binder);
-        return binders;
+    private static Predicate origin(VCImplication implication) {
+        if (implication instanceof SimplifiedVCImplication simplified)
+            return simplified.getOrigin().getRefinement().clone();
+        return implication.getRefinement().clone();
     }
 
     /**
@@ -111,9 +107,9 @@ public class VCSubstitution {
         Expression left = binary.getFirstOperand();
         Expression right = binary.getSecondOperand();
 
-        if (isVar(left, name) && !containsVariable(right, name))
+        if (isVar(left, name) && !containsVar(right, name))
             return Optional.of(new Substitution(implication, right.clone()));
-        if (isVar(right, name) && !containsVariable(left, name))
+        if (isVar(right, name) && !containsVar(left, name))
             return Optional.of(new Substitution(implication, left.clone()));
 
         return Optional.empty();
@@ -129,7 +125,7 @@ public class VCSubstitution {
     /**
      * Checks whether an expression contains a variable name
      */
-    public static boolean containsVariable(Expression expression, String name) {
+    public static boolean containsVar(Expression expression, String name) {
         List<String> names = new ArrayList<>();
         expression.getVariableNames(names);
         return names.contains(name);

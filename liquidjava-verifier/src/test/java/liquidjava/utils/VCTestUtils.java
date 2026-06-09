@@ -4,9 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import liquidjava.processor.SimplifiedVCImplication;
 import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
-import liquidjava.rj_language.SimplifiedPredicate;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.parsing.RefinementsParser;
 import spoon.Launcher;
@@ -52,39 +52,34 @@ public class VCTestUtils {
     }
 
     public static void assertSimplifiedVC(VCImplication implication, String... expected) {
-        ExpectedSimplifiedPredicate[] predicates = java.util.Arrays.stream(expected)
-                .map(VCTestUtils::parseExpectedSimplifiedPredicate).toArray(ExpectedSimplifiedPredicate[]::new);
+        ExpectedSimplifiedVCImplication[] predicates = java.util.Arrays.stream(expected)
+                .map(VCTestUtils::parseExpectedSimplifiedVCImplication).toArray(ExpectedSimplifiedVCImplication[]::new);
         assertSimplifiedVC(implication, predicates);
     }
 
-    public static void assertSimplifiedVC(VCImplication implication, ExpectedSimplifiedPredicate... expected) {
+    public static void assertSimplifiedVC(VCImplication implication, ExpectedSimplifiedVCImplication... expected) {
         VCImplication current = implication;
         for (int i = 0; i < expected.length; i++) {
-            ExpectedSimplifiedPredicate expectedPredicate = expected[i];
-            SimplifiedPredicate predicate = simplifiedPredicate(current, i);
-            assertEquals(expectedPredicate.simplified(), predicate.getSimplifiedPredicate().toString(),
+            ExpectedSimplifiedVCImplication expectedPredicate = expected[i];
+            SimplifiedVCImplication simplified = simplifiedImplication(current, i);
+            assertEquals(Predicate.class, simplified.getRefinement().getClass(),
+                    "Expected simplified refinement at implication " + i + " to be a plain Predicate");
+            assertEquals(expectedPredicate.simplified(), simplified.getRefinement().toString(),
                     "Unexpected simplified expression at implication " + i);
             if (expectedPredicate.origin() != null)
-                assertEquals(expectedPredicate.origin(), predicate.getOrigin().toString(),
-                        "Unexpected origin expression at implication " + i);
-            if (expectedPredicate.binders() != null)
-                assertEquals(expectedPredicate.binders(), formatBinders(predicate),
-                        "Unexpected binders at implication " + i);
+                assertEquals(expectedPredicate.origin(), formatOrigin(simplified.getOrigin()),
+                        "Unexpected origin VC at implication " + i);
             current = current.getNext();
         }
         assertNull(current, "Expected VC chain to end after " + expected.length + " implications");
     }
 
-    public static ExpectedSimplifiedPredicate simplified(String simplified) {
-        return new ExpectedSimplifiedPredicate(simplified, null, null);
+    public static ExpectedSimplifiedVCImplication simplified(String simplified) {
+        return new ExpectedSimplifiedVCImplication(simplified, null);
     }
 
-    public static ExpectedSimplifiedPredicate simplified(String simplified, String origin) {
-        return new ExpectedSimplifiedPredicate(simplified, origin, null);
-    }
-
-    public static ExpectedSimplifiedPredicate simplified(String simplified, String origin, String binders) {
-        return new ExpectedSimplifiedPredicate(simplified, origin, binders);
+    public static ExpectedSimplifiedVCImplication simplified(String simplified, String origin) {
+        return new ExpectedSimplifiedVCImplication(simplified, origin);
     }
 
     public static void assertVC(VCImplication implication, String... expected) {
@@ -97,33 +92,25 @@ public class VCTestUtils {
         assertNull(current, "Expected VC chain to end after " + expected.length + " implications");
     }
 
-    public static SimplifiedPredicate simplifiedPredicate(VCImplication implication, int index) {
-        assertInstanceOf(SimplifiedPredicate.class, implication.getRefinement(),
-                "Expected implication " + index + " to contain a SimplifiedPredicate");
-        return (SimplifiedPredicate) implication.getRefinement();
+    public static SimplifiedVCImplication simplifiedImplication(VCImplication implication, int index) {
+        return assertInstanceOf(SimplifiedVCImplication.class, implication,
+                "Expected implication " + index + " to be a SimplifiedVCImplication");
     }
 
-    private static String formatBinders(SimplifiedPredicate predicate) {
-        return predicate.getBinders().stream().map(binder -> binder.getName() + ":" + binder.getType())
-                .collect(java.util.stream.Collectors.joining(", "));
+    private static String formatOrigin(VCImplication origin) {
+        if (!origin.hasBinder())
+            return origin.getRefinement().toString();
+        return "∀" + origin.getName() + ":" + origin.getType().getQualifiedName() + ". " + origin.getRefinement();
     }
 
-    private static ExpectedSimplifiedPredicate parseExpectedSimplifiedPredicate(String expected) {
-        String binders = null;
+    private static ExpectedSimplifiedVCImplication parseExpectedSimplifiedVCImplication(String expected) {
         String expression = expected.trim();
-        int binderStart = expression.lastIndexOf('[');
-        if (binderStart >= 0) {
-            int binderEnd = expression.lastIndexOf(']');
-            binders = expression.substring(binderStart + 1, binderEnd).trim();
-            expression = expression.substring(0, binderStart).trim();
-        }
-
         String[] parts = expression.split("<-", 2);
         String simplified = parts[0].trim();
         String origin = parts.length > 1 ? parts[1].trim() : null;
-        return new ExpectedSimplifiedPredicate(simplified, origin, binders);
+        return new ExpectedSimplifiedVCImplication(simplified, origin);
     }
 
-    public record ExpectedSimplifiedPredicate(String simplified, String origin, String binders) {
+    public record ExpectedSimplifiedVCImplication(String simplified, String origin) {
     }
 }
