@@ -16,36 +16,32 @@ import liquidjava.rj_language.ast.LiteralReal;
 import liquidjava.rj_language.ast.UnaryExpression;
 
 /**
- * Simplifies VCImplication chains by folding constant expressions inside active predicates.
+ * Simplifies VCImplication chains by folding constant expressions and other foldable patterns inside refinements
  */
 public class VCFolding {
 
     /**
      * Applies folding to the first foldable predicate in a VC chain.
      */
-    public static VCImplication applyOnce(VCImplication implication) {
-        return applyOnceChanged(implication).orElseGet(() -> implication == null ? null : implication.clone());
-    }
-
-    private static Optional<VCImplication> applyOnceChanged(VCImplication implication) {
+    public static VCImplication apply(VCImplication implication) {
         if (implication == null)
-            return Optional.empty();
+            return null;
 
         Optional<Expression> folded = fold(implication.getRefinement().getExpression());
         if (folded.isPresent()) {
             VCImplication result = new SimplifiedVCImplication(implication, new Predicate(folded.get()),
                     implication.getOrigin());
             result.setNext(implication.getNext() == null ? null : implication.getNext().clone());
-            return Optional.of(result);
+            return result;
         }
 
-        Optional<VCImplication> next = applyOnceChanged(implication.getNext());
-        if (next.isEmpty())
-            return Optional.empty();
+        VCImplication next = apply(implication.getNext());
+        if (implication.getNext() == null || implication.getNext().equals(next))
+            return implication.clone();
 
         VCImplication result = implication.copyWithRefinement(implication.getRefinement().clone());
-        result.setNext(next.get());
-        return Optional.of(result);
+        result.setNext(next);
+        return result;
     }
 
     private static Optional<Expression> fold(Expression expression) {

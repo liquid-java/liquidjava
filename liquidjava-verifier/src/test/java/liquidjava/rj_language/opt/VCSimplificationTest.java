@@ -13,7 +13,7 @@ class VCSimplificationTest {
 
     @Test
     void simplifyReturnsNullForNullImplication() {
-        assertNull(VCSimplification.simplify(null));
+        assertNull(VCSimplification.simplifyToFixedPoint(null));
     }
 
     @Test
@@ -43,7 +43,7 @@ class VCSimplificationTest {
     void simplifyKeepsApplyingStepsUntilFixedPoint() {
         VCImplication implication = vc("∀x:int. x == 1 + 2", "x + 1 > 3");
 
-        VCImplication result = VCSimplification.simplify(implication);
+        VCImplication result = VCSimplification.simplifyToFixedPoint(implication);
 
         assertSimplifiedVC(result, simplified("true", "∀x:int. x + 1 > 3"));
     }
@@ -52,7 +52,7 @@ class VCSimplificationTest {
     void simplifyAppliesMultipleSubstitutionsBeforeReachingFixedPoint() {
         VCImplication implication = vc("∀x:int. x == 3", "∀y:int. y == x + 1", "y > x");
 
-        VCImplication result = VCSimplification.simplify(implication);
+        VCImplication result = VCSimplification.simplifyToFixedPoint(implication);
 
         assertSimplifiedVC(result, simplified("true", "∀y:int. y > x"));
     }
@@ -61,7 +61,7 @@ class VCSimplificationTest {
     void simplifyLeavesUnchangedVcAsPlainPredicates() {
         VCImplication implication = vc("x > 0", "y > x");
 
-        VCImplication result = VCSimplification.simplify(implication);
+        VCImplication result = VCSimplification.simplifyToFixedPoint(implication);
 
         assertVC(result, "x > 0", "y > x");
     }

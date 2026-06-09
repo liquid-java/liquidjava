@@ -16,8 +16,8 @@ import org.junit.jupiter.api.Test;
 class VCFoldingTest {
 
     @Test
-    void applyOnceReturnsNullForNullImplication() {
-        assertNull(VCFolding.applyOnce(null));
+    void applyReturnsNullForNullImplication() {
+        assertNull(VCFolding.apply(null));
     }
 
     @Test
@@ -79,28 +79,28 @@ class VCFoldingTest {
         VCImplication implication = new VCImplication(
                 new Predicate(new BinaryExpression(limit, "==", new LiteralInt(3))));
 
-        VCImplication result = VCFolding.applyOnce(implication);
+        VCImplication result = VCFolding.apply(implication);
 
         assertSimplifiedVC(result, simplified("true", "Config.LIMIT == 3"));
     }
 
     @Test
     void preservesOriginFromExistingSimplifiedImplication() {
-        VCImplication substituted = VCSubstitution.applyOnce(vc("∀x:int. x == 1", "x + 1 + 2 > 0"));
+        VCImplication substituted = VCSubstitution.apply(vc("∀x:int. x == 1", "x + 1 + 2 > 0"));
 
-        VCImplication result = VCFolding.applyOnce(substituted);
+        VCImplication result = VCFolding.apply(substituted);
 
         assertSimplifiedVC(result, simplified("true", "∀x:int. x + 1 + 2 > 0"));
     }
 
     private static void assertFolded(String original, String folded) {
-        VCImplication result = VCFolding.applyOnce(vc(original));
+        VCImplication result = VCFolding.apply(vc(original));
 
         assertSimplifiedVC(result, simplified(folded, original));
     }
 
     private static void assertUnchanged(String original) {
-        VCImplication result = VCFolding.applyOnce(vc(original));
+        VCImplication result = VCFolding.apply(vc(original));
 
         assertVC(result, original);
     }
