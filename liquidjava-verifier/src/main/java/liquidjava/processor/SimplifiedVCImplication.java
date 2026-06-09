@@ -16,13 +16,9 @@ public class SimplifiedVCImplication extends VCImplication {
         this.origin = origin.clone();
     }
 
+    @Override
     public VCImplication getOrigin() {
         return origin;
-    }
-
-    @Override
-    public Predicate getOriginRefinement() {
-        return origin.getRefinement().clone();
     }
 
     @Override
