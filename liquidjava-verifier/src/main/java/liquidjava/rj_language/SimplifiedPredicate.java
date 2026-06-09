@@ -8,7 +8,6 @@ import spoon.reflect.reference.CtTypeReference;
 
 public class SimplifiedPredicate extends Predicate {
 
-    private final Predicate simplified;
     private final Predicate origin;
     private final List<Binder> binders;
 
@@ -18,13 +17,12 @@ public class SimplifiedPredicate extends Predicate {
 
     public SimplifiedPredicate(Predicate simplified, Predicate origin, List<Binder> binders) {
         super(simplified.getExpression());
-        this.simplified = simplified;
         this.origin = origin;
         this.binders = new ArrayList<>(binders);
     }
 
     public Predicate getSimplifiedPredicate() {
-        return simplified;
+        return new Predicate(getExpression());
     }
 
     public Predicate getOrigin() {
@@ -36,23 +34,13 @@ public class SimplifiedPredicate extends Predicate {
     }
 
     @Override
-    public boolean isBooleanTrue() {
-        return getSimplifiedPredicate().isBooleanTrue();
-    }
-
-    @Override
     public SimplifiedPredicate clone() {
-        return new SimplifiedPredicate(getSimplifiedPredicate().clone(), origin.clone(), binders);
-    }
-
-    @Override
-    public String toString() {
-        return getSimplifiedPredicate().toString();
+        return new SimplifiedPredicate(new Predicate(getExpression().clone()), origin.clone(), binders);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getSimplifiedPredicate(), origin, binders);
+        return Objects.hash(getExpression(), origin, binders);
     }
 
     @Override
@@ -64,7 +52,7 @@ public class SimplifiedPredicate extends Predicate {
         if (getClass() != obj.getClass())
             return false;
         SimplifiedPredicate other = (SimplifiedPredicate) obj;
-        return getSimplifiedPredicate().equals(other.getSimplifiedPredicate()) && origin.equals(other.origin)
+        return getExpression().equals(other.getExpression()) && origin.equals(other.origin)
                 && binders.equals(other.binders);
     }
 
