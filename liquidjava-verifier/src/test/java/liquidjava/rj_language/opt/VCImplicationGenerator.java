@@ -19,13 +19,17 @@ public class VCImplicationGenerator extends Generator<VCImplication> {
 
     @Override
     public VCImplication generate(SourceOfRandomness random, GenerationStatus status) {
-        return switch (random.nextInt(0, 5)) {
+        return switch (random.nextInt(0, 9)) {
         case 0 -> vc(substitution(random, "x"), comparison(random, "x"));
         case 1 -> vc(reverseSubstitution(random, "x"), comparison(random, "x"));
         case 2 -> vc(nonSubstitution(random, "x"), substitution(random, "y"), comparison(random, "y"));
         case 3 -> vc(substitution(random, "x"), dependentSubstitution(random), comparison(random, "y"));
         case 4 -> vc("∀y:int. true", "∀x:int. x == y + 1", comparison(random, "x"));
-        default -> vc(substitution(random, "x"), substitution(random, "y"), comparison(random, "z"));
+        case 5 -> vc(foldableComparison(random));
+        case 6 -> vc(foldableBoolean(random), comparison(random, "x"));
+        case 7 -> vc(foldableIte(random));
+        case 8 -> vc(adjacentConstants(random) + " " + comparisonOperator(random) + " " + intLiteral(random));
+        default -> vc(substitution(random, "x"), substitution(random, "y"), foldableComparison(random));
         };
     }
 
@@ -55,7 +59,43 @@ public class VCImplicationGenerator extends Generator<VCImplication> {
         String left = random.nextBoolean() ? preferredVar : arithmetic(random, preferredVar);
         String right = random.nextBoolean() ? intLiteral(random)
                 : arithmetic(random, FREE_VARS[random.nextInt(0, FREE_VARS.length - 1)]);
-        return left + " " + COMPARISON_OPS[random.nextInt(0, COMPARISON_OPS.length - 1)] + " " + right;
+        return left + " " + comparisonOperator(random) + " " + right;
+    }
+
+    private static String foldableComparison(SourceOfRandomness random) {
+        return literalArithmetic(random) + " " + comparisonOperator(random) + " " + literalArithmetic(random);
+    }
+
+    private static String foldableBoolean(SourceOfRandomness random) {
+        String left = random.nextBoolean() ? "true" : "false";
+        String right = random.nextBoolean() ? "true" : "false";
+        String[] ops = { "&&", "||", "-->", "==", "!=" };
+        return left + " " + ops[random.nextInt(0, ops.length - 1)] + " " + right;
+    }
+
+    private static String foldableIte(SourceOfRandomness random) {
+        String condition = random.nextBoolean() ? foldableBoolean(random) : foldableComparison(random);
+        String thenBranch = comparison(random, "x");
+        String elseBranch = random.nextBoolean() ? thenBranch : comparison(random, "y");
+        return condition + " ? " + thenBranch + " : " + elseBranch;
+    }
+
+    private static String literalArithmetic(SourceOfRandomness random) {
+        String left = intLiteral(random);
+        String right = Integer.toString(random.nextInt(1, 7));
+        String[] ops = { "+", "-", "*" };
+        return left + " " + ops[random.nextInt(0, ops.length - 1)] + " " + right;
+    }
+
+    private static String adjacentConstants(SourceOfRandomness random) {
+        String variable = FREE_VARS[random.nextInt(0, FREE_VARS.length - 1)];
+        int left = random.nextInt(-3, 3);
+        int right = random.nextInt(-3, 3);
+        return variable + " " + signed(left) + " " + signed(right);
+    }
+
+    private static String comparisonOperator(SourceOfRandomness random) {
+        return COMPARISON_OPS[random.nextInt(0, COMPARISON_OPS.length - 1)];
     }
 
     private static String value(SourceOfRandomness random) {

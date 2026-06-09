@@ -2,6 +2,7 @@ package liquidjava.rj_language.opt;
 
 import static liquidjava.rj_language.opt.VCSubstitution.containsVar;
 import static liquidjava.rj_language.opt.VCSubstitution.isVar;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.pholser.junit.quickcheck.From;
@@ -20,7 +21,8 @@ import org.junit.runner.RunWith;
 @RunWith(JUnitQuickcheck.class)
 public class VCSimplificationPropertyBasedTest {
 
-    private static final int TRIALS = 500;
+    private static final int TRIALS = 500; // number of random VCs to test
+    private static final int MAX_STEPS = 20; // to prevent infinite loops in case of non-termination
 
     @Property(trials = TRIALS)
     public void eachSimplificationStepPreservesVcSemantics(@From(VCImplicationGenerator.class) VCImplication vc) {
@@ -35,7 +37,7 @@ public class VCSimplificationPropertyBasedTest {
             assertEquivalent(current, simplified, step);
             current = simplified;
         }
-        // System.out.println("---------------------------------------------------------");
+        fail("VC simplification did not reach a fixed point within " + MAX_STEPS + " steps: " + current);
     }
 
     private static void setUpContext() {
@@ -50,9 +52,9 @@ public class VCSimplificationPropertyBasedTest {
         Predicate premises = substitutionPremises(unsimplified);
         Predicate unsimplifiedFormula = Predicate.createConjunction(premises, new Predicate(vcFormula(unsimplified)));
         Predicate simplifiedFormula = Predicate.createConjunction(premises, new Predicate(vcFormula(simplified)));
-        // System.out.println(unsimplifiedFormula);
-        // System.out.println("=>");
-        // System.out.println(simplifiedFormula);
+        System.out.println(unsimplifiedFormula);
+        System.out.println("=>");
+        System.out.println(simplifiedFormula);
         assertImplies(unsimplifiedFormula, simplifiedFormula, unsimplified, simplified, step,
                 "unsimplified => simplified");
         assertImplies(simplifiedFormula, unsimplifiedFormula, unsimplified, simplified, step,
