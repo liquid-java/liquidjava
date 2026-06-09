@@ -252,20 +252,6 @@ public class VCChecker {
 
         VCImplication firstSi = null;
         VCImplication lastSi = null;
-        // Check
-        for (RefinedVariable var : mainVars) { // join main refinements of mainVars
-            addMap(var, map);
-            VCImplication si = new VCImplication(var.getName(), var.getType(), var.getMainRefinement());
-            if (lastSi != null) {
-                lastSi.setNext(si);
-                lastSi = si;
-            }
-            if (firstSi == null) {
-                firstSi = si;
-                lastSi = si;
-            }
-        }
-
         for (RefinedVariable var : vars) { // join refinements of vars
             addMap(var, map);
 
@@ -280,6 +266,19 @@ public class VCChecker {
                     refinement = v.getMainRefinement();
             }
             VCImplication si = new VCImplication(var.getName(), var.getType(), refinement);
+            if (lastSi != null) {
+                lastSi.setNext(si);
+                lastSi = si;
+            }
+            if (firstSi == null) {
+                firstSi = si;
+                lastSi = si;
+            }
+        }
+
+        for (RefinedVariable var : mainVars) { // join main refinements of mainVars
+            addMap(var, map);
+            VCImplication si = new VCImplication(var.getName(), var.getType(), var.getMainRefinement());
             if (lastSi != null) {
                 lastSi.setNext(si);
                 lastSi = si;
@@ -331,6 +330,8 @@ public class VCChecker {
                 .filter(rv -> !allVars.contains(rv)).forEach(rv -> {
                     allVars.add(rv);
                     recAuxGetVars(rv, allVars);
+                    allVars.remove(rv);
+                    allVars.add(rv);
                 });
     }
 
