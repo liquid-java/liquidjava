@@ -24,25 +24,6 @@ public class VCSubstitution {
     }
 
     /**
-     * Applies all available binder equality substitutions in a VC chain
-     */
-    public static VCImplication apply(VCImplication implication) {
-        if (implication == null)
-            return null;
-
-        VCImplication result = implication.clone();
-        Optional<VCSubstitution.Substitution> substitutionOpt = VCSubstitution.findSubstitution(result);
-
-        // keep applying substitutions until there are no more substitutions available
-        while (substitutionOpt.isPresent()) {
-            VCSubstitution.Substitution substitution = substitutionOpt.get();
-            result = VCSubstitution.substitute(result, substitution.source(), substitution.value());
-            substitutionOpt = VCSubstitution.findSubstitution(result);
-        }
-        return result;
-    }
-
-    /**
      * Applies one substitution in a VC chain
      */
     public static VCImplication applyOnce(VCImplication implication) {
@@ -72,7 +53,7 @@ public class VCSubstitution {
             return substitute(implication.getNext(), source, value);
 
         Predicate refinement = substituteRefinement(implication.getRefinement(), source, value);
-        VCImplication result = copyWithRefinement(implication, refinement);
+        VCImplication result = VCSimplificationUtils.copyWithRefinement(implication, refinement);
         result.setNext(substitute(implication.getNext(), source, value));
         return result;
     }
@@ -85,26 +66,8 @@ public class VCSubstitution {
         Binder binder = new Binder(source.getName(), source.getType());
         Expression substituted = active.substitute(new Var(binder.getName()), value.clone());
 
-        return new SimplifiedPredicate(new Predicate(substituted), originPredicate(refinement),
+        return new SimplifiedPredicate(new Predicate(substituted), VCSimplificationUtils.originPredicate(refinement),
                 bindersAfterSubstitution(refinement, active, binder));
-    }
-
-    /**
-     * Copies an implication node with a replacement refinement
-     */
-    private static VCImplication copyWithRefinement(VCImplication implication, Predicate refinement) {
-        if (implication.hasBinder())
-            return new VCImplication(implication.getName(), implication.getType(), refinement);
-        return new VCImplication(refinement);
-    }
-
-    /**
-     * Returns the expression that should be shown as the original formula
-     */
-    private static Predicate originPredicate(Predicate refinement) {
-        if (refinement instanceof SimplifiedPredicate simplified)
-            return simplified.getOrigin().clone();
-        return refinement.clone();
     }
 
     /**
@@ -176,8 +139,6 @@ public class VCSubstitution {
      * Returns the expression used for matching and substitution
      */
     public static Expression activeExpression(Predicate refinement) {
-        if (refinement instanceof SimplifiedPredicate simplified)
-            return simplified.getSimplifiedPredicate().getExpression().clone();
-        return refinement.getExpression().clone();
+        return VCSimplificationUtils.activeExpression(refinement);
     }
 }
