@@ -1,20 +1,18 @@
 package liquidjava.rj_language.opt;
 
-import static liquidjava.utils.VCTestUtils.vc;
+import static liquidjava.rj_language.opt.VCSubstitution.activeExpression;
+import static liquidjava.rj_language.opt.VCSubstitution.containsVariable;
+import static liquidjava.rj_language.opt.VCSubstitution.isVar;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.pholser.junit.quickcheck.From;
 import com.pholser.junit.quickcheck.Property;
 import com.pholser.junit.quickcheck.runner.JUnitQuickcheck;
-import java.util.ArrayList;
-import java.util.List;
 import liquidjava.processor.VCImplication;
 import liquidjava.processor.context.Context;
 import liquidjava.rj_language.Predicate;
-import liquidjava.rj_language.SimplifiedPredicate;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
-import liquidjava.rj_language.ast.Var;
 import liquidjava.smt.SMTEvaluator;
 import liquidjava.smt.SMTResult;
 import liquidjava.utils.TestUtils;
@@ -107,21 +105,5 @@ public class VCSimplificationPropertyBasedTest {
             throw new AssertionError(direction + " could not be checked at step " + step + "\nunsimplified: "
                     + unsimplified + "\nsimplified: " + simplified, e);
         }
-    }
-
-    private static boolean isVar(Expression expression, String name) {
-        return expression instanceof Var var && name.equals(var.getName());
-    }
-
-    private static boolean containsVariable(Expression expression, String name) {
-        List<String> names = new ArrayList<>();
-        expression.getVariableNames(names);
-        return names.contains(name);
-    }
-
-    private static Expression activeExpression(Predicate predicate) {
-        if (predicate instanceof SimplifiedPredicate simplified)
-            return simplified.getSimplifiedPredicate().getExpression();
-        return predicate.getExpression();
     }
 }

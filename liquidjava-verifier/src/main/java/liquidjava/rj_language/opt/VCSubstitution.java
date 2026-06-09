@@ -7,6 +7,7 @@ import java.util.Optional;
 import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.SimplifiedPredicate;
+import liquidjava.rj_language.SimplifiedPredicate.Binder;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.Var;
@@ -81,7 +82,7 @@ public class VCSubstitution {
      */
     private static Predicate substituteRefinement(Predicate refinement, VCImplication source, Expression value) {
         Expression active = activeExpression(refinement);
-        SimplifiedPredicate.Binder binder = new SimplifiedPredicate.Binder(source.getName(), source.getType());
+        Binder binder = new Binder(source.getName(), source.getType());
         Expression substituted = active.substitute(new Var(binder.getName()), value.clone());
 
         return new SimplifiedPredicate(new Predicate(substituted), originPredicate(refinement),
@@ -109,7 +110,7 @@ public class VCSubstitution {
     /**
      * Builds the binder metadata after one substitution
      */
-    private static List<SimplifiedPredicate.Binder> bindersAfterSubstitution(Predicate refinement, Expression active,
+    private static List<Binder> bindersAfterSubstitution(Predicate refinement, Expression active,
             SimplifiedPredicate.Binder binder) {
         List<SimplifiedPredicate.Binder> binders = refinement instanceof SimplifiedPredicate previous
                 ? new ArrayList<>(previous.getBinders()) : new ArrayList<>();
@@ -158,14 +159,14 @@ public class VCSubstitution {
     /**
      * Checks whether an expression is a variable with a given name
      */
-    private static boolean isVar(Expression expression, String name) {
+    public static boolean isVar(Expression expression, String name) {
         return expression instanceof Var var && name.equals(var.getName());
     }
 
     /**
      * Checks whether an expression contains a variable name
      */
-    private static boolean containsVariable(Expression expression, String name) {
+    public static boolean containsVariable(Expression expression, String name) {
         List<String> names = new ArrayList<>();
         expression.getVariableNames(names);
         return names.contains(name);
@@ -174,7 +175,7 @@ public class VCSubstitution {
     /**
      * Returns the expression used for matching and substitution
      */
-    private static Expression activeExpression(Predicate refinement) {
+    public static Expression activeExpression(Predicate refinement) {
         if (refinement instanceof SimplifiedPredicate simplified)
             return simplified.getSimplifiedPredicate().getExpression().clone();
         return refinement.getExpression().clone();
