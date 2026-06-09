@@ -22,6 +22,11 @@ public class SimplifiedVCImplication extends VCImplication {
     }
 
     @Override
+    public Predicate getOriginRefinement() {
+        return origin.getRefinement().clone();
+    }
+
+    @Override
     public VCImplication copyWithRefinement(Predicate refinement) {
         return new SimplifiedVCImplication(this, refinement, origin);
     }
