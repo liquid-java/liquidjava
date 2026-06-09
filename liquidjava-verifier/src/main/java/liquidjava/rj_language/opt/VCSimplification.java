@@ -10,7 +10,7 @@ public class VCSimplification {
     /**
      * Applies all available simplification steps to a VC chain
      */
-    public static VCImplication simplify(VCImplication implication) {
+    public static VCImplication simplifyToFixedPoint(VCImplication implication) {
         if (implication == null)
             return null;
 
@@ -32,7 +32,7 @@ public class VCSimplification {
             return null;
 
         // first try to apply substitution, then folding
-        VCImplication substituted = VCSubstitution.applyOnce(implication);
+        VCImplication substituted = VCSubstitution.apply(implication);
         if (!implication.equals(substituted))
             return substituted;
 

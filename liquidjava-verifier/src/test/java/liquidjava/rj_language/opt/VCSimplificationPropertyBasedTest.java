@@ -28,7 +28,7 @@ public class VCSimplificationPropertyBasedTest {
         VCImplication current = vc;
 
         for (int step = 0; step < VCImplicationGenerator.BINDERS.length; step++) {
-            VCImplication simplified = VCSimplification.simplify(current);
+            VCImplication simplified = VCSimplification.simplifyToFixedPoint(current);
             if (current.equals(simplified))
                 break;
 

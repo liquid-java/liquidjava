@@ -25,7 +25,7 @@ public class VCSubstitution {
     /**
      * Applies one substitution in a VC chain
      */
-    public static VCImplication applyOnce(VCImplication implication) {
+    public static VCImplication apply(VCImplication implication) {
         if (implication == null)
             return null;
 
@@ -65,17 +65,8 @@ public class VCSubstitution {
             return implication.copyWithRefinement(new Predicate(exp));
 
         Expression substituted = exp.substitute(new Var(node.getName()), replacement.clone());
-        VCImplication origin = new VCImplication(node.getName(), node.getType(), origin(implication));
+        VCImplication origin = new VCImplication(node.getName(), node.getType(), implication.getOriginRefinement());
         return new SimplifiedVCImplication(implication, new Predicate(substituted), origin);
-    }
-
-    /**
-     * Uses the earliest original predicate available when simplifying an already-simplified node
-     */
-    private static Predicate origin(VCImplication implication) {
-        if (implication instanceof SimplifiedVCImplication simplified)
-            return simplified.getOrigin().getRefinement().clone();
-        return implication.getRefinement().clone();
     }
 
     /**
