@@ -10,8 +10,9 @@ import spoon.reflect.reference.CtTypeReference;
  * Represents a predicate simplified from another predicate. Stores the original predicate and any variables that must
  * be reintroduced as binders when relating the simplified predicate back to its origin.
  * <p>
- * For example, simplifying {@code x == 1 && y > x} with binders {@code x: int, y: int} may produce
- * {@code y > 1}. The origin {@code x == 1 && y > x} and binder {@code x: int} are kept so we can relate the simplified predicate back to the original.
+ * For example, simplifying {@code x == 1 && y > x} with binders {@code x: int, y: int} may produce {@code y > 1}. The
+ * origin {@code x == 1 && y > x} and binder {@code x: int} are kept so we can relate the simplified predicate back to
+ * the original.
  */
 public class SimplifiedPredicate extends Predicate {
 
