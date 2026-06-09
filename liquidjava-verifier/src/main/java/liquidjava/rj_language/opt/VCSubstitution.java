@@ -12,8 +12,6 @@ import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.Var;
 
-import static liquidjava.rj_language.opt.VCSimplificationUtils.*;
-
 /**
  * Simplifies VCImplication chains by replacing binder equalities with their known values
  */
@@ -55,7 +53,7 @@ public class VCSubstitution {
             return substitute(implication.getNext(), source, value);
 
         Predicate refinement = substituteRefinement(implication.getRefinement(), source, value);
-        VCImplication result = VCSimplificationUtils.copyWithRefinement(implication, refinement);
+        VCImplication result = new VCImplication(implication, refinement);
         result.setNext(substitute(implication.getNext(), source, value));
         return result;
     }
@@ -64,11 +62,11 @@ public class VCSubstitution {
      * Substitutes a source binder inside one predicate while preserving simplification metadata
      */
     private static Predicate substituteRefinement(Predicate refinement, VCImplication source, Expression value) {
-        Expression active = activeExpression(refinement);
+        Expression active = refinement.getExpression().clone();
         Binder binder = new Binder(source.getName(), source.getType());
         Expression substituted = active.substitute(new Var(binder.getName()), value.clone());
 
-        return new SimplifiedPredicate(new Predicate(substituted), VCSimplificationUtils.originPredicate(refinement),
+        return new SimplifiedPredicate(new Predicate(substituted), refinement.getOrigin().clone(),
                 bindersAfterSubstitution(refinement, active, binder));
     }
 
@@ -105,7 +103,7 @@ public class VCSubstitution {
         if (!implication.hasBinder())
             return Optional.empty();
 
-        Expression refinement = activeExpression(implication.getRefinement());
+        Expression refinement = implication.getRefinement().getExpression().clone();
         if (!(refinement instanceof BinaryExpression binary) || !"==".equals(binary.getOperator()))
             return Optional.empty();
 
