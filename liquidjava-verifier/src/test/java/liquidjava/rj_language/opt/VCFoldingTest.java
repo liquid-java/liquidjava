@@ -85,12 +85,12 @@ class VCFoldingTest {
     }
 
     @Test
-    void preservesOriginAndBindersFromExistingSimplifiedPredicate() {
+    void preservesOriginFromExistingSimplifiedImplication() {
         VCImplication substituted = VCSubstitution.applyOnce(vc("∀x:int. x == 1", "x + 1 + 2 > 0"));
 
         VCImplication result = VCFolding.applyOnce(substituted);
 
-        assertSimplifiedVC(result, simplified("true", "x + 1 + 2 > 0", "x:int"));
+        assertSimplifiedVC(result, simplified("true", "∀x:int. x + 1 + 2 > 0"));
     }
 
     private static void assertFolded(String original, String folded) {

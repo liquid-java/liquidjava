@@ -27,7 +27,7 @@ class VCSimplificationTest {
 
         VCImplication result = VCSimplification.simplifyOnce(implication);
 
-        assertSimplifiedVC(result, simplified("1 + 2 > 2", "x > 2", "x:int"));
+        assertSimplifiedVC(result, simplified("1 + 2 > 2", "∀x:int. x > 2"));
     }
 
     @Test
@@ -45,7 +45,7 @@ class VCSimplificationTest {
 
         VCImplication result = VCSimplification.simplify(implication);
 
-        assertSimplifiedVC(result, simplified("true", "x + 1 > 3", "x:int"));
+        assertSimplifiedVC(result, simplified("true", "∀x:int. x + 1 > 3"));
     }
 
     @Test
@@ -54,7 +54,7 @@ class VCSimplificationTest {
 
         VCImplication result = VCSimplification.simplify(implication);
 
-        assertSimplifiedVC(result, simplified("true", "y > x", "x:int, y:int"));
+        assertSimplifiedVC(result, simplified("true", "∀y:int. y > x"));
     }
 
     @Test

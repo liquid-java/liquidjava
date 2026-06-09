@@ -2,9 +2,9 @@ package liquidjava.rj_language.opt;
 
 import java.util.Optional;
 
+import liquidjava.processor.SimplifiedVCImplication;
 import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
-import liquidjava.rj_language.SimplifiedPredicate;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Enum;
 import liquidjava.rj_language.ast.Expression;
@@ -31,10 +31,10 @@ public class VCFolding {
         if (implication == null)
             return Optional.empty();
 
-        Optional<Expression> folded = fold(VCSimplificationUtils.activeExpression(implication.getRefinement()));
+        Optional<Expression> folded = fold(implication.getRefinement().getExpression());
         if (folded.isPresent()) {
-            Predicate refinement = foldedPredicate(implication.getRefinement(), folded.get());
-            VCImplication result = VCSimplificationUtils.copyWithRefinement(implication, refinement);
+            VCImplication result = new SimplifiedVCImplication(implication, new Predicate(folded.get()),
+                    originFor(implication));
             result.setNext(implication.getNext() == null ? null : implication.getNext().clone());
             return Optional.of(result);
         }
@@ -43,15 +43,15 @@ public class VCFolding {
         if (next.isEmpty())
             return Optional.empty();
 
-        VCImplication result = VCSimplificationUtils.copyWithRefinement(implication,
-                implication.getRefinement().clone());
+        VCImplication result = implication.copyWithRefinement(implication.getRefinement().clone());
         result.setNext(next.get());
         return Optional.of(result);
     }
 
-    private static Predicate foldedPredicate(Predicate refinement, Expression folded) {
-        return new SimplifiedPredicate(new Predicate(folded), VCSimplificationUtils.originPredicate(refinement),
-                VCSimplificationUtils.binders(refinement));
+    private static VCImplication originFor(VCImplication implication) {
+        if (implication instanceof SimplifiedVCImplication simplified)
+            return simplified.getOrigin().clone();
+        return new VCImplication(implication, implication.getRefinement().clone());
     }
 
     private static Optional<Expression> fold(Expression expression) {
