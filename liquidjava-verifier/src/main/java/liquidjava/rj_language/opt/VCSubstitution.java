@@ -12,6 +12,8 @@ import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.Var;
 
+import static liquidjava.rj_language.opt.VCSimplificationUtils.*;
+
 /**
  * Simplifies VCImplication chains by replacing binder equalities with their known values
  */
@@ -133,12 +135,5 @@ public class VCSubstitution {
         List<String> names = new ArrayList<>();
         expression.getVariableNames(names);
         return names.contains(name);
-    }
-
-    /**
-     * Returns the expression used for matching and substitution
-     */
-    public static Expression activeExpression(Predicate refinement) {
-        return VCSimplificationUtils.activeExpression(refinement);
     }
 }
