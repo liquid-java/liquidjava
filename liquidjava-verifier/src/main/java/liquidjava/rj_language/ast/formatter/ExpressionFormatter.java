@@ -61,9 +61,8 @@ public class ExpressionFormatter implements ExpressionVisitor<String> {
     }
 
     private Expression unwrapGroup(Expression expression) {
-        while (expression instanceof GroupExpression) {
-            if (expression instanceof GroupExpression group)
-                expression = group.getExpression();
+        while (expression instanceof GroupExpression group) {
+            expression = group.getExpression();
         }
         return expression;
     }
