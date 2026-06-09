@@ -48,7 +48,7 @@ public class MethodsFunctionsChecker {
         f.setRefReturn(new Predicate());
         CtTypeReference<?> declaring = c.getDeclaringType() != null ? c.getDeclaringType().getReference() : null;
         if (declaring != null) {
-            f.setSignature(String.format("%s.%s", declaring.getQualifiedName(), c.getSignature()));
+            f.setSignature(Utils.qualifyName(declaring.getQualifiedName(), c.getSignature()));
         } else {
             f.setSignature(c.getSignature());
         }
@@ -85,7 +85,7 @@ public class MethodsFunctionsChecker {
     // ################### VISIT METHOD ##############################
     public <R> void getMethodRefinements(CtMethod<R> method) throws LJError {
         String className = parentQualifiedName(method);
-        String signature = (className != null) ? String.format("%s.%s", className, method.getSignature())
+        String signature = (className != null) ? Utils.qualifyName(className, method.getSignature())
                 : method.getSignature();
         RefinedFunction f = buildAndRegisterFunction(method, method.getSimpleName(), className, signature);
 
@@ -99,8 +99,8 @@ public class MethodsFunctionsChecker {
     public <R> void getMethodRefinements(CtMethod<R> method, String prefix) throws LJError {
         String constructorName = "<init>";
         boolean isConstructor = Utils.getSimpleName(prefix).equals(method.getSimpleName());
-        String functionName = isConstructor ? constructorName : String.format("%s.%s", prefix, method.getSimpleName());
-        String signature = String.format("%s.%s", prefix, method.getSignature());
+        String functionName = isConstructor ? constructorName : Utils.qualifyName(prefix, method.getSimpleName());
+        String signature = Utils.qualifyName(prefix, method.getSignature());
 
         RefinedFunction f = buildAndRegisterFunction(method, functionName, prefix, signature);
 
@@ -111,9 +111,8 @@ public class MethodsFunctionsChecker {
     }
 
     /**
-     * Creates a {@link RefinedFunction} with the shared boilerplate (sanitized name, type, empty return refinement,
-     * placement, optional owning class and signature), registers it in the context, and processes its parameter/return
-     * refinements.
+     * Creates a {@link RefinedFunction} with the sanitized name, type, empty return refinement, placement, optional
+     * owning class and signature, and registers it in the context, and processes its parameter/return
      */
     private RefinedFunction buildAndRegisterFunction(CtMethod<?> method, String name, String className,
             String signature) throws LJError {
@@ -262,8 +261,8 @@ public class MethodsFunctionsChecker {
         List<CtTypeReference<?>> paramTypes = ctr.getParameters();
 
         // Try each candidate key in order; a null key (when ctype is unknown) is skipped.
-        String qualifiedSignature = (ctype != null) ? String.format("%s.%s", ctype, ctr.getSignature()) : null;
-        String completeName = (ctype != null) ? String.format("%s.%s", ctype, name) : null;
+        String qualifiedSignature = (ctype != null) ? Utils.qualifyName(ctype, ctr.getSignature()) : null;
+        String completeName = (ctype != null) ? Utils.qualifyName(ctype, name) : null;
 
         if (tryRefinements(invocation, qualifiedSignature, ctype, paramTypes)
                 || tryRefinements(invocation, ctr.getSignature(), ctype, paramTypes)
