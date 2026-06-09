@@ -2,6 +2,9 @@ package liquidjava.rj_language.opt;
 
 import liquidjava.processor.VCImplication;
 
+/**
+ * Simplifies VCImplication chains by applying various simplification steps
+ */
 public class VCSimplifier {
 
     /**
