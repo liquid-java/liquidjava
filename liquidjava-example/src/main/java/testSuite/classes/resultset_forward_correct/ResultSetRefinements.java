@@ -1,4 +1,4 @@
-package testSuite.classes.resultset_forward_error;
+package testSuite.classes.resultset_forward_correct;
 
 import liquidjava.specification.ExternalRefinementsFor;
 import liquidjava.specification.StateRefinement;

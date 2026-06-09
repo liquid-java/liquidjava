@@ -1,4 +1,4 @@
-package testSuite.classes.resultset_forward_error;
+package testSuite.classes.resultset_forward_correct;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -16,6 +16,6 @@ public interface PreparedStatementRefinements {
 
     // The ResultSet inherits the statement's scrollability: backward-capable statements
     // yield an allowsBackward ResultSet, forward-only statements yield an onlyForward one.
-    @Refinement("setBackwards(this) ? allowsBackward(_) : onlyForward(_) && beforeRow(_)")
+    @Refinement("setBackwards(this) ? allowsBackward(_) : onlyForward(_)")
     ResultSet executeQuery();
 }

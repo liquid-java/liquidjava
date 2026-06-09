@@ -13,8 +13,9 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 
-public class ResultSetBeforeFirstOnForwardOnly {
+public class ResultSetTests {
 
      int login(Connection con, String username, String password) throws SQLException {
         int typeID = 0;
@@ -32,5 +33,38 @@ public class ResultSetBeforeFirstOnForwardOnly {
         rs.beforeFirst(); // State Refinement Error
 
         return typeID;
+    }
+
+    int login2(Connection con, String username, String password) throws SQLException {
+        int typeID = 0;
+        PreparedStatement pstat =
+                con.prepareStatement("select typeid from users where username=? and password=?");
+        pstat.setString(1, username);
+        pstat.setString(2, password);
+        ResultSet rs = pstat.executeQuery();
+        int rowCount = 0;
+        while (rs.next()) {
+            rowCount++;
+        }
+        // VIOLATION: beforeFirst() scrolls backward, illegal on a TYPE_FORWARD_ONLY
+        // result set -> SQLException: Result set type is TYPE_FORWARD_ONLY.
+        rs.beforeFirst(); // State Refinement Error
+        if (rowCount >= 1) {
+            while (rs.next()) {
+                typeID = rs.getInt(1);
+            }
+        }
+        return typeID;
+    }
+
+
+    float readAverage(Connection conn) throws SQLException {
+        Statement parentstmt = conn.createStatement();
+        ResultSet parentMessage =
+                parentstmt.executeQuery("SELECT SUM(IMPORTANCE) AS IMPAVG FROM MAIL");
+        // FIX (from accepted answer): parentMessage.next();
+        // VIOLATION: cursor is before the first row; getFloat() with no next().
+        float avgsum = parentMessage.getFloat("IMPAVG"); // State Refinement Error
+        return avgsum;
     }
 }
