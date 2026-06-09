@@ -4,12 +4,15 @@ import java.util.ArrayList;
 import java.util.List;
 import liquidjava.api.CommandLineLauncher;
 import liquidjava.processor.VCImplication;
+import liquidjava.processor.context.Context;
+import liquidjava.processor.context.ContextHistory;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.GroupExpression;
 import liquidjava.utils.Utils;
 import spoon.reflect.cu.SourcePosition;
+import spoon.reflect.declaration.CtElement;
 import spoon.reflect.reference.CtTypeReference;
 
 /**
@@ -29,12 +32,18 @@ public final class DebugLog {
     private static final String SMT_TAG = Colors.BLUE + "[SMT]" + Colors.RESET;
     private static final String SMT_CHECK = Colors.SALMON + "[SMT CHECK]" + Colors.RESET;
     private static final String SMP_TAG = Colors.YELLOW + "[SMP]" + Colors.RESET;
+    private static final String CTX_TAG = Colors.BRIGHT_MAGENTA + "[CTX]" + Colors.RESET;
 
     private DebugLog() {
     }
 
     public static boolean enabled() {
         return CommandLineLauncher.cmdArgs.debugMode;
+    }
+
+    /** Gate for the full-context dump, driven by the {@code -a} / {@code --all-context} flag (independent of debug). */
+    public static boolean contextEnabled() {
+        return CommandLineLauncher.cmdArgs.printContext;
     }
 
     /**
@@ -444,5 +453,32 @@ public final class DebugLog {
         }
         System.out.println(SMT_TAG + " Result: " + Colors.RED + "ERROR" + Colors.RESET + " — "
                 + (message == null ? "(no message)" : message));
+    }
+
+    public static void contextAtElement(CtElement element, String contextInfo) {
+        if (!contextEnabled()) {
+            return;
+        }
+        SourcePosition position = element.getPosition();
+        String header;
+        if (position != null && position.getFile() != null) {
+            // file:line so terminals make it ⌘/Ctrl-clickable (same form as smtVerifying), plus the source line itself.
+            String where = position.getFile().getAbsolutePath() + ":" + position.getLine();
+            String code = Utils.getExpressionFromPosition(position);
+            header = CTX_TAG + " Context at " + Colors.CYAN + where + Colors.RESET
+                    + (code != null ? "  \n" + Colors.BOLD_YELLOW + code + Colors.RESET : ":");
+        } else {
+            header = CTX_TAG + " Context at " + position + ":";
+        }
+        System.out.println(header);
+        System.out.println(contextInfo);
+    }
+
+    public static void log(String string) {
+        if (!enabled()) {
+            return;
+        }
+        System.out.println(string);
+
     }
 }

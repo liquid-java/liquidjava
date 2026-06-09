@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Set;
 
 import liquidjava.api.CommandLineLauncher;
+import liquidjava.diagnostics.DebugLog;
 import liquidjava.utils.Utils;
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.CtElement;
@@ -45,7 +46,8 @@ public class ContextHistory {
     }
 
     public void saveContext(CtElement element, Context context) {
-        if (!CommandLineLauncher.cmdArgs.lspMode)
+        if (!CommandLineLauncher.cmdArgs.lspMode && !CommandLineLauncher.cmdArgs.debugMode
+                && !CommandLineLauncher.cmdArgs.printContext)
             return;
 
         String file = Utils.getFile(element);
@@ -64,6 +66,9 @@ public class ContextHistory {
         ghosts.addAll(context.getGhostStates());
         aliases.addAll(context.getAliases());
         methods.addAll(context.getCtxFunctions());
+
+        // Gate lives inside DebugLog.contextAtElement (-a / --all-context); no-op unless that flag is set.
+        DebugLog.contextAtElement(element, prettyPrint());
     }
 
     private String getScopePosition(CtElement element) {
@@ -96,4 +101,26 @@ public class ContextHistory {
     public Map<String, Set<String>> getFileScopes() {
         return fileScopes;
     }
+
+    public String prettyPrint() {
+        StringBuilder sb = new StringBuilder("ContextHistory:\n");
+
+        // FileScopes are intentionally omitted here — they drive LSP hover ranges (see getFileScopes), not debug
+        // output.
+        appendSection(sb, "LocalVars", localVars);
+        appendSection(sb, "GlobalVars", globalVars);
+        appendSection(sb, "Ghosts", ghosts);
+        appendSection(sb, "Aliases", aliases);
+        appendSection(sb, "Methods", methods);
+
+        return sb.toString();
+    }
+
+    private static void appendSection(StringBuilder sb, String label, Iterable<?> items) {
+        sb.append(label).append(":\n");
+        for (Object item : items) {
+            sb.append("  - ").append(item).append("\n");
+        }
+    }
+
 }
