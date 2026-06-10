@@ -21,7 +21,7 @@ import liquidjava.rj_language.ast.UnaryExpression;
 public class VCFolding {
 
     /**
-     * Applies folding to the first foldable predicate in a VC chain.
+     * Applies folding to the first foldable predicate in a VC chain
      */
     public static VCImplication apply(VCImplication implication) {
         if (implication == null)
@@ -44,6 +44,9 @@ public class VCFolding {
         return result;
     }
 
+    /**
+     * Folds an expression
+     */
     private static Optional<Expression> fold(Expression expression) {
         if (expression instanceof BinaryExpression binary)
             return foldBinary(binary);
@@ -58,6 +61,9 @@ public class VCFolding {
         return Optional.empty();
     }
 
+    /**
+     * Folds a binary expression and its operands
+     */
     private static Optional<Expression> foldBinary(BinaryExpression binary) {
         Optional<Expression> leftFolded = fold(binary.getFirstOperand());
         Optional<Expression> rightFolded = fold(binary.getSecondOperand());
@@ -83,12 +89,18 @@ public class VCFolding {
         return Optional.empty();
     }
 
+    /**
+     * Replaces a resolved enum constant with its literal value
+     */
     private static Expression resolvedLiteral(Expression expression) {
         if (expression instanceof Enum en && en.getResolvedLiteral() != null)
             return en.getResolvedLiteral().clone();
         return expression;
     }
 
+    /**
+     * Folds a binary expression whose operands are both literals
+     */
     private static Expression foldLiteralBinary(Expression left, Expression right, String op) {
         if (left instanceof LiteralInt leftInt && right instanceof LiteralInt rightInt)
             return foldInts(leftInt.getValue(), rightInt.getValue(), op);
@@ -118,6 +130,9 @@ public class VCFolding {
         return null;
     }
 
+    /**
+     * Folds integer operations
+     */
     private static Expression foldInts(int left, int right, String op) {
         return switch (op) {
         case "+" -> new LiteralInt(left + right);
@@ -135,6 +150,9 @@ public class VCFolding {
         };
     }
 
+    /**
+     * Folds real number operations
+     */
     private static Expression foldReals(double left, double right, String op) {
         return switch (op) {
         case "+" -> new LiteralReal(left + right);
@@ -152,17 +170,26 @@ public class VCFolding {
         };
     }
 
+    /**
+     * Checks whether two expressions mix integer and real literals
+     */
     private static boolean isMixedNumeric(Expression left, Expression right) {
         return left instanceof LiteralInt && right instanceof LiteralReal
                 || left instanceof LiteralReal && right instanceof LiteralInt;
     }
 
+    /**
+     * Reads a numeric literal as a double
+     */
     private static double numericValue(Expression expression) {
         if (expression instanceof LiteralInt literal)
             return literal.getValue();
         return ((LiteralReal) expression).getValue();
     }
 
+    /**
+     * Folds boolean operations
+     */
     private static Expression foldBooleans(boolean left, boolean right, String op) {
         return switch (op) {
         case "&&" -> new LiteralBoolean(left && right);
@@ -174,6 +201,9 @@ public class VCFolding {
         };
     }
 
+    /**
+     * Folds a unary expression and its operand
+     */
     private static Optional<Expression> foldUnary(UnaryExpression unary) {
         Optional<Expression> operandFolded = fold(unary.getExpression());
         Expression operand = operandFolded.orElseGet(() -> unary.getExpression().clone());
@@ -194,6 +224,9 @@ public class VCFolding {
         return Optional.empty();
     }
 
+    /**
+     * Folds a conditional expression and its branches
+     */
     private static Optional<Expression> foldIte(Ite ite) {
         Optional<Expression> conditionFolded = fold(ite.getCondition());
         Optional<Expression> thenFolded = fold(ite.getThen());
@@ -214,6 +247,9 @@ public class VCFolding {
         return Optional.empty();
     }
 
+    /**
+     * Combines adjacent integer constants in additions and subtractions
+     */
     private static Optional<Expression> foldAdjacentIntegerConstants(Expression left, Expression right, String op) {
         if (!"+".equals(op) && !"-".equals(op))
             return Optional.empty();
@@ -226,6 +262,7 @@ public class VCFolding {
         if (!(leftBinary.getSecondOperand()instanceof LiteralInt leftLiteral))
             return Optional.empty();
 
+        // treat subtraction as adding a negative constant and then add the two
         int signedLeft = "+".equals(leftBinary.getOperator()) ? leftLiteral.getValue() : -leftLiteral.getValue();
         int signedRight = "+".equals(op) ? rightLiteral.getValue() : -rightLiteral.getValue();
         Expression folded = expressionWithConstant(leftBinary.getFirstOperand(), signedLeft + signedRight);
