@@ -19,21 +19,16 @@ import liquidjava.rj_language.ast.UnaryExpression;
 public class VCFolding {
 
     /**
-     * A folded expression and whether the fold changed the original expression
-     */
-    private record Folding(Expression folded, boolean changed) {
-    }
-
-    /**
      * Applies folding to the first foldable predicate in a VC chain
      */
     public static VCImplication apply(VCImplication implication) {
         if (implication == null)
             return null;
 
-        Folding folding = fold(implication.getRefinement().getExpression());
-        if (folding.changed()) {
-            VCImplication result = new SimplifiedVCImplication(implication, new Predicate(folding.folded()),
+        Expression expression = implication.getRefinement().getExpression();
+        Expression folded = fold(expression);
+        if (!expression.equals(folded)) {
+            VCImplication result = new SimplifiedVCImplication(implication, new Predicate(folded),
                     implication.getOrigin());
             result.setNext(implication.getNext() == null ? null : implication.getNext().clone());
             return result;
@@ -51,92 +46,74 @@ public class VCFolding {
     /**
      * Folds an expression
      */
-    private static Folding fold(Expression expression) {
+    private static Expression fold(Expression expression) {
         if (expression instanceof BinaryExpression binary)
             return foldBinary(binary);
         if (expression instanceof UnaryExpression unary)
             return foldUnary(unary);
         if (expression instanceof Ite ite)
             return foldIte(ite);
-        if (expression instanceof GroupExpression group && group.getChildren().size() == 1) {
-            Folding child = fold(group.getExpression());
-            return new Folding(child.folded(), true);
-        }
-        return new Folding(expression.clone(), false);
+        if (expression instanceof GroupExpression group && group.getChildren().size() == 1)
+            return fold(group.getExpression());
+        return expression.clone();
     }
 
     /**
      * Folds a binary expression and its operands
      */
-    private static Folding foldBinary(BinaryExpression binary) {
-        Folding leftFolded = fold(binary.getFirstOperand());
-        Folding rightFolded = fold(binary.getSecondOperand());
-
-        Expression leftExpression = leftFolded.folded();
-        Expression rightExpression = rightFolded.folded();
+    private static Expression foldBinary(BinaryExpression binary) {
+        Expression leftExpression = fold(binary.getFirstOperand());
+        Expression rightExpression = fold(binary.getSecondOperand());
         Expression left = resolvedLiteral(leftExpression);
         Expression right = resolvedLiteral(rightExpression);
-        boolean childChanged = leftFolded.changed() || rightFolded.changed() || left != leftExpression
-                || right != rightExpression;
         String op = binary.getOperator();
 
         Expression foldedBinary = foldLiteralBinary(left, right, op);
         if (foldedBinary != null)
-            return new Folding(foldedBinary, true);
+            return foldedBinary;
 
         Expression foldedAdjacentInts = foldAdjacentInts(left, right, op);
         if (foldedAdjacentInts != null)
-            return new Folding(foldedAdjacentInts, true);
+            return foldedAdjacentInts;
 
-        if (childChanged)
-            return new Folding(new BinaryExpression(left, op, right), true);
-        return new Folding(binary.clone(), false);
+        return new BinaryExpression(left, op, right);
     }
 
     /**
      * Folds a unary expression and its operand
      */
-    private static Folding foldUnary(UnaryExpression unary) {
-        Folding operandFolded = fold(unary.getExpression());
-        Expression operand = operandFolded.folded();
+    private static Expression foldUnary(UnaryExpression unary) {
+        Expression operand = fold(unary.getExpression());
         String op = unary.getOp();
 
         if ("!".equals(op) && operand instanceof LiteralBoolean literal)
-            return new Folding(new LiteralBoolean(!literal.isBooleanTrue()), true);
+            return new LiteralBoolean(!literal.isBooleanTrue());
 
         if ("-".equals(op)) {
             if (operand instanceof LiteralInt literal)
-                return new Folding(new LiteralInt(-literal.getValue()), true);
+                return new LiteralInt(-literal.getValue());
             if (operand instanceof LiteralReal literal)
-                return new Folding(new LiteralReal(-literal.getValue()), true);
+                return new LiteralReal(-literal.getValue());
         }
 
-        if (operandFolded.changed())
-            return new Folding(new UnaryExpression(op, operand), true);
-        return new Folding(unary.clone(), false);
+        return new UnaryExpression(op, operand);
     }
 
     /**
      * Folds a conditional expression and its branches
      */
-    private static Folding foldIte(Ite ite) {
-        Folding conditionFolded = fold(ite.getCondition());
-        Folding thenFolded = fold(ite.getThen());
-        Folding elseFolded = fold(ite.getElse());
-
-        Expression condition = conditionFolded.folded();
-        Expression thenExpression = thenFolded.folded();
-        Expression elseExpression = elseFolded.folded();
+    private static Expression foldIte(Ite ite) {
+        Expression condition = fold(ite.getCondition());
+        Expression thenExpression = fold(ite.getThen());
+        Expression elseExpression = fold(ite.getElse());
 
         if (condition instanceof LiteralBoolean literal)
-            return new Folding(literal.isBooleanTrue() ? thenExpression : elseExpression, true);
+            return literal.isBooleanTrue() ? thenExpression : elseExpression;
 
         if (thenExpression.equals(elseExpression))
-            return new Folding(thenExpression, true);
+            return thenExpression;
 
-        if (conditionFolded.changed() || thenFolded.changed() || elseFolded.changed())
-            return new Folding(new Ite(condition, thenExpression, elseExpression), true);
-        return new Folding(ite.clone(), false);
+        return new Ite(condition, thenExpression, elseExpression);
     }
 
     /**

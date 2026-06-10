@@ -2,14 +2,19 @@ package liquidjava.rj_language.opt;
 
 import static liquidjava.utils.VCTestUtils.assertSimplifiedVC;
 import static liquidjava.utils.VCTestUtils.assertVC;
+import static liquidjava.utils.VCTestUtils.parse;
 import static liquidjava.utils.VCTestUtils.simplified;
 import static liquidjava.utils.VCTestUtils.vc;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import liquidjava.processor.SimplifiedVCImplication;
 import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Enum;
+import liquidjava.rj_language.ast.GroupExpression;
 import liquidjava.rj_language.ast.LiteralInt;
 import org.junit.jupiter.api.Test;
 
@@ -91,6 +96,29 @@ class VCFoldingTest {
         VCImplication result = VCFolding.apply(substituted);
 
         assertSimplifiedVC(result, simplified("true", "∀x:int. x + 1 + 2 > 0"));
+    }
+
+    @Test
+    void recordsOriginWhenOnlyGroupIsUnwrapped() {
+        VCImplication implication = new VCImplication(new Predicate(new GroupExpression(parse("x > 0"))));
+
+        VCImplication result = VCFolding.apply(implication);
+
+        SimplifiedVCImplication simplified = assertInstanceOf(SimplifiedVCImplication.class, result);
+        assertEquals("x > 0", simplified.getRefinement().toString());
+        assertInstanceOf(GroupExpression.class, simplified.getOrigin().getRefinement().getExpression());
+    }
+
+    @Test
+    void recordsOriginWhenFoldingLaterImplication() {
+        VCImplication implication = vc("x > 0", "1 + 2 > 0");
+
+        VCImplication result = VCFolding.apply(implication);
+
+        assertEquals("x > 0", result.getRefinement().toString());
+        SimplifiedVCImplication simplifiedNext = assertInstanceOf(SimplifiedVCImplication.class, result.getNext());
+        assertEquals("true", simplifiedNext.getRefinement().toString());
+        assertEquals("1 + 2 > 0", simplifiedNext.getOrigin().getRefinement().toString());
     }
 
     private static void assertFolded(String original, String folded) {
