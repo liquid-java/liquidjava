@@ -1,7 +1,5 @@
 package liquidjava.rj_language.opt;
 
-import java.util.Optional;
-
 import liquidjava.processor.SimplifiedVCImplication;
 import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
@@ -21,15 +19,21 @@ import liquidjava.rj_language.ast.UnaryExpression;
 public class VCFolding {
 
     /**
+     * A folded expression and whether the fold changed the original expression
+     */
+    private record Folding(Expression folded, boolean changed) {
+    }
+
+    /**
      * Applies folding to the first foldable predicate in a VC chain
      */
     public static VCImplication apply(VCImplication implication) {
         if (implication == null)
             return null;
 
-        Optional<Expression> folded = fold(implication.getRefinement().getExpression());
-        if (folded.isPresent()) {
-            VCImplication result = new SimplifiedVCImplication(implication, new Predicate(folded.get()),
+        Folding folding = fold(implication.getRefinement().getExpression());
+        if (folding.changed()) {
+            VCImplication result = new SimplifiedVCImplication(implication, new Predicate(folding.folded()),
                     implication.getOrigin());
             result.setNext(implication.getNext() == null ? null : implication.getNext().clone());
             return result;
@@ -47,7 +51,7 @@ public class VCFolding {
     /**
      * Folds an expression
      */
-    private static Optional<Expression> fold(Expression expression) {
+    private static Folding fold(Expression expression) {
         if (expression instanceof BinaryExpression binary)
             return foldBinary(binary);
         if (expression instanceof UnaryExpression unary)
@@ -55,84 +59,84 @@ public class VCFolding {
         if (expression instanceof Ite ite)
             return foldIte(ite);
         if (expression instanceof GroupExpression group && group.getChildren().size() == 1) {
-            Optional<Expression> child = fold(group.getExpression());
-            return Optional.of(child.orElseGet(() -> group.getExpression().clone()));
+            Folding child = fold(group.getExpression());
+            return new Folding(child.folded(), true);
         }
-        return Optional.empty();
+        return new Folding(expression.clone(), false);
     }
 
     /**
      * Folds a binary expression and its operands
      */
-    private static Optional<Expression> foldBinary(BinaryExpression binary) {
-        Optional<Expression> leftFolded = fold(binary.getFirstOperand());
-        Optional<Expression> rightFolded = fold(binary.getSecondOperand());
+    private static Folding foldBinary(BinaryExpression binary) {
+        Folding leftFolded = fold(binary.getFirstOperand());
+        Folding rightFolded = fold(binary.getSecondOperand());
 
-        Expression leftExpression = leftFolded.orElseGet(() -> binary.getFirstOperand().clone());
-        Expression rightExpression = rightFolded.orElseGet(() -> binary.getSecondOperand().clone());
+        Expression leftExpression = leftFolded.folded();
+        Expression rightExpression = rightFolded.folded();
         Expression left = resolvedLiteral(leftExpression);
         Expression right = resolvedLiteral(rightExpression);
-        boolean childChanged = leftFolded.isPresent() || rightFolded.isPresent() || left != leftExpression
+        boolean childChanged = leftFolded.changed() || rightFolded.changed() || left != leftExpression
                 || right != rightExpression;
         String op = binary.getOperator();
 
         Expression foldedBinary = foldLiteralBinary(left, right, op);
         if (foldedBinary != null)
-            return Optional.of(foldedBinary);
+            return new Folding(foldedBinary, true);
 
-        Optional<Expression> foldedAdjacentInts = foldAdjacentInts(left, right, op);
-        if (foldedAdjacentInts.isPresent())
-            return foldedAdjacentInts;
+        Expression foldedAdjacentInts = foldAdjacentInts(left, right, op);
+        if (foldedAdjacentInts != null)
+            return new Folding(foldedAdjacentInts, true);
 
         if (childChanged)
-            return Optional.of(new BinaryExpression(left, op, right));
-        return Optional.empty();
+            return new Folding(new BinaryExpression(left, op, right), true);
+        return new Folding(binary.clone(), false);
     }
 
     /**
      * Folds a unary expression and its operand
      */
-    private static Optional<Expression> foldUnary(UnaryExpression unary) {
-        Optional<Expression> operandFolded = fold(unary.getExpression());
-        Expression operand = operandFolded.orElseGet(() -> unary.getExpression().clone());
+    private static Folding foldUnary(UnaryExpression unary) {
+        Folding operandFolded = fold(unary.getExpression());
+        Expression operand = operandFolded.folded();
         String op = unary.getOp();
 
         if ("!".equals(op) && operand instanceof LiteralBoolean literal)
-            return Optional.of(new LiteralBoolean(!literal.isBooleanTrue()));
+            return new Folding(new LiteralBoolean(!literal.isBooleanTrue()), true);
 
         if ("-".equals(op)) {
             if (operand instanceof LiteralInt literal)
-                return Optional.of(new LiteralInt(-literal.getValue()));
+                return new Folding(new LiteralInt(-literal.getValue()), true);
             if (operand instanceof LiteralReal literal)
-                return Optional.of(new LiteralReal(-literal.getValue()));
+                return new Folding(new LiteralReal(-literal.getValue()), true);
         }
 
-        if (operandFolded.isPresent())
-            return Optional.of(new UnaryExpression(op, operand));
-        return Optional.empty();
+        if (operandFolded.changed())
+            return new Folding(new UnaryExpression(op, operand), true);
+        return new Folding(unary.clone(), false);
     }
 
     /**
      * Folds a conditional expression and its branches
      */
-    private static Optional<Expression> foldIte(Ite ite) {
-        Optional<Expression> conditionFolded = fold(ite.getCondition());
-        Optional<Expression> thenFolded = fold(ite.getThen());
-        Optional<Expression> elseFolded = fold(ite.getElse());
+    private static Folding foldIte(Ite ite) {
+        Folding conditionFolded = fold(ite.getCondition());
+        Folding thenFolded = fold(ite.getThen());
+        Folding elseFolded = fold(ite.getElse());
 
-        Expression condition = conditionFolded.orElseGet(() -> ite.getCondition().clone());
-        Expression thenExpression = thenFolded.orElseGet(() -> ite.getThen().clone());
-        Expression elseExpression = elseFolded.orElseGet(() -> ite.getElse().clone());
+        Expression condition = conditionFolded.folded();
+        Expression thenExpression = thenFolded.folded();
+        Expression elseExpression = elseFolded.folded();
 
         if (condition instanceof LiteralBoolean literal)
-            return Optional.of(literal.isBooleanTrue() ? thenExpression : elseExpression);
+            return new Folding(literal.isBooleanTrue() ? thenExpression : elseExpression, true);
 
         if (thenExpression.equals(elseExpression))
-            return Optional.of(thenExpression);
+            return new Folding(thenExpression, true);
 
-        if (conditionFolded.isPresent() || thenFolded.isPresent() || elseFolded.isPresent())
-            return Optional.of(new Ite(condition, thenExpression, elseExpression));
-        return Optional.empty();
+        if (conditionFolded.changed() || thenFolded.changed() || elseFolded.changed())
+            return new Folding(new Ite(condition, thenExpression, elseExpression), true);
+        return new Folding(ite.clone(), false);
     }
 
     /**
@@ -170,17 +174,17 @@ public class VCFolding {
     /**
      * Combines adjacent integer constants in additions and subtractions
      */
-    private static Optional<Expression> foldAdjacentInts(Expression left, Expression right, String op) {
+    private static Expression foldAdjacentInts(Expression left, Expression right, String op) {
         if (!"+".equals(op) && !"-".equals(op))
-            return Optional.empty();
+            return null;
         if (!(right instanceof LiteralInt rightLiteral))
-            return Optional.empty();
+            return null;
         if (!(left instanceof BinaryExpression leftBinary))
-            return Optional.empty();
+            return null;
         if (!"+".equals(leftBinary.getOperator()) && !"-".equals(leftBinary.getOperator()))
-            return Optional.empty();
+            return null;
         if (!(leftBinary.getSecondOperand()instanceof LiteralInt leftLiteral))
-            return Optional.empty();
+            return null;
 
         // treat subtraction as adding a negative constant and then add the two
         int signedLeft = "+".equals(leftBinary.getOperator()) ? leftLiteral.getValue() : -leftLiteral.getValue();
@@ -188,10 +192,10 @@ public class VCFolding {
         int constant = signedLeft + signedRight;
         Expression base = leftBinary.getFirstOperand().clone();
         if (constant == 0)
-            return Optional.of(base);
+            return base;
         if (constant > 0)
-            return Optional.of(new BinaryExpression(base, "+", new LiteralInt(constant)));
-        return Optional.of(new BinaryExpression(base, "-", new LiteralInt(-constant)));
+            return new BinaryExpression(base, "+", new LiteralInt(constant));
+        return new BinaryExpression(base, "-", new LiteralInt(-constant));
     }
 
     /**
