@@ -76,129 +76,17 @@ public class VCFolding {
                 || right != rightExpression;
         String op = binary.getOperator();
 
-        Expression folded = foldLiteralBinary(left, right, op);
-        if (folded != null)
-            return Optional.of(folded);
+        Expression foldedBinary = foldLiteralBinary(left, right, op);
+        if (foldedBinary != null)
+            return Optional.of(foldedBinary);
 
-        Optional<Expression> adjacentConstants = foldAdjacentIntegerConstants(left, right, op);
-        if (adjacentConstants.isPresent())
-            return adjacentConstants;
+        Optional<Expression> foldedAdjacentInts = foldAdjacentInts(left, right, op);
+        if (foldedAdjacentInts.isPresent())
+            return foldedAdjacentInts;
 
         if (childChanged)
             return Optional.of(new BinaryExpression(left, op, right));
         return Optional.empty();
-    }
-
-    /**
-     * Replaces a resolved enum constant with its literal value
-     */
-    private static Expression resolvedLiteral(Expression expression) {
-        if (expression instanceof Enum en && en.getResolvedLiteral() != null)
-            return en.getResolvedLiteral().clone();
-        return expression;
-    }
-
-    /**
-     * Folds a binary expression whose operands are both literals
-     */
-    private static Expression foldLiteralBinary(Expression left, Expression right, String op) {
-        if (left instanceof LiteralInt leftInt && right instanceof LiteralInt rightInt)
-            return foldInts(leftInt.getValue(), rightInt.getValue(), op);
-
-        if (left instanceof LiteralReal leftReal && right instanceof LiteralReal rightReal)
-            return foldReals(leftReal.getValue(), rightReal.getValue(), op);
-
-        if (isMixedNumeric(left, right)) {
-            double l = numericValue(left);
-            double r = numericValue(right);
-            return foldReals(l, r, op);
-        }
-
-        if (left instanceof LiteralBoolean leftBool && right instanceof LiteralBoolean rightBool)
-            return foldBooleans(leftBool.isBooleanTrue(), rightBool.isBooleanTrue(), op);
-
-        if (left instanceof Enum leftEnum && right instanceof Enum rightEnum
-                && leftEnum.getTypeName().equals(rightEnum.getTypeName())) {
-            boolean equal = leftEnum.getConstName().equals(rightEnum.getConstName());
-            return switch (op) {
-            case "==" -> new LiteralBoolean(equal);
-            case "!=" -> new LiteralBoolean(!equal);
-            default -> null;
-            };
-        }
-
-        return null;
-    }
-
-    /**
-     * Folds integer operations
-     */
-    private static Expression foldInts(int left, int right, String op) {
-        return switch (op) {
-        case "+" -> new LiteralInt(left + right);
-        case "-" -> new LiteralInt(left - right);
-        case "*" -> new LiteralInt(left * right);
-        case "/" -> right != 0 ? new LiteralInt(left / right) : null;
-        case "%" -> right != 0 ? new LiteralInt(left % right) : null;
-        case "<" -> new LiteralBoolean(left < right);
-        case "<=" -> new LiteralBoolean(left <= right);
-        case ">" -> new LiteralBoolean(left > right);
-        case ">=" -> new LiteralBoolean(left >= right);
-        case "==" -> new LiteralBoolean(left == right);
-        case "!=" -> new LiteralBoolean(left != right);
-        default -> null;
-        };
-    }
-
-    /**
-     * Folds real number operations
-     */
-    private static Expression foldReals(double left, double right, String op) {
-        return switch (op) {
-        case "+" -> new LiteralReal(left + right);
-        case "-" -> new LiteralReal(left - right);
-        case "*" -> new LiteralReal(left * right);
-        case "/" -> right != 0.0 ? new LiteralReal(left / right) : null;
-        case "%" -> right != 0.0 ? new LiteralReal(left % right) : null;
-        case "<" -> new LiteralBoolean(left < right);
-        case "<=" -> new LiteralBoolean(left <= right);
-        case ">" -> new LiteralBoolean(left > right);
-        case ">=" -> new LiteralBoolean(left >= right);
-        case "==" -> new LiteralBoolean(left == right);
-        case "!=" -> new LiteralBoolean(left != right);
-        default -> null;
-        };
-    }
-
-    /**
-     * Checks whether two expressions mix integer and real literals
-     */
-    private static boolean isMixedNumeric(Expression left, Expression right) {
-        return left instanceof LiteralInt && right instanceof LiteralReal
-                || left instanceof LiteralReal && right instanceof LiteralInt;
-    }
-
-    /**
-     * Reads a numeric literal as a double
-     */
-    private static double numericValue(Expression expression) {
-        if (expression instanceof LiteralInt literal)
-            return literal.getValue();
-        return ((LiteralReal) expression).getValue();
-    }
-
-    /**
-     * Folds boolean operations
-     */
-    private static Expression foldBooleans(boolean left, boolean right, String op) {
-        return switch (op) {
-        case "&&" -> new LiteralBoolean(left && right);
-        case "||" -> new LiteralBoolean(left || right);
-        case "-->" -> new LiteralBoolean(!left || right);
-        case "==" -> new LiteralBoolean(left == right);
-        case "!=" -> new LiteralBoolean(left != right);
-        default -> null;
-        };
     }
 
     /**
@@ -248,9 +136,41 @@ public class VCFolding {
     }
 
     /**
+     * Folds a binary expression whose operands are both literals
+     */
+    private static Expression foldLiteralBinary(Expression left, Expression right, String op) {
+        if (left instanceof LiteralInt leftInt && right instanceof LiteralInt rightInt)
+            return foldInts(leftInt.getValue(), rightInt.getValue(), op);
+
+        if (left instanceof LiteralReal leftReal && right instanceof LiteralReal rightReal)
+            return foldReals(leftReal.getValue(), rightReal.getValue(), op);
+
+        if (isMixedNumeric(left, right)) {
+            double l = numericValue(left);
+            double r = numericValue(right);
+            return foldReals(l, r, op);
+        }
+
+        if (left instanceof LiteralBoolean leftBool && right instanceof LiteralBoolean rightBool)
+            return foldBooleans(leftBool.isBooleanTrue(), rightBool.isBooleanTrue(), op);
+
+        if (left instanceof Enum leftEnum && right instanceof Enum rightEnum
+                && leftEnum.getTypeName().equals(rightEnum.getTypeName())) {
+            boolean equal = leftEnum.getConstName().equals(rightEnum.getConstName());
+            return switch (op) {
+            case "==" -> new LiteralBoolean(equal);
+            case "!=" -> new LiteralBoolean(!equal);
+            default -> null;
+            };
+        }
+
+        return null;
+    }
+
+    /**
      * Combines adjacent integer constants in additions and subtractions
      */
-    private static Optional<Expression> foldAdjacentIntegerConstants(Expression left, Expression right, String op) {
+    private static Optional<Expression> foldAdjacentInts(Expression left, Expression right, String op) {
         if (!"+".equals(op) && !"-".equals(op))
             return Optional.empty();
         if (!(right instanceof LiteralInt rightLiteral))
@@ -265,15 +185,92 @@ public class VCFolding {
         // treat subtraction as adding a negative constant and then add the two
         int signedLeft = "+".equals(leftBinary.getOperator()) ? leftLiteral.getValue() : -leftLiteral.getValue();
         int signedRight = "+".equals(op) ? rightLiteral.getValue() : -rightLiteral.getValue();
-        Expression folded = expressionWithConstant(leftBinary.getFirstOperand(), signedLeft + signedRight);
-        return Optional.of(folded);
+        int constant = signedLeft + signedRight;
+        Expression base = leftBinary.getFirstOperand().clone();
+        if (constant == 0)
+            return Optional.of(base);
+        if (constant > 0)
+            return Optional.of(new BinaryExpression(base, "+", new LiteralInt(constant)));
+        return Optional.of(new BinaryExpression(base, "-", new LiteralInt(-constant)));
     }
 
-    private static Expression expressionWithConstant(Expression base, int constant) {
-        if (constant == 0)
-            return base.clone();
-        if (constant > 0)
-            return new BinaryExpression(base.clone(), "+", new LiteralInt(constant));
-        return new BinaryExpression(base.clone(), "-", new LiteralInt(-constant));
+    /**
+     * Folds integer operations
+     */
+    private static Expression foldInts(int left, int right, String op) {
+        return switch (op) {
+        case "+" -> new LiteralInt(left + right);
+        case "-" -> new LiteralInt(left - right);
+        case "*" -> new LiteralInt(left * right);
+        case "/" -> right != 0 ? new LiteralInt(left / right) : null;
+        case "%" -> right != 0 ? new LiteralInt(left % right) : null;
+        case "<" -> new LiteralBoolean(left < right);
+        case "<=" -> new LiteralBoolean(left <= right);
+        case ">" -> new LiteralBoolean(left > right);
+        case ">=" -> new LiteralBoolean(left >= right);
+        case "==" -> new LiteralBoolean(left == right);
+        case "!=" -> new LiteralBoolean(left != right);
+        default -> null;
+        };
+    }
+
+    /**
+     * Folds real number operations
+     */
+    private static Expression foldReals(double left, double right, String op) {
+        return switch (op) {
+        case "+" -> new LiteralReal(left + right);
+        case "-" -> new LiteralReal(left - right);
+        case "*" -> new LiteralReal(left * right);
+        case "/" -> right != 0.0 ? new LiteralReal(left / right) : null;
+        case "%" -> right != 0.0 ? new LiteralReal(left % right) : null;
+        case "<" -> new LiteralBoolean(left < right);
+        case "<=" -> new LiteralBoolean(left <= right);
+        case ">" -> new LiteralBoolean(left > right);
+        case ">=" -> new LiteralBoolean(left >= right);
+        case "==" -> new LiteralBoolean(left == right);
+        case "!=" -> new LiteralBoolean(left != right);
+        default -> null;
+        };
+    }
+
+    /**
+     * Folds boolean operations
+     */
+    private static Expression foldBooleans(boolean left, boolean right, String op) {
+        return switch (op) {
+        case "&&" -> new LiteralBoolean(left && right);
+        case "||" -> new LiteralBoolean(left || right);
+        case "-->" -> new LiteralBoolean(!left || right);
+        case "==" -> new LiteralBoolean(left == right);
+        case "!=" -> new LiteralBoolean(left != right);
+        default -> null;
+        };
+    }
+
+    /**
+     * Replaces a resolved enum constant with its literal value
+     */
+    private static Expression resolvedLiteral(Expression expression) {
+        if (expression instanceof Enum en && en.getResolvedLiteral() != null)
+            return en.getResolvedLiteral().clone();
+        return expression;
+    }
+
+    /**
+     * Checks whether two expressions mix integer and real literals
+     */
+    private static boolean isMixedNumeric(Expression left, Expression right) {
+        return left instanceof LiteralInt && right instanceof LiteralReal
+                || left instanceof LiteralReal && right instanceof LiteralInt;
+    }
+
+    /**
+     * Reads a numeric literal as a double
+     */
+    private static double numericValue(Expression expression) {
+        if (expression instanceof LiteralInt literal)
+            return literal.getValue();
+        return ((LiteralReal) expression).getValue();
     }
 }
