@@ -31,6 +31,15 @@ class VCSimplificationTest {
     }
 
     @Test
+    void simplifyOnceDoesNotFoldAfterSubstitutionInSameStep() {
+        VCImplication implication = vc("∀x:int. x == 1 + 2", "x == 3");
+
+        VCImplication result = VCSimplification.simplifyOnce(implication);
+
+        assertSimplifiedVC(result, simplified("1 + 2 == 3", "∀x:int. x == 3"));
+    }
+
+    @Test
     void simplifyOnceAppliesFoldingWhenNoSubstitutionIsAvailable() {
         VCImplication implication = vc("1 + 2 > 2");
 
@@ -55,6 +64,24 @@ class VCSimplificationTest {
         VCImplication result = VCSimplification.simplifyToFixedPoint(implication);
 
         assertSimplifiedVC(result, simplified("true", "∀y:int. y > x"));
+    }
+
+    @Test
+    void simplifyAppliesLongSubstitutionChainBeforeReachingFixedPoint() {
+        VCImplication implication = vc("∀x:int. x == 1", "∀y:int. y == x + 1", "∀z:int. z == y + 1", "z == 3");
+
+        VCImplication result = VCSimplification.simplifyToFixedPoint(implication);
+
+        assertSimplifiedVC(result, simplified("true", "∀z:int. z == 3"));
+    }
+
+    @Test
+    void simplifyCombinesSubstitutionAndNestedFoldingAcrossFixedPoint() {
+        VCImplication implication = vc("∀x:int. x == 1", "∀y:int. y == x + 2", "y - 1 == 2");
+
+        VCImplication result = VCSimplification.simplifyToFixedPoint(implication);
+
+        assertSimplifiedVC(result, simplified("true", "∀y:int. y - 1 == 2"));
     }
 
     @Test

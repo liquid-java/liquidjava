@@ -44,10 +44,32 @@ class VCFoldingTest {
     }
 
     @Test
+    void leavesRealDivisionAndModuloByZeroUnchanged() {
+        assertUnchanged("4.0 / 0.0 == 0.0");
+        assertUnchanged("4.0 % 0.0 == 0.0");
+    }
+
+    @Test
     void foldsBooleanBinaryExpressions() {
         assertFolded("true && false", "false");
         assertFolded("false --> true", "true");
         assertFolded("true != false", "true");
+    }
+
+    @Test
+    void foldsBooleanSubexpressionsInsideLargerExpression() {
+        assertFolded("true && false || ok", "false || ok");
+    }
+
+    @Test
+    void foldsNestedConstantsInsideLargerExpression() {
+        assertFolded("x > 1 + 2", "x > 3");
+        assertFolded("x + 1 + 2 > 4", "x + 3 > 4");
+    }
+
+    @Test
+    void foldsPartialComparisonsWithoutDroppingSymbolicTerms() {
+        assertFolded("1 + 2 < x + 4", "3 < x + 4");
     }
 
     @Test
@@ -61,6 +83,11 @@ class VCFoldingTest {
         assertFolded("true ? a : b", "a");
         assertFolded("false ? a : b", "b");
         assertFolded("cond ? b : b", "b");
+    }
+
+    @Test
+    void foldsIteBranchesBeforeComparingThem() {
+        assertFolded("cond ? 1 + 2 : 3", "3");
     }
 
     @Test
@@ -87,6 +114,19 @@ class VCFoldingTest {
         VCImplication result = VCFolding.apply(implication);
 
         assertSimplifiedVC(result, simplified("true", "Config.LIMIT == 3"));
+    }
+
+    @Test
+    void foldsResolvedEnumLiteralsInsideLargerExpression() {
+        Enum limit = new Enum("Config", "LIMIT");
+        limit.setResolvedLiteral(new LiteralInt(3));
+        BinaryExpression arithmetic = new BinaryExpression(limit, "+", new LiteralInt(2));
+        VCImplication implication = new VCImplication(
+                new Predicate(new BinaryExpression(arithmetic, "==", new LiteralInt(5))));
+
+        VCImplication result = VCFolding.apply(implication);
+
+        assertSimplifiedVC(result, simplified("true", "Config.LIMIT + 2 == 5"));
     }
 
     @Test
