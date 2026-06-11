@@ -1,10 +1,6 @@
 package liquidjava.rj_language.opt;
 
-import static liquidjava.utils.VCTestUtils.assertSimplifiedVC;
 import static liquidjava.utils.VCTestUtils.assertSimplificationSteps;
-import static liquidjava.utils.VCTestUtils.assertVC;
-import static liquidjava.utils.VCTestUtils.parse;
-import static liquidjava.utils.VCTestUtils.simplified;
 import static liquidjava.utils.VCTestUtils.vc;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -28,17 +24,19 @@ class VCFoldingTest {
 
     @Test
     void foldsIntegerArithmeticAndComparisons() {
-        assertSimplificationSteps(VCFolding::apply, vc("1 + 2 == 3"), simplified("3 == 3", "1 + 2 == 3"),
-                simplified("true", "1 + 2 == 3"));
+        VCImplication implication = vc("1 + 2 == 3");
+
+        assertSimplificationSteps(VCFolding::apply, implication, "3 == 3", "true");
         assertFolded("4 > 7", "false");
     }
 
     @Test
     void foldsRealAndMixedNumericExpressions() {
-        assertSimplificationSteps(VCFolding::apply, vc("1.5 + 2.0 == 3.5"),
-                simplified("3.5 == 3.5", "1.5 + 2.0 == 3.5"), simplified("true", "1.5 + 2.0 == 3.5"));
-        assertSimplificationSteps(VCFolding::apply, vc("2 + 0.5 > 2"), simplified("2.5 > 2", "2 + 0.5 > 2"),
-                simplified("true", "2 + 0.5 > 2"));
+        VCImplication realArithmetic = vc("1.5 + 2.0 == 3.5");
+        VCImplication mixedArithmetic = vc("2 + 0.5 > 2");
+
+        assertSimplificationSteps(VCFolding::apply, realArithmetic, "3.5 == 3.5", "true");
+        assertSimplificationSteps(VCFolding::apply, mixedArithmetic, "2.5 > 2", "true");
     }
 
     @Test
@@ -79,8 +77,9 @@ class VCFoldingTest {
     @Test
     void foldsUnaryExpressions() {
         assertFolded("!true", "false");
-        assertSimplificationSteps(VCFolding::apply, vc("-3 < 0"), simplified("-3 < 0", "-3 < 0"),
-                simplified("true", "-3 < 0"));
+        VCImplication implication = vc("-3 < 0");
+
+        assertSimplificationSteps(VCFolding::apply, implication, "-3 < 0", "true");
     }
 
     @Test
@@ -92,8 +91,9 @@ class VCFoldingTest {
 
     @Test
     void foldsIteBranchesBeforeComparingThem() {
-        assertSimplificationSteps(VCFolding::apply, vc("cond ? 1 + 2 : 3"),
-                simplified("cond ? 3 : 3", "cond ? 1 + 2 : 3"), simplified("3", "cond ? 1 + 2 : 3"));
+        VCImplication implication = vc("cond ? 1 + 2 : 3");
+
+        assertSimplificationSteps(VCFolding::apply, implication, "cond ? 3 : 3", "3");
     }
 
     @Test
@@ -117,8 +117,7 @@ class VCFoldingTest {
         VCImplication implication = new VCImplication(
                 new Predicate(new BinaryExpression(limit, "==", new LiteralInt(3))));
 
-        assertSimplificationSteps(VCFolding::apply, implication, simplified("3 == 3", "Config.LIMIT == 3"),
-                simplified("true", "Config.LIMIT == 3"));
+        assertSimplificationSteps(VCFolding::apply, implication, "3 == 3", "true");
     }
 
     @Test
@@ -129,23 +128,20 @@ class VCFoldingTest {
         VCImplication implication = new VCImplication(
                 new Predicate(new BinaryExpression(arithmetic, "==", new LiteralInt(5))));
 
-        assertSimplificationSteps(VCFolding::apply, implication, simplified("3 + 2 == 5", "Config.LIMIT + 2 == 5"),
-                simplified("5 == 5", "Config.LIMIT + 2 == 5"), simplified("true", "Config.LIMIT + 2 == 5"));
+        assertSimplificationSteps(VCFolding::apply, implication, "3 + 2 == 5", "5 == 5", "true");
     }
 
     @Test
     void preservesOriginFromExistingSimplifiedImplication() {
         VCImplication substituted = VCSubstitution.apply(vc("∀x:int. x == 1", "x + 1 + 2 > 0"));
 
-        assertSimplificationSteps(VCFolding::apply, substituted, simplified("2 + 2 > 0", "∀x:int. x + 1 + 2 > 0"),
-                simplified("4 > 0", "∀x:int. x + 1 + 2 > 0"), simplified("true", "∀x:int. x + 1 + 2 > 0"));
+        assertSimplificationSteps(VCFolding::apply, substituted, "2 + 2 > 0", "4 > 0", "true");
     }
 
     @Test
     void recordsOriginWhenOnlyGroupIsUnwrapped() {
-        VCImplication implication = new VCImplication(new Predicate(new GroupExpression(parse("x > 0"))));
-
-        VCImplication result = VCFolding.apply(implication);
+        VCImplication implication = vc("(x > 0)");
+        VCImplication result = assertSimplificationSteps(VCFolding::apply, implication, "x > 0");
 
         SimplifiedVCImplication simplified = assertInstanceOf(SimplifiedVCImplication.class, result);
         assertEquals("x > 0", simplified.getRefinement().toString());
@@ -156,30 +152,26 @@ class VCFoldingTest {
     void recordsOriginWhenFoldingLaterImplication() {
         VCImplication implication = vc("x > 0", "1 + 2 > 0");
 
-        VCImplication result = VCFolding.apply(implication);
+        VCImplication result = assertSimplificationSteps(VCFolding::apply, implication, "x > 0 -> 3 > 0");
 
-        assertEquals("x > 0", result.getRefinement().toString());
         SimplifiedVCImplication simplifiedNext = assertInstanceOf(SimplifiedVCImplication.class, result.getNext());
-        assertEquals("3 > 0", simplifiedNext.getRefinement().toString());
         assertEquals("1 + 2 > 0", simplifiedNext.getOrigin().getRefinement().toString());
 
-        result = VCFolding.apply(result);
+        result = assertSimplificationSteps(VCFolding::apply, result, "x > 0 -> true");
 
-        assertEquals("x > 0", result.getRefinement().toString());
         simplifiedNext = assertInstanceOf(SimplifiedVCImplication.class, result.getNext());
-        assertEquals("true", simplifiedNext.getRefinement().toString());
         assertEquals("1 + 2 > 0", simplifiedNext.getOrigin().getRefinement().toString());
     }
 
     private static void assertFolded(String original, String folded) {
-        VCImplication result = VCFolding.apply(vc(original));
+        VCImplication implication = vc(original);
 
-        assertSimplifiedVC(result, simplified(folded, original));
+        assertSimplificationSteps(VCFolding::apply, implication, folded);
     }
 
     private static void assertUnchanged(String original) {
-        VCImplication result = VCFolding.apply(vc(original));
+        VCImplication implication = vc(original);
 
-        assertVC(result, original);
+        assertSimplificationSteps(VCFolding::apply, implication, original);
     }
 }
