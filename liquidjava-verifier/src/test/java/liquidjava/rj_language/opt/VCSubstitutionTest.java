@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 class VCSubstitutionTest {
 
     @Test
-    void applyOnceReturnsNullForNullImplication() {
+    void applyReturnsNullForNullImplication() {
         assertNull(VCSubstitution.apply(null));
     }
 
@@ -40,6 +40,44 @@ class VCSubstitutionTest {
         VCImplication result = VCSubstitution.apply(implication);
 
         assertSimplifiedVC(result, simplified("y + 1 > y", "∀x:int. x > y"));
+    }
+
+    @Test
+    void substitutesOnlyWholeVariableReferences() {
+        VCImplication implication = vc("∀x:int. x == 3", "xx > x");
+
+        VCImplication result = VCSubstitution.apply(implication);
+
+        assertSimplifiedVC(result, simplified("xx > 3", "∀x:int. xx > x"));
+    }
+
+    @Test
+    void substitutesEveryOccurrenceInPredicate() {
+        VCImplication implication = vc("∀x:int. x == 2", "x + x > 0");
+
+        VCImplication result = VCSubstitution.apply(implication);
+
+        assertSimplifiedVC(result, simplified("2 + 2 > 0", "∀x:int. x + x > 0"));
+    }
+
+    @Test
+    void preservesRemainingBinderAfterSubstitution() {
+        VCImplication implication = vc("∀x:int. x == 3", "∀y:int. y > x", "y > 0");
+
+        VCImplication result = VCSubstitution.apply(implication);
+
+        assertEquals("y", result.getName());
+        assertEquals("y > 3", result.getRefinement().toString());
+        assertVC(result.getNext(), "y > 0");
+    }
+
+    @Test
+    void removesSourceNodeWhenItIsLastInChain() {
+        VCImplication implication = vc("x > 0", "∀y:int. y == 1");
+
+        VCImplication result = VCSubstitution.apply(implication);
+
+        assertVC(result, "x > 0");
     }
 
     @Test
@@ -93,6 +131,16 @@ class VCSubstitutionTest {
 
         assertNotSame(implication, result);
         assertVC(result, "x > 3", "x > 0");
+    }
+
+    @Test
+    void ignoresDerivedBinderEquality() {
+        VCImplication implication = vc("∀x:int. x + 1 == 3", "x > 0");
+
+        VCImplication result = VCSubstitution.apply(implication);
+
+        assertNotSame(implication, result);
+        assertVC(result, "x + 1 == 3", "x > 0");
     }
 
     @Test
