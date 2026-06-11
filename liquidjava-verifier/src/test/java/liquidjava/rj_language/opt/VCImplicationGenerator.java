@@ -9,9 +9,11 @@ import liquidjava.processor.VCImplication;
 
 public class VCImplicationGenerator extends Generator<VCImplication> {
 
-    static final String[] BINDERS = { "x", "y", "z" };
-    static final String[] FREE_VARS = { "a", "b", "c" };
+    public static final String[] BINDERS = { "x", "y", "z", "w" };
+    public static final String[] FREE_VARS = { "a", "b", "c", "d" };
     private static final String[] COMPARISON_OPS = { "==", "!=", ">=", ">", "<=", "<" };
+    private static final String[] BOOLEAN_OPS = { "&&", "||", "-->", "==", "!=" };
+    private static final String[] ARITHMETIC_OPS = { "+", "-", "*" };
 
     public VCImplicationGenerator() {
         super(VCImplication.class);
@@ -69,8 +71,7 @@ public class VCImplicationGenerator extends Generator<VCImplication> {
     private static String foldableBoolean(SourceOfRandomness random) {
         String left = random.nextBoolean() ? "true" : "false";
         String right = random.nextBoolean() ? "true" : "false";
-        String[] ops = { "&&", "||", "-->", "==", "!=" };
-        return left + " " + ops[random.nextInt(0, ops.length - 1)] + " " + right;
+        return left + " " + BOOLEAN_OPS[random.nextInt(0, BOOLEAN_OPS.length - 1)] + " " + right;
     }
 
     private static String foldableIte(SourceOfRandomness random) {
@@ -83,8 +84,7 @@ public class VCImplicationGenerator extends Generator<VCImplication> {
     private static String literalArithmetic(SourceOfRandomness random) {
         String left = intLiteral(random);
         String right = Integer.toString(random.nextInt(1, 7));
-        String[] ops = { "+", "-", "*" };
-        return left + " " + ops[random.nextInt(0, ops.length - 1)] + " " + right;
+        return left + " " + ARITHMETIC_OPS[random.nextInt(0, ARITHMETIC_OPS.length - 1)] + " " + right;
     }
 
     private static String adjacentConstants(SourceOfRandomness random) {
