@@ -26,7 +26,7 @@ class VCSimplificationTest {
     void simplifyOnceAppliesSubstitutionBeforeFolding() {
         VCImplication implication = vc("∀x:int. x == 1 + 2", "x > 2");
 
-        assertSimplificationSteps(implication, VCSimplification::simplifyOnce, simplified("1 + 2 > 2", "∀x:int. x > 2"),
+        assertSimplificationSteps(VCSimplification::simplifyOnce, implication, simplified("1 + 2 > 2", "∀x:int. x > 2"),
                 simplified("3 > 2", "∀x:int. x > 2"), simplified("true", "∀x:int. x > 2"));
     }
 
@@ -34,7 +34,7 @@ class VCSimplificationTest {
     void simplifyOnceDoesNotFoldAfterSubstitutionInSameStep() {
         VCImplication implication = vc("∀x:int. x == 1 + 2", "x == 3");
 
-        assertSimplificationSteps(implication, VCSimplification::simplifyOnce,
+        assertSimplificationSteps(VCSimplification::simplifyOnce, implication,
                 simplified("1 + 2 == 3", "∀x:int. x == 3"), simplified("3 == 3", "∀x:int. x == 3"),
                 simplified("true", "∀x:int. x == 3"));
     }
@@ -43,7 +43,7 @@ class VCSimplificationTest {
     void simplifyOnceAppliesFoldingWhenNoSubstitutionIsAvailable() {
         VCImplication implication = vc("1 + 2 > 2");
 
-        assertSimplificationSteps(implication, VCSimplification::simplifyOnce, simplified("3 > 2", "1 + 2 > 2"),
+        assertSimplificationSteps(VCSimplification::simplifyOnce, implication, simplified("3 > 2", "1 + 2 > 2"),
                 simplified("true", "1 + 2 > 2"));
     }
 

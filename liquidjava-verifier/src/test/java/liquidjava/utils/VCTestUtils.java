@@ -94,21 +94,14 @@ public class VCTestUtils {
         assertNull(current, "Expected VC chain to end after " + expected.length + " implications");
     }
 
-    public static VCImplication assertSimplificationSteps(VCImplication implication,
-            UnaryOperator<VCImplication> simplifier, ExpectedSimplifiedVCImplication... expectedSteps) {
+    public static VCImplication assertSimplificationSteps(UnaryOperator<VCImplication> simplifier,
+            VCImplication implication, ExpectedSimplifiedVCImplication... expectedSteps) {
         VCImplication current = implication;
         for (int i = 0; i < expectedSteps.length; i++) {
             current = simplifier.apply(current);
             assertSimplifiedVC(current, expectedSteps[i]);
         }
         return current;
-    }
-
-    public static VCImplication assertSimplificationSteps(VCImplication implication,
-            UnaryOperator<VCImplication> simplifier, String origin, String... simplifiedSteps) {
-        ExpectedSimplifiedVCImplication[] expectedSteps = java.util.Arrays.stream(simplifiedSteps)
-                .map(step -> simplified(step, origin)).toArray(ExpectedSimplifiedVCImplication[]::new);
-        return assertSimplificationSteps(implication, simplifier, expectedSteps);
     }
 
     public static SimplifiedVCImplication simplifiedImplication(VCImplication implication, int index) {

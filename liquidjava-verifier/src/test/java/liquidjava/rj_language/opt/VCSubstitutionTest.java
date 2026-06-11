@@ -21,7 +21,7 @@ class VCSubstitutionTest {
         VCImplication result = VCSubstitution.apply(implication);
 
         assertSimplifiedVC(result, simplified("3 > 0", "∀x:int. x > 0"));
-        assertSimplificationSteps(result, VCSimplification::simplifyOnce, simplified("true", "∀x:int. x > 0"));
+        assertSimplificationSteps(VCSimplification::simplifyOnce, result, simplified("true", "∀x:int. x > 0"));
     }
 
     @Test
@@ -31,7 +31,7 @@ class VCSubstitutionTest {
         VCImplication result = VCSubstitution.apply(implication);
 
         assertSimplifiedVC(result, simplified("3 > 0", "∀x:int. x > 0"));
-        assertSimplificationSteps(result, VCSimplification::simplifyOnce, simplified("true", "∀x:int. x > 0"));
+        assertSimplificationSteps(VCSimplification::simplifyOnce, result, simplified("true", "∀x:int. x > 0"));
     }
 
     @Test
@@ -59,7 +59,7 @@ class VCSubstitutionTest {
         VCImplication result = VCSubstitution.apply(implication);
 
         assertSimplifiedVC(result, simplified("2 + 2 > 0", "∀x:int. x + x > 0"));
-        assertSimplificationSteps(result, VCSimplification::simplifyOnce, simplified("4 > 0", "∀x:int. x + x > 0"),
+        assertSimplificationSteps(VCSimplification::simplifyOnce, result, simplified("4 > 0", "∀x:int. x + x > 0"),
                 simplified("true", "∀x:int. x + x > 0"));
     }
 
@@ -114,7 +114,7 @@ class VCSubstitutionTest {
 
         assertSimplifiedVC(result, simplified("y == 3 + 1", "∀x:int. y == x + 1"),
                 simplified("y > 3", "∀x:int. y > x"));
-        assertSimplificationSteps(result, VCSimplification::simplifyOnce, simplified("3 + 1 > 3", "∀y:int. y > x"),
+        assertSimplificationSteps(VCSimplification::simplifyOnce, result, simplified("3 + 1 > 3", "∀y:int. y > x"),
                 simplified("4 > 3", "∀y:int. y > x"), simplified("true", "∀y:int. y > x"));
     }
 

@@ -28,14 +28,17 @@ class VCFoldingTest {
 
     @Test
     void foldsIntegerArithmeticAndComparisons() {
-        assertSimplificationSteps(vc("1 + 2 == 3"), VCFolding::apply, "1 + 2 == 3", "3 == 3", "true");
+        assertSimplificationSteps(VCFolding::apply, vc("1 + 2 == 3"), simplified("3 == 3", "1 + 2 == 3"),
+                simplified("true", "1 + 2 == 3"));
         assertFolded("4 > 7", "false");
     }
 
     @Test
     void foldsRealAndMixedNumericExpressions() {
-        assertSimplificationSteps(vc("1.5 + 2.0 == 3.5"), VCFolding::apply, "1.5 + 2.0 == 3.5", "3.5 == 3.5", "true");
-        assertSimplificationSteps(vc("2 + 0.5 > 2"), VCFolding::apply, "2 + 0.5 > 2", "2.5 > 2", "true");
+        assertSimplificationSteps(VCFolding::apply, vc("1.5 + 2.0 == 3.5"),
+                simplified("3.5 == 3.5", "1.5 + 2.0 == 3.5"), simplified("true", "1.5 + 2.0 == 3.5"));
+        assertSimplificationSteps(VCFolding::apply, vc("2 + 0.5 > 2"), simplified("2.5 > 2", "2 + 0.5 > 2"),
+                simplified("true", "2 + 0.5 > 2"));
     }
 
     @Test
@@ -76,7 +79,8 @@ class VCFoldingTest {
     @Test
     void foldsUnaryExpressions() {
         assertFolded("!true", "false");
-        assertSimplificationSteps(vc("-3 < 0"), VCFolding::apply, "-3 < 0", "-3 < 0", "true");
+        assertSimplificationSteps(VCFolding::apply, vc("-3 < 0"), simplified("-3 < 0", "-3 < 0"),
+                simplified("true", "-3 < 0"));
     }
 
     @Test
@@ -88,7 +92,8 @@ class VCFoldingTest {
 
     @Test
     void foldsIteBranchesBeforeComparingThem() {
-        assertSimplificationSteps(vc("cond ? 1 + 2 : 3"), VCFolding::apply, "cond ? 1 + 2 : 3", "cond ? 3 : 3", "3");
+        assertSimplificationSteps(VCFolding::apply, vc("cond ? 1 + 2 : 3"),
+                simplified("cond ? 3 : 3", "cond ? 1 + 2 : 3"), simplified("3", "cond ? 1 + 2 : 3"));
     }
 
     @Test
@@ -112,7 +117,7 @@ class VCFoldingTest {
         VCImplication implication = new VCImplication(
                 new Predicate(new BinaryExpression(limit, "==", new LiteralInt(3))));
 
-        assertSimplificationSteps(implication, VCFolding::apply, simplified("3 == 3", "Config.LIMIT == 3"),
+        assertSimplificationSteps(VCFolding::apply, implication, simplified("3 == 3", "Config.LIMIT == 3"),
                 simplified("true", "Config.LIMIT == 3"));
     }
 
@@ -124,7 +129,7 @@ class VCFoldingTest {
         VCImplication implication = new VCImplication(
                 new Predicate(new BinaryExpression(arithmetic, "==", new LiteralInt(5))));
 
-        assertSimplificationSteps(implication, VCFolding::apply, simplified("3 + 2 == 5", "Config.LIMIT + 2 == 5"),
+        assertSimplificationSteps(VCFolding::apply, implication, simplified("3 + 2 == 5", "Config.LIMIT + 2 == 5"),
                 simplified("5 == 5", "Config.LIMIT + 2 == 5"), simplified("true", "Config.LIMIT + 2 == 5"));
     }
 
@@ -132,7 +137,7 @@ class VCFoldingTest {
     void preservesOriginFromExistingSimplifiedImplication() {
         VCImplication substituted = VCSubstitution.apply(vc("∀x:int. x == 1", "x + 1 + 2 > 0"));
 
-        assertSimplificationSteps(substituted, VCFolding::apply, simplified("2 + 2 > 0", "∀x:int. x + 1 + 2 > 0"),
+        assertSimplificationSteps(VCFolding::apply, substituted, simplified("2 + 2 > 0", "∀x:int. x + 1 + 2 > 0"),
                 simplified("4 > 0", "∀x:int. x + 1 + 2 > 0"), simplified("true", "∀x:int. x + 1 + 2 > 0"));
     }
 
