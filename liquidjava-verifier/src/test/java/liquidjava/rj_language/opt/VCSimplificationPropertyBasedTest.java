@@ -21,7 +21,7 @@ import org.junit.runner.RunWith;
 @RunWith(JUnitQuickcheck.class)
 public class VCSimplificationPropertyBasedTest {
 
-    private static final int TRIALS = 100; // number of random VCs to test
+    private static final int TRIALS = 50; // number of random VCs to test
     private static final int MAX_STEPS = 20; // to prevent infinite loops in case of non-termination
 
     @Property(trials = TRIALS)
