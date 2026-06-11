@@ -36,7 +36,7 @@ public class VCFolding {
 
         VCImplication next = apply(implication.getNext());
         if (implication.getNext() == null || implication.getNext().equals(next))
-            return implication.clone();
+            return implication;
 
         VCImplication result = implication.copyWithRefinement(implication.getRefinement().clone());
         result.setNext(next);
@@ -44,9 +44,11 @@ public class VCFolding {
     }
 
     /**
-     * Folds an expression
+     * Folds the first foldable expression found
      */
     private static Expression fold(Expression expression) {
+        if (expression instanceof Enum en && en.getResolvedLiteral() != null)
+            return en.getResolvedLiteral().clone();
         if (expression instanceof BinaryExpression binary)
             return foldBinary(binary);
         if (expression instanceof UnaryExpression unary)
@@ -54,7 +56,7 @@ public class VCFolding {
         if (expression instanceof Ite ite)
             return foldIte(ite);
         if (expression instanceof GroupExpression group && group.getChildren().size() == 1)
-            return fold(group.getExpression());
+            return group.getExpression().clone();
         return expression.clone();
     }
 
@@ -62,10 +64,16 @@ public class VCFolding {
      * Folds a binary expression and its operands
      */
     private static Expression foldBinary(BinaryExpression binary) {
-        Expression leftExpression = fold(binary.getFirstOperand());
-        Expression rightExpression = fold(binary.getSecondOperand());
-        Expression left = resolvedLiteral(leftExpression);
-        Expression right = resolvedLiteral(rightExpression);
+        Expression left = binary.getFirstOperand();
+        Expression foldedLeft = fold(left);
+        if (!left.equals(foldedLeft))
+            return new BinaryExpression(foldedLeft, binary.getOperator(), binary.getSecondOperand().clone());
+
+        Expression right = binary.getSecondOperand();
+        Expression foldedRight = fold(right);
+        if (!right.equals(foldedRight))
+            return new BinaryExpression(left.clone(), binary.getOperator(), foldedRight);
+
         String op = binary.getOperator();
 
         Expression foldedBinary = foldLiteralBinary(left, right, op);
@@ -83,7 +91,11 @@ public class VCFolding {
      * Folds a unary expression and its operand
      */
     private static Expression foldUnary(UnaryExpression unary) {
-        Expression operand = fold(unary.getExpression());
+        Expression operand = unary.getExpression();
+        Expression foldedOperand = fold(operand);
+        if (!operand.equals(foldedOperand))
+            return new UnaryExpression(unary.getOp(), foldedOperand);
+
         String op = unary.getOp();
 
         if ("!".equals(op) && operand instanceof LiteralBoolean literal)
@@ -103,9 +115,20 @@ public class VCFolding {
      * Folds a conditional expression and its branches
      */
     private static Expression foldIte(Ite ite) {
-        Expression condition = fold(ite.getCondition());
-        Expression thenExpression = fold(ite.getThen());
-        Expression elseExpression = fold(ite.getElse());
+        Expression condition = ite.getCondition();
+        Expression foldedCondition = fold(condition);
+        if (!condition.equals(foldedCondition))
+            return new Ite(foldedCondition, ite.getThen().clone(), ite.getElse().clone());
+
+        Expression thenExpression = ite.getThen();
+        Expression foldedThen = fold(thenExpression);
+        if (!thenExpression.equals(foldedThen))
+            return new Ite(condition.clone(), foldedThen, ite.getElse().clone());
+
+        Expression elseExpression = ite.getElse();
+        Expression foldedElse = fold(elseExpression);
+        if (!elseExpression.equals(foldedElse))
+            return new Ite(condition.clone(), thenExpression.clone(), foldedElse);
 
         if (condition instanceof LiteralBoolean literal)
             return literal.isBooleanTrue() ? thenExpression : elseExpression;
@@ -227,15 +250,6 @@ public class VCFolding {
         case "!=" -> new LiteralBoolean(left != right);
         default -> null;
         };
-    }
-
-    /**
-     * Replaces a resolved enum constant with its literal value
-     */
-    private static Expression resolvedLiteral(Expression expression) {
-        if (expression instanceof Enum en && en.getResolvedLiteral() != null)
-            return en.getResolvedLiteral().clone();
-        return expression;
     }
 
     /**

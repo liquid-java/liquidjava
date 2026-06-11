@@ -2,8 +2,6 @@ package liquidjava.rj_language.opt;
 
 import liquidjava.processor.VCImplication;
 
-import static liquidjava.rj_language.opt.VCSimplificationUtils.*;
-
 /**
  * Simplifies VCImplication chains by applying various simplification steps
  */
@@ -38,7 +36,6 @@ public class VCSimplification {
         if (!implication.equals(substituted))
             return substituted;
 
-        // TODO: add more simplification steps here (e.g., folding)
-        return substituted;
+        return VCFolding.apply(implication);
     }
 }
