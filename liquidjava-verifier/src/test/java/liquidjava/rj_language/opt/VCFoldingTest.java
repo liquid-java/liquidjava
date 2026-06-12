@@ -27,7 +27,7 @@ class VCFoldingTest {
         VCImplication implication = vc("1 + 2 == 3");
 
         assertSimplificationSteps(VCFolding::apply, implication, "3 == 3", "true");
-        assertFolded("4 > 7", "false");
+        assertSimplificationSteps(VCFolding::apply, vc("4 > 7"), "false");
     }
 
     @Test
@@ -41,42 +41,42 @@ class VCFoldingTest {
 
     @Test
     void leavesDivisionAndModuloByZeroUnchanged() {
-        assertUnchanged("4 / 0 == 0");
-        assertUnchanged("4 % 0 == 0");
+        assertSimplificationSteps(VCFolding::apply, vc("4 / 0 == 0"), "4 / 0 == 0");
+        assertSimplificationSteps(VCFolding::apply, vc("4 % 0 == 0"), "4 % 0 == 0");
     }
 
     @Test
     void leavesRealDivisionAndModuloByZeroUnchanged() {
-        assertUnchanged("4.0 / 0.0 == 0.0");
-        assertUnchanged("4.0 % 0.0 == 0.0");
+        assertSimplificationSteps(VCFolding::apply, vc("4.0 / 0.0 == 0.0"), "4.0 / 0.0 == 0.0");
+        assertSimplificationSteps(VCFolding::apply, vc("4.0 % 0.0 == 0.0"), "4.0 % 0.0 == 0.0");
     }
 
     @Test
     void foldsBooleanBinaryExpressions() {
-        assertFolded("true && false", "false");
-        assertFolded("false --> true", "true");
-        assertFolded("true != false", "true");
+        assertSimplificationSteps(VCFolding::apply, vc("true && false"), "false");
+        assertSimplificationSteps(VCFolding::apply, vc("false --> true"), "true");
+        assertSimplificationSteps(VCFolding::apply, vc("true != false"), "true");
     }
 
     @Test
     void foldsBooleanSubexpressionsInsideLargerExpression() {
-        assertFolded("true && false || ok", "false || ok");
+        assertSimplificationSteps(VCFolding::apply, vc("true && false || ok"), "false || ok");
     }
 
     @Test
     void foldsNestedConstantsInsideLargerExpression() {
-        assertFolded("x > 1 + 2", "x > 3");
-        assertFolded("x + 1 + 2 > 4", "x + 3 > 4");
+        assertSimplificationSteps(VCFolding::apply, vc("x > 1 + 2"), "x > 3");
+        assertSimplificationSteps(VCFolding::apply, vc("x + 1 + 2 > 4"), "x + 3 > 4");
     }
 
     @Test
     void foldsPartialComparisonsWithoutDroppingSymbolicTerms() {
-        assertFolded("1 + 2 < x + 4", "3 < x + 4");
+        assertSimplificationSteps(VCFolding::apply, vc("1 + 2 < x + 4"), "3 < x + 4");
     }
 
     @Test
     void foldsUnaryExpressions() {
-        assertFolded("!true", "false");
+        assertSimplificationSteps(VCFolding::apply, vc("!true"), "false");
         VCImplication implication = vc("-3 < 0");
 
         assertSimplificationSteps(VCFolding::apply, implication, "-3 < 0", "true");
@@ -84,9 +84,9 @@ class VCFoldingTest {
 
     @Test
     void foldsIteExpressions() {
-        assertFolded("true ? a : b", "a");
-        assertFolded("false ? a : b", "b");
-        assertFolded("cond ? b : b", "b");
+        assertSimplificationSteps(VCFolding::apply, vc("true ? a : b"), "a");
+        assertSimplificationSteps(VCFolding::apply, vc("false ? a : b"), "b");
+        assertSimplificationSteps(VCFolding::apply, vc("cond ? b : b"), "b");
     }
 
     @Test
@@ -98,16 +98,16 @@ class VCFoldingTest {
 
     @Test
     void foldsAdjacentIntegerConstants() {
-        assertFolded("x + 1 - 2", "x - 1");
-        assertFolded("x - 1 + 2", "x + 1");
-        assertFolded("x + 1 + 2", "x + 3");
-        assertFolded("x + 1 - 1", "x");
+        assertSimplificationSteps(VCFolding::apply, vc("x + 1 - 2"), "x - 1");
+        assertSimplificationSteps(VCFolding::apply, vc("x - 1 + 2"), "x + 1");
+        assertSimplificationSteps(VCFolding::apply, vc("x + 1 + 2"), "x + 3");
+        assertSimplificationSteps(VCFolding::apply, vc("x + 1 - 1"), "x");
     }
 
     @Test
     void foldsEnumEqualityAndInequality() {
-        assertFolded("Mode.Photo == Mode.Photo", "true");
-        assertFolded("Mode.Photo != Mode.Video", "true");
+        assertSimplificationSteps(VCFolding::apply, vc("Mode.Photo == Mode.Photo"), "true");
+        assertSimplificationSteps(VCFolding::apply, vc("Mode.Photo != Mode.Video"), "true");
     }
 
     @Test
@@ -163,15 +163,4 @@ class VCFoldingTest {
         assertEquals("1 + 2 > 0", simplifiedNext.getOrigin().getRefinement().toString());
     }
 
-    private static void assertFolded(String original, String folded) {
-        VCImplication implication = vc(original);
-
-        assertSimplificationSteps(VCFolding::apply, implication, folded);
-    }
-
-    private static void assertUnchanged(String original) {
-        VCImplication implication = vc(original);
-
-        assertSimplificationSteps(VCFolding::apply, implication, original);
-    }
 }
