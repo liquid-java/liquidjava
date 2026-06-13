@@ -60,6 +60,29 @@ class VCSimplificationTest {
     }
 
     @Test
+    void simplifyOnceAppliesArithmeticBeforeLogicalSimplification() {
+        VCImplication implication = vc("x + 0 == x");
+
+        assertSimplificationSteps(VCSimplification::simplifyOnce, implication, chain(expect("x == x", "x + 0 == x")),
+                chain(expect("true", "x + 0 == x")));
+    }
+
+    @Test
+    void simplifyOnceAppliesLogicalWhenNoEarlierSimplificationIsAvailable() {
+        VCImplication implication = vc("x && true");
+
+        assertSimplificationSteps(VCSimplification::simplifyOnce, implication, chain(expect("x", "x && true")));
+    }
+
+    @Test
+    void simplifyAppliesLogicalStepsUntilFixedPoint() {
+        VCImplication implication = vc("x && true && true");
+
+        assertSimplificationSteps(VCSimplification::simplifyOnce, implication,
+                chain(expect("x && true", "x && true && true")), chain(expect("x", "x && true && true")));
+    }
+
+    @Test
     void simplifyKeepsApplyingStepsUntilFixedPoint() {
         VCImplication implication = vc("∀x:int. x == 1 + 2", "x + 1 > 3");
 
