@@ -37,7 +37,7 @@ class VCArithmeticSimplificationTest {
         assertSimplificationSteps(VCArithmeticSimplification::apply, vc("x - x == 0"),
                 chain(expect("0 == 0", "x - x == 0")));
         assertSimplificationSteps(VCArithmeticSimplification::apply, vc("--x == x"),
-                chain(expect("x == x", "--x == x")));
+                chain(expect("x == x", "-(-x) == x")));
         assertSimplificationSteps(VCArithmeticSimplification::apply, vc("x + -y == 0"),
                 chain(expect("x - y == 0", "x + -y == 0")));
         assertSimplificationSteps(VCArithmeticSimplification::apply, vc("x - -y == 0"),
@@ -94,14 +94,13 @@ class VCArithmeticSimplificationTest {
                 chain(expect("x > 0", "x > 0"), expect("y > x", "y + 0 > x")));
 
         SimplifiedVCImplication simplifiedNext = assertInstanceOf(SimplifiedVCImplication.class, result.getNext());
-        assertEquals("y + 0 > x", simplifiedNext.getOrigin().getRefinement().toString());
+        assertEquals("y + 0 > x", simplifiedNext.getOrigin().getRefinement().getExpression().toDisplayString());
     }
 
     @Test
-    void preservesOriginFromExistingSimplifiedImplication() {
+    void recordsCurrentImplicationAsOriginWhenSimplifyingExistingSimplifiedImplication() {
         VCImplication substituted = VCSubstitution.apply(vc("∀x:int. x == y + 0", "x > 0"));
 
-        assertSimplificationSteps(VCArithmeticSimplification::apply, substituted,
-                chain(expect("y > 0", "∀x:int. x > 0")));
+        assertSimplificationSteps(VCArithmeticSimplification::apply, substituted, chain(expect("y > 0", "y + 0 > 0")));
     }
 }

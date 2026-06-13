@@ -36,8 +36,7 @@ public class VCArithmeticSimplification {
         Expression expression = implication.getRefinement().getExpression();
         Expression simplified = simplify(expression, nonZeroExpressions);
         if (!expression.equals(simplified)) {
-            VCImplication result = new SimplifiedVCImplication(implication, new Predicate(simplified),
-                    implication.getOrigin());
+            VCImplication result = new SimplifiedVCImplication(implication, new Predicate(simplified), implication);
             result.setNext(implication.getNext() == null ? null : implication.getNext().clone());
             return result;
         }
