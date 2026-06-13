@@ -99,6 +99,7 @@ public class VCArithmeticSimplification {
         if (!operand.equals(simplifiedOperand))
             return new UnaryExpression(unary.getOp(), simplifiedOperand);
 
+        // -(-x) -> x
         if ("-".equals(unary.getOp()) && isNegation(operand))
             return negatedExpression(operand).clone();
 
@@ -157,14 +158,19 @@ public class VCArithmeticSimplification {
      * Applies addition identities involving zero and unary negation.
      */
     private static Expression simplifyAddition(Expression left, Expression right) {
+        // x + 0 -> x
         if (isZero(right))
             return left.clone();
+        // 0 + x -> x
         if (isZero(left))
             return right.clone();
+        // x + (-x) -> 0
         if (isNegation(right) && left.equals(negatedExpression(right)))
             return new LiteralInt(0);
+        // (-x) + x -> 0
         if (isNegation(left) && negatedExpression(left).equals(right))
             return new LiteralInt(0);
+        // x + (-y) -> x - y
         if (isNegation(right))
             return new BinaryExpression(left.clone(), "-", negatedExpression(right).clone());
         return null;
@@ -174,12 +180,16 @@ public class VCArithmeticSimplification {
      * Applies subtraction identities involving zero, same operands, and unary negation.
      */
     private static Expression simplifySubtraction(Expression left, Expression right) {
+        // x - 0 -> x
         if (isZero(right))
             return left.clone();
+        // 0 - x -> -x
         if (isZero(left))
             return new UnaryExpression("-", right.clone());
+        // x - x -> 0
         if (left.equals(right))
             return new LiteralInt(0);
+        // x - (-y) -> x + y
         if (isNegation(right))
             return new BinaryExpression(left.clone(), "+", negatedExpression(right).clone());
         return null;
@@ -189,12 +199,16 @@ public class VCArithmeticSimplification {
      * Applies multiplication identities involving one and zero.
      */
     private static Expression simplifyMultiplication(Expression left, Expression right) {
+        // x * 1 -> x
         if (isOne(right))
             return left.clone();
+        // 1 * x -> x
         if (isOne(left))
             return right.clone();
+        // x * 0 -> 0
         if (isZero(right))
             return right.clone();
+        // 0 * x -> 0
         if (isZero(left))
             return left.clone();
         return null;
@@ -204,10 +218,13 @@ public class VCArithmeticSimplification {
      * Applies division identities, using prior non-zero premises when needed.
      */
     private static Expression simplifyDivision(Expression left, Expression right, List<Expression> nonZeroTerms) {
+        // x / 1 -> x
         if (isOne(right))
             return left.clone();
+        // 0 / x -> 0 (x != 0)
         if (isZero(left) && isKnownNonZero(right, nonZeroTerms))
             return left.clone();
+        // x / x -> 1 (x != 0)
         if (left.equals(right) && isKnownNonZero(right, nonZeroTerms))
             return new LiteralInt(1);
         return null;
@@ -217,8 +234,10 @@ public class VCArithmeticSimplification {
      * Applies modulo identities, using prior non-zero premises when needed.
      */
     private static Expression simplifyModulo(Expression left, Expression right, List<Expression> nonZeroTerms) {
+        // x % 1 -> 0
         if (isOne(right))
             return new LiteralInt(0);
+        // x % x -> 0 (x != 0)
         if (left.equals(right) && isKnownNonZero(right, nonZeroTerms))
             return new LiteralInt(0);
         return null;
