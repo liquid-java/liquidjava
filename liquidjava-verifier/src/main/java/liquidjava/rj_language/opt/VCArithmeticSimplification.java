@@ -29,12 +29,12 @@ public class VCArithmeticSimplification {
         return apply(implication, List.of());
     }
 
-    private static VCImplication apply(VCImplication implication, List<Expression> nonZeroTerms) {
+    private static VCImplication apply(VCImplication implication, List<Expression> nonZeroExpressions) {
         if (implication == null)
             return null;
 
         Expression expression = implication.getRefinement().getExpression();
-        Expression simplified = simplify(expression, nonZeroTerms);
+        Expression simplified = simplify(expression, nonZeroExpressions);
         if (!expression.equals(simplified)) {
             VCImplication result = new SimplifiedVCImplication(implication, new Predicate(simplified),
                     implication.getOrigin());
@@ -42,10 +42,10 @@ public class VCArithmeticSimplification {
             return result;
         }
 
-        List<Expression> nextNonZeroTerms = new ArrayList<>(nonZeroTerms);
-        addNonZeroTerm(implication.getRefinement().getExpression(), nextNonZeroTerms);
+        List<Expression> nextNoneZeroExpressions = new ArrayList<>(nonZeroExpressions);
+        addNonZeroExpression(implication.getRefinement().getExpression(), nextNoneZeroExpressions);
 
-        VCImplication next = apply(implication.getNext(), nextNonZeroTerms);
+        VCImplication next = apply(implication.getNext(), nextNoneZeroExpressions);
         if (implication.getNext() == null || implication.getNext().equals(next))
             return implication;
 
@@ -57,33 +57,33 @@ public class VCArithmeticSimplification {
     /**
      * Simplifies the first arithmetic identity found inside an expression.
      */
-    private static Expression simplify(Expression expression, List<Expression> nonZeroTerms) {
+    private static Expression simplify(Expression expression, List<Expression> nonZeroExpressions) {
         if (expression instanceof BinaryExpression binary)
-            return simplifyBinary(binary, nonZeroTerms);
+            return simplifyBinary(binary, nonZeroExpressions);
         if (expression instanceof UnaryExpression unary)
-            return simplifyUnary(unary, nonZeroTerms);
+            return simplifyUnary(unary, nonZeroExpressions);
         if (expression instanceof Ite ite)
-            return simplifyIte(ite, nonZeroTerms);
+            return simplifyIte(ite, nonZeroExpressions);
         if (expression instanceof GroupExpression group)
-            return simplifyGroup(group, nonZeroTerms);
+            return simplifyGroup(group, nonZeroExpressions);
         return expression.clone();
     }
 
     /**
      * Simplifies a binary expression by visiting operands before the current node.
      */
-    private static Expression simplifyBinary(BinaryExpression binary, List<Expression> nonZeroTerms) {
+    private static Expression simplifyBinary(BinaryExpression binary, List<Expression> nonZeroExpressions) {
         Expression left = binary.getFirstOperand();
-        Expression simplifiedLeft = simplify(left, nonZeroTerms);
+        Expression simplifiedLeft = simplify(left, nonZeroExpressions);
         if (!left.equals(simplifiedLeft))
             return new BinaryExpression(simplifiedLeft, binary.getOperator(), binary.getSecondOperand().clone());
 
         Expression right = binary.getSecondOperand();
-        Expression simplifiedRight = simplify(right, nonZeroTerms);
+        Expression simplifiedRight = simplify(right, nonZeroExpressions);
         if (!right.equals(simplifiedRight))
             return new BinaryExpression(left.clone(), binary.getOperator(), simplifiedRight);
 
-        Expression simplifiedBinary = simplifyLocalBinary(left, right, binary.getOperator(), nonZeroTerms);
+        Expression simplifiedBinary = simplifyLocalBinary(left, right, binary.getOperator(), nonZeroExpressions);
         if (simplifiedBinary != null)
             return simplifiedBinary;
 
@@ -93,9 +93,9 @@ public class VCArithmeticSimplification {
     /**
      * Simplifies a unary expression by visiting its operand before the current node.
      */
-    private static Expression simplifyUnary(UnaryExpression unary, List<Expression> nonZeroTerms) {
+    private static Expression simplifyUnary(UnaryExpression unary, List<Expression> nonZeroExpressions) {
         Expression operand = unary.getExpression();
-        Expression simplifiedOperand = simplify(operand, nonZeroTerms);
+        Expression simplifiedOperand = simplify(operand, nonZeroExpressions);
         if (!operand.equals(simplifiedOperand))
             return new UnaryExpression(unary.getOp(), simplifiedOperand);
 
@@ -109,19 +109,19 @@ public class VCArithmeticSimplification {
     /**
      * Simplifies a ternary expression by visiting condition, then branch, and else branch.
      */
-    private static Expression simplifyIte(Ite ite, List<Expression> nonZeroTerms) {
+    private static Expression simplifyIte(Ite ite, List<Expression> nonZeroExpressions) {
         Expression condition = ite.getCondition();
-        Expression simplifiedCondition = simplify(condition, nonZeroTerms);
+        Expression simplifiedCondition = simplify(condition, nonZeroExpressions);
         if (!condition.equals(simplifiedCondition))
             return new Ite(simplifiedCondition, ite.getThen().clone(), ite.getElse().clone());
 
         Expression thenExpression = ite.getThen();
-        Expression simplifiedThen = simplify(thenExpression, nonZeroTerms);
+        Expression simplifiedThen = simplify(thenExpression, nonZeroExpressions);
         if (!thenExpression.equals(simplifiedThen))
             return new Ite(condition.clone(), simplifiedThen, ite.getElse().clone());
 
         Expression elseExpression = ite.getElse();
-        Expression simplifiedElse = simplify(elseExpression, nonZeroTerms);
+        Expression simplifiedElse = simplify(elseExpression, nonZeroExpressions);
         if (!elseExpression.equals(simplifiedElse))
             return new Ite(condition.clone(), thenExpression.clone(), simplifiedElse);
 
@@ -131,9 +131,9 @@ public class VCArithmeticSimplification {
     /**
      * Simplifies an expression wrapped in parentheses while preserving the group node.
      */
-    private static Expression simplifyGroup(GroupExpression group, List<Expression> nonZeroTerms) {
+    private static Expression simplifyGroup(GroupExpression group, List<Expression> nonZeroExpressions) {
         Expression expression = group.getExpression();
-        Expression simplified = simplify(expression, nonZeroTerms);
+        Expression simplified = simplify(expression, nonZeroExpressions);
         if (!expression.equals(simplified))
             return new GroupExpression(simplified);
         return group.clone();
@@ -143,13 +143,13 @@ public class VCArithmeticSimplification {
      * Dispatches a local binary arithmetic identity by operator.
      */
     private static Expression simplifyLocalBinary(Expression left, Expression right, String op,
-            List<Expression> nonZeroTerms) {
+            List<Expression> nonZeroExpressions) {
         return switch (op) {
         case "+" -> simplifyAddition(left, right);
         case "-" -> simplifySubtraction(left, right);
         case "*" -> simplifyMultiplication(left, right);
-        case "/" -> simplifyDivision(left, right, nonZeroTerms);
-        case "%" -> simplifyModulo(left, right, nonZeroTerms);
+        case "/" -> simplifyDivision(left, right, nonZeroExpressions);
+        case "%" -> simplifyModulo(left, right, nonZeroExpressions);
         default -> null;
         };
     }
@@ -217,15 +217,15 @@ public class VCArithmeticSimplification {
     /**
      * Applies division identities, using prior non-zero premises when needed.
      */
-    private static Expression simplifyDivision(Expression left, Expression right, List<Expression> nonZeroTerms) {
+    private static Expression simplifyDivision(Expression left, Expression right, List<Expression> nonZeroExpressions) {
         // x / 1 -> x
         if (isOne(right))
             return left.clone();
         // 0 / x -> 0 (x != 0)
-        if (isZero(left) && isKnownNonZero(right, nonZeroTerms))
+        if (isZero(left) && isNonZero(right, nonZeroExpressions))
             return left.clone();
         // x / x -> 1 (x != 0)
-        if (left.equals(right) && isKnownNonZero(right, nonZeroTerms))
+        if (left.equals(right) && isNonZero(right, nonZeroExpressions))
             return new LiteralInt(1);
         return null;
     }
@@ -233,12 +233,12 @@ public class VCArithmeticSimplification {
     /**
      * Applies modulo identities, using prior non-zero premises when needed.
      */
-    private static Expression simplifyModulo(Expression left, Expression right, List<Expression> nonZeroTerms) {
+    private static Expression simplifyModulo(Expression left, Expression right, List<Expression> nonZeroExpressions) {
         // x % 1 -> 0
         if (isOne(right))
             return new LiteralInt(0);
         // x % x -> 0 (x != 0)
-        if (left.equals(right) && isKnownNonZero(right, nonZeroTerms))
+        if (left.equals(right) && isNonZero(right, nonZeroExpressions))
             return new LiteralInt(0);
         return null;
     }
@@ -246,23 +246,23 @@ public class VCArithmeticSimplification {
     /**
      * Records direct non-zero premises shaped as expr != 0 or 0 != expr.
      */
-    private static void addNonZeroTerm(Expression expression, List<Expression> nonZeroTerms) {
+    private static void addNonZeroExpression(Expression expression, List<Expression> nonZeroExpressions) {
         if (!(expression instanceof BinaryExpression binary) || !"!=".equals(binary.getOperator()))
             return;
 
         Expression left = binary.getFirstOperand();
         Expression right = binary.getSecondOperand();
         if (isZero(left))
-            nonZeroTerms.add(right.clone());
+            nonZeroExpressions.add(right.clone());
         if (isZero(right))
-            nonZeroTerms.add(left.clone());
+            nonZeroExpressions.add(left.clone());
     }
 
     /**
      * Checks whether a previous premise recorded an expression as non-zero.
      */
-    private static boolean isKnownNonZero(Expression expression, List<Expression> nonZeroTerms) {
-        return nonZeroTerms.stream().anyMatch(term -> term.equals(expression));
+    private static boolean isNonZero(Expression expression, List<Expression> nonZeroExpressions) {
+        return nonZeroExpressions.stream().anyMatch(e -> e.equals(expression));
     }
 
     /**
