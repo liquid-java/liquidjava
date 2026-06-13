@@ -26,7 +26,7 @@ class VCFoldingTest {
         VCImplication implication = vc("1 + 2 == 3");
 
         assertSimplificationSteps(VCFolding::apply, implication, chain(expect("3 == 3", "1 + 2 == 3")),
-                chain(expect("true", "1 + 2 == 3")));
+                chain(expect("true", "3 == 3")));
         assertSimplificationSteps(VCFolding::apply, vc("4 > 7"), chain(expect("false", "4 > 7")));
     }
 
@@ -36,9 +36,9 @@ class VCFoldingTest {
         VCImplication mixedArithmetic = vc("2 + 0.5 > 2");
 
         assertSimplificationSteps(VCFolding::apply, realArithmetic, chain(expect("3.5 == 3.5", "1.5 + 2.0 == 3.5")),
-                chain(expect("true", "1.5 + 2.0 == 3.5")));
+                chain(expect("true", "3.5 == 3.5")));
         assertSimplificationSteps(VCFolding::apply, mixedArithmetic, chain(expect("2.5 > 2", "2 + 0.5 > 2")),
-                chain(expect("true", "2 + 0.5 > 2")));
+                chain(expect("true", "2.5 > 2")));
     }
 
     @Test
@@ -53,6 +53,27 @@ class VCFoldingTest {
                 chain(expect("4.0 / 0.0 == 0.0", "4.0 / 0.0 == 0.0")));
         assertSimplificationSteps(VCFolding::apply, vc("4.0 % 0.0 == 0.0"),
                 chain(expect("4.0 % 0.0 == 0.0", "4.0 % 0.0 == 0.0")));
+    }
+
+    @Test
+    void foldsIntegerDivisionTowardZeroForNegativeResults() {
+        VCImplication implication = vc("(2 - 7) / 2 == -2");
+
+        assertSimplificationSteps(VCFolding::apply, implication,
+                chain(expect("(2 - 7) / 2 == -2", "(2 - 7) / 2 == -2")),
+                chain(expect("-5 / 2 == -2", "(2 - 7) / 2 == -2")), chain(expect("-2 == -2", "-5 / 2 == -2")),
+                chain(expect("-2 == -2", "-2 == -2")), chain(expect("true", "-2 == -2")));
+    }
+
+    @Test
+    void foldsIntegerModuloWithJavaSignedRemainder() {
+        VCImplication negativeDividend = vc("-5 % 2 < 0");
+        VCImplication negativeDivisor = vc("5 % -2 > 0");
+
+        assertSimplificationSteps(VCFolding::apply, negativeDividend, chain(expect("-5 % 2 < 0", "-5 % 2 < 0")),
+                chain(expect("-1 < 0", "-5 % 2 < 0")), chain(expect("true", "-1 < 0")));
+        assertSimplificationSteps(VCFolding::apply, negativeDivisor, chain(expect("5 % -2 > 0", "5 % -2 > 0")),
+                chain(expect("1 > 0", "5 % -2 > 0")), chain(expect("true", "1 > 0")));
     }
 
     @Test
@@ -100,7 +121,7 @@ class VCFoldingTest {
         VCImplication implication = vc("cond ? 1 + 2 : 3");
 
         assertSimplificationSteps(VCFolding::apply, implication, chain(expect("cond ? 3 : 3", "cond ? 1 + 2 : 3")),
-                chain(expect("3", "cond ? 1 + 2 : 3")));
+                chain(expect("3", "cond ? 3 : 3")));
     }
 
     @Test
@@ -127,7 +148,7 @@ class VCFoldingTest {
                 new Predicate(new BinaryExpression(limit, "==", new LiteralInt(3))));
 
         assertSimplificationSteps(VCFolding::apply, implication, chain(expect("3 == 3", "Config.LIMIT == 3")),
-                chain(expect("true", "Config.LIMIT == 3")));
+                chain(expect("true", "3 == 3")));
     }
 
     @Test
@@ -139,15 +160,15 @@ class VCFoldingTest {
                 new Predicate(new BinaryExpression(arithmetic, "==", new LiteralInt(5))));
 
         assertSimplificationSteps(VCFolding::apply, implication, chain(expect("3 + 2 == 5", "Config.LIMIT + 2 == 5")),
-                chain(expect("5 == 5", "Config.LIMIT + 2 == 5")), chain(expect("true", "Config.LIMIT + 2 == 5")));
+                chain(expect("5 == 5", "3 + 2 == 5")), chain(expect("true", "5 == 5")));
     }
 
     @Test
-    void preservesOriginFromExistingSimplifiedImplication() {
+    void recordsCurrentImplicationAsOriginWhenFoldingExistingSimplifiedImplication() {
         VCImplication substituted = VCSubstitution.apply(vc("∀x:int. x == 1", "x + 1 + 2 > 0"));
 
-        assertSimplificationSteps(VCFolding::apply, substituted, chain(expect("2 + 2 > 0", "∀x:int. x + 1 + 2 > 0")),
-                chain(expect("4 > 0", "∀x:int. x + 1 + 2 > 0")), chain(expect("true", "∀x:int. x + 1 + 2 > 0")));
+        assertSimplificationSteps(VCFolding::apply, substituted, chain(expect("2 + 2 > 0", "1 + 1 + 2 > 0")),
+                chain(expect("4 > 0", "2 + 2 > 0")), chain(expect("true", "4 > 0")));
     }
 
     @Test
@@ -169,13 +190,13 @@ class VCFoldingTest {
                 chain(expect("x > 0", "x > 0"), expect("3 > 0", "1 + 2 > 0")));
 
         SimplifiedVCImplication simplifiedNext = assertInstanceOf(SimplifiedVCImplication.class, result.getNext());
-        assertEquals("1 + 2 > 0", simplifiedNext.getOrigin().getRefinement().toString());
+        assertEquals("1 + 2 > 0", simplifiedNext.getOrigin().getRefinement().getExpression().toDisplayString());
 
         result = assertSimplificationSteps(VCFolding::apply, result,
-                chain(expect("x > 0", "x > 0"), expect("true", "1 + 2 > 0")));
+                chain(expect("x > 0", "x > 0"), expect("true", "3 > 0")));
 
         simplifiedNext = assertInstanceOf(SimplifiedVCImplication.class, result.getNext());
-        assertEquals("1 + 2 > 0", simplifiedNext.getOrigin().getRefinement().toString());
+        assertEquals("3 > 0", simplifiedNext.getOrigin().getRefinement().getExpression().toDisplayString());
     }
 
 }

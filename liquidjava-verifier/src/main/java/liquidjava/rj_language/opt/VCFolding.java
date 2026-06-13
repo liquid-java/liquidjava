@@ -28,8 +28,7 @@ public class VCFolding {
         Expression expression = implication.getRefinement().getExpression();
         Expression folded = fold(expression);
         if (!expression.equals(folded)) {
-            VCImplication result = new SimplifiedVCImplication(implication, new Predicate(folded),
-                    implication.getOrigin());
+            VCImplication result = new SimplifiedVCImplication(implication, new Predicate(folded), implication);
             result.setNext(implication.getNext() == null ? null : implication.getNext().clone());
             return result;
         }
