@@ -21,7 +21,7 @@ public class VCImplicationGenerator extends Generator<VCImplication> {
 
     @Override
     public VCImplication generate(SourceOfRandomness random, GenerationStatus status) {
-        return switch (random.nextInt(0, 9)) {
+        return switch (random.nextInt(0, 11)) {
         case 0 -> vc(substitution(random, "x"), comparison(random, "x"));
         case 1 -> vc(reverseSubstitution(random, "x"), comparison(random, "x"));
         case 2 -> vc(nonSubstitution(random, "x"), substitution(random, "y"), comparison(random, "y"));
@@ -31,6 +31,8 @@ public class VCImplicationGenerator extends Generator<VCImplication> {
         case 6 -> vc(foldableBoolean(random), comparison(random, "x"));
         case 7 -> vc(foldableIte(random));
         case 8 -> vc(adjacentConstants(random) + " " + comparisonOperator(random) + " " + intLiteral(random));
+        case 9 -> vc(arithmeticIdentity(random));
+        case 10 -> guardedArithmeticIdentity(random);
         default -> vc(substitution(random, "x"), substitution(random, "y"), foldableComparison(random));
         };
     }
@@ -92,6 +94,34 @@ public class VCImplicationGenerator extends Generator<VCImplication> {
         int left = random.nextInt(-3, 3);
         int right = random.nextInt(-3, 3);
         return variable + " " + signed(left) + " " + signed(right);
+    }
+
+    private static String arithmeticIdentity(SourceOfRandomness random) {
+        String var = FREE_VARS[random.nextInt(0, FREE_VARS.length - 1)];
+        String other = FREE_VARS[random.nextInt(0, FREE_VARS.length - 1)];
+        return switch (random.nextInt(0, 9)) {
+        case 0 -> var + " + 0 " + comparisonOperator(random) + " " + intLiteral(random);
+        case 1 -> "0 + " + var + " " + comparisonOperator(random) + " " + intLiteral(random);
+        case 2 -> var + " - 0 " + comparisonOperator(random) + " " + intLiteral(random);
+        case 3 -> "0 - " + var + " " + comparisonOperator(random) + " " + intLiteral(random);
+        case 4 -> var + " - " + var + " == 0";
+        case 5 -> var + " * 1 " + comparisonOperator(random) + " " + intLiteral(random);
+        case 6 -> "1 * " + var + " " + comparisonOperator(random) + " " + intLiteral(random);
+        case 7 -> var + " * 0 == 0";
+        case 8 -> var + " / 1 " + comparisonOperator(random) + " " + intLiteral(random);
+        default -> var + " + -" + other + " " + comparisonOperator(random) + " " + intLiteral(random);
+        };
+    }
+
+    private static VCImplication guardedArithmeticIdentity(SourceOfRandomness random) {
+        String var = FREE_VARS[random.nextInt(0, FREE_VARS.length - 1)];
+        String guard = random.nextBoolean() ? var + " != 0" : "0 != " + var;
+        String use = switch (random.nextInt(0, 2)) {
+        case 0 -> "0 / " + var + " == 0";
+        case 1 -> var + " / " + var + " == 1";
+        default -> var + " % " + var + " == 0";
+        };
+        return vc(guard, use);
     }
 
     private static String comparisonOperator(SourceOfRandomness random) {

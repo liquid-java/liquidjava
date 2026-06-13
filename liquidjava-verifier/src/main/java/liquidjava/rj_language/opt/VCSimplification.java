@@ -31,11 +31,17 @@ public class VCSimplification {
         if (implication == null)
             return null;
 
-        // first try to apply substitution, then folding
+        // substitution
         VCImplication substituted = VCSubstitution.apply(implication);
         if (!implication.equals(substituted))
             return substituted;
 
-        return VCFolding.apply(implication);
+        // folding
+        VCImplication folded = VCFolding.apply(implication);
+        if (!implication.equals(folded))
+            return folded;
+
+        // arithmetic simplification
+        return VCArithmeticSimplification.apply(implication);
     }
 }
