@@ -47,6 +47,7 @@ public class VCFolding {
      * Folds the first foldable expression found
      */
     private static Expression fold(Expression expression) {
+        // enum constant -> literal
         if (expression instanceof Enum en && en.getResolvedLiteral() != null)
             return en.getResolvedLiteral().clone();
         if (expression instanceof BinaryExpression binary)
@@ -55,6 +56,7 @@ public class VCFolding {
             return foldUnary(unary);
         if (expression instanceof Ite ite)
             return foldIte(ite);
+        // (x) -> x
         if (expression instanceof GroupExpression group && group.getChildren().size() == 1)
             return group.getExpression().clone();
         return expression.clone();
@@ -98,10 +100,13 @@ public class VCFolding {
 
         String op = unary.getOp();
 
+        // !true -> false
+        // !false -> true
         if ("!".equals(op) && operand instanceof LiteralBoolean literal)
             return new LiteralBoolean(!literal.isBooleanTrue());
 
         if ("-".equals(op)) {
+            // -(x) -> -x
             if (operand instanceof LiteralInt literal)
                 return new LiteralInt(-literal.getValue());
             if (operand instanceof LiteralReal literal)
@@ -130,9 +135,12 @@ public class VCFolding {
         if (!elseExpression.equals(foldedElse))
             return new Ite(condition.clone(), thenExpression.clone(), foldedElse);
 
+        // true ? x : y -> x
+        // false ? x : y -> y
         if (condition instanceof LiteralBoolean literal)
             return literal.isBooleanTrue() ? thenExpression : elseExpression;
 
+        // y ? x : x -> x
         if (thenExpression.equals(elseExpression))
             return thenExpression;
 
@@ -161,6 +169,8 @@ public class VCFolding {
         if (left instanceof Enum leftEnum && right instanceof Enum rightEnum
                 && leftEnum.getTypeName().equals(rightEnum.getTypeName())) {
             boolean equal = leftEnum.getConstName().equals(rightEnum.getConstName());
+            // Enum.A == Enum.A -> true
+            // Enum.A != Enum.B -> true
             return switch (op) {
             case "==" -> new LiteralBoolean(equal);
             case "!=" -> new LiteralBoolean(!equal);
@@ -191,10 +201,13 @@ public class VCFolding {
         int signedRight = "+".equals(op) ? rightLiteral.getValue() : -rightLiteral.getValue();
         int constant = signedLeft + signedRight;
         Expression base = leftBinary.getFirstOperand().clone();
+        // x + n - n -> x
         if (constant == 0)
             return base;
+        // x + n + m -> x + k
         if (constant > 0)
             return new BinaryExpression(base, "+", new LiteralInt(constant));
+        // x + n - m -> x - k
         return new BinaryExpression(base, "-", new LiteralInt(-constant));
     }
 
