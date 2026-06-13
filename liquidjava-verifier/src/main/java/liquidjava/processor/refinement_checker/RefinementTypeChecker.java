@@ -538,8 +538,10 @@ public class RefinementTypeChecker extends TypeChecker {
     }
 
     private Predicate getExpressionRefinements(CtExpression<?> element) throws LJError {
-        if (element instanceof CtVariableRead<?>) {
-            // CtVariableRead<?> elemVar = (CtVariableRead<?>) element;
+        if (element instanceof CtFieldRead<?>) {
+            return getRefinement(element);
+        } else if (element instanceof CtVariableRead<?> varRead) {
+            visitCtVariableRead(varRead);
             return getRefinement(element);
         } else if (element instanceof CtBinaryOperator<?>) {
             CtBinaryOperator<?> binop = (CtBinaryOperator<?>) element;

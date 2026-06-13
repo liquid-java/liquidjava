@@ -62,4 +62,19 @@ public class ResultSetTests {
             return 0.0f;
         }
     }
+
+    float readAverage2(Connection conn) throws SQLException {
+        Statement parentstmt = conn.createStatement();
+        ResultSet parentMessage =
+                parentstmt.executeQuery("SELECT SUM(IMPORTANCE) AS IMPAVG FROM MAIL");
+        // FIX (from accepted answer): parentMessage.next();
+        // VIOLATION: cursor is before the first row; getFloat() with no next().
+        boolean b = parentMessage.next();
+        if( b ) {
+            float avgsum = parentMessage.getFloat("IMPAVG");
+            return avgsum;
+        } else {
+            return 0.0f;
+        }
+    }
 }

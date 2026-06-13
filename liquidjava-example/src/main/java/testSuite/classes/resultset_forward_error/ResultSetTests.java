@@ -67,4 +67,18 @@ public class ResultSetTests {
         float avgsum = parentMessage.getFloat("IMPAVG"); // State Refinement Error
         return avgsum;
     }
+
+        // Branch-sensitive: legal in the then-branch (onRow), illegal in the else-branch (endRows).
+    float readAverageVarElse(Connection conn) throws SQLException {
+        Statement parentstmt = conn.createStatement();
+        ResultSet parentMessage = parentstmt.executeQuery("SELECT SUM(IMPORTANCE) AS IMPAVG FROM MAIL");
+        float avgsum = 0.0f;
+        boolean b = parentMessage.next();
+        if (b) {
+            avgsum = parentMessage.getFloat("IMPAVG");
+        } else {
+            avgsum = parentMessage.getFloat("IMPAVG"); // State Refinement Error
+        }
+        return avgsum;
+    }
 }
