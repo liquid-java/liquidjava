@@ -22,8 +22,8 @@ public class CommandLineArgs {
     @Option(names = { "-d", "--debug" }, description = "Enable debug mode for more detailed output")
     public boolean debugMode;
 
-    @Option(names = { "-a", "--all-context" }, description = "Print the full context after every checked element")
-    public boolean printContext;
+    @Option(names = { "-a", "--all" }, description = "Print the full context plus the debug trace (implies -d)")
+    public boolean all;
 
     @Option(names = { "-lsp", "--language-server" }, description = "Enable language server mode for editor support")
     public boolean lspMode;

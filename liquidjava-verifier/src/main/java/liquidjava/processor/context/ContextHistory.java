@@ -46,8 +46,7 @@ public class ContextHistory {
     }
 
     public void saveContext(CtElement element, Context context) {
-        if (!CommandLineLauncher.cmdArgs.lspMode && !CommandLineLauncher.cmdArgs.debugMode
-                && !CommandLineLauncher.cmdArgs.printContext)
+        if (!CommandLineLauncher.cmdArgs.lspMode && !CommandLineLauncher.cmdArgs.all)
             return;
 
         String file = Utils.getFile(element);
@@ -67,7 +66,7 @@ public class ContextHistory {
         aliases.addAll(context.getAliases());
         methods.addAll(context.getCtxFunctions());
 
-        // Gate lives inside DebugLog.contextAtElement (-a / --all-context); no-op unless that flag is set.
+        // Gate lives inside DebugLog.contextAtElement (-a / --all); no-op unless that flag is set.
         DebugLog.contextAtElement(element, prettyPrint());
     }
 

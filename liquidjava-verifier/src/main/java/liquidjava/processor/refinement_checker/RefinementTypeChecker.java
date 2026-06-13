@@ -75,10 +75,10 @@ public class RefinementTypeChecker extends TypeChecker {
     // --------------------- Visitors -----------------------------------
 
     /**
-     * Under {@code -a} / {@code --all-context}, dump the context after every top-level statement. {@code super.scan}
-     * runs the full {@code visitCtXxx} override first, so the statement's refinement effect is already applied to the
-     * context by the time we save it. The {@code STATEMENT} role filter keeps this to actual statements (direct block /
-     * case children), skipping sub-expressions like the {@code g(x)} in {@code f(g(x))}.
+     * Under {@code -a} / {@code --all}, dump the context after every top-level statement. {@code super.scan} runs the
+     * full {@code visitCtXxx} override first, so the statement's refinement effect is already applied to the context by
+     * the time we save it. The {@code STATEMENT} role filter keeps this to actual statements (direct block / case
+     * children), skipping sub-expressions like the {@code g(x)} in {@code f(g(x))}.
      */
     @Override
     public void scan(CtElement element) {

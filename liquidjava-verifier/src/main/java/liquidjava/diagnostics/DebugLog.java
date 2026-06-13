@@ -4,8 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import liquidjava.api.CommandLineLauncher;
 import liquidjava.processor.VCImplication;
-import liquidjava.processor.context.Context;
-import liquidjava.processor.context.ContextHistory;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
@@ -38,12 +36,12 @@ public final class DebugLog {
     }
 
     public static boolean enabled() {
-        return CommandLineLauncher.cmdArgs.debugMode;
+        return CommandLineLauncher.cmdArgs.debugMode || CommandLineLauncher.cmdArgs.all;
     }
 
-    /** Gate for the full-context dump, driven by the {@code -a} / {@code --all-context} flag (independent of debug). */
+    /** Gate for the full-context dump, driven by the {@code -a} / {@code --all} flag (the verbose tier of debug). */
     public static boolean contextEnabled() {
-        return CommandLineLauncher.cmdArgs.printContext;
+        return CommandLineLauncher.cmdArgs.all;
     }
 
     /**
@@ -472,13 +470,5 @@ public final class DebugLog {
         }
         System.out.println(header);
         System.out.println(contextInfo);
-    }
-
-    public static void log(String string) {
-        if (!enabled()) {
-            return;
-        }
-        System.out.println(string);
-
     }
 }
