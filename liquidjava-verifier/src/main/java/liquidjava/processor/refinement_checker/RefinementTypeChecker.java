@@ -542,16 +542,10 @@ public class RefinementTypeChecker extends TypeChecker {
     }
 
     private Predicate getExpressionRefinements(CtExpression<?> element) throws LJError {
-        if (element instanceof CtFieldRead<?>) {
-            // CtFieldRead is a subtype of CtVariableRead and MUST be matched first: field reads (including
-            // the array pseudo-field `.length`, whose declaration is null) are handled by visitCtFieldRead
-            // during the surrounding scan, so here we just read the metadata it already set.
+        if (element instanceof CtFieldRead<?> fieldRead) {
+            visitCtFieldRead(fieldRead);
             return getRefinement(element);
         } else if (element instanceof CtVariableRead<?> varRead) {
-            // Visit the read so its metadata becomes `_ == <last instance>`, linking the variable to the
-            // instance that carries its refinement (e.g. a stored method result). Without this, `if (b)`
-            // looks refinement-free and is treated as uninformative, dropping the typestate that b's
-            // defining call established (#241).
             visitCtVariableRead(varRead);
             return getRefinement(element);
         } else if (element instanceof CtBinaryOperator<?>) {
