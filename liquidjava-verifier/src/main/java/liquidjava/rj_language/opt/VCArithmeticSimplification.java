@@ -15,12 +15,12 @@ import liquidjava.rj_language.ast.LiteralReal;
 import liquidjava.rj_language.ast.UnaryExpression;
 
 /**
- * Simplifies VCImplication chains by applying arithmetic identities inside refinements.
+ * Simplifies VCImplication chains by applying arithmetic identities inside refinements
  */
 public class VCArithmeticSimplification {
 
     /**
-     * Applies the first arithmetic simplification available in a VC chain.
+     * Applies the first arithmetic simplification available in a VC chain
      */
     public static VCImplication apply(VCImplication implication) {
         if (implication == null)
@@ -55,7 +55,7 @@ public class VCArithmeticSimplification {
     }
 
     /**
-     * Simplifies the first arithmetic identity found inside an expression.
+     * Simplifies the first arithmetic identity found inside an expression
      */
     private static Expression simplify(Expression expression, List<Expression> nonZeroExpressions) {
         if (expression instanceof BinaryExpression binary)
@@ -70,7 +70,7 @@ public class VCArithmeticSimplification {
     }
 
     /**
-     * Simplifies a binary expression by visiting operands before the current node.
+     * Simplifies a binary expression by visiting operands before the current node
      */
     private static Expression simplifyBinary(BinaryExpression binary, List<Expression> nonZeroExpressions) {
         Expression left = binary.getFirstOperand();
@@ -91,7 +91,7 @@ public class VCArithmeticSimplification {
     }
 
     /**
-     * Simplifies a unary expression by visiting its operand before the current node.
+     * Simplifies a unary expression by visiting its operand before the current node
      */
     private static Expression simplifyUnary(UnaryExpression unary, List<Expression> nonZeroExpressions) {
         Expression operand = unary.getExpression();
@@ -107,7 +107,7 @@ public class VCArithmeticSimplification {
     }
 
     /**
-     * Simplifies a ternary expression by visiting condition, then branch, and else branch.
+     * Simplifies a ternary expression by visiting condition, then branch, and else branch
      */
     private static Expression simplifyIte(Ite ite, List<Expression> nonZeroExpressions) {
         Expression condition = ite.getCondition();
@@ -129,7 +129,7 @@ public class VCArithmeticSimplification {
     }
 
     /**
-     * Simplifies an expression wrapped in parentheses while preserving the group node.
+     * Simplifies an expression wrapped in parentheses while preserving the group node
      */
     private static Expression simplifyGroup(GroupExpression group, List<Expression> nonZeroExpressions) {
         Expression expression = group.getExpression();
@@ -140,7 +140,7 @@ public class VCArithmeticSimplification {
     }
 
     /**
-     * Dispatches a local binary arithmetic identity by operator.
+     * Dispatches a local binary arithmetic identity by operator
      */
     private static Expression simplifyLocalBinary(Expression left, Expression right, String op,
             List<Expression> nonZeroExpressions) {
@@ -155,7 +155,7 @@ public class VCArithmeticSimplification {
     }
 
     /**
-     * Applies addition identities involving zero and unary negation.
+     * Applies addition identities involving zero and unary negation
      */
     private static Expression simplifyAddition(Expression left, Expression right) {
         // x + 0 -> x
@@ -177,7 +177,7 @@ public class VCArithmeticSimplification {
     }
 
     /**
-     * Applies subtraction identities involving zero, same operands, and unary negation.
+     * Applies subtraction identities involving zero, same operands, and unary negation
      */
     private static Expression simplifySubtraction(Expression left, Expression right) {
         // x - 0 -> x
@@ -196,7 +196,7 @@ public class VCArithmeticSimplification {
     }
 
     /**
-     * Applies multiplication identities involving one and zero.
+     * Applies multiplication identities involving one and zero
      */
     private static Expression simplifyMultiplication(Expression left, Expression right) {
         // x * 1 -> x
@@ -215,7 +215,7 @@ public class VCArithmeticSimplification {
     }
 
     /**
-     * Applies division identities, using prior non-zero premises when needed.
+     * Applies division identities, using prior non-zero premises when needed
      */
     private static Expression simplifyDivision(Expression left, Expression right, List<Expression> nonZeroExpressions) {
         // x / 1 -> x
@@ -231,7 +231,7 @@ public class VCArithmeticSimplification {
     }
 
     /**
-     * Applies modulo identities, using prior non-zero premises when needed.
+     * Applies modulo identities, using prior non-zero premises when needed
      */
     private static Expression simplifyModulo(Expression left, Expression right, List<Expression> nonZeroExpressions) {
         // x % 1 -> 0
@@ -244,7 +244,7 @@ public class VCArithmeticSimplification {
     }
 
     /**
-     * Records direct non-zero premises shaped as expr != 0 or 0 != expr.
+     * Records direct non-zero premises shaped as x != 0 or 0 != x
      */
     private static void addNonZeroExpression(Expression expression, List<Expression> nonZeroExpressions) {
         if (!(expression instanceof BinaryExpression binary) || !"!=".equals(binary.getOperator()))
@@ -259,14 +259,14 @@ public class VCArithmeticSimplification {
     }
 
     /**
-     * Checks whether a previous premise recorded an expression as non-zero.
+     * Checks whether a previous premise recorded an expression as non-zero
      */
     private static boolean isNonZero(Expression expression, List<Expression> nonZeroExpressions) {
         return nonZeroExpressions.stream().anyMatch(e -> e.equals(expression));
     }
 
     /**
-     * Checks whether an expression is a numeric zero literal.
+     * Checks whether an expression is a numeric zero literal
      */
     private static boolean isZero(Expression expression) {
         if (expression instanceof LiteralInt literal)
@@ -277,7 +277,7 @@ public class VCArithmeticSimplification {
     }
 
     /**
-     * Checks whether an expression is a numeric one literal.
+     * Checks whether an expression is a numeric one literal
      */
     private static boolean isOne(Expression expression) {
         if (expression instanceof LiteralInt literal)
@@ -288,14 +288,14 @@ public class VCArithmeticSimplification {
     }
 
     /**
-     * Checks whether an expression is unary negation.
+     * Checks whether an expression is unary negation
      */
     private static boolean isNegation(Expression expression) {
         return expression instanceof UnaryExpression unary && "-".equals(unary.getOp());
     }
 
     /**
-     * Reads the operand of a unary negation expression.
+     * Returns the operand of a unary negation expression
      */
     private static Expression negatedExpression(Expression expression) {
         return ((UnaryExpression) expression).getExpression();
