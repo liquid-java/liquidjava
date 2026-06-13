@@ -53,7 +53,7 @@ public class VCTestUtils {
             ExpectedSimplifiedVCImplication expectedPredicate = expected[i];
             assertEquals(Predicate.class, current.getRefinement().getClass(),
                     "Expected simplified refinement at implication " + i + " to be a plain Predicate");
-            assertEquals(expectedPredicate.simplified(), current.getRefinement().toString(),
+            assertEquals(expectedPredicate.simplified(), formatRefinement(current),
                     "Unexpected simplified expression at implication " + i);
             if (expectedPredicate.origin() != null)
                 assertEquals(expectedPredicate.origin(), formatOrigin(current.getOrigin()),
@@ -83,8 +83,12 @@ public class VCTestUtils {
 
     private static String formatOrigin(VCImplication origin) {
         if (!origin.hasBinder())
-            return origin.getRefinement().toString();
-        return "∀" + origin.getName() + ":" + origin.getType().getQualifiedName() + ". " + origin.getRefinement();
+            return formatRefinement(origin);
+        return "∀" + origin.getName() + ":" + origin.getType().getQualifiedName() + ". " + formatRefinement(origin);
+    }
+
+    private static String formatRefinement(VCImplication implication) {
+        return implication.getRefinement().getExpression().toDisplayString();
     }
 
     public record ExpectedSimplifiedVCImplication(String simplified, String origin) {
