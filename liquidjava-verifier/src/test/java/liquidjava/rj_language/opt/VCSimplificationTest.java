@@ -64,7 +64,7 @@ class VCSimplificationTest {
         VCImplication implication = vc("x + 0 == x");
 
         assertSimplificationSteps(VCSimplification::simplifyOnce, implication, chain(expect("x == x", "x + 0 == x")),
-                chain(expect("true", "x + 0 == x")));
+                chain(expect("true", "x == x")));
     }
 
     @Test
@@ -79,7 +79,7 @@ class VCSimplificationTest {
         VCImplication implication = vc("x && true && true");
 
         assertSimplificationSteps(VCSimplification::simplifyOnce, implication,
-                chain(expect("x && true", "x && true && true")), chain(expect("x", "x && true && true")));
+                chain(expect("x && true", "x && true && true")), chain(expect("x", "x && true")));
     }
 
     @Test

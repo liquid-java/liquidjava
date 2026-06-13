@@ -87,13 +87,13 @@ class VCLogicalSimplificationTest {
                 chain(expect("x > 0", "x > 0"), expect("y", "y || false")));
 
         SimplifiedVCImplication simplifiedNext = assertInstanceOf(SimplifiedVCImplication.class, result.getNext());
-        assertEquals("y || false", simplifiedNext.getOrigin().getRefinement().toString());
+        assertEquals("y || false", simplifiedNext.getOrigin().getRefinement().getExpression().toDisplayString());
     }
 
     @Test
-    void preservesOriginFromExistingSimplifiedImplication() {
+    void recordsCurrentImplicationAsOriginWhenSimplifyingExistingSimplifiedImplication() {
         VCImplication substituted = VCSubstitution.apply(vc("∀x:int. x == y", "x == x"));
 
-        assertSimplificationSteps(VCLogicalSimplification::apply, substituted, chain(expect("true", "∀x:int. x == x")));
+        assertSimplificationSteps(VCLogicalSimplification::apply, substituted, chain(expect("true", "y == y")));
     }
 }
