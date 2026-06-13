@@ -68,7 +68,18 @@ public class ResultSetTests {
         return avgsum;
     }
 
-        // Branch-sensitive: legal in the then-branch (onRow), illegal in the else-branch (endRows).
+    // Issue #241 soundness: storing next()'s result in a boolean must NOT make getFloat()
+    // unconditionally legal. With no guard the state is `next ? onRow : endRows`, so onRow is
+    // not guaranteed and getFloat() must still be rejected.
+    float readAverageStoredNoGuard(Connection conn) throws SQLException {
+        Statement parentstmt = conn.createStatement();
+        ResultSet parentMessage = parentstmt.executeQuery("SELECT SUM(IMPORTANCE) AS IMPAVG FROM MAIL");
+        boolean b = parentMessage.next();
+        float avgsum = parentMessage.getFloat("IMPAVG"); // State Refinement Error
+        return avgsum;
+    }
+
+    // Issue #241 branch-sensitivity: legal in the then-branch (onRow), illegal in the else-branch (endRows).
     float readAverageVarElse(Connection conn) throws SQLException {
         Statement parentstmt = conn.createStatement();
         ResultSet parentMessage = parentstmt.executeQuery("SELECT SUM(IMPORTANCE) AS IMPAVG FROM MAIL");

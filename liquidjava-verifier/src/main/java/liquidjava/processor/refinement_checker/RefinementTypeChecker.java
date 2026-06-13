@@ -321,6 +321,10 @@ public class RefinementTypeChecker extends TypeChecker {
     public <T> void visitCtVariableRead(CtVariableRead<T> variableRead) {
         super.visitCtVariableRead(variableRead);
         CtVariable<T> varDecl = variableRead.getVariable().getDeclaration();
+        // Some CtVariableRead forms have no resolvable declaration (e.g. accesses to symbols outside the
+        // model); with no name there is no context entry to attach, so leave the metadata as-is.
+        if (varDecl == null)
+            return;
         getPutVariableMetadata(variableRead, varDecl.getSimpleName());
     }
 
@@ -539,8 +543,15 @@ public class RefinementTypeChecker extends TypeChecker {
 
     private Predicate getExpressionRefinements(CtExpression<?> element) throws LJError {
         if (element instanceof CtFieldRead<?>) {
+            // CtFieldRead is a subtype of CtVariableRead and MUST be matched first: field reads (including
+            // the array pseudo-field `.length`, whose declaration is null) are handled by visitCtFieldRead
+            // during the surrounding scan, so here we just read the metadata it already set.
             return getRefinement(element);
         } else if (element instanceof CtVariableRead<?> varRead) {
+            // Visit the read so its metadata becomes `_ == <last instance>`, linking the variable to the
+            // instance that carries its refinement (e.g. a stored method result). Without this, `if (b)`
+            // looks refinement-free and is treated as uninformative, dropping the typestate that b's
+            // defining call established (#241).
             visitCtVariableRead(varRead);
             return getRefinement(element);
         } else if (element instanceof CtBinaryOperator<?>) {

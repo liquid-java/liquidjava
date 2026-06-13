@@ -63,12 +63,13 @@ public class ResultSetTests {
         }
     }
 
-    float readAverage2(Connection conn) throws SQLException {
+    float readAverageStoredCondition(Connection conn) throws SQLException {
         Statement parentstmt = conn.createStatement();
         ResultSet parentMessage =
                 parentstmt.executeQuery("SELECT SUM(IMPORTANCE) AS IMPAVG FROM MAIL");
-        // FIX (from accepted answer): parentMessage.next();
-        // VIOLATION: cursor is before the first row; getFloat() with no next().
+        // Regression for issue #241: next()'s result is stored in a boolean before the `if`.
+        // The transition (_ ? onRow : endRows) must still flow through `b`, so the guarded
+        // getFloat() is on a row (onRow) and verifies — exactly as the inline readAverage above.
         boolean b = parentMessage.next();
         if( b ) {
             float avgsum = parentMessage.getFloat("IMPAVG");
