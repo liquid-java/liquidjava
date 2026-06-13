@@ -1,8 +1,8 @@
 package liquidjava.utils;
 
+import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
-import java.util.Scanner;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -121,30 +121,23 @@ public class Utils {
     public static String getExpressionFromPosition(SourcePosition position) {
         if (position == null || position.getFile() == null)
             return null;
-        int startLine = position.getLine();
-        int endLine = position.getEndLine();
-        try (Scanner scanner = new Scanner(position.getFile())) {
+        try {
+            List<String> lines = Files.readAllLines(position.getFile().toPath());
             StringBuilder sb = new StringBuilder();
-            int currentLine = 1;
-            while (scanner.hasNextLine()) {
-                String line = scanner.nextLine();
-                if (currentLine >= startLine && currentLine <= endLine) {
-                    // First line starts at the element's column; continuation lines are taken whole.
-                    String piece = ((currentLine == startLine) ? line.substring(position.getColumn() - 2) : line)
-                            .trim();
-                    if (sb.length() > 0)
-                        sb.append(' ');
-                    sb.append(piece);
-                    if (currentLine >= endLine || endsStatement(piece))
-                        break;
-                }
-                currentLine++;
+            for (int n = position.getLine(); n <= position.getEndLine() && n <= lines.size(); n++) {
+                // First line starts at the element's column; continuation lines are taken whole.
+                String piece = (n == position.getLine() ? lines.get(n - 1).substring(position.getColumn() - 2)
+                        : lines.get(n - 1)).trim();
+                if (sb.length() > 0)
+                    sb.append(' ');
+                sb.append(piece);
+                if (endsStatement(piece))
+                    break;
             }
             return sb.length() == 0 ? null : sb.toString();
         } catch (Exception e) {
-            // ignore
+            return null; // unreadable file / out-of-range column → no snippet
         }
-        return null;
     }
 
     /**
@@ -152,9 +145,6 @@ public class Utils {
      * <code>}</code> — used to bound multi-line snippet extraction.
      */
     private static boolean endsStatement(String trimmedLine) {
-        if (trimmedLine.isEmpty())
-            return false;
-        char last = trimmedLine.charAt(trimmedLine.length() - 1);
-        return last == ';' || last == '{' || last == '}';
+        return !trimmedLine.isEmpty() && "{};".indexOf(trimmedLine.charAt(trimmedLine.length() - 1)) >= 0;
     }
 }
