@@ -1,11 +1,17 @@
 package liquidjava.rj_language.opt;
 
+import java.util.List;
+import java.util.function.UnaryOperator;
+
 import liquidjava.processor.VCImplication;
 
 /**
  * Simplifies VCImplication chains by applying various simplification steps
  */
 public class VCSimplification {
+
+    private static final List<UnaryOperator<VCImplication>> PASSES = List.of(VCSubstitution::apply, VCFolding::apply,
+            VCArithmeticSimplification::apply);
 
     /**
      * Applies all available simplification steps to a VC chain until a fixed point is reached
@@ -31,17 +37,11 @@ public class VCSimplification {
         if (implication == null)
             return null;
 
-        // substitution
-        VCImplication substituted = VCSubstitution.apply(implication);
-        if (!implication.equals(substituted))
-            return substituted;
-
-        // folding
-        VCImplication folded = VCFolding.apply(implication);
-        if (!implication.equals(folded))
-            return folded;
-
-        // arithmetic simplification
-        return VCArithmeticSimplification.apply(implication);
+        for (UnaryOperator<VCImplication> pass : PASSES) {
+            VCImplication simplified = pass.apply(implication);
+            if (!implication.equals(simplified))
+                return simplified;
+        }
+        return implication;
     }
 }
