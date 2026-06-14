@@ -97,6 +97,21 @@ class VCArithmeticSimplificationTest {
     }
 
     @Test
+    void simplifiesTernaryExpressionsInConditionThenElseOrder() {
+        assertSimplificationSteps(VCArithmeticSimplification::apply, vc("(flag + 0 > 0 ? x + 0 : y + 0) > 0"),
+                chain(expect("(flag > 0 ? x + 0 : y + 0) > 0", "(flag + 0 > 0 ? x + 0 : y + 0) > 0")),
+                chain(expect("(flag > 0 ? x : y + 0) > 0", "(flag > 0 ? x + 0 : y + 0) > 0")),
+                chain(expect("(flag > 0 ? x : y) > 0", "(flag > 0 ? x : y + 0) > 0")));
+    }
+
+    @Test
+    void simplifiesGroupedExpressionsAndLeavesUnchangedGroupsAlone() {
+        assertSimplificationSteps(VCArithmeticSimplification::apply, vc("(x + 0) * y > 0"),
+                chain(expect("x * y > 0", "(x + 0) * y > 0")));
+        assertSimplificationSteps(VCArithmeticSimplification::apply, vc("(x) > 0"), chain(expect("x > 0", "x > 0")));
+    }
+
+    @Test
     void recordsOriginWhenSimplifyingLaterImplication() {
         VCImplication implication = vc("x > 0", "y + 0 > x");
 
