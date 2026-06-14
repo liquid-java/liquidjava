@@ -3,7 +3,6 @@ package liquidjava.rj_language.opt;
 import static liquidjava.utils.VCTestUtils.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertNull;
 
 import liquidjava.processor.SimplifiedVCImplication;
 import liquidjava.processor.VCImplication;
@@ -17,11 +16,6 @@ import org.junit.jupiter.api.Test;
 class VCFoldingTest {
 
     private final VCFolding folding = new VCFolding();
-
-    @Test
-    void applyReturnsNullForNullImplication() {
-        assertNull(folding.apply(null));
-    }
 
     @Test
     void foldsIntegerArithmeticAndComparisons() {

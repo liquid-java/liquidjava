@@ -27,9 +27,6 @@ public class VCSubstitution implements VCSimplificationPass {
      */
     @Override
     public VCImplication apply(VCImplication implication) {
-        if (implication == null)
-            return null;
-
         VCImplication result = implication.clone();
         Optional<VCSubstitution.Substitution> substitutionOpt = findSubstitution(result);
 

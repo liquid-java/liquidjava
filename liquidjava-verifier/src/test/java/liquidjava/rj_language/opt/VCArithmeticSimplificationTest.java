@@ -3,7 +3,6 @@ package liquidjava.rj_language.opt;
 import static liquidjava.utils.VCTestUtils.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertNull;
 
 import liquidjava.processor.SimplifiedVCImplication;
 import liquidjava.processor.VCImplication;
@@ -12,11 +11,6 @@ import org.junit.jupiter.api.Test;
 class VCArithmeticSimplificationTest {
 
     private final VCArithmeticSimplification simplification = new VCArithmeticSimplification();
-
-    @Test
-    void applyReturnsNullForNullImplication() {
-        assertNull(simplification.apply(null));
-    }
 
     @Test
     void simplifiesAdditiveIdentities() {

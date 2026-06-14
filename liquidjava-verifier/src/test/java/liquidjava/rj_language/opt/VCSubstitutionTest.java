@@ -1,7 +1,6 @@
 package liquidjava.rj_language.opt;
 
 import static liquidjava.utils.VCTestUtils.*;
-import static org.junit.jupiter.api.Assertions.assertNull;
 
 import liquidjava.processor.VCImplication;
 import org.junit.jupiter.api.Test;
@@ -9,11 +8,6 @@ import org.junit.jupiter.api.Test;
 class VCSubstitutionTest {
 
     private final VCSubstitution substitution = new VCSubstitution();
-
-    @Test
-    void applyReturnsNullForNullImplication() {
-        assertNull(substitution.apply(null));
-    }
 
     @Test
     void substitutesBinderEqualityIntoWholeChain() {
