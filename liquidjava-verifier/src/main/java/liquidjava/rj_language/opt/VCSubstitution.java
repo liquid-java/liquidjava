@@ -14,7 +14,7 @@ import liquidjava.rj_language.ast.Var;
 /**
  * Simplifies VCImplication chains by replacing binder equalities with their known values
  */
-public class VCSubstitution {
+public class VCSubstitution implements VCSimplificationPass {
 
     /**
      * A substitution discovered from an implication node
@@ -25,17 +25,18 @@ public class VCSubstitution {
     /**
      * Applies one substitution in a VC chain
      */
-    public static VCImplication apply(VCImplication implication) {
+    @Override
+    public VCImplication apply(VCImplication implication) {
         if (implication == null)
             return null;
 
         VCImplication result = implication.clone();
-        Optional<VCSubstitution.Substitution> substitutionOpt = VCSubstitution.findSubstitution(result);
+        Optional<VCSubstitution.Substitution> substitutionOpt = findSubstitution(result);
 
         // apply only the first available substitution
         if (substitutionOpt.isPresent()) {
             VCSubstitution.Substitution substitution = substitutionOpt.get();
-            result = VCSubstitution.substitute(result, substitution.node(), substitution.replacement());
+            result = substitute(result, substitution.node(), substitution.replacement());
         }
         return result;
     }
@@ -43,7 +44,7 @@ public class VCSubstitution {
     /**
      * Rewrites one VC chain with a single substitution and removes its source node
      */
-    private static VCImplication substitute(VCImplication implication, VCImplication node, Expression replacement) {
+    private VCImplication substitute(VCImplication implication, VCImplication node, Expression replacement) {
         if (implication == null)
             return null;
 
@@ -60,7 +61,7 @@ public class VCSubstitution {
     /**
      * Substitutes a source binder inside one VC node while preserving simplification metadata
      */
-    private static VCImplication substituteNode(VCImplication implication, VCImplication node, Expression replacement) {
+    private VCImplication substituteNode(VCImplication implication, VCImplication node, Expression replacement) {
         Expression exp = implication.getRefinement().getExpression().clone();
         if (!containsVar(exp, node.getName()))
             return implication.copyWithRefinement(new Predicate(exp));
@@ -73,7 +74,7 @@ public class VCSubstitution {
     /**
      * Finds the first substitution candidate in the VC chain
      */
-    private static Optional<Substitution> findSubstitution(VCImplication implication) {
+    private Optional<Substitution> findSubstitution(VCImplication implication) {
         if (implication == null)
             return Optional.empty();
 
@@ -87,7 +88,7 @@ public class VCSubstitution {
     /**
      * Extracts a substitution from one binder equality
      */
-    private static Optional<Substitution> getSubstitution(VCImplication implication) {
+    private Optional<Substitution> getSubstitution(VCImplication implication) {
         if (!implication.hasBinder())
             return Optional.empty();
 
@@ -110,14 +111,14 @@ public class VCSubstitution {
     /**
      * Checks whether an expression is a variable with a given name
      */
-    public static boolean isVar(Expression expression, String name) {
+    private boolean isVar(Expression expression, String name) {
         return expression instanceof Var var && name.equals(var.getName());
     }
 
     /**
      * Checks whether an expression contains a variable name
      */
-    public static boolean containsVar(Expression expression, String name) {
+    private boolean containsVar(Expression expression, String name) {
         List<String> names = new ArrayList<>();
         expression.getVariableNames(names);
         return names.contains(name);

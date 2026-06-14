@@ -1,7 +1,6 @@
 package liquidjava.rj_language.opt;
 
 import java.util.List;
-import java.util.function.UnaryOperator;
 
 import liquidjava.processor.VCImplication;
 
@@ -10,8 +9,8 @@ import liquidjava.processor.VCImplication;
  */
 public class VCSimplification {
 
-    private static final List<UnaryOperator<VCImplication>> PASSES = List.of(VCSubstitution::apply, VCFolding::apply,
-            VCArithmeticSimplification::apply, VCLogicalSimplification::apply);
+    private static final List<VCSimplificationPass> PASSES = List.of(new VCSubstitution(), new VCFolding(),
+            new VCArithmeticSimplification(), new VCLogicalSimplification());
 
     /**
      * Applies all available simplification steps to a VC chain until a fixed point is reached
@@ -37,7 +36,7 @@ public class VCSimplification {
         if (implication == null)
             return null;
 
-        for (UnaryOperator<VCImplication> pass : PASSES) {
+        for (VCSimplificationPass pass : PASSES) {
             VCImplication simplified = pass.apply(implication);
             if (!implication.equals(simplified))
                 return simplified;

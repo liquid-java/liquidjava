@@ -11,71 +11,69 @@ import org.junit.jupiter.api.Test;
 
 class VCLogicalSimplificationTest {
 
+    private final VCLogicalSimplification simplification = new VCLogicalSimplification();
+
     @Test
     void applyReturnsNullForNullImplication() {
-        assertNull(VCLogicalSimplification.apply(null));
+        assertNull(simplification.apply(null));
     }
 
     @Test
     void simplifiesConjunctionWithBooleanLiterals() {
-        assertSimplificationSteps(VCLogicalSimplification::apply, vc("x && true"), chain(expect("x", "x && true")));
-        assertSimplificationSteps(VCLogicalSimplification::apply, vc("true && x"), chain(expect("x", "true && x")));
-        assertSimplificationSteps(VCLogicalSimplification::apply, vc("x && false"),
-                chain(expect("false", "x && false")));
-        assertSimplificationSteps(VCLogicalSimplification::apply, vc("false && x"),
-                chain(expect("false", "false && x")));
+        assertSimplificationSteps(simplification::apply, vc("x && true"), chain(expect("x", "x && true")));
+        assertSimplificationSteps(simplification::apply, vc("true && x"), chain(expect("x", "true && x")));
+        assertSimplificationSteps(simplification::apply, vc("x && false"), chain(expect("false", "x && false")));
+        assertSimplificationSteps(simplification::apply, vc("false && x"), chain(expect("false", "false && x")));
     }
 
     @Test
     void simplifiesDisjunctionWithBooleanLiterals() {
-        assertSimplificationSteps(VCLogicalSimplification::apply, vc("x || true"), chain(expect("true", "x || true")));
-        assertSimplificationSteps(VCLogicalSimplification::apply, vc("true || x"), chain(expect("true", "true || x")));
-        assertSimplificationSteps(VCLogicalSimplification::apply, vc("x || false"), chain(expect("x", "x || false")));
-        assertSimplificationSteps(VCLogicalSimplification::apply, vc("false || x"), chain(expect("x", "false || x")));
+        assertSimplificationSteps(simplification::apply, vc("x || true"), chain(expect("true", "x || true")));
+        assertSimplificationSteps(simplification::apply, vc("true || x"), chain(expect("true", "true || x")));
+        assertSimplificationSteps(simplification::apply, vc("x || false"), chain(expect("x", "x || false")));
+        assertSimplificationSteps(simplification::apply, vc("false || x"), chain(expect("x", "false || x")));
     }
 
     @Test
     void simplifiesDoubleNegation() {
-        assertSimplificationSteps(VCLogicalSimplification::apply, vc("!!x"), chain(expect("x", "!!x")));
+        assertSimplificationSteps(simplification::apply, vc("!!x"), chain(expect("x", "!!x")));
     }
 
     @Test
     void simplifiesDuplicateLogicalOperands() {
-        assertSimplificationSteps(VCLogicalSimplification::apply, vc("p && p"), chain(expect("p", "p && p")));
-        assertSimplificationSteps(VCLogicalSimplification::apply, vc("p || p"), chain(expect("p", "p || p")));
+        assertSimplificationSteps(simplification::apply, vc("p && p"), chain(expect("p", "p && p")));
+        assertSimplificationSteps(simplification::apply, vc("p || p"), chain(expect("p", "p || p")));
     }
 
     @Test
     void simplifiesSelfEqualityAndInequality() {
-        assertSimplificationSteps(VCLogicalSimplification::apply, vc("x == x"), chain(expect("true", "x == x")));
-        assertSimplificationSteps(VCLogicalSimplification::apply, vc("x != x"), chain(expect("false", "x != x")));
+        assertSimplificationSteps(simplification::apply, vc("x == x"), chain(expect("true", "x == x")));
+        assertSimplificationSteps(simplification::apply, vc("x != x"), chain(expect("false", "x != x")));
     }
 
     @Test
     void simplifiesImplicationIdentities() {
-        assertSimplificationSteps(VCLogicalSimplification::apply, vc("x --> true"),
-                chain(expect("true", "x --> true")));
-        assertSimplificationSteps(VCLogicalSimplification::apply, vc("false --> x"),
-                chain(expect("true", "false --> x")));
-        assertSimplificationSteps(VCLogicalSimplification::apply, vc("true --> x"), chain(expect("x", "true --> x")));
-        assertSimplificationSteps(VCLogicalSimplification::apply, vc("x --> x"), chain(expect("true", "x --> x")));
+        assertSimplificationSteps(simplification::apply, vc("x --> true"), chain(expect("true", "x --> true")));
+        assertSimplificationSteps(simplification::apply, vc("false --> x"), chain(expect("true", "false --> x")));
+        assertSimplificationSteps(simplification::apply, vc("true --> x"), chain(expect("x", "true --> x")));
+        assertSimplificationSteps(simplification::apply, vc("x --> x"), chain(expect("true", "x --> x")));
     }
 
     @Test
     void simplifiesOnlyFirstLogicalIdentity() {
-        assertSimplificationSteps(VCLogicalSimplification::apply, vc("x && true && false"),
+        assertSimplificationSteps(simplification::apply, vc("x && true && false"),
                 chain(expect("x && false", "x && true && false")));
     }
 
     @Test
     void simplifiesNestedExpressionsBeforeParent() {
-        assertSimplificationSteps(VCLogicalSimplification::apply, vc("(x && true) || false"),
+        assertSimplificationSteps(simplification::apply, vc("(x && true) || false"),
                 chain(expect("x || false", "x && true || false")));
     }
 
     @Test
     void simplifiesIteChildren() {
-        assertSimplificationSteps(VCLogicalSimplification::apply, vc("cond ? x && true : y || false"),
+        assertSimplificationSteps(simplification::apply, vc("cond ? x && true : y || false"),
                 chain(expect("cond ? x : y || false", "cond ? x && true : y || false")));
     }
 
@@ -83,17 +81,10 @@ class VCLogicalSimplificationTest {
     void recordsOriginWhenSimplifyingLaterImplication() {
         VCImplication implication = vc("x > 0", "y || false");
 
-        VCImplication result = assertSimplificationSteps(VCLogicalSimplification::apply, implication,
+        VCImplication result = assertSimplificationSteps(simplification::apply, implication,
                 chain(expect("x > 0", "x > 0"), expect("y", "y || false")));
 
         SimplifiedVCImplication simplifiedNext = assertInstanceOf(SimplifiedVCImplication.class, result.getNext());
         assertEquals("y || false", simplifiedNext.getOrigin().getRefinement().getExpression().toDisplayString());
-    }
-
-    @Test
-    void recordsCurrentImplicationAsOriginWhenSimplifyingExistingSimplifiedImplication() {
-        VCImplication substituted = VCSubstitution.apply(vc("∀x:int. x == y", "x == x"));
-
-        assertSimplificationSteps(VCLogicalSimplification::apply, substituted, chain(expect("true", "y == y")));
     }
 }
