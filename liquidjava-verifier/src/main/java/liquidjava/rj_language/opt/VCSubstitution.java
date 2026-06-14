@@ -28,11 +28,11 @@ public class VCSubstitution implements VCSimplificationPass {
     @Override
     public VCImplication apply(VCImplication implication) {
         VCImplication result = implication.clone();
-        Optional<VCSubstitution.Substitution> substitutionOpt = findSubstitution(result);
+        Optional<Substitution> substitutionOpt = findSubstitution(result);
 
         // apply only the first available substitution
         if (substitutionOpt.isPresent()) {
-            VCSubstitution.Substitution substitution = substitutionOpt.get();
+            Substitution substitution = substitutionOpt.get();
             result = substitute(result, substitution.node(), substitution.replacement());
         }
         return result;
