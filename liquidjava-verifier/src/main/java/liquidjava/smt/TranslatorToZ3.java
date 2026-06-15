@@ -6,6 +6,7 @@ import com.microsoft.z3.BoolExpr;
 import com.microsoft.z3.EnumSort;
 import com.microsoft.z3.Expr;
 import com.microsoft.z3.FPExpr;
+import com.microsoft.z3.FPSort;
 import com.microsoft.z3.FuncDecl;
 import com.microsoft.z3.IntExpr;
 import com.microsoft.z3.IntNum;
@@ -109,6 +110,15 @@ public class TranslatorToZ3 implements AutoCloseable {
 
     public Expr<?> makeDoubleLiteral(double value) {
         return z3.mkFP(value, z3.mkFPSort64());
+    }
+
+    /**
+     * Java {@code float} literals are single-precision (binary32). The caller has already rounded the value to a
+     * {@code float}, so emitting it into an {@link com.microsoft.z3.Context#mkFPSort32() FPSort32} constant preserves
+     * the single-precision rounding that a binary64 model would silently lose.
+     */
+    public Expr<?> makeFloatLiteral(float value) {
+        return z3.mkFP(value, z3.mkFPSort32());
     }
 
     public Expr<?> makeString(String s) {
@@ -233,8 +243,10 @@ public class TranslatorToZ3 implements AutoCloseable {
 
     // #####################Boolean Operations#####################
     public Expr<?> makeEquals(Expr<?> e1, Expr<?> e2) {
-        if (e1 instanceof FPExpr || e2 instanceof FPExpr)
-            return z3.mkFPEq(toFP(e1), toFP(e2));
+        if (e1 instanceof FPExpr || e2 instanceof FPExpr) {
+            FPSort s = commonFPSort(e1, e2);
+            return z3.mkFPEq(toFP(e1, s), toFP(e2, s));
+        }
         if (e1 instanceof RealExpr || e2 instanceof RealExpr)
             return z3.mkEq(toReal(e1), toReal(e2));
         return z3.mkEq(e1, e2);
@@ -242,8 +254,10 @@ public class TranslatorToZ3 implements AutoCloseable {
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public Expr<?> makeLt(Expr<?> e1, Expr<?> e2) {
-        if (e1 instanceof FPExpr || e2 instanceof FPExpr)
-            return z3.mkFPLt(toFP(e1), toFP(e2));
+        if (e1 instanceof FPExpr || e2 instanceof FPExpr) {
+            FPSort s = commonFPSort(e1, e2);
+            return z3.mkFPLt(toFP(e1, s), toFP(e2, s));
+        }
         if (e1 instanceof RealExpr || e2 instanceof RealExpr)
             return z3.mkLt(toReal(e1), toReal(e2));
         return z3.mkLt((ArithExpr) e1, (ArithExpr) e2);
@@ -251,8 +265,10 @@ public class TranslatorToZ3 implements AutoCloseable {
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public Expr<?> makeLtEq(Expr<?> e1, Expr<?> e2) {
-        if (e1 instanceof FPExpr || e2 instanceof FPExpr)
-            return z3.mkFPLEq(toFP(e1), toFP(e2));
+        if (e1 instanceof FPExpr || e2 instanceof FPExpr) {
+            FPSort s = commonFPSort(e1, e2);
+            return z3.mkFPLEq(toFP(e1, s), toFP(e2, s));
+        }
         if (e1 instanceof RealExpr || e2 instanceof RealExpr)
             return z3.mkLe(toReal(e1), toReal(e2));
         return z3.mkLe((ArithExpr) e1, (ArithExpr) e2);
@@ -260,8 +276,10 @@ public class TranslatorToZ3 implements AutoCloseable {
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public Expr<?> makeGt(Expr<?> e1, Expr<?> e2) {
-        if (e1 instanceof FPExpr || e2 instanceof FPExpr)
-            return z3.mkFPGt(toFP(e1), toFP(e2));
+        if (e1 instanceof FPExpr || e2 instanceof FPExpr) {
+            FPSort s = commonFPSort(e1, e2);
+            return z3.mkFPGt(toFP(e1, s), toFP(e2, s));
+        }
         if (e1 instanceof RealExpr || e2 instanceof RealExpr)
             return z3.mkGt(toReal(e1), toReal(e2));
         return z3.mkGt((ArithExpr) e1, (ArithExpr) e2);
@@ -269,8 +287,10 @@ public class TranslatorToZ3 implements AutoCloseable {
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public Expr<?> makeGtEq(Expr<?> e1, Expr<?> e2) {
-        if (e1 instanceof FPExpr || e2 instanceof FPExpr)
-            return z3.mkFPGEq(toFP(e1), toFP(e2));
+        if (e1 instanceof FPExpr || e2 instanceof FPExpr) {
+            FPSort s = commonFPSort(e1, e2);
+            return z3.mkFPGEq(toFP(e1, s), toFP(e2, s));
+        }
         if (e1 instanceof RealExpr || e2 instanceof RealExpr)
             return z3.mkGe(toReal(e1), toReal(e2));
         return z3.mkGe((ArithExpr) e1, (ArithExpr) e2);
@@ -307,8 +327,10 @@ public class TranslatorToZ3 implements AutoCloseable {
     // #####################Arithmetic Operations#####################
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public Expr<?> makeAdd(Expr<?> eval, Expr<?> eval2) {
-        if (eval instanceof FPExpr || eval2 instanceof FPExpr)
-            return z3.mkFPAdd(z3.mkFPRoundNearestTiesToEven(), toFP(eval), toFP(eval2));
+        if (eval instanceof FPExpr || eval2 instanceof FPExpr) {
+            FPSort s = commonFPSort(eval, eval2);
+            return z3.mkFPAdd(z3.mkFPRoundNearestTiesToEven(), toFP(eval, s), toFP(eval2, s));
+        }
         if (eval instanceof RealExpr || eval2 instanceof RealExpr)
             return z3.mkAdd(toReal(eval), toReal(eval2));
         return z3.mkAdd((ArithExpr) eval, (ArithExpr) eval2);
@@ -316,8 +338,10 @@ public class TranslatorToZ3 implements AutoCloseable {
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public Expr<?> makeSub(Expr<?> eval, Expr<?> eval2) {
-        if (eval instanceof FPExpr || eval2 instanceof FPExpr)
-            return z3.mkFPSub(z3.mkFPRoundNearestTiesToEven(), toFP(eval), toFP(eval2));
+        if (eval instanceof FPExpr || eval2 instanceof FPExpr) {
+            FPSort s = commonFPSort(eval, eval2);
+            return z3.mkFPSub(z3.mkFPRoundNearestTiesToEven(), toFP(eval, s), toFP(eval2, s));
+        }
         if (eval instanceof RealExpr || eval2 instanceof RealExpr)
             return z3.mkSub(toReal(eval), toReal(eval2));
         return z3.mkSub((ArithExpr) eval, (ArithExpr) eval2);
@@ -325,8 +349,10 @@ public class TranslatorToZ3 implements AutoCloseable {
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public Expr<?> makeMul(Expr<?> eval, Expr<?> eval2) {
-        if (eval instanceof FPExpr || eval2 instanceof FPExpr)
-            return z3.mkFPMul(z3.mkFPRoundNearestTiesToEven(), toFP(eval), toFP(eval2));
+        if (eval instanceof FPExpr || eval2 instanceof FPExpr) {
+            FPSort s = commonFPSort(eval, eval2);
+            return z3.mkFPMul(z3.mkFPRoundNearestTiesToEven(), toFP(eval, s), toFP(eval2, s));
+        }
         if (eval instanceof RealExpr || eval2 instanceof RealExpr)
             return z3.mkMul(toReal(eval), toReal(eval2));
         return z3.mkMul((ArithExpr) eval, (ArithExpr) eval2);
@@ -334,8 +360,10 @@ public class TranslatorToZ3 implements AutoCloseable {
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public Expr<?> makeDiv(Expr<?> eval, Expr<?> eval2) {
-        if (eval instanceof FPExpr || eval2 instanceof FPExpr)
-            return z3.mkFPDiv(z3.mkFPRoundNearestTiesToEven(), toFP(eval), toFP(eval2));
+        if (eval instanceof FPExpr || eval2 instanceof FPExpr) {
+            FPSort s = commonFPSort(eval, eval2);
+            return z3.mkFPDiv(z3.mkFPRoundNearestTiesToEven(), toFP(eval, s), toFP(eval2, s));
+        }
         if (eval instanceof RealExpr || eval2 instanceof RealExpr)
             return z3.mkDiv(toReal(eval), toReal(eval2));
         return z3.mkDiv((ArithExpr) eval, (ArithExpr) eval2);
@@ -346,8 +374,9 @@ public class TranslatorToZ3 implements AutoCloseable {
             // Java `%` on floating point is fmod (truncated remainder, sign of dividend), NOT the
             // IEEE-754 remainder (mkFPRem, which rounds the quotient to nearest). Encode fmod as
             // r = a - b * trunc(a / b), where trunc rounds the quotient toward zero.
-            FPExpr a = toFP(eval);
-            FPExpr b = toFP(eval2);
+            FPSort s = commonFPSort(eval, eval2);
+            FPExpr a = toFP(eval, s);
+            FPExpr b = toFP(eval2, s);
             FPExpr q = z3.mkFPRoundToIntegral(z3.mkFPRoundTowardZero(), z3.mkFPDiv(z3.mkFPRoundTowardZero(), a, b));
             return z3.mkFPSub(z3.mkFPRoundNearestTiesToEven(), a, z3.mkFPMul(z3.mkFPRoundNearestTiesToEven(), b, q));
         }
@@ -372,17 +401,38 @@ public class TranslatorToZ3 implements AutoCloseable {
         throw new NotImplementedException();
     }
 
-    private FPExpr toFP(Expr<?> e) {
+    /**
+     * Common floating-point sort for a binary operation, mirroring Java binary numeric promotion: if either operand is
+     * a {@code double} (binary64) the result is binary64, otherwise binary32 (a lone {@code float} operand, possibly
+     * mixed with an integral operand that Java would convert to {@code float}). At least one operand must be an
+     * {@link FPExpr} for this to be called.
+     */
+    private FPSort commonFPSort(Expr<?> e1, Expr<?> e2) {
+        if (isDoubleSort(e1) || isDoubleSort(e2))
+            return z3.mkFPSort64();
+        return z3.mkFPSort32();
+    }
+
+    private boolean isDoubleSort(Expr<?> e) {
+        return e instanceof FPExpr && ((FPExpr) e).getSort().equals(z3.mkFPSort64());
+    }
+
+    /**
+     * Coerces {@code e} to the floating-point sort {@code target}. Float (binary32) operands meeting a binary64 sort
+     * are widened with {@link com.microsoft.z3.Context#mkFPToFP} so the cast mirrors Java's float-to-double promotion;
+     * integral and real operands are converted into {@code target} directly.
+     */
+    private FPExpr toFP(Expr<?> e, FPSort target) {
         FPExpr f;
-        if (e instanceof FPExpr) {
-            f = (FPExpr) e;
+        if (e instanceof FPExpr fe) {
+            f = fe.getSort().equals(target) ? fe : z3.mkFPToFP(z3.mkFPRoundNearestTiesToEven(), fe, target);
         } else if (e instanceof IntNum)
-            f = z3.mkFP(((IntNum) e).getInt(), z3.mkFPSort64());
+            f = z3.mkFP(((IntNum) e).getInt(), target);
         else if (e instanceof IntExpr ee) {
             RealExpr re = z3.mkInt2Real(ee);
-            f = z3.mkFPToFP(z3.mkFPRoundNearestTiesToEven(), re, z3.mkFPSort64());
+            f = z3.mkFPToFP(z3.mkFPRoundNearestTiesToEven(), re, target);
         } else if (e instanceof RealExpr) {
-            f = z3.mkFPToFP(z3.mkFPRoundNearestTiesToEven(), (RealExpr) e, z3.mkFPSort64());
+            f = z3.mkFPToFP(z3.mkFPRoundNearestTiesToEven(), (RealExpr) e, target);
         } else {
             throw new NotImplementedException();
         }

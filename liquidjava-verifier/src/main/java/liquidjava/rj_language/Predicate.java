@@ -338,7 +338,8 @@ public class Predicate {
         case Types.BOOLEAN -> new LiteralBoolean(value);
         case Types.INT, Types.SHORT -> new LiteralInt(value);
         case Types.LONG -> new LiteralLong(value);
-        case Types.DOUBLE, Types.FLOAT -> new LiteralReal(value);
+        case Types.DOUBLE -> new LiteralReal(value);
+        case Types.FLOAT -> new LiteralReal(value, true);
         case Types.CHAR -> new LiteralChar(value);
         default -> throw new IllegalArgumentException("Unsupported literal type: " + type);
         };

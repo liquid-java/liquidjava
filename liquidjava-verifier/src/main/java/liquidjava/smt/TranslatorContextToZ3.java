@@ -94,7 +94,10 @@ public class TranslatorContextToZ3 {
                 .mkIntConst(name);
         case "boolean", "java.lang.Boolean" -> z3.mkBoolConst(name);
         case "long", "java.lang.Long" -> z3.mkRealConst(name);
-        case "float", "double", "java.lang.Float", "java.lang.Double" -> (FPExpr) z3.mkConst(name, z3.mkFPSort64());
+        // Java `float` is binary32 and `double` is binary64; modeling float as FP64 would lose single-precision
+        // rounding. Mixed-precision expressions are reconciled via Java numeric promotion in TranslatorToZ3.
+        case "float", "java.lang.Float" -> (FPExpr) z3.mkConst(name, z3.mkFPSort32());
+        case "double", "java.lang.Double" -> (FPExpr) z3.mkConst(name, z3.mkFPSort64());
         case "int[]" -> z3.mkArrayConst(name, z3.mkIntSort(), z3.mkIntSort());
         default -> z3.mkConst(name, z3.mkUninterpretedSort(typeName));
         };

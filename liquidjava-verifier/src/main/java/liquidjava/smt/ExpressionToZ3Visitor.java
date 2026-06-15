@@ -105,6 +105,8 @@ public class ExpressionToZ3Visitor implements ExpressionVisitor<Expr<?>> {
 
     @Override
     public Expr<?> visitLiteralReal(LiteralReal lit) {
+        if (lit.isFloat())
+            return ctx.makeFloatLiteral((float) lit.getValue());
         return ctx.makeDoubleLiteral(lit.getValue());
     }
 

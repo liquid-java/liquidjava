@@ -8,13 +8,29 @@ import liquidjava.rj_language.visitors.ExpressionVisitor;
 public class LiteralReal extends Expression {
 
     private final double value;
+    /**
+     * True when this literal originates from a Java {@code float} (binary32) rather than a {@code double} (binary64).
+     * The stored {@link #value} keeps the full double for display/folding; the SMT translator rounds it to single
+     * precision so single-precision rounding is not silently lost.
+     */
+    private final boolean isFloat;
 
     public LiteralReal(double v) {
+        this(v, false);
+    }
+
+    public LiteralReal(double v, boolean isFloat) {
         value = v;
+        this.isFloat = isFloat;
     }
 
     public LiteralReal(String v) {
+        this(v, false);
+    }
+
+    public LiteralReal(String v, boolean isFloat) {
         value = Double.parseDouble(v);
+        this.isFloat = isFloat;
     }
 
     @Override
@@ -30,6 +46,10 @@ public class LiteralReal extends Expression {
         return value;
     }
 
+    public boolean isFloat() {
+        return isFloat;
+    }
+
     @Override
     public void getVariableNames(List<String> toAdd) {
         // end leaf
@@ -42,7 +62,7 @@ public class LiteralReal extends Expression {
 
     @Override
     public Expression clone() {
-        return new LiteralReal(value);
+        return new LiteralReal(value, isFloat);
     }
 
     @Override
@@ -55,6 +75,7 @@ public class LiteralReal extends Expression {
         final int prime = 31;
         int result = 1;
         result = prime * result + Double.hashCode(value);
+        result = prime * result + Boolean.hashCode(isFloat);
         return result;
     }
 
@@ -67,6 +88,6 @@ public class LiteralReal extends Expression {
         if (getClass() != obj.getClass())
             return false;
         LiteralReal other = (LiteralReal) obj;
-        return Double.doubleToLongBits(value) == Double.doubleToLongBits(other.value);
+        return Double.doubleToLongBits(value) == Double.doubleToLongBits(other.value) && isFloat == other.isFloat;
     }
 }
