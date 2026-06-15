@@ -286,8 +286,20 @@ public class RefinementTypeChecker extends TypeChecker {
 
         } else if (context.hasVariable(String.format(Formats.THIS, fieldName))) {
             String thisName = String.format(Formats.THIS, fieldName);
-            fieldRead.putMetadata(Keys.REFINEMENT,
-                    Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), Predicate.createVar(thisName)));
+            Predicate defaultValue = unestablishedExternalFieldDefault(fieldRead);
+            if (defaultValue != null) {
+                // SOUNDNESS: reading some other object's field (target is not `this`) only carries the field's
+                // declared refinement if that refinement was actually established. A field with no initializer
+                // holds its Java default value (0 / 0.0 / false) right after construction, which need not satisfy
+                // the declared refinement. Model the read as that default value instead of trusting the
+                // refinement, so e.g. `@Refinement("_ > 0") int x = o.n;` is correctly rejected when `n` has no
+                // initializer. Reads through `this` keep the in-class field invariant (handled below), and fields
+                // with an initializer keep their established refinement.
+                fieldRead.putMetadata(Keys.REFINEMENT, defaultValue);
+            } else {
+                fieldRead.putMetadata(Keys.REFINEMENT,
+                        Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), Predicate.createVar(thisName)));
+            }
 
         } else if (fieldRead.getVariable().getSimpleName().equals("length")) {
             String targetName = fieldRead.getTarget().toString();
@@ -318,6 +330,58 @@ public class RefinementTypeChecker extends TypeChecker {
         fieldRead.putMetadata(Keys.REFINEMENT,
                 Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), new Predicate(constant)));
         return true;
+    }
+
+    /**
+     * When a refined instance field is read off another object (the read target is not {@code this}) and the field has
+     * no initializer establishing its refinement, the field still holds its Java default value right after
+     * construction. Returns {@code #wild == <default literal>} for such reads (so the declared refinement is NOT
+     * assumed), or {@code null} when the current {@code this#field} behavior should be kept: reads through {@code this}
+     * (in-class invariant), fields that have an initializer, or types without a representable primitive default.
+     */
+    private <T> Predicate unestablishedExternalFieldDefault(CtFieldRead<T> fieldRead) {
+        // Reads through `this` (implicit or explicit) keep the in-class field invariant.
+        if (fieldRead.getTarget() == null || fieldRead.getTarget() instanceof CtThisAccess)
+            return null;
+
+        CtField<?> field = fieldRead.getVariable().getDeclaration();
+        // Without a resolvable declaration we cannot tell whether the field is established; stay conservative and
+        // keep the existing behavior rather than risk rejecting an established field.
+        if (field == null)
+            return null;
+        // A field with an initializer (or a non-null constant value) establishes its refinement; trust it.
+        if (field.getDefaultExpression() != null)
+            return null;
+
+        String type = fieldRead.getType() != null ? fieldRead.getType().getSimpleName() : null;
+        Predicate defaultLiteral = defaultLiteralForType(type);
+        // Only primitives have a refinement-checkable default literal; for everything else (e.g. references that
+        // default to null), keep the existing behavior to avoid spurious errors.
+        if (defaultLiteral == null)
+            return null;
+        return Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), defaultLiteral);
+    }
+
+    /** The Java default value, as a literal {@link Predicate}, for a primitive type name, or {@code null} otherwise. */
+    private static Predicate defaultLiteralForType(String type) {
+        if (type == null)
+            return null;
+        switch (type) {
+        case Types.INT:
+        case Types.SHORT:
+        case Types.LONG:
+            return Predicate.createLit("0", type);
+        case Types.CHAR:
+            // The char default is ' '; model it via its numeric code point 0.
+            return Predicate.createLit("0", Types.INT);
+        case Types.FLOAT:
+        case Types.DOUBLE:
+            return Predicate.createLit("0.0", type);
+        case Types.BOOLEAN:
+            return Predicate.createLit("false", Types.BOOLEAN);
+        default:
+            return null;
+        }
     }
 
     @Override
