@@ -13,10 +13,14 @@ import liquidjava.processor.refinement_checker.general_checkers.OperationsChecke
 import liquidjava.processor.refinement_checker.object_checkers.AuxStateHandler;
 import liquidjava.rj_language.BuiltinFunctionPredicate;
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Enum;
+import liquidjava.rj_language.ast.Expression;
+import liquidjava.rj_language.ast.GroupExpression;
 import liquidjava.utils.StaticConstants;
 import liquidjava.utils.constants.Formats;
 import liquidjava.utils.constants.Keys;
+import liquidjava.utils.constants.Ops;
 import liquidjava.utils.constants.Types;
 
 import org.apache.commons.lang3.NotImplementedException;
@@ -157,6 +161,7 @@ public class RefinementTypeChecker extends TypeChecker {
             if (refinementFound == null) {
                 refinementFound = new Predicate();
             }
+            refinementFound = applyNarrowingCast(e, refinementFound);
             context.addVarToContext(varName, localVariable.getType(), new Predicate(), e);
             checkVariableRefinements(refinementFound, varName, localVariable.getType(), localVariable, localVariable);
             AuxStateHandler.addStateRefinements(this, varName, e);
@@ -734,7 +739,7 @@ public class RefinementTypeChecker extends TypeChecker {
         if (parentElem instanceof CtOperatorAssignment<?, ?> operatorAssignment) {
             return otc.getOperatorAssignmentRefinement(name, operatorAssignment);
         }
-        return getRefinement(assignment);
+        return applyNarrowingCast(assignment, getRefinement(assignment));
     }
 
     private Predicate getExpressionRefinements(CtExpression<?> element) throws LJError {
@@ -792,5 +797,62 @@ public class RefinementTypeChecker extends TypeChecker {
             cref = Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), Predicate.createVar(ovi.get().getName()));
         }
         elem.putMetadata(Keys.REFINEMENT, cref);
+    }
+
+    // ############################### Numeric Casts ##########################################
+
+    /**
+     * Models a Java floating-point-to-integral narrowing cast on the value of {@code ex} (e.g. {@code (int) 1.9}, which
+     * is {@code 1} at runtime), so the refinement describes the truncated value rather than the original floating one.
+     *
+     * <p>
+     * SOUNDNESS: without this, the cast is dropped and the value keeps its wide floating form, so a refinement like
+     * {@code _ == 1.9} on {@code (int) 1.9} is accepted even though the runtime value is {@code 1}. We rewrite the
+     * value-defining refinement {@code _ == E} into {@code _ == trunc(E)}, where {@code trunc} truncates toward zero
+     * (JLS §5.1.3). Only floating-to-integral casts change the value here, so casts that leave the value unchanged (an
+     * {@code int}-to-{@code int} cast such as {@code (int) one()}, or a widening cast such as {@code (float) 5L}) are
+     * left untouched and stay precise.
+     */
+    private Predicate applyNarrowingCast(CtExpression<?> ex, Predicate refinement) {
+        if (ex == null || refinement == null || !isFloatingToIntegralCast(ex))
+            return refinement;
+        Optional<Expression> value = wildcardEqualityValue(refinement);
+        if (value.isEmpty())
+            return refinement;
+        Predicate truncated = Predicate.createInvocation(Keys.TRUNCATE, new Predicate(value.get()));
+        return Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), truncated);
+    }
+
+    /**
+     * True when the outermost type cast on {@code ex} narrows a floating-point value to an integral one. The casts are
+     * ordered outermost-first by Spoon, and {@code ex.getType()} is the type of the operand before any cast is applied.
+     */
+    private boolean isFloatingToIntegralCast(CtExpression<?> ex) {
+        List<CtTypeReference<?>> casts = ex.getTypeCasts();
+        if (casts == null || casts.isEmpty())
+            return false;
+        CtTypeReference<?> operandType = ex.getType();
+        return operandType != null && isFloatingType(operandType.getSimpleName())
+                && isIntegralType(casts.get(0).getSimpleName());
+    }
+
+    private static boolean isFloatingType(String type) {
+        return Types.FLOAT.equals(type) || Types.DOUBLE.equals(type);
+    }
+
+    private static boolean isIntegralType(String type) {
+        return Types.INT.equals(type) || Types.LONG.equals(type) || Types.SHORT.equals(type) || Types.CHAR.equals(type)
+                || "byte".equals(type);
+    }
+
+    /** If {@code refinement} has the value-defining shape {@code _ == E} (possibly grouped), returns {@code E}. */
+    private static Optional<Expression> wildcardEqualityValue(Predicate refinement) {
+        Expression e = refinement.getExpression();
+        while (e instanceof GroupExpression ge)
+            e = ge.getExpression();
+        if (e instanceof BinaryExpression be && Ops.EQ.equals(be.getOperator())
+                && Keys.WILDCARD.equals(be.getFirstOperand().toString()))
+            return Optional.of(be.getSecondOperand());
+        return Optional.empty();
     }
 }

@@ -174,6 +174,8 @@ public class TranslatorToZ3 implements AutoCloseable {
             return makeStore(params);
         if (name.equals("getFromIndex"))
             return makeSelect(params);
+        if (name.equals(Keys.TRUNCATE))
+            return makeTruncateToZero(params[0]);
         FuncDecl<?> fd = funcTranslation.get(name);
         if (fd == null)
             fd = resolveFunctionDecl(name, params);
@@ -398,6 +400,33 @@ public class TranslatorToZ3 implements AutoCloseable {
             return (IntExpr) e;
         if (e instanceof RealExpr)
             return z3.mkReal2Int((RealExpr) e);
+        throw new NotImplementedException();
+    }
+
+    /**
+     * Models a Java floating-point-to-integral narrowing cast, e.g. {@code (int) d}: the operand is rounded toward zero
+     * to a whole number (JLS §5.1.3 truncation). Returns an {@link IntExpr} so the cast result compares as an integer.
+     *
+     * <p>
+     * For a floating-point operand the value is first rounded toward zero to an integral FP, converted to a real, then
+     * to an int (the real is whole, so {@code mkReal2Int}'s floor is exact). A real operand is truncated toward zero by
+     * flooring its magnitude and restoring the sign (plain {@code mkReal2Int} would floor toward negative infinity,
+     * which is wrong for negatives). An integer operand is already integral and returned unchanged.
+     */
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    private Expr<?> makeTruncateToZero(Expr<?> e) {
+        if (e instanceof IntExpr)
+            return e;
+        if (e instanceof FPExpr fp) {
+            FPExpr integral = z3.mkFPRoundToIntegral(z3.mkFPRoundTowardZero(), fp);
+            return z3.mkReal2Int(z3.mkFPToReal(integral));
+        }
+        if (e instanceof RealExpr r) {
+            IntExpr floor = z3.mkReal2Int(r);
+            // floor == trunc for non-negative values; for negatives trunc = floor + 1 (unless already integral).
+            return z3.mkITE(z3.mkGe(r, z3.mkReal(0)), floor,
+                    z3.mkITE(z3.mkEq(z3.mkInt2Real(floor), r), floor, z3.mkAdd(floor, z3.mkInt(1))));
+        }
         throw new NotImplementedException();
     }
 
