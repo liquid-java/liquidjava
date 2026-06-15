@@ -20,6 +20,7 @@ import liquidjava.utils.constants.Keys;
 import liquidjava.utils.constants.Types;
 
 import org.apache.commons.lang3.NotImplementedException;
+import spoon.reflect.code.BinaryOperatorKind;
 import spoon.reflect.code.CtArrayRead;
 import spoon.reflect.code.CtArrayWrite;
 import spoon.reflect.code.CtAssignment;
@@ -46,11 +47,13 @@ import spoon.reflect.code.CtThrow;
 import spoon.reflect.code.CtUnaryOperator;
 import spoon.reflect.code.CtVariableAccess;
 import spoon.reflect.code.CtVariableRead;
+import spoon.reflect.code.CtVariableWrite;
 import spoon.reflect.declaration.*;
 import spoon.reflect.factory.Factory;
 import spoon.reflect.reference.CtFieldReference;
 import spoon.reflect.reference.CtTypeReference;
 import spoon.reflect.reference.CtVariableReference;
+import spoon.reflect.visitor.filter.TypeFilter;
 import spoon.support.reflect.code.CtVariableWriteImpl;
 
 public class RefinementTypeChecker extends TypeChecker {
@@ -335,6 +338,50 @@ public class RefinementTypeChecker extends TypeChecker {
     public <T> void visitCtBinaryOperator(CtBinaryOperator<T> operator) {
         super.visitCtBinaryOperator(operator);
         otc.getBinaryOpRefinements(operator);
+        forgetShortCircuitedAssignments(operator);
+    }
+
+    /**
+     * The right operand of {@code &&}/{@code ||} runs only conditionally (it is short-circuited when the left operand
+     * is already {@code false} resp. {@code true}). Spoon visits children before this method, so any assignment in that
+     * operand (e.g. {@code false && ((x = 1) == 1)}) has already committed its value to the context as if it always
+     * executed. That is unsound: at runtime the assignment may never happen, so the post-operator value of every
+     * variable written there is uncertain. Havoc those variables (give them a fresh, unconstrained instance) so the
+     * verifier can no longer assume the assigned value survives the operator.
+     *
+     * <p>
+     * This is conservative: when the left operand is statically true (resp. false) the right operand does execute, yet
+     * we still forget the value. Forgetting only ever weakens what is known, so it cannot accept an unsound program; it
+     * costs precision only for the rare idiom of relying on a value assigned inside a short-circuited operand.
+     */
+    private void forgetShortCircuitedAssignments(CtBinaryOperator<?> operator) {
+        BinaryOperatorKind kind = operator.getKind();
+        if (kind != BinaryOperatorKind.AND && kind != BinaryOperatorKind.OR)
+            return;
+
+        CtExpression<?> conditionalOperand = operator.getRightHandOperand();
+        for (CtVariableWrite<?> write : conditionalOperand.getElements(new TypeFilter<>(CtVariableWrite.class))) {
+            CtVariableReference<?> ref = write.getVariable();
+            if (ref == null)
+                continue;
+            String name = (write instanceof CtFieldWrite<?>) ? String.format(Formats.THIS, ref.getSimpleName())
+                    : ref.getSimpleName();
+            havocVariable(name, write);
+        }
+    }
+
+    /**
+     * Drops everything currently known about {@code name} by installing a fresh, unconstrained instance as its latest
+     * value. Subsequent reads resolve to this instance and therefore carry no refinement.
+     */
+    private void havocVariable(String name, CtElement element) {
+        RefinedVariable rv = context.getVariableByName(name);
+        if (!(rv instanceof Variable))
+            return;
+        String freshName = String.format(Formats.INSTANCE, name, context.getCounter());
+        context.addInstanceToContext(freshName, rv.getType(), new Predicate(), element);
+        context.addRefinementInstanceToVariable(name, freshName);
+        context.addRefinementToVariableInContext(name, rv.getType(), new Predicate(), element);
     }
 
     @Override
