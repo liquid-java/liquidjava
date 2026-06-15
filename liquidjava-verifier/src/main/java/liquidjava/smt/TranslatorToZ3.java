@@ -342,8 +342,15 @@ public class TranslatorToZ3 implements AutoCloseable {
     }
 
     public Expr<?> makeMod(Expr<?> eval, Expr<?> eval2) {
-        if (eval instanceof FPExpr || eval2 instanceof FPExpr)
-            return z3.mkFPRem(toFP(eval), toFP(eval2));
+        if (eval instanceof FPExpr || eval2 instanceof FPExpr) {
+            // Java `%` on floating point is fmod (truncated remainder, sign of dividend), NOT the
+            // IEEE-754 remainder (mkFPRem, which rounds the quotient to nearest). Encode fmod as
+            // r = a - b * trunc(a / b), where trunc rounds the quotient toward zero.
+            FPExpr a = toFP(eval);
+            FPExpr b = toFP(eval2);
+            FPExpr q = z3.mkFPRoundToIntegral(z3.mkFPRoundTowardZero(), z3.mkFPDiv(z3.mkFPRoundTowardZero(), a, b));
+            return z3.mkFPSub(z3.mkFPRoundNearestTiesToEven(), a, z3.mkFPMul(z3.mkFPRoundNearestTiesToEven(), b, q));
+        }
         if (eval instanceof RealExpr || eval2 instanceof RealExpr)
             return z3.mkMod(toInt(eval), toInt(eval2));
         return z3.mkMod((IntExpr) eval, (IntExpr) eval2);
