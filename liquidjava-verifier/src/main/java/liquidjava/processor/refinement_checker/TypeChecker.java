@@ -14,6 +14,7 @@ import liquidjava.processor.context.Context;
 import liquidjava.processor.context.GhostFunction;
 import liquidjava.processor.context.GhostState;
 import liquidjava.processor.context.RefinedVariable;
+import liquidjava.processor.context.Variable;
 import liquidjava.processor.facade.AliasDTO;
 import liquidjava.processor.facade.GhostDTO;
 import liquidjava.rj_language.Predicate;
@@ -373,6 +374,46 @@ public abstract class TypeChecker extends CtScanner {
     public void checkSMT(Predicate expectedType, CtElement element, String customMessage) throws LJError {
         vcChecker.processSubtyping(expectedType, context.getGhostStates(), element, factory, customMessage);
         element.putMetadata(Keys.REFINEMENT, expectedType);
+    }
+
+    /**
+     * Drops everything currently known about {@code name} by installing a fresh, unconstrained instance as its latest
+     * value, and detaches it from any typestate alias group. Subsequent reads resolve to this instance and therefore
+     * carry no refinement, so no stale state (typestate or otherwise) can be assumed about it.
+     *
+     * @param name
+     *            the variable to havoc
+     * @param element
+     *            the program element to attribute the fresh instance to
+     */
+    public void havocVariableState(String name, CtElement element) {
+        RefinedVariable rv = context.getVariableByName(name);
+        if (!(rv instanceof Variable))
+            return;
+        String freshName = String.format(Formats.INSTANCE, name, context.getCounter());
+        context.addInstanceToContext(freshName, rv.getType(), new Predicate(), element);
+        context.addRefinementInstanceToVariable(name, freshName);
+        context.addRefinementToVariableInContext(name, rv.getType(), new Predicate(), element);
+        context.clearObjectAliases(name);
+    }
+
+    /**
+     * Invalidates (havocs) the tracked state of every variable that may alias {@code name}, leaving {@code name} itself
+     * untouched. Used after a typestate transition through {@code name}: any other reference to the same object would
+     * otherwise keep its now-stale state. Conservative and sound — havoc only ever weakens what is known.
+     *
+     * @param name
+     *            the variable through which a state transition just occurred
+     * @param element
+     *            the program element to attribute the fresh instances to
+     */
+    public void havocObjectAliasesOf(String name, CtElement element) {
+        if (name == null)
+            return;
+        // Snapshot first: havocVariableState mutates the alias registry as it detaches each variable.
+        for (String alias : new java.util.ArrayList<>(context.getObjectAliases(name))) {
+            havocVariableState(alias, element);
+        }
     }
 
     public void checkStateSMT(Predicate prevState, Predicate expectedState, CtElement target, String moreInfo)

@@ -165,6 +165,7 @@ public class RefinementTypeChecker extends TypeChecker {
             context.addVarToContext(varName, localVariable.getType(), new Predicate(), e);
             checkVariableRefinements(refinementFound, varName, localVariable.getType(), localVariable, localVariable);
             AuxStateHandler.addStateRefinements(this, varName, e);
+            trackReferenceAliasing(varName, localVariable.getType(), e);
         }
     }
 
@@ -226,6 +227,7 @@ public class RefinementTypeChecker extends TypeChecker {
             CtVariable<T> varDecl = (CtVariable<T>) var.getDeclaration();
             String name = var.getSimpleName();
             checkAssignment(name, varDecl.getType(), ex, assignment.getAssignment(), assignment, varDecl);
+            trackReferenceAliasing(name, varDecl.getType(), assignment.getAssignment());
 
         } else if (ex instanceof CtFieldWrite<?> fw) {
             CtFieldReference<?> cr = fw.getVariable();
@@ -462,13 +464,41 @@ public class RefinementTypeChecker extends TypeChecker {
      * value. Subsequent reads resolve to this instance and therefore carry no refinement.
      */
     private void havocVariable(String name, CtElement element) {
-        RefinedVariable rv = context.getVariableByName(name);
-        if (!(rv instanceof Variable))
+        havocVariableState(name, element);
+    }
+
+    /**
+     * Maintains the typestate alias registry across a reference assignment {@code target = rhs}.
+     *
+     * <p>
+     * When {@code rhs} is a bare read of another local variable (a reference-copy such as {@code X b = a;}), {@code b}
+     * and {@code a} thereafter refer to the same object, so they are recorded as aliases. A later state transition
+     * through either one then invalidates the other (see {@link #havocObjectAliasesOf}). For any other right-hand side
+     * (a {@code new}, a method call, a field read, a literal, ...) {@code target} refers to a fresh or independent
+     * value, so it is detached from any alias group it was previously in.
+     *
+     * <p>
+     * Primitive-typed targets are ignored: primitives cannot be stateful objects, so they can never participate in a
+     * typestate transition. This keeps the registry to the only case that matters (object references) and leaves
+     * single-reference usage completely unaffected.
+     */
+    private void trackReferenceAliasing(String target, CtTypeReference<?> targetType, CtExpression<?> rhs) {
+        if (target == null || targetType == null || targetType.isPrimitive()) {
             return;
-        String freshName = String.format(Formats.INSTANCE, name, context.getCounter());
-        context.addInstanceToContext(freshName, rv.getType(), new Predicate(), element);
-        context.addRefinementInstanceToVariable(name, freshName);
-        context.addRefinementToVariableInContext(name, rv.getType(), new Predicate(), element);
+        }
+        // A bare local-variable read on the RHS (not a field read, which is a sibling type in Spoon) is the
+        // reference-copy that creates aliasing.
+        if (rhs instanceof CtVariableRead<?> read && !(rhs instanceof CtFieldRead<?>)) {
+            CtVariableReference<?> srcRef = read.getVariable();
+            String source = (srcRef != null) ? srcRef.getSimpleName() : null;
+            RefinedVariable srcVar = (source != null) ? context.getVariableByName(source) : null;
+            if (srcVar instanceof Variable) {
+                context.recordObjectAlias(target, source);
+                return;
+            }
+        }
+        // Reassignment to a fresh/independent object: target no longer aliases its old object.
+        context.clearObjectAliases(target);
     }
 
     // ############################### Loops ##########################################

@@ -15,6 +15,11 @@ public class Context {
     private Map<String, List<GhostState>> classStates;
     private List<AliasWrapper> aliases;
 
+    // Typestate aliasing: tracks, per local variable name, the set of other variable names that may
+    // currently refer to the same (stateful) object because of a reference-copy assignment (`b = a`).
+    // Used so a state transition through one reference can invalidate the tracked state of the others.
+    private Map<String, Set<String>> objectAliases;
+
     private int counter;
     private static Context instance;
 
@@ -26,6 +31,7 @@ public class Context {
         ctxGlobalVars = new ArrayList<>();
 
         aliases = new ArrayList<>();
+        objectAliases = new HashMap<>();
         ghosts = new ArrayList<>();
         classStates = new HashMap<>();
         counter = 0;
@@ -47,6 +53,7 @@ public class Context {
         reinitializeContext();
         ctxFunctions = new ArrayList<>();
         aliases = new ArrayList<>();
+        objectAliases = new HashMap<>();
         ghosts = new ArrayList<>();
         classStates = new HashMap<>();
         counter = 0;
@@ -361,6 +368,68 @@ public class Context {
 
     public List<AliasWrapper> getAliases() {
         return aliases;
+    }
+
+    // ---------------------- Typestate object aliasing ----------------------
+
+    /**
+     * Records that {@code target} now refers to the same object as {@code source} (a reference-copy assignment
+     * {@code target = source}). The relation is symmetric and transitive: {@code target} joins {@code source}'s alias
+     * group, so every member of that group becomes a mutual alias of {@code target}. Any previous aliasing of
+     * {@code target} is dropped first, because the assignment makes {@code target} point at {@code source}'s object
+     * instead of whatever it referred to before.
+     *
+     * @param target
+     *            the variable being assigned to
+     * @param source
+     *            the variable whose object {@code target} now also refers to
+     */
+    public void recordObjectAlias(String target, String source) {
+        if (target == null || source == null || target.equals(source))
+            return;
+        clearObjectAliases(target);
+        Set<String> group = new HashSet<>();
+        group.add(source);
+        group.addAll(objectAliases.getOrDefault(source, Collections.emptySet()));
+        group.add(target);
+        // Everyone in the group (including target) shares the full group as their alias set.
+        for (String member : group) {
+            Set<String> others = new HashSet<>(group);
+            others.remove(member);
+            objectAliases.put(member, others);
+        }
+    }
+
+    /**
+     * Returns the set of other variable names that may currently refer to the same object as {@code name}. Never
+     * {@code null}.
+     */
+    public Set<String> getObjectAliases(String name) {
+        return objectAliases.getOrDefault(name, Collections.emptySet());
+    }
+
+    /**
+     * Removes {@code name} from its alias group entirely (and from every other member's view of it). Called when
+     * {@code name} stops being a trustworthy alias of its old object: it is reassigned to a fresh value, or its tracked
+     * state is invalidated (havoc).
+     *
+     * @param name
+     *            the variable to detach from any alias group
+     */
+    public void clearObjectAliases(String name) {
+        if (name == null)
+            return;
+        Set<String> group = objectAliases.remove(name);
+        if (group == null)
+            return;
+        for (String member : group) {
+            Set<String> others = objectAliases.get(member);
+            if (others != null) {
+                others.remove(name);
+                if (others.isEmpty())
+                    objectAliases.remove(member);
+            }
+        }
     }
 
     @Override
