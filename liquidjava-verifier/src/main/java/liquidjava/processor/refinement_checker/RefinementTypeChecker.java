@@ -30,13 +30,17 @@ import spoon.reflect.code.CtBreak;
 import spoon.reflect.code.CtConditional;
 import spoon.reflect.code.CtContinue;
 import spoon.reflect.code.CtConstructorCall;
+import spoon.reflect.code.CtDo;
 import spoon.reflect.code.CtExpression;
 import spoon.reflect.code.CtFieldRead;
 import spoon.reflect.code.CtFieldWrite;
+import spoon.reflect.code.CtFor;
+import spoon.reflect.code.CtForEach;
 import spoon.reflect.code.CtIf;
 import spoon.reflect.code.CtInvocation;
 import spoon.reflect.code.CtLiteral;
 import spoon.reflect.code.CtLocalVariable;
+import spoon.reflect.code.CtLoop;
 import spoon.reflect.code.CtNewArray;
 import spoon.reflect.code.CtNewClass;
 import spoon.reflect.code.CtOperatorAssignment;
@@ -48,6 +52,7 @@ import spoon.reflect.code.CtUnaryOperator;
 import spoon.reflect.code.CtVariableAccess;
 import spoon.reflect.code.CtVariableRead;
 import spoon.reflect.code.CtVariableWrite;
+import spoon.reflect.code.CtWhile;
 import spoon.reflect.declaration.*;
 import spoon.reflect.factory.Factory;
 import spoon.reflect.reference.CtFieldReference;
@@ -423,8 +428,19 @@ public class RefinementTypeChecker extends TypeChecker {
         if (kind != BinaryOperatorKind.AND && kind != BinaryOperatorKind.OR)
             return;
 
-        CtExpression<?> conditionalOperand = operator.getRightHandOperand();
-        for (CtVariableWrite<?> write : conditionalOperand.getElements(new TypeFilter<>(CtVariableWrite.class))) {
+        havocVariablesWrittenIn(operator.getRightHandOperand());
+    }
+
+    /**
+     * Havocs (see {@link #havocVariable}) every local or field variable that appears as a write target anywhere inside
+     * {@code scope}. {@link CtVariableWrite} covers plain assignments ({@code x = ...}), compound assignments
+     * ({@code x += ...}) and the operand of pre/post increment/decrement ({@code x++}, {@code --x}), and its subtype
+     * {@link CtFieldWrite} covers field writes.
+     */
+    private void havocVariablesWrittenIn(CtElement scope) {
+        if (scope == null)
+            return;
+        for (CtVariableWrite<?> write : scope.getElements(new TypeFilter<>(CtVariableWrite.class))) {
             CtVariableReference<?> ref = write.getVariable();
             if (ref == null)
                 continue;
@@ -446,6 +462,50 @@ public class RefinementTypeChecker extends TypeChecker {
         context.addInstanceToContext(freshName, rv.getType(), new Predicate(), element);
         context.addRefinementInstanceToVariable(name, freshName);
         context.addRefinementToVariableInContext(name, rv.getType(), new Predicate(), element);
+    }
+
+    // ############################### Loops ##########################################
+
+    /*
+     * Loop bodies are visited a single time by the underlying CtScanner, which models exactly one iteration and then
+     * commits the body's assignments as if that were the loop's post-state. That is unsound: a variable mutated in the
+     * loop keeps a value computed for one pass, but at runtime the loop may iterate zero or many times, so its
+     * post-loop value is unknown. After visiting each loop we therefore havoc (give a fresh, unconstrained instance to)
+     * every variable written in the body and in the for-update, so nothing assumed about its in-loop value survives the
+     * loop. Forgetting only weakens what is known, so it can never accept an unsound program; it costs precision only
+     * for code that relies on a specific value established by the loop. visitCt*Loop still calls super first so that
+     * any refinement/typestate error inside the body is still reported, exactly as before.
+     */
+
+    @Override
+    public void visitCtWhile(CtWhile whileLoop) {
+        super.visitCtWhile(whileLoop);
+        havocLoopVariables(whileLoop);
+    }
+
+    @Override
+    public void visitCtDo(CtDo doLoop) {
+        super.visitCtDo(doLoop);
+        havocLoopVariables(doLoop);
+    }
+
+    @Override
+    public void visitCtFor(CtFor forLoop) {
+        super.visitCtFor(forLoop);
+        havocLoopVariables(forLoop);
+        havocVariablesWrittenIn(forLoop.getExpression());
+        for (CtStatement update : forLoop.getForUpdate())
+            havocVariablesWrittenIn(update);
+    }
+
+    @Override
+    public void visitCtForEach(CtForEach foreach) {
+        super.visitCtForEach(foreach);
+        havocLoopVariables(foreach);
+    }
+
+    private void havocLoopVariables(CtLoop loop) {
+        havocVariablesWrittenIn(loop.getBody());
     }
 
     @Override
