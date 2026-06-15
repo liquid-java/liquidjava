@@ -43,18 +43,18 @@ class VCArithmeticSimplificationTest {
     @Test
     void simplifiesGuardedDivisionAndModuloIdentities() {
         assertSimplificationSteps(simplification::apply, vc("x != 0", "0 / x == 0"),
-                chain(expect("x != 0", "x != 0"), expect("0 == 0", "0 / x == 0")));
+                chain(expect("x != 0"), expect("0 == 0", "0 / x == 0")));
         assertSimplificationSteps(simplification::apply, vc("x != 0", "x / x == 1"),
-                chain(expect("x != 0", "x != 0"), expect("1 == 1", "x / x == 1")));
+                chain(expect("x != 0"), expect("1 == 1", "x / x == 1")));
         assertSimplificationSteps(simplification::apply, vc("0 != x", "x % x == 0"),
-                chain(expect("0 != x", "0 != x"), expect("0 == 0", "x % x == 0")));
+                chain(expect("0 != x"), expect("0 == 0", "x % x == 0")));
     }
 
     @Test
     void leavesUnguardedDivisionAndModuloIdentitiesUnchanged() {
-        assertSimplificationSteps(simplification::apply, vc("0 / x == 0"), chain(expect("0 / x == 0", "0 / x == 0")));
-        assertSimplificationSteps(simplification::apply, vc("x / x == 1"), chain(expect("x / x == 1", "x / x == 1")));
-        assertSimplificationSteps(simplification::apply, vc("x % x == 0"), chain(expect("x % x == 0", "x % x == 0")));
+        assertSimplificationSteps(simplification::apply, vc("0 / x == 0"), chain(expect("0 / x == 0")));
+        assertSimplificationSteps(simplification::apply, vc("x / x == 1"), chain(expect("x / x == 1")));
+        assertSimplificationSteps(simplification::apply, vc("x % x == 0"), chain(expect("x % x == 0")));
     }
 
     @Test
@@ -68,7 +68,7 @@ class VCArithmeticSimplificationTest {
         VCImplication implication = vc("x > 0", "y + 0 > x");
 
         VCImplication result = assertSimplificationSteps(simplification::apply, implication,
-                chain(expect("x > 0", "x > 0"), expect("y > x", "y + 0 > x")));
+                chain(expect("x > 0"), expect("y > x", "y + 0 > x")));
 
         SimplifiedVCImplication simplifiedNext = assertInstanceOf(SimplifiedVCImplication.class, result.getNext());
         assertEquals("y + 0 > x", simplifiedNext.getOrigin().getRefinement().getExpression().toDisplayString());

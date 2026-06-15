@@ -49,14 +49,14 @@ class VCSubstitutionTest {
         VCImplication implication = vc("∀x:int. x == 3", "∀y:int. y > x", "y > 0");
 
         assertSimplificationSteps(substitution::apply, implication,
-                chain(expect("y > 3", "∀x:int. y > x"), expect("y > 0", "y > 0")));
+                chain(expect("y > 3", "∀x:int. y > x"), expect("y > 0")));
     }
 
     @Test
     void removesSourceNodeWhenItIsLastInChain() {
         VCImplication implication = vc("x > 0", "∀y:int. y == 1");
 
-        assertSimplificationSteps(substitution::apply, implication, chain(expect("x > 0", "x > 0")));
+        assertSimplificationSteps(substitution::apply, implication, chain(expect("x > 0")));
     }
 
     @Test
@@ -64,15 +64,15 @@ class VCSubstitutionTest {
         VCImplication implication = vc("∀x:int. x > 0", "∀y:int. y == 4", "x + y > 0");
 
         assertSimplificationSteps(substitution::apply, implication,
-                chain(expect("x > 0", "∀x:int. x > 0"), expect("x + 4 > 0", "∀y:int. x + y > 0")));
+                chain(expect("x > 0"), expect("x + 4 > 0", "∀y:int. x + y > 0")));
     }
 
     @Test
     void substitutesInnerKnownValueAcrossNestedImplications() {
         VCImplication implication = vc("∀x:int. true", "∀y:int. y == 1", "∀z:int. z > y", "y + z > 0");
 
-        assertSimplificationSteps(substitution::apply, implication, chain(expect("true", "∀x:int. true"),
-                expect("z > 1", "∀y:int. z > y"), expect("1 + z > 0", "∀y:int. y + z > 0")));
+        assertSimplificationSteps(substitution::apply, implication,
+                chain(expect("true"), expect("z > 1", "∀y:int. z > y"), expect("1 + z > 0", "∀y:int. y + z > 0")));
     }
 
     @Test
@@ -88,31 +88,27 @@ class VCSubstitutionTest {
     void ignoresRecursiveBinderEquality() {
         VCImplication implication = vc("∀x:int. x == x + 1", "x > 0");
 
-        assertSimplificationSteps(substitution::apply, implication,
-                chain(expect("x == x + 1", "∀x:int. x == x + 1"), expect("x > 0", "x > 0")));
+        assertSimplificationSteps(substitution::apply, implication, chain(expect("x == x + 1"), expect("x > 0")));
     }
 
     @Test
     void ignoresNonEqualityBinderRefinement() {
         VCImplication implication = vc("∀x:int. x > 3", "x > 0");
 
-        assertSimplificationSteps(substitution::apply, implication,
-                chain(expect("x > 3", "∀x:int. x > 3"), expect("x > 0", "x > 0")));
+        assertSimplificationSteps(substitution::apply, implication, chain(expect("x > 3"), expect("x > 0")));
     }
 
     @Test
     void ignoresDerivedBinderEquality() {
         VCImplication implication = vc("∀x:int. x + 1 == 3", "x > 0");
 
-        assertSimplificationSteps(substitution::apply, implication,
-                chain(expect("x + 1 == 3", "∀x:int. x + 1 == 3"), expect("x > 0", "x > 0")));
+        assertSimplificationSteps(substitution::apply, implication, chain(expect("x + 1 == 3"), expect("x > 0")));
     }
 
     @Test
     void ignoresEqualityWithoutBinder() {
         VCImplication implication = vc("x == 3", "x > 0");
 
-        assertSimplificationSteps(substitution::apply, implication,
-                chain(expect("x == 3", "x == 3"), expect("x > 0", "x > 0")));
+        assertSimplificationSteps(substitution::apply, implication, chain(expect("x == 3"), expect("x > 0")));
     }
 }

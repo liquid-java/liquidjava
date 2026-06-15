@@ -1,6 +1,7 @@
 package liquidjava.utils;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.function.UnaryOperator;
@@ -55,9 +56,14 @@ public class VCTestUtils {
                     "Expected simplified refinement at implication " + i + " to be a plain Predicate");
             assertEquals(expectedPredicate.simplified(), formatRefinement(current),
                     "Unexpected simplified expression at implication " + i);
-            if (expectedPredicate.origin() != null)
-                assertEquals(expectedPredicate.origin(), formatOrigin(current.getOrigin()),
+            if (expectedPredicate.origin() == null)
+                assertNull(current.getOrigin(), "Unexpected origin VC at implication " + i);
+            else {
+                VCImplication origin = current.getOrigin();
+                assertNotNull(origin, "Expected origin VC at implication " + i);
+                assertEquals(expectedPredicate.origin(), formatOrigin(origin),
                         "Unexpected origin VC at implication " + i);
+            }
             current = current.getNext();
         }
         assertNull(current, "Expected VC chain to end after " + expected.length + " implications");
@@ -79,6 +85,10 @@ public class VCTestUtils {
 
     public static ExpectedSimplifiedVCImplication expect(String simplified, String origin) {
         return new ExpectedSimplifiedVCImplication(simplified, origin);
+    }
+
+    public static ExpectedSimplifiedVCImplication expect(String simplified) {
+        return new ExpectedSimplifiedVCImplication(simplified, null);
     }
 
     private static String formatOrigin(VCImplication origin) {

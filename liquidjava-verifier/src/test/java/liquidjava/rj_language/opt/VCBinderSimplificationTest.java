@@ -21,8 +21,7 @@ class VCBinderSimplificationTest {
     void keepsTrueBinderWhenVariableIsUsedDownstream() {
         VCImplication implication = vc("∀x:int. true", "x > 0");
 
-        assertSimplificationSteps(binderSimplification::apply, implication,
-                chain(expect("true", "∀x:int. true"), expect("x > 0", "x > 0")));
+        assertSimplificationSteps(binderSimplification::apply, implication, chain(expect("true"), expect("x > 0")));
     }
 
     @Test
@@ -39,7 +38,7 @@ class VCBinderSimplificationTest {
         VCImplication implication = vc("∀x:int. true", "∀y:int. true", "z > 0");
 
         assertSimplificationSteps(binderSimplification::apply, implication,
-                chain(expect("true", "∀x:int. true"), expect("z > 0", "z > 0")));
+                chain(expect("true", "∀x:int. true"), expect("z > 0")));
     }
 
     @Test
@@ -47,15 +46,14 @@ class VCBinderSimplificationTest {
         VCImplication implication = vc("∀x:int. true", "x > 0", "∀y:int. true", "z > 0");
 
         assertSimplificationSteps(binderSimplification::apply, implication,
-                chain(expect("true", "∀x:int. true"), expect("x > 0", "x > 0"), expect("z > 0", "∀y:int. z > 0")));
+                chain(expect("true"), expect("x > 0"), expect("z > 0", "∀y:int. z > 0")));
     }
 
     @Test
     void ignoresNonBinderBooleanLiterals() {
         VCImplication implication = vc("true", "false");
 
-        assertSimplificationSteps(binderSimplification::apply, implication,
-                chain(expect("true", "true"), expect("false", "false")));
+        assertSimplificationSteps(binderSimplification::apply, implication, chain(expect("true"), expect("false")));
     }
 
     @Test
