@@ -27,6 +27,7 @@ import spoon.reflect.code.CtAssignment;
 import spoon.reflect.code.CtBinaryOperator;
 import spoon.reflect.code.CtBlock;
 import spoon.reflect.code.CtBreak;
+import spoon.reflect.code.CtCatch;
 import spoon.reflect.code.CtConditional;
 import spoon.reflect.code.CtContinue;
 import spoon.reflect.code.CtConstructorCall;
@@ -48,6 +49,7 @@ import spoon.reflect.code.CtReturn;
 import spoon.reflect.code.CtStatement;
 import spoon.reflect.code.CtThisAccess;
 import spoon.reflect.code.CtThrow;
+import spoon.reflect.code.CtTry;
 import spoon.reflect.code.CtUnaryOperator;
 import spoon.reflect.code.CtVariableAccess;
 import spoon.reflect.code.CtVariableRead;
@@ -506,6 +508,29 @@ public class RefinementTypeChecker extends TypeChecker {
 
     private void havocLoopVariables(CtLoop loop) {
         havocVariablesWrittenIn(loop.getBody());
+    }
+
+    // ############################### Try/Catch ######################################
+
+    /*
+     * A try body is visited as straight-line code, so the underlying CtScanner commits every assignment in it as if the
+     * body ran to completion. That is unsound: an exception can interrupt the try at any point, so a statement after a
+     * throwing one may never execute and a variable assigned there may not hold that value once control leaves the try.
+     * The same holds inside each catch block, whose statements run only on the (uncertain) exceptional path. After
+     * visiting the try (so any refinement/typestate error inside the body or handlers is still reported, exactly as
+     * before), we therefore havoc (give a fresh, unconstrained instance to) every variable written in the try body and
+     * in each catch block, so nothing assumed about an in-try/in-catch value survives the statement. Forgetting only
+     * weakens what is known, so it can never accept an unsound program; it costs precision only for code that relies on
+     * a value established inside the try/catch. (A finally block always runs to completion, so its definite assignments
+     * could remain trusted; we keep the minimal sound option and do not special-case it.)
+     */
+
+    @Override
+    public void visitCtTry(CtTry tryBlock) {
+        super.visitCtTry(tryBlock);
+        havocVariablesWrittenIn(tryBlock.getBody());
+        for (CtCatch catchBlock : tryBlock.getCatchers())
+            havocVariablesWrittenIn(catchBlock.getBody());
     }
 
     @Override
