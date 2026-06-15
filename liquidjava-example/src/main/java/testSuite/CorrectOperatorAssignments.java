@@ -4,14 +4,16 @@ import liquidjava.specification.Refinement;
 
 public class CorrectOperatorAssignments {
 
+    // x + 1 overflows to Integer.MIN_VALUE when x == Integer.MAX_VALUE, so exclude that boundary.
     @Refinement("_ > 0")
-    int plus(@Refinement("_ >= 0") int x) {
+    int plus(@Refinement("_ >= 0 && _ < 2147483647") int x) {
         x += 1; // x is now > 0
         return x;
     }
 
+    // x + 1 overflows when x == Integer.MAX_VALUE, so exclude that boundary.
     @Refinement("_ > 0")
-    int plusInvocation(@Refinement("_ >= 0") int x) {
+    int plusInvocation(@Refinement("_ >= 0 && _ < 2147483647") int x) {
         x += one(); // x is now > 0
         return x;
     }
@@ -21,14 +23,16 @@ public class CorrectOperatorAssignments {
         return 1;
     }
 
+    // x - 1 overflows to Integer.MAX_VALUE when x == Integer.MIN_VALUE, so exclude that boundary.
     @Refinement("_ < 0")
-    int minus(@Refinement("_ <= 0") int x) {
+    int minus(@Refinement("_ <= 0 && _ > -2147483648") int x) {
         x -= 1; // x is now < 0
         return x;
     }
 
+    // x * x overflows (and can wrap negative) once |x| exceeds 46340, so bound |x| to keep the square non-negative.
     @Refinement("_ >= 0")
-    int multiply(int x) {
+    int multiply(@Refinement("_ >= -46340 && _ <= 46340") int x) {
         x *= x; // x is now >= 0
         return x;
     }

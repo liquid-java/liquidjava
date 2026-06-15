@@ -90,15 +90,18 @@ public class TranslatorContextToZ3 {
         String typeName = type.getQualifiedName();
 
         return switch (typeName) {
-        case "int", "short", "char", "java.lang.Integer", "java.lang.Short", "java.lang.Character" -> z3
-                .mkIntConst(name);
+        // Java integral types are fixed-width two's-complement values, so they are modeled as Z3 BitVectors
+        // (32-bit for int/short/char/byte and their boxed forms, 64-bit for long). This makes overflow,
+        // signed division/remainder, and signed comparison faithful to the JLS instead of unbounded integers.
+        case "int", "short", "char", "byte", "java.lang.Integer", "java.lang.Short", "java.lang.Character", "java.lang.Byte" -> z3
+                .mkBVConst(name, 32);
         case "boolean", "java.lang.Boolean" -> z3.mkBoolConst(name);
-        case "long", "java.lang.Long" -> z3.mkRealConst(name);
+        case "long", "java.lang.Long" -> z3.mkBVConst(name, 64);
         // Java `float` is binary32 and `double` is binary64; modeling float as FP64 would lose single-precision
         // rounding. Mixed-precision expressions are reconciled via Java numeric promotion in TranslatorToZ3.
         case "float", "java.lang.Float" -> (FPExpr) z3.mkConst(name, z3.mkFPSort32());
         case "double", "java.lang.Double" -> (FPExpr) z3.mkConst(name, z3.mkFPSort64());
-        case "int[]" -> z3.mkArrayConst(name, z3.mkIntSort(), z3.mkIntSort());
+        case "int[]" -> z3.mkArrayConst(name, z3.mkBitVecSort(32), z3.mkBitVecSort(32));
         default -> z3.mkConst(name, z3.mkUninterpretedSort(typeName));
         };
     }
@@ -133,12 +136,14 @@ public class TranslatorContextToZ3 {
 
     static Sort getSort(Context z3, String sort) {
         return switch (sort) {
-        case "int", "short", "char", "java.lang.Integer", "java.lang.Short", "java.lang.Character" -> z3.getIntSort();
+        // Integral types are fixed-width BitVectors (32-bit for int-family, 64-bit for long); see getExpr.
+        case "int", "short", "char", "byte", "java.lang.Integer", "java.lang.Short", "java.lang.Character", "java.lang.Byte" -> z3
+                .mkBitVecSort(32);
         case "boolean", "java.lang.Boolean" -> z3.getBoolSort();
-        case "long", "java.lang.Long" -> z3.getRealSort();
+        case "long", "java.lang.Long" -> z3.mkBitVecSort(64);
         case "float", "java.lang.Float" -> z3.mkFPSort32();
         case "double", "java.lang.Double" -> z3.mkFPSortDouble();
-        case "int[]" -> z3.mkArraySort(z3.mkIntSort(), z3.mkIntSort());
+        case "int[]" -> z3.mkArraySort(z3.mkBitVecSort(32), z3.mkBitVecSort(32));
         case "String" -> z3.getStringSort();
         case "void" -> z3.mkUninterpretedSort("void");
         default -> z3.mkUninterpretedSort(sort);

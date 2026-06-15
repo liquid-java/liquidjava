@@ -5,7 +5,9 @@ import liquidjava.specification.Refinement;
 @SuppressWarnings("unused")
 public class CorrectIfThen {
 
-    public void have2(int a, int b) {
+    // a - b overflows when b is very negative (a - b exceeds Integer.MAX_VALUE). Requiring b >= 0 keeps
+    // a - b in [1, a] (both operands non-negative with a > b), so it stays positive without overflowing.
+    public void have2(int a, @Refinement("b >= 0") int b) {
         @Refinement("pos > 0")
         int pos = 10;
         if (a > 0) {

@@ -6,7 +6,7 @@ import liquidjava.specification.Refinement;
 public class ErrorLongUsage {
     @Refinement(" _ > 40")
     public static long doubleBiggerThanTwenty(@Refinement("a > 20") long a) {
-        return a * 2;
+        return a * 2; // Refinement Error
     }
 
     public static void longUsage1() {

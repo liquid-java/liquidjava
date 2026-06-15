@@ -2,6 +2,9 @@ package liquidjava.smt;
 
 import com.microsoft.z3.ArithExpr;
 import com.microsoft.z3.ArrayExpr;
+import com.microsoft.z3.BitVecExpr;
+import com.microsoft.z3.BitVecNum;
+import com.microsoft.z3.BitVecSort;
 import com.microsoft.z3.BoolExpr;
 import com.microsoft.z3.EnumSort;
 import com.microsoft.z3.Expr;
@@ -101,11 +104,13 @@ public class TranslatorToZ3 implements AutoCloseable {
 
     // #####################Literals and Variables#####################
     public Expr<?> makeIntegerLiteral(int value) {
-        return z3.mkInt(value);
+        // Java int/short/char/byte literals are 32-bit two's-complement values.
+        return z3.mkBV(value, 32);
     }
 
     public Expr<?> makeLongLiteral(long value) {
-        return z3.mkReal(value);
+        // Java long literals are 64-bit two's-complement values.
+        return z3.mkBV(value, 64);
     }
 
     public Expr<?> makeDoubleLiteral(double value) {
@@ -249,8 +254,14 @@ public class TranslatorToZ3 implements AutoCloseable {
             FPSort s = commonFPSort(e1, e2);
             return z3.mkFPEq(toFP(e1, s), toFP(e2, s));
         }
+        if (bothBitVec(e1, e2)) {
+            BitVecExpr[] u = unifyBV(e1, e2);
+            return z3.mkEq(u[0], u[1]);
+        }
         if (e1 instanceof RealExpr || e2 instanceof RealExpr)
             return z3.mkEq(toReal(e1), toReal(e2));
+        // Booleans, enums, strings, and ill-typed comparisons (e.g. a boolean against an integral literal) fall
+        // here; mkEq surfaces a proper sort-mismatch error rather than silently coercing.
         return z3.mkEq(e1, e2);
     }
 
@@ -259,6 +270,10 @@ public class TranslatorToZ3 implements AutoCloseable {
         if (e1 instanceof FPExpr || e2 instanceof FPExpr) {
             FPSort s = commonFPSort(e1, e2);
             return z3.mkFPLt(toFP(e1, s), toFP(e2, s));
+        }
+        if (bothBitVec(e1, e2)) {
+            BitVecExpr[] u = unifyBV(e1, e2);
+            return z3.mkBVSLT(u[0], u[1]);
         }
         if (e1 instanceof RealExpr || e2 instanceof RealExpr)
             return z3.mkLt(toReal(e1), toReal(e2));
@@ -271,6 +286,10 @@ public class TranslatorToZ3 implements AutoCloseable {
             FPSort s = commonFPSort(e1, e2);
             return z3.mkFPLEq(toFP(e1, s), toFP(e2, s));
         }
+        if (bothBitVec(e1, e2)) {
+            BitVecExpr[] u = unifyBV(e1, e2);
+            return z3.mkBVSLE(u[0], u[1]);
+        }
         if (e1 instanceof RealExpr || e2 instanceof RealExpr)
             return z3.mkLe(toReal(e1), toReal(e2));
         return z3.mkLe((ArithExpr) e1, (ArithExpr) e2);
@@ -282,6 +301,10 @@ public class TranslatorToZ3 implements AutoCloseable {
             FPSort s = commonFPSort(e1, e2);
             return z3.mkFPGt(toFP(e1, s), toFP(e2, s));
         }
+        if (bothBitVec(e1, e2)) {
+            BitVecExpr[] u = unifyBV(e1, e2);
+            return z3.mkBVSGT(u[0], u[1]);
+        }
         if (e1 instanceof RealExpr || e2 instanceof RealExpr)
             return z3.mkGt(toReal(e1), toReal(e2));
         return z3.mkGt((ArithExpr) e1, (ArithExpr) e2);
@@ -292,6 +315,10 @@ public class TranslatorToZ3 implements AutoCloseable {
         if (e1 instanceof FPExpr || e2 instanceof FPExpr) {
             FPSort s = commonFPSort(e1, e2);
             return z3.mkFPGEq(toFP(e1, s), toFP(e2, s));
+        }
+        if (bothBitVec(e1, e2)) {
+            BitVecExpr[] u = unifyBV(e1, e2);
+            return z3.mkBVSGE(u[0], u[1]);
         }
         if (e1 instanceof RealExpr || e2 instanceof RealExpr)
             return z3.mkGe(toReal(e1), toReal(e2));
@@ -323,6 +350,9 @@ public class TranslatorToZ3 implements AutoCloseable {
     public Expr<?> makeMinus(Expr<?> eval) {
         if (eval instanceof FPExpr)
             return z3.mkFPNeg((FPExpr) eval);
+        if (eval instanceof BitVecExpr bv)
+            // Two's-complement negation: wraps like Java unary minus (e.g. -Integer.MIN_VALUE == Integer.MIN_VALUE).
+            return z3.mkBVNeg(bv);
         return z3.mkUnaryMinus((ArithExpr) eval);
     }
 
@@ -332,6 +362,10 @@ public class TranslatorToZ3 implements AutoCloseable {
         if (eval instanceof FPExpr || eval2 instanceof FPExpr) {
             FPSort s = commonFPSort(eval, eval2);
             return z3.mkFPAdd(z3.mkFPRoundNearestTiesToEven(), toFP(eval, s), toFP(eval2, s));
+        }
+        if (bothBitVec(eval, eval2)) {
+            BitVecExpr[] u = unifyBV(eval, eval2);
+            return z3.mkBVAdd(u[0], u[1]); // wraps on overflow, exactly like Java +
         }
         if (eval instanceof RealExpr || eval2 instanceof RealExpr)
             return z3.mkAdd(toReal(eval), toReal(eval2));
@@ -344,6 +378,10 @@ public class TranslatorToZ3 implements AutoCloseable {
             FPSort s = commonFPSort(eval, eval2);
             return z3.mkFPSub(z3.mkFPRoundNearestTiesToEven(), toFP(eval, s), toFP(eval2, s));
         }
+        if (bothBitVec(eval, eval2)) {
+            BitVecExpr[] u = unifyBV(eval, eval2);
+            return z3.mkBVSub(u[0], u[1]); // wraps on overflow, exactly like Java -
+        }
         if (eval instanceof RealExpr || eval2 instanceof RealExpr)
             return z3.mkSub(toReal(eval), toReal(eval2));
         return z3.mkSub((ArithExpr) eval, (ArithExpr) eval2);
@@ -355,6 +393,10 @@ public class TranslatorToZ3 implements AutoCloseable {
             FPSort s = commonFPSort(eval, eval2);
             return z3.mkFPMul(z3.mkFPRoundNearestTiesToEven(), toFP(eval, s), toFP(eval2, s));
         }
+        if (bothBitVec(eval, eval2)) {
+            BitVecExpr[] u = unifyBV(eval, eval2);
+            return z3.mkBVMul(u[0], u[1]); // low-order bits wrap, exactly like Java *
+        }
         if (eval instanceof RealExpr || eval2 instanceof RealExpr)
             return z3.mkMul(toReal(eval), toReal(eval2));
         return z3.mkMul((ArithExpr) eval, (ArithExpr) eval2);
@@ -365,6 +407,10 @@ public class TranslatorToZ3 implements AutoCloseable {
         if (eval instanceof FPExpr || eval2 instanceof FPExpr) {
             FPSort s = commonFPSort(eval, eval2);
             return z3.mkFPDiv(z3.mkFPRoundNearestTiesToEven(), toFP(eval, s), toFP(eval2, s));
+        }
+        if (bothBitVec(eval, eval2)) {
+            BitVecExpr[] u = unifyBV(eval, eval2);
+            return z3.mkBVSDiv(u[0], u[1]); // signed division truncates toward zero, like Java /
         }
         if (eval instanceof RealExpr || eval2 instanceof RealExpr)
             return z3.mkDiv(toReal(eval), toReal(eval2));
@@ -382,6 +428,12 @@ public class TranslatorToZ3 implements AutoCloseable {
             FPExpr q = z3.mkFPRoundToIntegral(z3.mkFPRoundTowardZero(), z3.mkFPDiv(z3.mkFPRoundTowardZero(), a, b));
             return z3.mkFPSub(z3.mkFPRoundNearestTiesToEven(), a, z3.mkFPMul(z3.mkFPRoundNearestTiesToEven(), b, q));
         }
+        if (bothBitVec(eval, eval2)) {
+            BitVecExpr[] u = unifyBV(eval, eval2);
+            // Java `%` takes the sign of the dividend; mkBVSRem is the signed remainder (sign of dividend),
+            // unlike mkBVSMod (sign of divisor) or Z3's Euclidean mkMod (always non-negative).
+            return z3.mkBVSRem(u[0], u[1]);
+        }
         if (eval instanceof RealExpr || eval2 instanceof RealExpr)
             return z3.mkMod(toInt(eval), toInt(eval2));
         return z3.mkMod((IntExpr) eval, (IntExpr) eval2);
@@ -392,6 +444,8 @@ public class TranslatorToZ3 implements AutoCloseable {
             return (RealExpr) e;
         if (e instanceof IntExpr)
             return z3.mkInt2Real((IntExpr) e);
+        if (e instanceof BitVecExpr bv)
+            return z3.mkInt2Real(z3.mkBV2Int(bv, true)); // signed BV -> int -> real
         throw new NotImplementedException();
     }
 
@@ -400,7 +454,69 @@ public class TranslatorToZ3 implements AutoCloseable {
             return (IntExpr) e;
         if (e instanceof RealExpr)
             return z3.mkReal2Int((RealExpr) e);
+        if (e instanceof BitVecExpr bv)
+            return z3.mkBV2Int(bv, true); // interpret the BitVector as a signed integer
         throw new NotImplementedException();
+    }
+
+    /**
+     * Width in bits of a BitVector expression's sort.
+     */
+    private int bvWidth(BitVecExpr e) {
+        return ((BitVecSort) e.getSort()).getSize();
+    }
+
+    /**
+     * Coerces a BitVector to {@code width} bits, mirroring Java integral conversions: widening sign-extends (Java
+     * widens {@code int} to {@code long} preserving sign, JLS §5.1.2) and narrowing keeps the low-order bits
+     * ({@code mkExtract} = Java narrowing primitive conversion, JLS §5.1.3). Same width is returned unchanged.
+     */
+    private BitVecExpr toBV(BitVecExpr e, int width) {
+        int w = bvWidth(e);
+        if (w == width)
+            return e;
+        if (w < width)
+            return z3.mkSignExt(width - w, e);
+        return z3.mkExtract(width - 1, 0, e);
+    }
+
+    /**
+     * Brings two operands to a common BitVector width before a binary operation, mirroring Java binary numeric
+     * promotion (JLS §5.6.2): if either operand is a {@code long} (64-bit) both become 64-bit, otherwise both stay
+     * 32-bit. A non-BitVector operand (e.g. an {@code IntExpr} literal that surfaced from a constant fold) is first
+     * converted to a BitVector. At least one operand is a {@link BitVecExpr} when this is called.
+     */
+    private BitVecExpr[] unifyBV(Expr<?> e1, Expr<?> e2) {
+        BitVecExpr b1 = asBV(e1);
+        BitVecExpr b2 = asBV(e2);
+        int width = Math.max(bvWidth(b1), bvWidth(b2));
+        return new BitVecExpr[] { toBV(b1, width), toBV(b2, width) };
+    }
+
+    /**
+     * Interprets {@code e} as a BitVector. BitVectors are returned as-is; an integer (which can appear if a fold
+     * produced a plain {@link IntExpr}) is reduced into a 32-bit BitVector via {@code mkInt2BV}.
+     */
+    private BitVecExpr asBV(Expr<?> e) {
+        if (e instanceof BitVecExpr bv)
+            return bv;
+        if (e instanceof IntExpr ie)
+            return z3.mkInt2BV(32, ie);
+        throw new NotImplementedException("Cannot interpret " + e.getSort() + " as a BitVector");
+    }
+
+    /**
+     * True when both operands can take the BitVector arithmetic/comparison path: at least one is a {@link BitVecExpr}
+     * (an actual integral value) and neither is a non-integral sort. A non-integral operand (boolean, enum, string,
+     * uninterpreted) makes this false so the caller falls through to the generic path, where Z3 raises a proper
+     * sort-mismatch error instead of this method silently coercing an ill-typed comparison.
+     */
+    private boolean bothBitVec(Expr<?> e1, Expr<?> e2) {
+        return (e1 instanceof BitVecExpr || e2 instanceof BitVecExpr) && isBVCompatible(e1) && isBVCompatible(e2);
+    }
+
+    private boolean isBVCompatible(Expr<?> e) {
+        return e instanceof BitVecExpr || e instanceof IntExpr;
     }
 
     /**
@@ -411,21 +527,23 @@ public class TranslatorToZ3 implements AutoCloseable {
      * For a floating-point operand the value is first rounded toward zero to an integral FP, converted to a real, then
      * to an int (the real is whole, so {@code mkReal2Int}'s floor is exact). A real operand is truncated toward zero by
      * flooring its magnitude and restoring the sign (plain {@code mkReal2Int} would floor toward negative infinity,
-     * which is wrong for negatives). An integer operand is already integral and returned unchanged.
+     * which is wrong for negatives). An integer (already-integral BitVector) operand is returned unchanged. The result
+     * is a 32-bit BitVector so it compares directly against the integral cast target.
      */
     @SuppressWarnings({ "unchecked", "rawtypes" })
     private Expr<?> makeTruncateToZero(Expr<?> e) {
-        if (e instanceof IntExpr)
-            return e;
+        if (e instanceof BitVecExpr bv)
+            return toBV(bv, 32);
         if (e instanceof FPExpr fp) {
             FPExpr integral = z3.mkFPRoundToIntegral(z3.mkFPRoundTowardZero(), fp);
-            return z3.mkReal2Int(z3.mkFPToReal(integral));
+            return z3.mkInt2BV(32, z3.mkReal2Int(z3.mkFPToReal(integral)));
         }
         if (e instanceof RealExpr r) {
             IntExpr floor = z3.mkReal2Int(r);
             // floor == trunc for non-negative values; for negatives trunc = floor + 1 (unless already integral).
-            return z3.mkITE(z3.mkGe(r, z3.mkReal(0)), floor,
+            IntExpr trunc = (IntExpr) z3.mkITE(z3.mkGe(r, z3.mkReal(0)), floor,
                     z3.mkITE(z3.mkEq(z3.mkInt2Real(floor), r), floor, z3.mkAdd(floor, z3.mkInt(1))));
+            return z3.mkInt2BV(32, trunc);
         }
         throw new NotImplementedException();
     }
@@ -455,6 +573,15 @@ public class TranslatorToZ3 implements AutoCloseable {
         FPExpr f;
         if (e instanceof FPExpr fe) {
             f = fe.getSort().equals(target) ? fe : z3.mkFPToFP(z3.mkFPRoundNearestTiesToEven(), fe, target);
+        } else if (e instanceof BitVecNum bvn) {
+            // A literal integral value (e.g. `5` widened to float in `5 + 1.0f`): use its signed long value
+            // directly so the rounded FP constant matches what Java's int/long-to-float promotion produces.
+            f = z3.mkFP(bvn.getLong(), target);
+        } else if (e instanceof BitVecExpr bv) {
+            // A symbolic integral value mixed with floating point: reinterpret as a signed integer, then a real,
+            // then round into the target FP sort (Java's integral-to-floating promotion, JLS §5.1.2).
+            RealExpr re = z3.mkInt2Real(z3.mkBV2Int(bv, true));
+            f = z3.mkFPToFP(z3.mkFPRoundNearestTiesToEven(), re, target);
         } else if (e instanceof IntNum)
             f = z3.mkFP(((IntNum) e).getInt(), target);
         else if (e instanceof IntExpr ee) {
