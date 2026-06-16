@@ -11,6 +11,7 @@ public class VCImplicationGenerator extends Generator<VCImplication> {
 
     public static final String[] BINDERS = { "x", "y", "z", "w" };
     public static final String[] FREE_VARS = { "a", "b", "c", "d" };
+    public static final String[] FUNCTIONS = { "f", "g" };
     private static final String[] COMPARISON_OPS = { "==", "!=", ">=", ">", "<=", "<" };
     private static final String[] BOOLEAN_OPS = { "&&", "||", "-->", "==", "!=" };
     private static final String[] ARITHMETIC_OPS = { "+", "-", "*" };
@@ -21,7 +22,7 @@ public class VCImplicationGenerator extends Generator<VCImplication> {
 
     @Override
     public VCImplication generate(SourceOfRandomness random, GenerationStatus status) {
-        return switch (random.nextInt(0, 14)) {
+        return switch (random.nextInt(0, 18)) {
         case 0 -> vc(substitution(random, "x"), comparison(random, "x"));
         case 1 -> vc(reverseSubstitution(random, "x"), comparison(random, "x"));
         case 2 -> vc(nonSubstitution(random, "x"), substitution(random, "y"), comparison(random, "y"));
@@ -36,6 +37,11 @@ public class VCImplicationGenerator extends Generator<VCImplication> {
         case 11 -> vc(logicalIdentity(random));
         case 12 -> vc(unusedTrueBinder(random));
         case 13 -> vc(falseBinder(random));
+        case 14 -> exactFunctionSubstitution(random);
+        case 15 -> reverseFunctionSubstitution(random);
+        case 16 -> chainedFunctionSubstitution(random);
+        case 17 -> differentArgumentFunctionSubstitution(random);
+        case 18 -> recursiveFunctionSubstitution(random);
         default -> vc(substitution(random, "x"), substitution(random, "y"), foldableComparison(random));
         };
     }
@@ -60,6 +66,59 @@ public class VCImplicationGenerator extends Generator<VCImplication> {
         if (random.nextBoolean())
             return "∀" + binder + ":int. " + binder + " > " + intLiteral(random);
         return "∀" + binder + ":int. " + binder + " == " + binder + " " + signed(random.nextInt(1, 5));
+    }
+
+    private static VCImplication exactFunctionSubstitution(SourceOfRandomness random) {
+        String function = functionName(random);
+        return vc(functionSubstitution(random, function, "a"), functionUse(random, function, "a"));
+    }
+
+    private static VCImplication reverseFunctionSubstitution(SourceOfRandomness random) {
+        String function = functionName(random);
+        return vc(reverseFunctionSubstitution(random, function, "a"), functionUse(random, function, "a"));
+    }
+
+    private static VCImplication chainedFunctionSubstitution(SourceOfRandomness random) {
+        String function = functionName(random);
+        return vc(functionSubstitution(random, function, "a"), dependentFunctionSubstitution(random, function),
+                functionUse(random, function, "b"));
+    }
+
+    private static VCImplication differentArgumentFunctionSubstitution(SourceOfRandomness random) {
+        String function = functionName(random);
+        return vc(functionSubstitution(random, function, "a"), functionUse(random, function, "b"));
+    }
+
+    private static VCImplication recursiveFunctionSubstitution(SourceOfRandomness random) {
+        String function = functionName(random);
+        String invocation = functionInvocation(function, "a");
+        return vc(invocation + " == " + invocation + " " + signed(random.nextInt(1, 5)),
+                functionUse(random, function, "a"));
+    }
+
+    private static String functionSubstitution(SourceOfRandomness random, String function, String argument) {
+        return functionInvocation(function, argument) + " == " + value(random);
+    }
+
+    private static String reverseFunctionSubstitution(SourceOfRandomness random, String function, String argument) {
+        return value(random) + " == " + functionInvocation(function, argument);
+    }
+
+    private static String dependentFunctionSubstitution(SourceOfRandomness random, String function) {
+        return functionInvocation(function, "b") + " == " + functionInvocation(function, "a") + " "
+                + signed(random.nextInt(-3, 3));
+    }
+
+    private static String functionUse(SourceOfRandomness random, String function, String argument) {
+        return functionInvocation(function, argument) + " " + comparisonOperator(random) + " " + intLiteral(random);
+    }
+
+    private static String functionInvocation(String function, String argument) {
+        return function + "(" + argument + ")";
+    }
+
+    private static String functionName(SourceOfRandomness random) {
+        return FUNCTIONS[random.nextInt(0, FUNCTIONS.length - 1)];
     }
 
     private static String[] unusedTrueBinder(SourceOfRandomness random) {
