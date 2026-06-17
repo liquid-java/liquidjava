@@ -53,10 +53,17 @@ class VCSubstitutionTest {
     }
 
     @Test
-    void removesSourceNodeWhenItIsLastInChain() {
+    void keepsSourceNodeWhenItIsLastInChain() {
         VCImplication implication = vc("x > 0", "∀y:int. y == 1");
 
-        assertSimplificationSteps(substitution::apply, implication, chain(expect("x > 0")));
+        assertSimplificationSteps(substitution::apply, implication, chain(expect("x > 0"), expect("y == 1")));
+    }
+
+    @Test
+    void keepsReturnBinderWhenConclusionIsSeparate() {
+        VCImplication implication = vc("∀x:int. true", "∀#ret_8:int. #ret_8 == x + 1");
+
+        assertSimplificationSteps(substitution::apply, implication, chain(expect("true"), expect("#ret⁸ == x + 1")));
     }
 
     @Test
