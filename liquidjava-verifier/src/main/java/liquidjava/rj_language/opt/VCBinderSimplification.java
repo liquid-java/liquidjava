@@ -1,12 +1,12 @@
 package liquidjava.rj_language.opt;
 
-import java.util.ArrayList;
-import java.util.List;
+import static liquidjava.rj_language.opt.VCSimplificationUtils.containsVar;
+import static liquidjava.rj_language.opt.VCSimplificationUtils.isFalse;
+import static liquidjava.rj_language.opt.VCSimplificationUtils.isTrue;
 
 import liquidjava.processor.SimplifiedVCImplication;
 import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
-import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.LiteralBoolean;
 
 /**
@@ -87,32 +87,5 @@ public class VCBinderSimplification implements VCSimplificationPass {
      */
     private boolean isFalseBinder(VCImplication implication) {
         return implication.hasBinder() && isFalse(implication.getRefinement().getExpression());
-    }
-
-    /**
-     * Checks whether an expression is true
-     */
-    private boolean isTrue(Expression expression) {
-        return expression instanceof LiteralBoolean literal && literal.isBooleanTrue();
-    }
-
-    /**
-     * Checks whether an expression is false
-     */
-    private boolean isFalse(Expression expression) {
-        return expression instanceof LiteralBoolean literal && !literal.isBooleanTrue();
-    }
-
-    /**
-     * Checks whether a VC suffix contains a variable name
-     */
-    private boolean containsVar(VCImplication implication, String name) {
-        for (VCImplication current = implication; current != null; current = current.getNext()) {
-            List<String> names = new ArrayList<>();
-            current.getRefinement().getExpression().getVariableNames(names);
-            if (names.contains(name))
-                return true;
-        }
-        return false;
     }
 }
