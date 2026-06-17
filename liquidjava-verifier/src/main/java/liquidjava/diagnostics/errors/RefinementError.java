@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.TranslationTable;
 import liquidjava.processor.VCImplication;
+import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.formatter.VariableFormatter;
 import liquidjava.smt.Counterexample;
@@ -18,15 +19,14 @@ import spoon.reflect.cu.SourcePosition;
  */
 public class RefinementError extends LJError {
 
-    private final VCImplication expected;
+    private final Predicate expected;
     private final VCImplication found;
     private final Counterexample counterexample;
 
-    public RefinementError(SourcePosition position, VCImplication expected, VCImplication found,
+    public RefinementError(SourcePosition position, Predicate expected, VCImplication found,
             TranslationTable translationTable, Counterexample counterexample, String customMessage) {
-        super("Refinement Error",
-                String.format("%s is not a subtype of %s", found.toPredicate().getExpression().toDisplayString(),
-                        expected.toPredicate().getExpression().toDisplayString()),
+        super("Refinement Error", String.format("%s is not a subtype of %s",
+                found.toPredicate().getExpression().toDisplayString(), expected.getExpression().toDisplayString()),
                 position, translationTable, customMessage);
         this.expected = expected;
         this.found = found;
@@ -47,7 +47,7 @@ public class RefinementError extends LJError {
 
         List<String> foundVarNames = new ArrayList<>();
         Expression foundExpression = found.toPredicate().getExpression();
-        Expression expectedExpression = expected.toPredicate().getExpression();
+        Expression expectedExpression = expected.getExpression();
         foundExpression.getVariableNames(foundVarNames);
         // also keep resolved static-final constants (e.g. Integer.MAX_VALUE) referenced by either side of the
         // subtyping check, so the counterexample maps the symbolic name back to its compile-time value
@@ -73,7 +73,7 @@ public class RefinementError extends LJError {
         return counterexample;
     }
 
-    public VCImplication getExpected() {
+    public Predicate getExpected() {
         return expected;
     }
 

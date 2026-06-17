@@ -259,7 +259,7 @@ public class Predicate {
         return this;
     }
 
-    public VCImplication simplify(Context context) {
+    public VCImplication simplify() {
         VCImplication result = new VCImplication(clone()).simplify();
         DebugLog.simplification(this.getExpression(), result.getRefinement().getExpression());
         return result;
