@@ -37,9 +37,8 @@ To run specific tests, run:
 
 ```bash
 mvn -pl liquidjava-verifier -Dtest=ExpressionFormatterTest test
-mvn -pl liquidjava-verifier -Dtest=ExpressionSimplifierTest test
 mvn -pl liquidjava-verifier -Dtest=RefinementsParserTest test
-mvn -pl liquidjava-verifier -Dtest=VariableResolverTest test
+mvn -pl liquidjava-verifier -Dtest=VCSimplificationTest test
 ```
 
 ## Release

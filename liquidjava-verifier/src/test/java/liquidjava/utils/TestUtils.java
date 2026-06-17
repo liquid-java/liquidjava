@@ -1,9 +1,6 @@
 package liquidjava.utils;
 
 import java.io.BufferedReader;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -14,12 +11,6 @@ import java.util.regex.Pattern;
 
 import liquidjava.processor.context.Context;
 import liquidjava.rj_language.Predicate;
-import liquidjava.rj_language.opt.derivation_node.BinaryDerivationNode;
-import liquidjava.rj_language.opt.derivation_node.DerivationNode;
-import liquidjava.rj_language.opt.derivation_node.IteDerivationNode;
-import liquidjava.rj_language.opt.derivation_node.UnaryDerivationNode;
-import liquidjava.rj_language.opt.derivation_node.ValDerivationNode;
-import liquidjava.rj_language.opt.derivation_node.VarDerivationNode;
 import spoon.Launcher;
 import spoon.reflect.factory.Factory;
 
@@ -87,7 +78,7 @@ public class TestUtils {
         try {
             List<Path> files = Files.list(dirPath).filter(Files::isRegularFile).toList();
             for (Path file : files) {
-                getExpectedErrorsFromFile(file).forEach(expectedErrors::add);
+                expectedErrors.addAll(getExpectedErrorsFromFile(file));
             }
         } catch (IOException e) {
             return List.of();
@@ -96,43 +87,7 @@ public class TestUtils {
     }
 
     /**
-     * Helper method to compare two derivation nodes recursively
-     */
-    public static void assertDerivationEquals(DerivationNode expected, DerivationNode actual, String message) {
-        if (expected == null && actual == null)
-            return;
-
-        assertNotNull(expected);
-        assertEquals(expected.getClass(), actual.getClass(), message + ": node types should match");
-        if (expected instanceof ValDerivationNode expectedVal) {
-            ValDerivationNode actualVal = (ValDerivationNode) actual;
-            assertEquals(expectedVal.getValue().toString(), actualVal.getValue().toString(),
-                    message + ": values should match");
-            assertDerivationEquals(expectedVal.getOrigin(), actualVal.getOrigin(), message + " > origin");
-        } else if (expected instanceof BinaryDerivationNode expectedBin) {
-            BinaryDerivationNode actualBin = (BinaryDerivationNode) actual;
-            assertEquals(expectedBin.getOp(), actualBin.getOp(), message + ": operators should match");
-            assertDerivationEquals(expectedBin.getLeft(), actualBin.getLeft(), message + " > left");
-            assertDerivationEquals(expectedBin.getRight(), actualBin.getRight(), message + " > right");
-        } else if (expected instanceof VarDerivationNode expectedVar) {
-            VarDerivationNode actualVar = (VarDerivationNode) actual;
-            assertEquals(expectedVar.getVar(), actualVar.getVar(), message + ": variables should match");
-        } else if (expected instanceof UnaryDerivationNode expectedUnary) {
-            UnaryDerivationNode actualUnary = (UnaryDerivationNode) actual;
-            assertEquals(expectedUnary.getOp(), actualUnary.getOp(), message + ": operators should match");
-            assertDerivationEquals(expectedUnary.getOperand(), actualUnary.getOperand(), message + " > operand");
-        } else if (expected instanceof IteDerivationNode expectedIte) {
-            IteDerivationNode actualIte = (IteDerivationNode) actual;
-            assertDerivationEquals(expectedIte.getCondition(), actualIte.getCondition(), message + " > condition");
-            assertDerivationEquals(expectedIte.getThenBranch(), actualIte.getThenBranch(), message + " > then");
-            assertDerivationEquals(expectedIte.getElseBranch(), actualIte.getElseBranch(), message + " > else");
-        }
-    }
-
-    /**
-     * Helper method to add an integer variable to the context Needed for tests that rely on the SMT-based implication
-     * checks The simplifier asks Z3 whether one conjunct implies another, so every variable in those expressions must
-     * be in the context
+     * Helper method to add an integer variable to the context
      */
     public static void addIntVariableToContext(String name) {
         context.addVarToContext(name, factory.Type().INTEGER_PRIMITIVE, new Predicate(),
