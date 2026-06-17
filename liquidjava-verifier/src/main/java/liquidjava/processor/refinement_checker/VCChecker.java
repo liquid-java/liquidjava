@@ -53,6 +53,7 @@ public class VCChecker {
         TranslationTable map = new TranslationTable();
         String[] s = { Keys.WILDCARD, Keys.THIS };
         VCImplication impl = joinPredicates(expectedType, mainVars, lrv, map);
+        VCImplication implBeforeChange = impl.clone();
         Predicate premisesBeforeChange = impl.toConjunctions();
         Predicate premises;
         Predicate expected;
@@ -82,7 +83,7 @@ public class VCChecker {
         DebugLog.smtResult(result);
         if (result.isError()) {
             throw new RefinementError(element.getPosition(), expectedType.simplify(context),
-                    premisesBeforeChange.simplify(context), map, result.getCounterexample(), customMessage);
+                    implBeforeChange.simplify(), map, result.getCounterexample(), customMessage);
         }
     }
 
@@ -405,8 +406,8 @@ public class VCChecker {
     protected void throwRefinementError(SourcePosition position, Predicate expected, Predicate found,
             Counterexample counterexample, String customMessage) throws RefinementError {
         TranslationTable map = new TranslationTable();
-        Predicate premises = buildPremiseChain(map, expected, found).toConjunctions();
-        throw new RefinementError(position, expected.simplify(context), premises.simplify(context), map, counterexample,
+        VCImplication premises = buildPremiseChain(map, expected, found);
+        throw new RefinementError(position, expected.simplify(context), premises.simplify(), map, counterexample,
                 customMessage);
     }
 
@@ -414,8 +415,7 @@ public class VCChecker {
             String customMessage) throws StateRefinementError {
         TranslationTable map = new TranslationTable();
         VCImplication foundState = buildPremiseChain(map, expected, found);
-        throw new StateRefinementError(position, expected.simplify(context),
-                foundState.toConjunctions().simplify(context), map, customMessage);
+        throw new StateRefinementError(position, expected.simplify(context), foundState.simplify(), map, customMessage);
     }
 
     protected void throwStateConflictError(SourcePosition position, Predicate expected) throws StateConflictError {

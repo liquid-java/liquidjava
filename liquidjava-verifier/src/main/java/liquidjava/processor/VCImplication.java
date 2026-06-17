@@ -93,6 +93,10 @@ public class VCImplication {
         return VCSimplification.simplifyToFixedPoint(this);
     }
 
+    public Predicate toPredicate() {
+        return hasBinder() || hasNext() ? toConjunctions() : refinement;
+    }
+
     public Predicate toConjunctions() {
         Predicate c = new Predicate();
         if (name == null && type == null && next == null)
