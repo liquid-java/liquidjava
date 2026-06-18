@@ -68,6 +68,7 @@ public class VCTestUtils {
     private static void assertSimplifiedVC(VCImplication implication, String... expected) {
         VCImplication current = implication;
         for (int i = 0; i < expected.length; i++) {
+            assertNotNull(current, "Expected implication " + i + " with refinement " + expected[i]);
             assertEquals(Predicate.class, current.getRefinement().getClass(),
                     "Expected simplified refinement at implication " + i + " to be a plain Predicate");
             assertEquals(expected[i], formatRefinement(current),

@@ -34,6 +34,12 @@ class VCSimplificationTest {
     }
 
     @Test
+    void simplifyCombinesSubstitutionWithArithmeticAndLogicalSimplification() {
+        assertSimplificationSteps(vc("∀x:int. x == y + 0", "x > 0 && true"), step("y + 0 > 0 && true"),
+                step("y > 0 && true"), step("y > 0"));
+    }
+
+    @Test
     void simplifyOnceAppliesBinderSimplificationBeforeFolding() {
         assertSimplificationSteps(vc("∀x:int. true", "1 + 2 > 0"), step("1 + 2 > 0"), step("3 > 0"));
     }
@@ -44,13 +50,24 @@ class VCSimplificationTest {
     }
 
     @Test
+    void simplifyOnceAppliesBinderSimplificationBeforeArithmeticSimplification() {
+        assertSimplificationSteps(vc("∀x:int. true", "y + 0 > 0"), step("y + 0 > 0"), step("y > 0"));
+    }
+
+    @Test
     void simplifyOnceAppliesFoldingWhenNoSubstitutionIsAvailable() {
         assertSimplificationSteps(vc("1 + 2 > 2"), step("3 > 2"), step("true"));
     }
 
     @Test
     void simplifyOnceAppliesFoldingBeforeArithmeticSimplification() {
-        assertSimplificationSteps(vc("1 + 2 + x + 0 > 0"), step("3 + x + 0 > 0"));
+        assertSimplificationSteps(vc("1 + 2 + x + 0 > 0"), step("3 + x + 0 > 0"), step("3 + x > 0"));
+    }
+
+    @Test
+    void simplifyCombinesFoldingArithmeticAndLogicalSimplification() {
+        assertSimplificationSteps(vc("1 + 2 + x + 0 == 3 + x"), step("3 + x + 0 == 3 + x"), step("3 + x == 3 + x"),
+                step("true"));
     }
 
     @Test
@@ -64,8 +81,42 @@ class VCSimplificationTest {
     }
 
     @Test
+    void simplifyOnceAppliesArithmeticBeforeFoldingOnNextStep() {
+        assertSimplificationSteps(vc("x - x == 0"), step("0 == 0"), step("true"));
+    }
+
+    @Test
     void simplifyOnceAppliesLogicalWhenNoEarlierSimplificationIsAvailable() {
         assertSimplificationSteps(vc("x && true"), step("x"));
+    }
+
+    @Test
+    void simplifyUsesFoldingToEnableSubstitutionOnNextStep() {
+        assertSimplificationSteps(vc("∀x:int. (x) == 3", "x > 0"), step("x == 3", "x > 0"), step("3 > 0"),
+                step("true"));
+    }
+
+    @Test
+    void simplifyUsesArithmeticToEnableSubstitutionOnNextStep() {
+        assertSimplificationSteps(vc("∀x:int. x + 0 == 3", "x > 0"), step("x == 3", "x > 0"), step("3 > 0"),
+                step("true"));
+    }
+
+    @Test
+    void simplifyUsesLogicalSimplificationToEnableSubstitutionOnNextStep() {
+        assertSimplificationSteps(vc("∀x:int. true && x == 3", "x > 0"), step("x == 3", "x > 0"), step("3 > 0"),
+                step("true"));
+    }
+
+    @Test
+    void simplifyUsesFoldingToEnableBinderSimplificationOnNextStep() {
+        assertSimplificationSteps(vc("∀x:int. 1 > 2", "y > 0"), step("false", "y > 0"), step("true"));
+    }
+
+    @Test
+    void simplifyUsesArithmeticAndLogicalSimplificationToEnableBinderRemoval() {
+        assertSimplificationSteps(vc("∀x:int. x + 0 == x", "y > 0"), step("x == x", "y > 0"), step("true", "y > 0"),
+                step("y > 0"));
     }
 
     @Test
