@@ -2,6 +2,8 @@ package liquidjava.utils;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import liquidjava.processor.VCImplication;
@@ -59,6 +61,9 @@ public class VCTestUtils {
             assertNull(result.getOrigin(), "Unchanged simplification result should not have an origin");
         } else {
             assertNotNull(result.getOrigin(), "Changed simplification result should have an origin");
+            assertNotSame(result, result.getOrigin(), "Simplification result should not be its own origin");
+            assertNotEquals(result.getImplication(), result.getOrigin().getImplication(),
+                    "Simplification origin should differ from the simplified VC");
             assertEquals(previous.getImplication(), result.getOrigin().getImplication(),
                     "Simplification origin should be the complete previous VC");
         }
