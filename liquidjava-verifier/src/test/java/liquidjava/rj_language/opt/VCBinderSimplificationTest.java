@@ -14,14 +14,14 @@ class VCBinderSimplificationTest {
     void removesTrueBinderWhenVariableIsUnusedDownstream() {
         VCImplication implication = vc("∀x:int. true", "y > 0");
 
-        assertSimplificationSteps(binderSimplification::apply, implication, chain(expect("y > 0", "∀x:int. y > 0")));
+        assertSimplificationSteps(binderSimplification, implication, step("y > 0"));
     }
 
     @Test
     void keepsTrueBinderWhenVariableIsUsedDownstream() {
         VCImplication implication = vc("∀x:int. true", "x > 0");
 
-        assertSimplificationSteps(binderSimplification::apply, implication, chain(expect("true"), expect("x > 0")));
+        assertSimplificationSteps(binderSimplification, implication, step("true", "x > 0"));
     }
 
     @Test
@@ -30,30 +30,28 @@ class VCBinderSimplificationTest {
         VCImplication result = binderSimplification.apply(implication);
 
         assertFalse(result.hasBinder());
-        assertSimplifiedVC(result, expect("true", "∀x:int. false"));
+        assertSimplifiedVC(result, "true");
     }
 
     @Test
     void simplifiesOnlyFirstApplicableBinder() {
         VCImplication implication = vc("∀x:int. true", "∀y:int. true", "z > 0");
 
-        assertSimplificationSteps(binderSimplification::apply, implication,
-                chain(expect("true", "∀x:int. true"), expect("z > 0")));
+        assertSimplificationSteps(binderSimplification, implication, step("true", "z > 0"));
     }
 
     @Test
     void skipsInapplicableTrueBinderAndSimplifiesLaterBinder() {
         VCImplication implication = vc("∀x:int. true", "x > 0", "∀y:int. true", "z > 0");
 
-        assertSimplificationSteps(binderSimplification::apply, implication,
-                chain(expect("true"), expect("x > 0"), expect("z > 0", "∀y:int. z > 0")));
+        assertSimplificationSteps(binderSimplification, implication, step("true", "x > 0", "z > 0"));
     }
 
     @Test
     void ignoresNonBinderBooleanLiterals() {
         VCImplication implication = vc("true", "false");
 
-        assertSimplificationSteps(binderSimplification::apply, implication, chain(expect("true"), expect("false")));
+        assertSimplificationSteps(binderSimplification, implication, step("true", "false"));
     }
 
     @Test
@@ -62,6 +60,6 @@ class VCBinderSimplificationTest {
         VCImplication result = binderSimplification.apply(implication);
 
         assertFalse(result.hasBinder());
-        assertSimplifiedVC(result, expect("true", "∀x:int. true"));
+        assertSimplifiedVC(result, "true");
     }
 }

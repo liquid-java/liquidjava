@@ -21,32 +21,35 @@ public class VCSimplification {
 
         VCSimplificationResult current = new VCSimplificationResult(implication);
         while (true) {
-            VCSimplificationResult simplified = simplifyOnce(current.getImplication(), current);
-            if (simplified.getOrigin() == null)
+            VCSimplificationResult simplified = simplifyOnce(current);
+            if (simplified == current)
                 return current; // fixed point reached
             current = simplified;
         }
     }
 
     /**
-     * Applies one simplification step to a VC chain
+     * Applies one simplification step to a VC chain from all available simplification passes
      */
-    public static VCSimplificationResult simplifyOnce(VCImplication implication) {
-        if (implication == null)
-            return null;
-
-        return simplifyOnce(implication, new VCSimplificationResult(implication));
+    public static VCSimplificationResult simplifyOnce(VCSimplificationResult implication) {
+        for (VCSimplificationPass pass : PASSES) {
+            VCSimplificationResult simplified = simplifyOnce(implication, pass);
+            if (simplified != implication)
+                return simplified;
+        }
+        return implication;
     }
 
     /**
-     * Applies one simplification step to a VC chain, keeping track of the origin of the simplification
+     * Applies one selected simplification pass to a VC chain
      */
-    private static VCSimplificationResult simplifyOnce(VCImplication implication, VCSimplificationResult origin) {
-        for (VCSimplificationPass pass : PASSES) {
-            VCImplication simplified = pass.apply(implication);
-            if (!implication.equals(simplified))
-                return new VCSimplificationResult(simplified, origin);
-        }
-        return new VCSimplificationResult(implication);
+    public static VCSimplificationResult simplifyOnce(VCSimplificationResult implication, VCSimplificationPass pass) {
+        if (implication == null)
+            return null;
+
+        VCImplication simplified = pass.apply(implication.getImplication());
+        if (implication.getImplication().equals(simplified))
+            return implication;
+        return new VCSimplificationResult(simplified, implication);
     }
 }

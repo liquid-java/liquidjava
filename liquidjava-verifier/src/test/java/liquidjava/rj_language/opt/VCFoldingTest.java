@@ -17,9 +17,8 @@ class VCFoldingTest {
     void foldsIntegerArithmeticAndComparisons() {
         VCImplication implication = vc("1 + 2 == 3");
 
-        assertSimplificationSteps(folding::apply, implication, chain(expect("3 == 3", "1 + 2 == 3")),
-                chain(expect("true", "3 == 3")));
-        assertSimplificationSteps(folding::apply, vc("4 > 7"), chain(expect("false", "4 > 7")));
+        assertSimplificationSteps(folding, implication, step("3 == 3"), step("true"));
+        assertSimplificationSteps(folding, vc("4 > 7"), step("false"));
     }
 
     @Test
@@ -27,31 +26,28 @@ class VCFoldingTest {
         VCImplication realArithmetic = vc("1.5 + 2.0 == 3.5");
         VCImplication mixedArithmetic = vc("2 + 0.5 > 2");
 
-        assertSimplificationSteps(folding::apply, realArithmetic, chain(expect("3.5 == 3.5", "1.5 + 2.0 == 3.5")),
-                chain(expect("true", "3.5 == 3.5")));
-        assertSimplificationSteps(folding::apply, mixedArithmetic, chain(expect("2.5 > 2", "2 + 0.5 > 2")),
-                chain(expect("true", "2.5 > 2")));
+        assertSimplificationSteps(folding, realArithmetic, step("3.5 == 3.5"), step("true"));
+        assertSimplificationSteps(folding, mixedArithmetic, step("2.5 > 2"), step("true"));
     }
 
     @Test
     void leavesDivisionAndModuloByZeroUnchanged() {
-        assertSimplificationSteps(folding::apply, vc("4 / 0 == 0"), chain(expect("4 / 0 == 0")));
-        assertSimplificationSteps(folding::apply, vc("4 % 0 == 0"), chain(expect("4 % 0 == 0")));
+        assertSimplificationSteps(folding, vc("4 / 0 == 0"), step("4 / 0 == 0"));
+        assertSimplificationSteps(folding, vc("4 % 0 == 0"), step("4 % 0 == 0"));
     }
 
     @Test
     void leavesRealDivisionAndModuloByZeroUnchanged() {
-        assertSimplificationSteps(folding::apply, vc("4.0 / 0.0 == 0.0"), chain(expect("4.0 / 0.0 == 0.0")));
-        assertSimplificationSteps(folding::apply, vc("4.0 % 0.0 == 0.0"), chain(expect("4.0 % 0.0 == 0.0")));
+        assertSimplificationSteps(folding, vc("4.0 / 0.0 == 0.0"), step("4.0 / 0.0 == 0.0"));
+        assertSimplificationSteps(folding, vc("4.0 % 0.0 == 0.0"), step("4.0 % 0.0 == 0.0"));
     }
 
     @Test
     void foldsIntegerDivisionTowardZeroForNegativeResults() {
         VCImplication implication = vc("(2 - 7) / 2 == -2");
 
-        assertSimplificationSteps(folding::apply, implication, chain(expect("(2 - 7) / 2 == -2", "(2 - 7) / 2 == -2")),
-                chain(expect("-5 / 2 == -2", "(2 - 7) / 2 == -2")), chain(expect("-2 == -2", "-5 / 2 == -2")),
-                chain(expect("-2 == -2", "-2 == -2")), chain(expect("true", "-2 == -2")));
+        assertSimplificationSteps(folding, implication, step("(2 - 7) / 2 == -2"), step("-5 / 2 == -2"),
+                step("-2 == -2"), step("-2 == -2"), step("true"));
     }
 
     @Test
@@ -59,74 +55,67 @@ class VCFoldingTest {
         VCImplication negativeDividend = vc("-5 % 2 < 0");
         VCImplication negativeDivisor = vc("5 % -2 > 0");
 
-        assertSimplificationSteps(folding::apply, negativeDividend, chain(expect("-5 % 2 < 0", "-5 % 2 < 0")),
-                chain(expect("-1 < 0", "-5 % 2 < 0")), chain(expect("true", "-1 < 0")));
-        assertSimplificationSteps(folding::apply, negativeDivisor, chain(expect("5 % -2 > 0", "5 % -2 > 0")),
-                chain(expect("1 > 0", "5 % -2 > 0")), chain(expect("true", "1 > 0")));
+        assertSimplificationSteps(folding, negativeDividend, step("-5 % 2 < 0"), step("-1 < 0"), step("true"));
+        assertSimplificationSteps(folding, negativeDivisor, step("5 % -2 > 0"), step("1 > 0"), step("true"));
     }
 
     @Test
     void foldsBooleanBinaryExpressions() {
-        assertSimplificationSteps(folding::apply, vc("true && false"), chain(expect("false", "true && false")));
-        assertSimplificationSteps(folding::apply, vc("false --> true"), chain(expect("true", "false --> true")));
-        assertSimplificationSteps(folding::apply, vc("true != false"), chain(expect("true", "true != false")));
+        assertSimplificationSteps(folding, vc("true && false"), step("false"));
+        assertSimplificationSteps(folding, vc("false --> true"), step("true"));
+        assertSimplificationSteps(folding, vc("true != false"), step("true"));
     }
 
     @Test
     void foldsBooleanSubexpressionsInsideLargerExpression() {
-        assertSimplificationSteps(folding::apply, vc("true && false || ok"),
-                chain(expect("false || ok", "true && false || ok")));
+        assertSimplificationSteps(folding, vc("true && false || ok"), step("false || ok"));
     }
 
     @Test
     void foldsNestedConstantsInsideLargerExpression() {
-        assertSimplificationSteps(folding::apply, vc("x > 1 + 2"), chain(expect("x > 3", "x > 1 + 2")));
-        assertSimplificationSteps(folding::apply, vc("x + 1 + 2 > 4"), chain(expect("x + 3 > 4", "x + 1 + 2 > 4")));
+        assertSimplificationSteps(folding, vc("x > 1 + 2"), step("x > 3"));
+        assertSimplificationSteps(folding, vc("x + 1 + 2 > 4"), step("x + 3 > 4"));
     }
 
     @Test
     void foldsPartialComparisonsWithoutDroppingSymbolicTerms() {
-        assertSimplificationSteps(folding::apply, vc("1 + 2 < x + 4"), chain(expect("3 < x + 4", "1 + 2 < x + 4")));
+        assertSimplificationSteps(folding, vc("1 + 2 < x + 4"), step("3 < x + 4"));
     }
 
     @Test
     void foldsUnaryExpressions() {
-        assertSimplificationSteps(folding::apply, vc("!true"), chain(expect("false", "!true")));
+        assertSimplificationSteps(folding, vc("!true"), step("false"));
         VCImplication implication = vc("-3 < 0");
 
-        assertSimplificationSteps(folding::apply, implication, chain(expect("-3 < 0", "-3 < 0")),
-                chain(expect("true", "-3 < 0")));
+        assertSimplificationSteps(folding, implication, step("-3 < 0"), step("true"));
     }
 
     @Test
     void foldsIteExpressions() {
-        assertSimplificationSteps(folding::apply, vc("true ? a : b"), chain(expect("a", "true ? a : b")));
-        assertSimplificationSteps(folding::apply, vc("false ? a : b"), chain(expect("b", "false ? a : b")));
-        assertSimplificationSteps(folding::apply, vc("cond ? b : b"), chain(expect("b", "cond ? b : b")));
+        assertSimplificationSteps(folding, vc("true ? a : b"), step("a"));
+        assertSimplificationSteps(folding, vc("false ? a : b"), step("b"));
+        assertSimplificationSteps(folding, vc("cond ? b : b"), step("b"));
     }
 
     @Test
     void foldsIteBranchesBeforeComparingThem() {
         VCImplication implication = vc("cond ? 1 + 2 : 3");
 
-        assertSimplificationSteps(folding::apply, implication, chain(expect("cond ? 3 : 3", "cond ? 1 + 2 : 3")),
-                chain(expect("3", "cond ? 3 : 3")));
+        assertSimplificationSteps(folding, implication, step("cond ? 3 : 3"), step("3"));
     }
 
     @Test
     void foldsAdjacentIntegerConstants() {
-        assertSimplificationSteps(folding::apply, vc("x + 1 - 2"), chain(expect("x - 1", "x + 1 - 2")));
-        assertSimplificationSteps(folding::apply, vc("x - 1 + 2"), chain(expect("x + 1", "x - 1 + 2")));
-        assertSimplificationSteps(folding::apply, vc("x + 1 + 2"), chain(expect("x + 3", "x + 1 + 2")));
-        assertSimplificationSteps(folding::apply, vc("x + 1 - 1"), chain(expect("x", "x + 1 - 1")));
+        assertSimplificationSteps(folding, vc("x + 1 - 2"), step("x - 1"));
+        assertSimplificationSteps(folding, vc("x - 1 + 2"), step("x + 1"));
+        assertSimplificationSteps(folding, vc("x + 1 + 2"), step("x + 3"));
+        assertSimplificationSteps(folding, vc("x + 1 - 1"), step("x"));
     }
 
     @Test
     void foldsEnumEqualityAndInequality() {
-        assertSimplificationSteps(folding::apply, vc("Mode.Photo == Mode.Photo"),
-                chain(expect("true", "Mode.Photo == Mode.Photo")));
-        assertSimplificationSteps(folding::apply, vc("Mode.Photo != Mode.Video"),
-                chain(expect("true", "Mode.Photo != Mode.Video")));
+        assertSimplificationSteps(folding, vc("Mode.Photo == Mode.Photo"), step("true"));
+        assertSimplificationSteps(folding, vc("Mode.Photo != Mode.Video"), step("true"));
     }
 
     @Test
@@ -136,8 +125,7 @@ class VCFoldingTest {
         VCImplication implication = new VCImplication(
                 new Predicate(new BinaryExpression(limit, "==", new LiteralInt(3))));
 
-        assertSimplificationSteps(folding::apply, implication, chain(expect("3 == 3", "Config.LIMIT == 3")),
-                chain(expect("true", "3 == 3")));
+        assertSimplificationSteps(folding, implication, step("3 == 3"), step("true"));
     }
 
     @Test
@@ -148,27 +136,25 @@ class VCFoldingTest {
         VCImplication implication = new VCImplication(
                 new Predicate(new BinaryExpression(arithmetic, "==", new LiteralInt(5))));
 
-        assertSimplificationSteps(folding::apply, implication, chain(expect("3 + 2 == 5", "Config.LIMIT + 2 == 5")),
-                chain(expect("5 == 5", "3 + 2 == 5")), chain(expect("true", "5 == 5")));
+        assertSimplificationSteps(folding, implication, step("3 + 2 == 5"), step("5 == 5"), step("true"));
     }
 
     @Test
     void recordsOriginWhenOnlyGroupIsUnwrapped() {
         VCImplication implication = vc("(x > 0)");
-        VCImplication result = assertSimplificationSteps(folding::apply, implication, chain(expect("x > 0", "x > 0")));
+        VCSimplificationResult result = assertSimplificationSteps(folding, implication, step("x > 0"));
 
-        assertEquals("x > 0", result.getRefinement().toString());
+        assertEquals("x > 0", result.getImplication().getRefinement().toString());
     }
 
     @Test
     void recordsOriginWhenFoldingLaterImplication() {
         VCImplication implication = vc("x > 0", "1 + 2 > 0");
 
-        VCImplication result = assertSimplificationSteps(folding::apply, implication,
-                chain(expect("x > 0"), expect("3 > 0", "1 + 2 > 0")));
+        VCSimplificationResult result = assertSimplificationSteps(folding, implication, step("x > 0", "3 > 0"));
 
-        result = assertSimplificationSteps(folding::apply, result, chain(expect("x > 0"), expect("true", "3 > 0")));
-        assertEquals("true", result.getNext().getRefinement().getExpression().toDisplayString());
+        result = assertSimplificationSteps(folding, result.getImplication(), step("x > 0", "true"));
+        assertEquals("true", result.getImplication().getNext().getRefinement().getExpression().toDisplayString());
     }
 
 }
