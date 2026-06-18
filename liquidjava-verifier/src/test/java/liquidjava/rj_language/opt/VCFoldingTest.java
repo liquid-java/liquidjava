@@ -1,7 +1,6 @@
 package liquidjava.rj_language.opt;
 
 import static liquidjava.utils.VCTestUtils.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.BinaryExpression;
@@ -15,19 +14,14 @@ class VCFoldingTest {
 
     @Test
     void foldsIntegerArithmeticAndComparisons() {
-        VCImplication implication = vc("1 + 2 == 3");
-
-        assertSimplificationSteps(folding, implication, step("3 == 3"), step("true"));
+        assertSimplificationSteps(folding, vc("1 + 2 == 3"), step("3 == 3"), step("true"));
         assertSimplificationSteps(folding, vc("4 > 7"), step("false"));
     }
 
     @Test
     void foldsRealAndMixedNumericExpressions() {
-        VCImplication realArithmetic = vc("1.5 + 2.0 == 3.5");
-        VCImplication mixedArithmetic = vc("2 + 0.5 > 2");
-
-        assertSimplificationSteps(folding, realArithmetic, step("3.5 == 3.5"), step("true"));
-        assertSimplificationSteps(folding, mixedArithmetic, step("2.5 > 2"), step("true"));
+        assertSimplificationSteps(folding, vc("1.5 + 2.0 == 3.5"), step("3.5 == 3.5"), step("true"));
+        assertSimplificationSteps(folding, vc("2 + 0.5 > 2"), step("2.5 > 2"), step("true"));
     }
 
     @Test
@@ -44,19 +38,14 @@ class VCFoldingTest {
 
     @Test
     void foldsIntegerDivisionTowardZeroForNegativeResults() {
-        VCImplication implication = vc("(2 - 7) / 2 == -2");
-
-        assertSimplificationSteps(folding, implication, step("(2 - 7) / 2 == -2"), step("-5 / 2 == -2"),
+        assertSimplificationSteps(folding, vc("(2 - 7) / 2 == -2"), step("(2 - 7) / 2 == -2"), step("-5 / 2 == -2"),
                 step("-2 == -2"), step("-2 == -2"), step("true"));
     }
 
     @Test
     void foldsIntegerModuloWithJavaSignedRemainder() {
-        VCImplication negativeDividend = vc("-5 % 2 < 0");
-        VCImplication negativeDivisor = vc("5 % -2 > 0");
-
-        assertSimplificationSteps(folding, negativeDividend, step("-5 % 2 < 0"), step("-1 < 0"), step("true"));
-        assertSimplificationSteps(folding, negativeDivisor, step("5 % -2 > 0"), step("1 > 0"), step("true"));
+        assertSimplificationSteps(folding, vc("-5 % 2 < 0"), step("-5 % 2 < 0"), step("-1 < 0"), step("true"));
+        assertSimplificationSteps(folding, vc("5 % -2 > 0"), step("5 % -2 > 0"), step("1 > 0"), step("true"));
     }
 
     @Test
@@ -85,9 +74,7 @@ class VCFoldingTest {
     @Test
     void foldsUnaryExpressions() {
         assertSimplificationSteps(folding, vc("!true"), step("false"));
-        VCImplication implication = vc("-3 < 0");
-
-        assertSimplificationSteps(folding, implication, step("-3 < 0"), step("true"));
+        assertSimplificationSteps(folding, vc("-3 < 0"), step("-3 < 0"), step("true"));
     }
 
     @Test
@@ -99,9 +86,7 @@ class VCFoldingTest {
 
     @Test
     void foldsIteBranchesBeforeComparingThem() {
-        VCImplication implication = vc("cond ? 1 + 2 : 3");
-
-        assertSimplificationSteps(folding, implication, step("cond ? 3 : 3"), step("3"));
+        assertSimplificationSteps(folding, vc("cond ? 1 + 2 : 3"), step("cond ? 3 : 3"), step("3"));
     }
 
     @Test
@@ -116,6 +101,16 @@ class VCFoldingTest {
     void foldsEnumEqualityAndInequality() {
         assertSimplificationSteps(folding, vc("Mode.Photo == Mode.Photo"), step("true"));
         assertSimplificationSteps(folding, vc("Mode.Photo != Mode.Video"), step("true"));
+    }
+
+    @Test
+    void recordsOriginWhenOnlyGroupIsUnwrapped() {
+        assertSimplificationSteps(folding, vc("(x > 0)"), step("x > 0"));
+    }
+
+    @Test
+    void recordsOriginWhenFoldingLaterImplication() {
+        assertSimplificationSteps(folding, vc("x > 0", "1 + 2 > 0"), step("x > 0", "3 > 0"), step("x > 0", "true"));
     }
 
     @Test
@@ -138,23 +133,4 @@ class VCFoldingTest {
 
         assertSimplificationSteps(folding, implication, step("3 + 2 == 5"), step("5 == 5"), step("true"));
     }
-
-    @Test
-    void recordsOriginWhenOnlyGroupIsUnwrapped() {
-        VCImplication implication = vc("(x > 0)");
-        VCSimplificationResult result = assertSimplificationSteps(folding, implication, step("x > 0"));
-
-        assertEquals("x > 0", result.getImplication().getRefinement().toString());
-    }
-
-    @Test
-    void recordsOriginWhenFoldingLaterImplication() {
-        VCImplication implication = vc("x > 0", "1 + 2 > 0");
-
-        VCSimplificationResult result = assertSimplificationSteps(folding, implication, step("x > 0", "3 > 0"));
-
-        result = assertSimplificationSteps(folding, result.getImplication(), step("x > 0", "true"));
-        assertEquals("true", result.getImplication().getNext().getRefinement().getExpression().toDisplayString());
-    }
-
 }

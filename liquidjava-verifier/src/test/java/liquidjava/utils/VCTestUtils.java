@@ -31,36 +31,6 @@ public class VCTestUtils {
         return first;
     }
 
-    private static VCImplication parseImplication(String implication) {
-        if (!implication.startsWith("∀"))
-            return new VCImplication(new Predicate(RefinementsParser.createAST(implication, "")));
-
-        int refinementStart = implication.indexOf('.');
-        String binder = implication.substring(1, refinementStart).trim();
-        String refinement = implication.substring(refinementStart + 1).trim();
-        String[] parts = binder.split(":");
-        return new VCImplication(parts[0].trim(), type(parts[1].trim()),
-                new Predicate(RefinementsParser.createAST(refinement, "")));
-    }
-
-    private static CtTypeReference<?> type(String name) {
-        if ("int".equals(name))
-            return INT;
-        throw new IllegalArgumentException("Unsupported test type: " + name);
-    }
-
-    public static void assertSimplifiedVC(VCImplication implication, String... expected) {
-        VCImplication current = implication;
-        for (int i = 0; i < expected.length; i++) {
-            assertEquals(Predicate.class, current.getRefinement().getClass(),
-                    "Expected simplified refinement at implication " + i + " to be a plain Predicate");
-            assertEquals(expected[i], formatRefinement(current),
-                    "Unexpected simplified expression at implication " + i);
-            current = current.getNext();
-        }
-        assertNull(current, "Expected VC chain to end after " + expected.length + " implications");
-    }
-
     public static VCSimplificationResult assertSimplificationSteps(VCImplication implication,
             ExpectedSimplificationStep... expectedSteps) {
         VCSimplificationResult current = new VCSimplificationResult(implication);
@@ -95,12 +65,42 @@ public class VCTestUtils {
         assertSimplifiedVC(result.getImplication(), expectedStep.implications());
     }
 
-    public static ExpectedSimplificationStep step(String... implications) {
-        return new ExpectedSimplificationStep(implications);
+    private static void assertSimplifiedVC(VCImplication implication, String... expected) {
+        VCImplication current = implication;
+        for (int i = 0; i < expected.length; i++) {
+            assertEquals(Predicate.class, current.getRefinement().getClass(),
+                    "Expected simplified refinement at implication " + i + " to be a plain Predicate");
+            assertEquals(expected[i], formatRefinement(current),
+                    "Unexpected simplified expression at implication " + i);
+            current = current.getNext();
+        }
+        assertNull(current, "Expected VC chain to end after " + expected.length + " implications");
+    }
+
+    private static VCImplication parseImplication(String implication) {
+        if (!implication.startsWith("∀"))
+            return new VCImplication(new Predicate(RefinementsParser.createAST(implication, "")));
+
+        int refinementStart = implication.indexOf('.');
+        String binder = implication.substring(1, refinementStart).trim();
+        String refinement = implication.substring(refinementStart + 1).trim();
+        String[] parts = binder.split(":");
+        return new VCImplication(parts[0].trim(), type(parts[1].trim()),
+                new Predicate(RefinementsParser.createAST(refinement, "")));
+    }
+
+    private static CtTypeReference<?> type(String name) {
+        if ("int".equals(name))
+            return INT;
+        throw new IllegalArgumentException("Unsupported test type: " + name);
     }
 
     private static String formatRefinement(VCImplication implication) {
         return implication.getRefinement().getExpression().toDisplayString();
+    }
+
+    public static ExpectedSimplificationStep step(String... implications) {
+        return new ExpectedSimplificationStep(implications);
     }
 
     public record ExpectedSimplificationStep(String... implications) {

@@ -1,7 +1,6 @@
 package liquidjava.rj_language.opt;
 
 import static liquidjava.utils.VCTestUtils.*;
-import liquidjava.processor.VCImplication;
 import org.junit.jupiter.api.Test;
 
 class VCArithmeticSimplificationTest {
@@ -57,8 +56,6 @@ class VCArithmeticSimplificationTest {
 
     @Test
     void recordsOriginWhenSimplifyingLaterImplication() {
-        VCImplication implication = vc("x > 0", "y + 0 > x");
-
-        assertSimplificationSteps(simplification, implication, step("x > 0", "y > x"));
+        assertSimplificationSteps(simplification, vc("x > 0", "y + 0 > x"), step("x > 0", "y > x"));
     }
 }
