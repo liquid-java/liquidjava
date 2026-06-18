@@ -2,14 +2,10 @@ package liquidjava.rj_language.opt;
 
 import static liquidjava.utils.VCTestUtils.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-
-import liquidjava.processor.SimplifiedVCImplication;
 import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Enum;
-import liquidjava.rj_language.ast.GroupExpression;
 import liquidjava.rj_language.ast.LiteralInt;
 import org.junit.jupiter.api.Test;
 
@@ -161,9 +157,7 @@ class VCFoldingTest {
         VCImplication implication = vc("(x > 0)");
         VCImplication result = assertSimplificationSteps(folding::apply, implication, chain(expect("x > 0", "x > 0")));
 
-        SimplifiedVCImplication simplified = assertInstanceOf(SimplifiedVCImplication.class, result);
-        assertEquals("x > 0", simplified.getRefinement().toString());
-        assertInstanceOf(GroupExpression.class, simplified.getOrigin().getRefinement().getExpression());
+        assertEquals("x > 0", result.getRefinement().toString());
     }
 
     @Test
@@ -173,13 +167,8 @@ class VCFoldingTest {
         VCImplication result = assertSimplificationSteps(folding::apply, implication,
                 chain(expect("x > 0"), expect("3 > 0", "1 + 2 > 0")));
 
-        SimplifiedVCImplication simplifiedNext = assertInstanceOf(SimplifiedVCImplication.class, result.getNext());
-        assertEquals("1 + 2 > 0", simplifiedNext.getOrigin().getRefinement().getExpression().toDisplayString());
-
         result = assertSimplificationSteps(folding::apply, result, chain(expect("x > 0"), expect("true", "3 > 0")));
-
-        simplifiedNext = assertInstanceOf(SimplifiedVCImplication.class, result.getNext());
-        assertEquals("3 > 0", simplifiedNext.getOrigin().getRefinement().getExpression().toDisplayString());
+        assertEquals("true", result.getNext().getRefinement().getExpression().toDisplayString());
     }
 
 }

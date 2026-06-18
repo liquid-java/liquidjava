@@ -4,6 +4,7 @@ import java.util.Objects;
 
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.opt.VCSimplification;
+import liquidjava.rj_language.opt.VCSimplificationResult;
 import liquidjava.utils.Utils;
 import spoon.reflect.reference.CtTypeReference;
 
@@ -30,21 +31,6 @@ public class VCImplication {
         this.name = implication.name;
         this.type = implication.type;
         this.refinement = ref;
-    }
-
-    public VCImplication getOrigin() {
-        return null;
-    }
-
-    public Predicate getOriginRefinement() {
-        VCImplication origin = getOrigin();
-        if (origin == null)
-            return refinement.clone();
-        return origin.getRefinement().clone();
-    }
-
-    public VCImplication copyWithRefinement(Predicate refinement) {
-        return new VCImplication(this, refinement);
     }
 
     public void setNext(VCImplication c) {
@@ -89,7 +75,7 @@ public class VCImplication {
             return String.format("%-20s %s", "", refinement.toString());
     }
 
-    public VCImplication simplify() {
+    public VCSimplificationResult simplify() {
         return VCSimplification.simplifyToFixedPoint(this);
     }
 

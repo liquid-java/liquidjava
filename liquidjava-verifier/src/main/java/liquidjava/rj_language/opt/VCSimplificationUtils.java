@@ -4,10 +4,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 import liquidjava.processor.VCImplication;
+import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.LiteralBoolean;
 
 public final class VCSimplificationUtils {
+
+    public static VCImplication copyWithRefinement(VCImplication implication, Predicate refinement) {
+        return new VCImplication(implication, refinement);
+    }
 
     public static boolean containsVar(Expression expression, String name) {
         List<String> names = new ArrayList<>();

@@ -1,10 +1,10 @@
 package liquidjava.rj_language.opt;
 
 import static liquidjava.rj_language.opt.VCSimplificationUtils.containsVar;
+import static liquidjava.rj_language.opt.VCSimplificationUtils.copyWithRefinement;
 
 import java.util.Optional;
 
-import liquidjava.processor.SimplifiedVCImplication;
 import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.BinaryExpression;
@@ -56,16 +56,15 @@ public class VCSubstitution implements VCSimplificationPass {
     }
 
     /**
-     * Substitutes a source binder inside one VC node while preserving simplification metadata
+     * Substitutes a source binder inside one VC node
      */
     private VCImplication substituteNode(VCImplication implication, VCImplication node, Expression replacement) {
         Expression exp = implication.getRefinement().getExpression().clone();
         if (!containsVar(exp, node.getName()))
-            return implication.copyWithRefinement(new Predicate(exp));
+            return copyWithRefinement(implication, new Predicate(exp));
 
         Expression substituted = exp.substitute(new Var(node.getName()), replacement.clone());
-        VCImplication origin = new VCImplication(node.getName(), node.getType(), implication.getOriginRefinement());
-        return new SimplifiedVCImplication(implication, new Predicate(substituted), origin);
+        return copyWithRefinement(implication, new Predicate(substituted));
     }
 
     /**

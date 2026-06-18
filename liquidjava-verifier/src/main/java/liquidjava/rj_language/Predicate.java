@@ -10,6 +10,7 @@ import liquidjava.diagnostics.DebugLog;
 import liquidjava.diagnostics.errors.LJError;
 import liquidjava.diagnostics.errors.NotFoundError;
 import liquidjava.processor.VCImplication;
+import liquidjava.rj_language.opt.VCSimplificationResult;
 import liquidjava.processor.context.AliasWrapper;
 import liquidjava.processor.context.Context;
 import liquidjava.processor.context.GhostFunction;
@@ -257,12 +258,6 @@ public class Predicate {
 
     public Predicate getOrigin() {
         return this;
-    }
-
-    public VCImplication simplify() {
-        VCImplication result = new VCImplication(clone()).simplify();
-        DebugLog.simplification(this.getExpression(), result.getRefinement().getExpression());
-        return result;
     }
 
     private static boolean isBooleanLiteral(Expression expr, boolean value) {

@@ -15,16 +15,15 @@ public class VCSimplification {
     /**
      * Applies all available simplification steps to a VC chain until a fixed point is reached
      */
-    public static VCImplication simplifyToFixedPoint(VCImplication implication) {
+    public static VCSimplificationResult simplifyToFixedPoint(VCImplication implication) {
         if (implication == null)
             return null;
 
-        // keep applying simplification steps until a fixed point is reached
-        VCImplication current = implication.clone();
+        VCSimplificationResult current = new VCSimplificationResult(implication);
         while (true) {
-            VCImplication simplified = simplifyOnce(current);
-            if (current.equals(simplified))
-                return simplified; // fixed point reached
+            VCSimplificationResult simplified = simplifyOnce(current.getImplication(), current);
+            if (simplified.getOrigin() == null)
+                return current; // fixed point reached
             current = simplified;
         }
     }
@@ -32,15 +31,22 @@ public class VCSimplification {
     /**
      * Applies one simplification step to a VC chain
      */
-    public static VCImplication simplifyOnce(VCImplication implication) {
+    public static VCSimplificationResult simplifyOnce(VCImplication implication) {
         if (implication == null)
             return null;
 
+        return simplifyOnce(implication, new VCSimplificationResult(implication));
+    }
+
+    /**
+     * Applies one simplification step to a VC chain, keeping track of the origin of the simplification
+     */
+    private static VCSimplificationResult simplifyOnce(VCImplication implication, VCSimplificationResult origin) {
         for (VCSimplificationPass pass : PASSES) {
             VCImplication simplified = pass.apply(implication);
             if (!implication.equals(simplified))
-                return simplified;
+                return new VCSimplificationResult(simplified, origin);
         }
-        return implication;
+        return new VCSimplificationResult(implication);
     }
 }

@@ -32,9 +32,11 @@ public class VCSimplificationPropertyBasedTest {
         VCImplication current = vc;
 
         for (int step = 0; step < MAX_STEPS; step++) {
-            VCImplication simplified = VCSimplification.simplifyOnce(current);
+            VCSimplificationResult result = VCSimplification.simplifyOnce(current);
+            VCImplication simplified = result.getImplication();
             if (current.equals(simplified))
                 return;
+            assertTrue(current.equals(result.getOrigin().getImplication()));
             assertEquivalent(current, simplified, step);
             current = simplified;
         }

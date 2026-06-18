@@ -1,13 +1,14 @@
 package liquidjava.utils;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
 import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.opt.VCSimplificationResult;
 import liquidjava.rj_language.parsing.RefinementsParser;
 import spoon.Launcher;
 import spoon.reflect.reference.CtTypeReference;
@@ -55,15 +56,7 @@ public class VCTestUtils {
             assertEquals(Predicate.class, current.getRefinement().getClass(),
                     "Expected simplified refinement at implication " + i + " to be a plain Predicate");
             assertEquals(expectedPredicate.simplified(), formatRefinement(current),
-                    "Unexpected simplified expression at implication " + i);
-            if (expectedPredicate.origin() == null)
-                assertNull(current.getOrigin(), "Unexpected origin VC at implication " + i);
-            else {
-                VCImplication origin = current.getOrigin();
-                assertNotNull(origin, "Expected origin VC at implication " + i);
-                assertEquals(expectedPredicate.origin(), formatOrigin(origin),
-                        "Unexpected origin VC at implication " + i);
-            }
+                    "Unexpected simplified expression at implication " + i + sourceContext(expectedPredicate));
             current = current.getNext();
         }
         assertNull(current, "Expected VC chain to end after " + expected.length + " implications");
@@ -79,29 +72,41 @@ public class VCTestUtils {
         return current;
     }
 
+    public static VCSimplificationResult assertSimplificationResults(
+            Function<VCImplication, VCSimplificationResult> simplifier, VCImplication implication,
+            ExpectedSimplificationStep... expectedSteps) {
+        VCSimplificationResult current = new VCSimplificationResult(implication);
+        for (ExpectedSimplificationStep expectedStep : expectedSteps) {
+            VCSimplificationResult result = simplifier.apply(current.getImplication());
+            assertEquals(current.getImplication(), result.getOrigin().getImplication(),
+                    "Unexpected whole-chain simplification origin");
+            assertSimplifiedVC(result.getImplication(), expectedStep.implications());
+            current = result;
+        }
+        return current;
+    }
+
     public static ExpectedSimplificationStep chain(ExpectedSimplifiedVCImplication... implications) {
         return new ExpectedSimplificationStep(implications);
     }
 
-    public static ExpectedSimplifiedVCImplication expect(String simplified, String origin) {
-        return new ExpectedSimplifiedVCImplication(simplified, origin);
+    public static ExpectedSimplifiedVCImplication expect(String simplified, String source) {
+        return new ExpectedSimplifiedVCImplication(simplified, source);
     }
 
     public static ExpectedSimplifiedVCImplication expect(String simplified) {
         return new ExpectedSimplifiedVCImplication(simplified, null);
     }
 
-    private static String formatOrigin(VCImplication origin) {
-        if (!origin.hasBinder())
-            return formatRefinement(origin);
-        return "∀" + origin.getName() + ":" + origin.getType().getQualifiedName() + ". " + formatRefinement(origin);
-    }
-
     private static String formatRefinement(VCImplication implication) {
         return implication.getRefinement().getExpression().toDisplayString();
     }
 
-    public record ExpectedSimplifiedVCImplication(String simplified, String origin) {
+    private static String sourceContext(ExpectedSimplifiedVCImplication expected) {
+        return expected.source() == null ? "" : " (rewrite source: " + expected.source() + ")";
+    }
+
+    public record ExpectedSimplifiedVCImplication(String simplified, String source) {
     }
 
     public record ExpectedSimplificationStep(ExpectedSimplifiedVCImplication... implications) {

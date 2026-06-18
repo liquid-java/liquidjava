@@ -1,10 +1,6 @@
 package liquidjava.rj_language.opt;
 
 import static liquidjava.utils.VCTestUtils.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-
-import liquidjava.processor.SimplifiedVCImplication;
 import liquidjava.processor.VCImplication;
 import org.junit.jupiter.api.Test;
 
@@ -67,10 +63,7 @@ class VCArithmeticSimplificationTest {
     void recordsOriginWhenSimplifyingLaterImplication() {
         VCImplication implication = vc("x > 0", "y + 0 > x");
 
-        VCImplication result = assertSimplificationSteps(simplification::apply, implication,
+        assertSimplificationSteps(simplification::apply, implication,
                 chain(expect("x > 0"), expect("y > x", "y + 0 > x")));
-
-        SimplifiedVCImplication simplifiedNext = assertInstanceOf(SimplifiedVCImplication.class, result.getNext());
-        assertEquals("y + 0 > x", simplifiedNext.getOrigin().getRefinement().getExpression().toDisplayString());
     }
 }

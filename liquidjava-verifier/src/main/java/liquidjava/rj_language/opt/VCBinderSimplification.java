@@ -1,10 +1,10 @@
 package liquidjava.rj_language.opt;
 
 import static liquidjava.rj_language.opt.VCSimplificationUtils.containsVar;
+import static liquidjava.rj_language.opt.VCSimplificationUtils.copyWithRefinement;
 import static liquidjava.rj_language.opt.VCSimplificationUtils.isFalse;
 import static liquidjava.rj_language.opt.VCSimplificationUtils.isTrue;
 
-import liquidjava.processor.SimplifiedVCImplication;
 import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.LiteralBoolean;
@@ -41,7 +41,7 @@ public class VCBinderSimplification implements VCSimplificationPass {
         if (next == null)
             return null;
 
-        VCImplication result = implication.copyWithRefinement(implication.getRefinement().clone());
+        VCImplication result = copyWithRefinement(implication, implication.getRefinement().clone());
         result.setNext(next);
         return result;
     }
@@ -53,17 +53,12 @@ public class VCBinderSimplification implements VCSimplificationPass {
         VCImplication next = implication.getNext();
 
         // ∀x. true => P -> P
-        if (next != null) {
-            VCImplication origin = new VCImplication(implication.getName(), implication.getType(),
-                    next.getOriginRefinement());
-            VCImplication result = new SimplifiedVCImplication(next, next.getRefinement().clone(), origin);
-            result.setNext(next.getNext() == null ? null : next.getNext().clone());
-            return result;
-        }
+        if (next != null)
+            return next.clone();
 
         // ∀x. true -> true
         Predicate truePredicate = new Predicate(new LiteralBoolean(true));
-        return new SimplifiedVCImplication(new VCImplication(truePredicate), truePredicate, implication);
+        return new VCImplication(truePredicate);
     }
 
     /**
@@ -72,7 +67,7 @@ public class VCBinderSimplification implements VCSimplificationPass {
     private VCImplication collapseFalseBinder(VCImplication implication) {
         // ∀x. false => P -> true
         Predicate truePredicate = new Predicate(new LiteralBoolean(true));
-        return new SimplifiedVCImplication(new VCImplication(truePredicate), truePredicate, implication);
+        return new VCImplication(truePredicate);
     }
 
     /**

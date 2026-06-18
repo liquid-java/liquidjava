@@ -1,7 +1,6 @@
 package liquidjava.rj_language.opt;
 
 import static liquidjava.utils.VCTestUtils.*;
-
 import liquidjava.processor.VCImplication;
 import org.junit.jupiter.api.Test;
 
@@ -88,7 +87,7 @@ class VCSubstitutionTest {
 
         assertSimplificationSteps(substitution::apply, implication,
                 chain(expect("y == 3 + 1", "∀x:int. y == x + 1"), expect("y > 3", "∀x:int. y > x")),
-                chain(expect("3 + 1 > 3", "∀y:int. y > x")));
+                chain(expect("3 + 1 > 3", "∀y:int. y > 3")));
     }
 
     @Test
