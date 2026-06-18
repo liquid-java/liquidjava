@@ -5,7 +5,6 @@ import liquidjava.rj_language.ast.AliasInvocation;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Enum;
 import liquidjava.rj_language.ast.FunctionInvocation;
-import liquidjava.rj_language.ast.GroupExpression;
 import liquidjava.rj_language.ast.Ite;
 import liquidjava.rj_language.ast.LiteralBoolean;
 import liquidjava.rj_language.ast.LiteralChar;
@@ -22,8 +21,6 @@ public interface ExpressionVisitor<T> {
     T visitBinaryExpression(BinaryExpression exp) throws LJError;
 
     T visitFunctionInvocation(FunctionInvocation fun) throws LJError;
-
-    T visitGroupExpression(GroupExpression exp) throws LJError;
 
     T visitIte(Ite ite) throws LJError;
 

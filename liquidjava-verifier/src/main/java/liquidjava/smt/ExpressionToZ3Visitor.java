@@ -7,7 +7,6 @@ import liquidjava.rj_language.ast.AliasInvocation;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Enum;
 import liquidjava.rj_language.ast.FunctionInvocation;
-import liquidjava.rj_language.ast.GroupExpression;
 import liquidjava.rj_language.ast.Ite;
 import liquidjava.rj_language.ast.LiteralBoolean;
 import liquidjava.rj_language.ast.LiteralChar;
@@ -66,11 +65,6 @@ public class ExpressionToZ3Visitor implements ExpressionVisitor<Expr<?>> {
             argsExpr[i] = fun.getArgs().get(i).accept(this);
         }
         return ctx.makeFunctionInvocation(fun.getName(), argsExpr);
-    }
-
-    @Override
-    public Expr<?> visitGroupExpression(GroupExpression exp) throws LJError {
-        return exp.getExpression().accept(this);
     }
 
     @Override

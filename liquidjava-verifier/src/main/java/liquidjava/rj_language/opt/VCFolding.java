@@ -3,7 +3,6 @@ package liquidjava.rj_language.opt;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Enum;
 import liquidjava.rj_language.ast.Expression;
-import liquidjava.rj_language.ast.GroupExpression;
 import liquidjava.rj_language.ast.Ite;
 import liquidjava.rj_language.ast.LiteralBoolean;
 import liquidjava.rj_language.ast.LiteralInt;
@@ -33,9 +32,6 @@ public class VCFolding extends VCExpressionSimplificationPass<Void> {
             return foldUnary(unary);
         if (expression instanceof Ite ite)
             return foldIte(ite);
-        // (x) -> x
-        if (expression instanceof GroupExpression group && group.getChildren().size() == 1)
-            return group.getExpression().clone();
         return expression.clone();
     }
 

@@ -20,7 +20,6 @@ import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Enum;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.FunctionInvocation;
-import liquidjava.rj_language.ast.GroupExpression;
 import liquidjava.rj_language.ast.Ite;
 import liquidjava.rj_language.ast.LiteralBoolean;
 import liquidjava.rj_language.ast.LiteralChar;
@@ -75,9 +74,6 @@ public class Predicate {
     public Predicate(String ref, CtElement element, String prefix) throws LJError {
         this.prefix = prefix;
         exp = parse(ref, element);
-        if (!(exp instanceof GroupExpression)) {
-            exp = new GroupExpression(exp);
-        }
         exp = resolveStaticFinalConstants(exp, element);
     }
 

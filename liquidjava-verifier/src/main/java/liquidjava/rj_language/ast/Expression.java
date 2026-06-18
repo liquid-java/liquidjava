@@ -86,9 +86,6 @@ public abstract class Expression {
                 || this instanceof FunctionInvocation) {
             return true;
         }
-        if (this instanceof GroupExpression ge) {
-            return ge.getExpression().isBooleanExpression();
-        }
         if (this instanceof BinaryExpression be) {
             return be.isBooleanOperation() || be.isLogicOperation();
         }
@@ -169,7 +166,7 @@ public abstract class Expression {
                     sub = sub.substitute(new Var(s), v);
                 }
                 // substitute by sub in parent
-                e = new GroupExpression(sub);
+                e = sub;
             }
         }
         e.auxSubstituteState(subMap, toChange);
@@ -191,7 +188,7 @@ public abstract class Expression {
                             sub = sub.substitute(new Var(s), v);
                         }
                         // substitute by sub in parent
-                        setChild(i, (sub instanceof GroupExpression) ? sub : new GroupExpression(sub));
+                        setChild(i, sub);
                     }
                 }
                 exp.auxSubstituteState(subMap, toChange);
@@ -228,7 +225,7 @@ public abstract class Expression {
                     }
                     sub = sub.substitute(varExp, aliasExp);
                 }
-                e = new GroupExpression(sub);
+                e = sub;
             }
         }
         e.auxChangeAlias(alias, ctx, f);

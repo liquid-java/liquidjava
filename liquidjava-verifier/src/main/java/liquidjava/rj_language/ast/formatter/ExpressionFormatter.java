@@ -8,7 +8,6 @@ import liquidjava.rj_language.ast.AliasInvocation;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.FunctionInvocation;
-import liquidjava.rj_language.ast.GroupExpression;
 import liquidjava.rj_language.ast.Ite;
 import liquidjava.rj_language.ast.LiteralBoolean;
 import liquidjava.rj_language.ast.LiteralChar;
@@ -41,29 +40,21 @@ public class ExpressionFormatter implements ExpressionVisitor<String> {
     }
 
     private String formatExpression(Expression expression, boolean shouldWrap) {
-        expression = unwrapGroup(expression);
         if (shouldWrap)
             return "(" + formatExpression(expression) + ")";
         return formatExpression(expression);
     }
 
     private String formatOperand(Expression parent, Expression child, boolean rightOperand) {
-        child = unwrapGroup(child);
         return formatExpression(child, needsParentheses(parent, child, rightOperand));
     }
 
     private String formatCondition(Expression child) {
-        return formatExpression(child, unwrapGroup(child) instanceof Ite);
+        return formatExpression(child, child instanceof Ite);
     }
 
     private String formatArguments(List<Expression> args) {
         return args.stream().map(expression -> formatExpression(expression, false)).collect(Collectors.joining(", "));
-    }
-
-    private Expression unwrapGroup(Expression expression) {
-        while (expression instanceof GroupExpression group)
-            expression = group.getExpression();
-        return expression;
     }
 
     private boolean needsParentheses(Expression parent, Expression child, boolean rightOperand) {
@@ -118,11 +109,6 @@ public class ExpressionFormatter implements ExpressionVisitor<String> {
     @Override
     public String visitFunctionInvocation(FunctionInvocation fun) {
         return Utils.getSimpleName(fun.getName()) + "(" + formatArguments(fun.getArgs()) + ")";
-    }
-
-    @Override
-    public String visitGroupExpression(GroupExpression exp) {
-        return formatExpression(exp.getExpression());
     }
 
     @Override

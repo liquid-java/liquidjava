@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.Test;
 
 import liquidjava.diagnostics.errors.SyntaxError;
+import liquidjava.rj_language.ast.BinaryExpression;
+import liquidjava.rj_language.ast.Expression;
 
 class RefinementsParserTest {
 
@@ -32,5 +34,15 @@ class RefinementsParserTest {
     void noHintForUnrelatedSyntaxError() {
         SyntaxError e = assertThrows(SyntaxError.class, () -> RefinementsParser.createAST("a +", ""));
         assertEquals("", e.getDetails());
+    }
+
+    @Test
+    void parenthesesAreRepresentedByExpressionStructure() {
+        Expression expression = RefinementsParser.createAST("(a + b) * c", "");
+        BinaryExpression product = (BinaryExpression) expression;
+        BinaryExpression sum = (BinaryExpression) product.getFirstOperand();
+
+        assertEquals("*", product.getOperator());
+        assertEquals("+", sum.getOperator());
     }
 }

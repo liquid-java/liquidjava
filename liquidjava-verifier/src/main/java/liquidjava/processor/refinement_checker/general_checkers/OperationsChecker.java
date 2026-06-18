@@ -18,7 +18,6 @@ import liquidjava.utils.constants.Types;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
-import liquidjava.rj_language.ast.GroupExpression;
 import org.apache.commons.lang3.NotImplementedException;
 import spoon.reflect.code.BinaryOperatorKind;
 import spoon.reflect.code.CtAssignment;
@@ -344,7 +343,7 @@ public class OperationsChecker {
     }
 
     private Optional<Predicate> unwrapWildcardEquality(Predicate refinement) {
-        Expression expression = unwrapGroupExpression(refinement.getExpression());
+        Expression expression = refinement.getExpression();
         if (expression instanceof BinaryExpression binaryExpression && Ops.EQ.equals(binaryExpression.getOperator())
                 && Keys.WILDCARD.equals(binaryExpression.getFirstOperand().toString())) {
             return Optional.of(new Predicate(binaryExpression.getSecondOperand()));
@@ -360,7 +359,7 @@ public class OperationsChecker {
         if (value.isPresent())
             return value.get();
 
-        Expression expression = unwrapGroupExpression(refinement.getExpression());
+        Expression expression = refinement.getExpression();
         boolean hasWildcard = refinement.getVariableNames().contains(Keys.WILDCARD);
         if (!hasWildcard && !expression.isBooleanExpression())
             return new Predicate(expression);
@@ -374,12 +373,6 @@ public class OperationsChecker {
         Predicate freshRefinement = refinement.substituteVariable(Keys.WILDCARD, newName);
         rtc.getContext().addVarToContext(newName, element.getType(), freshRefinement, element);
         return Predicate.createVar(newName);
-    }
-
-    private Expression unwrapGroupExpression(Expression expression) {
-        while (expression instanceof GroupExpression groupExpression)
-            expression = groupExpression.getExpression();
-        return expression;
     }
 
     /**

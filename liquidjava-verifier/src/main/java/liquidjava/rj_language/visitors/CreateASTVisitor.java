@@ -10,7 +10,6 @@ import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Enum;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.FunctionInvocation;
-import liquidjava.rj_language.ast.GroupExpression;
 import liquidjava.rj_language.ast.Ite;
 import liquidjava.rj_language.ast.LiteralBoolean;
 import liquidjava.rj_language.ast.LiteralInt;
@@ -96,7 +95,7 @@ public class CreateASTVisitor {
 
     private Expression predCreate(ParseTree rc) throws LJError {
         if (rc instanceof PredGroupContext)
-            return new GroupExpression(create(((PredGroupContext) rc).pred()));
+            return create(((PredGroupContext) rc).pred());
         else if (rc instanceof OpLiteralContext)
             return create(((OpLiteralContext) rc).literalExpression());
         else if (rc instanceof OpMinusContext)
