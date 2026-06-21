@@ -45,6 +45,21 @@ class VCSimplificationTest {
     }
 
     @Test
+    void simplifyOnceAppliesFoldingBeforeArithmeticSimplification() {
+        VCImplication implication = vc("1 + 2 + x + 0 > 0");
+
+        assertSimplificationSteps(VCSimplification::simplifyOnce, implication,
+                chain(expect("3 + x + 0 > 0", "1 + 2 + x + 0 > 0")));
+    }
+
+    @Test
+    void simplifyOnceAppliesArithmeticWhenNoSubstitutionOrFoldingIsAvailable() {
+        VCImplication implication = vc("x + 0 > 0");
+
+        assertSimplificationSteps(VCSimplification::simplifyOnce, implication, chain(expect("x > 0", "x + 0 > 0")));
+    }
+
+    @Test
     void simplifyKeepsApplyingStepsUntilFixedPoint() {
         VCImplication implication = vc("∀x:int. x == 1 + 2", "x + 1 > 3");
 
