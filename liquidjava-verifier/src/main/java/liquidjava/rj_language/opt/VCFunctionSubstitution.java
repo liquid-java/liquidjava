@@ -9,7 +9,6 @@ import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.FunctionInvocation;
-import liquidjava.rj_language.ast.GroupExpression;
 
 /**
  * Simplifies VCImplication chains by propagating exact function invocation equalities
@@ -109,9 +108,6 @@ public class VCFunctionSubstitution implements VCSimplificationPass {
      * Extracts a substitution from a top-level equality or conjunction
      */
     private Optional<Substitution> getSubstitution(VCImplication implication, Expression expression) {
-        if (expression instanceof GroupExpression group)
-            return getSubstitution(implication, group.getExpression());
-
         if (expression instanceof BinaryExpression binary && "&&".equals(binary.getOperator())) {
             Optional<Substitution> left = getSubstitution(implication, binary.getFirstOperand());
             if (left.isPresent())
