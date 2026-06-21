@@ -91,9 +91,8 @@ class VCSimplificationTest {
     }
 
     @Test
-    void simplifyUsesFoldingToEnableSubstitutionOnNextStep() {
-        assertSimplificationSteps(vc("∀x:int. (x) == 3", "x > 0"), step("x == 3", "x > 0"), step("3 > 0"),
-                step("true"));
+    void parenthesesDoNotDelaySubstitution() {
+        assertSimplificationSteps(vc("∀x:int. (x) == 3", "x > 0"), step("3 > 0"), step("true"));
     }
 
     @Test

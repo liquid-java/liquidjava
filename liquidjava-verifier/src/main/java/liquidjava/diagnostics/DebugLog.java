@@ -7,7 +7,6 @@ import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
-import liquidjava.rj_language.ast.GroupExpression;
 import liquidjava.utils.Utils;
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.reference.CtTypeReference;
@@ -349,10 +348,6 @@ public final class DebugLog {
     }
 
     private static void flattenConjunction(Expression e, List<Expression> out) {
-        if (e instanceof GroupExpression g) {
-            flattenConjunction(g.getExpression(), out);
-            return;
-        }
         if (e instanceof BinaryExpression b && "&&".equals(b.getOperator())) {
             flattenConjunction(b.getFirstOperand(), out);
             flattenConjunction(b.getSecondOperand(), out);

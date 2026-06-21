@@ -7,7 +7,6 @@ import liquidjava.rj_language.ast.AliasInvocation;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.FunctionInvocation;
-import liquidjava.rj_language.ast.GroupExpression;
 import liquidjava.rj_language.ast.Ite;
 import liquidjava.rj_language.ast.LiteralBoolean;
 import liquidjava.rj_language.ast.LiteralChar;
@@ -51,8 +50,6 @@ public class TypeInfer {
             return boolType(factory);
         else if (e instanceof BinaryExpression)
             return binaryType(ctx, factory, (BinaryExpression) e);
-        else if (e instanceof GroupExpression)
-            return getType(ctx, factory, ((GroupExpression) e).getExpression());
         else if (e instanceof FunctionInvocation)
             return functionType(ctx, (FunctionInvocation) e);
         else if (e instanceof AliasInvocation)

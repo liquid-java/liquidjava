@@ -5,7 +5,6 @@ import static liquidjava.rj_language.opt.VCSimplificationUtils.isTrue;
 
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
-import liquidjava.rj_language.ast.GroupExpression;
 import liquidjava.rj_language.ast.Ite;
 import liquidjava.rj_language.ast.LiteralBoolean;
 import liquidjava.rj_language.ast.UnaryExpression;
@@ -30,8 +29,6 @@ public class VCLogicalSimplification extends VCExpressionSimplificationPass<Void
             return simplifyUnary(unary);
         if (expression instanceof Ite ite)
             return simplifyIte(ite);
-        if (expression instanceof GroupExpression group)
-            return simplifyGroup(group);
         return expression.clone();
     }
 
@@ -92,17 +89,6 @@ public class VCLogicalSimplification extends VCExpressionSimplificationPass<Void
             return new Ite(condition.clone(), thenExpression.clone(), simplifiedElse);
 
         return new Ite(condition.clone(), thenExpression.clone(), elseExpression.clone());
-    }
-
-    /**
-     * Simplifies an expression wrapped in parentheses while preserving the group node
-     */
-    private Expression simplifyGroup(GroupExpression group) {
-        Expression expression = group.getExpression();
-        Expression simplified = simplify(expression);
-        if (!expression.equals(simplified))
-            return new GroupExpression(simplified);
-        return group.clone();
     }
 
     /**

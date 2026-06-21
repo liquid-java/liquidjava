@@ -38,8 +38,8 @@ class VCFoldingTest {
 
     @Test
     void foldsIntegerDivisionTowardZeroForNegativeResults() {
-        assertSimplificationSteps(folding, vc("(2 - 7) / 2 == -2"), step("(2 - 7) / 2 == -2"), step("-5 / 2 == -2"),
-                step("-2 == -2"), step("-2 == -2"), step("true"));
+        assertSimplificationSteps(folding, vc("(2 - 7) / 2 == -2"), step("-5 / 2 == -2"), step("-2 == -2"),
+                step("-2 == -2"), step("true"));
     }
 
     @Test
@@ -104,7 +104,7 @@ class VCFoldingTest {
     }
 
     @Test
-    void recordsOriginWhenOnlyGroupIsUnwrapped() {
+    void leavesParenthesizedExpressionUnchanged() {
         assertSimplificationSteps(folding, vc("(x > 0)"), step("x > 0"));
     }
 
