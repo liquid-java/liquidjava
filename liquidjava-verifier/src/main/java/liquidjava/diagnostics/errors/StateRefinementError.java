@@ -1,7 +1,8 @@
 package liquidjava.diagnostics.errors;
 
 import liquidjava.diagnostics.TranslationTable;
-import liquidjava.rj_language.opt.derivation_node.ValDerivationNode;
+import liquidjava.processor.VCImplication;
+import liquidjava.rj_language.Predicate;
 import spoon.reflect.cu.SourcePosition;
 
 /**
@@ -11,23 +12,24 @@ import spoon.reflect.cu.SourcePosition;
  */
 public class StateRefinementError extends LJError {
 
-    private final ValDerivationNode expected;
-    private final ValDerivationNode found;
+    private final Predicate expected;
+    private final VCImplication found;
 
-    public StateRefinementError(SourcePosition position, ValDerivationNode expected, ValDerivationNode found,
+    public StateRefinementError(SourcePosition position, Predicate expected, VCImplication found,
             TranslationTable translationTable, String customMessage) {
-        super("State Refinement Error", String.format("Expected state %s but found %s",
-                expected.getValue().toDisplayString(), found.getValue().toDisplayString()), position, translationTable,
-                customMessage);
+        super("State Refinement Error",
+                String.format("Expected state %s but found %s", expected.getExpression().toDisplayString(),
+                        found.toPredicate().getExpression().toDisplayString()),
+                position, translationTable, customMessage);
         this.expected = expected;
         this.found = found;
     }
 
-    public ValDerivationNode getExpected() {
+    public Predicate getExpected() {
         return expected;
     }
 
-    public ValDerivationNode getFound() {
+    public VCImplication getFound() {
         return found;
     }
 }

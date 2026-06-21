@@ -56,7 +56,7 @@ public final class DebugLog {
 
     /**
      * Flat-predicate fallback: prints top-level conjuncts in order with no per-variable grouping. Used by SMT entry
-     * points that don't carry the structured per-variable {@link VCImplication} chain (e.g. ExpressionSimplifier).
+     * points that don't carry the structured per-variable {@link VCImplication} chain.
      */
     public static void smtStart(Predicate premises, Predicate conclusion) {
         if (!enabled()) {

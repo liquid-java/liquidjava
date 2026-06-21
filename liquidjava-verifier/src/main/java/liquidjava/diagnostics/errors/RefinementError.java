@@ -5,9 +5,10 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.TranslationTable;
+import liquidjava.processor.VCImplication;
+import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.formatter.VariableFormatter;
-import liquidjava.rj_language.opt.derivation_node.ValDerivationNode;
 import liquidjava.smt.Counterexample;
 import spoon.reflect.cu.SourcePosition;
 
@@ -18,14 +19,15 @@ import spoon.reflect.cu.SourcePosition;
  */
 public class RefinementError extends LJError {
 
-    private final ValDerivationNode expected;
-    private final ValDerivationNode found;
+    private final Predicate expected;
+    private final VCImplication found;
     private final Counterexample counterexample;
 
-    public RefinementError(SourcePosition position, ValDerivationNode expected, ValDerivationNode found,
+    public RefinementError(SourcePosition position, Predicate expected, VCImplication found,
             TranslationTable translationTable, Counterexample counterexample, String customMessage) {
-        super("Refinement Error", String.format("%s is not a subtype of %s", found.getValue().toDisplayString(),
-                expected.getValue().toDisplayString()), position, translationTable, customMessage);
+        super("Refinement Error", String.format("%s is not a subtype of %s",
+                found.toPredicate().getExpression().toDisplayString(), expected.getExpression().toDisplayString()),
+                position, translationTable, customMessage);
         this.expected = expected;
         this.found = found;
         this.counterexample = counterexample;
@@ -44,12 +46,14 @@ public class RefinementError extends LJError {
             return null;
 
         List<String> foundVarNames = new ArrayList<>();
-        found.getValue().getVariableNames(foundVarNames);
+        Expression foundExpression = found.toPredicate().getExpression();
+        Expression expectedExpression = expected.getExpression();
+        foundExpression.getVariableNames(foundVarNames);
         // also keep resolved static-final constants (e.g. Integer.MAX_VALUE) referenced by either side of the
         // subtyping check, so the counterexample maps the symbolic name back to its compile-time value
-        found.getValue().getResolvedConstantNames(foundVarNames);
-        expected.getValue().getResolvedConstantNames(foundVarNames);
-        List<String> foundAssignments = found.getValue().getConjuncts().stream().map(Expression::toString).toList();
+        foundExpression.getResolvedConstantNames(foundVarNames);
+        expectedExpression.getResolvedConstantNames(foundVarNames);
+        List<String> foundAssignments = foundExpression.getConjuncts().stream().map(Expression::toString).toList();
         String counterexampleString = counterexample.assignments().stream()
                 // only include variables that appear in the found value and are not already fixed there
                 .filter(a -> foundVarNames.contains(a.first())
@@ -69,11 +73,11 @@ public class RefinementError extends LJError {
         return counterexample;
     }
 
-    public ValDerivationNode getExpected() {
+    public Predicate getExpected() {
         return expected;
     }
 
-    public ValDerivationNode getFound() {
+    public VCImplication getFound() {
         return found;
     }
 }

@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 import liquidjava.diagnostics.DebugLog;
 import liquidjava.diagnostics.errors.LJError;
 import liquidjava.diagnostics.errors.NotFoundError;
+import liquidjava.processor.VCImplication;
 import liquidjava.processor.context.AliasWrapper;
 import liquidjava.processor.context.Context;
 import liquidjava.processor.context.GhostFunction;
@@ -27,10 +28,8 @@ import liquidjava.rj_language.ast.LiteralLong;
 import liquidjava.rj_language.ast.LiteralReal;
 import liquidjava.rj_language.ast.UnaryExpression;
 import liquidjava.rj_language.ast.Var;
-import liquidjava.utils.StaticConstants;
-import liquidjava.rj_language.opt.derivation_node.ValDerivationNode;
-import liquidjava.rj_language.opt.ExpressionSimplifier;
 import liquidjava.rj_language.parsing.RefinementsParser;
+import liquidjava.utils.StaticConstants;
 import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Keys;
 import liquidjava.utils.constants.Ops;
@@ -260,15 +259,9 @@ public class Predicate {
         return this;
     }
 
-    public ValDerivationNode simplify(Context context) {
-        // collect aliases from context
-        Map<String, AliasDTO> aliases = new HashMap<>();
-        for (AliasWrapper aw : context.getAliases()) {
-            aliases.put(aw.getName(), aw.createAliasDTO());
-        }
-        // simplify expression
-        ValDerivationNode result = ExpressionSimplifier.simplify(exp.clone(), aliases);
-        DebugLog.simplification(this.getExpression(), result.getValue());
+    public VCImplication simplify() {
+        VCImplication result = new VCImplication(clone()).simplify();
+        DebugLog.simplification(this.getExpression(), result.getRefinement().getExpression());
         return result;
     }
 
