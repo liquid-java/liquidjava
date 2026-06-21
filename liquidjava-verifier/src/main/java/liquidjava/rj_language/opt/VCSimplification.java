@@ -8,7 +8,7 @@ import liquidjava.processor.VCImplication;
 public class VCSimplification {
 
     /**
-     * Applies all available simplification steps to a VC chain
+     * Applies all available simplification steps to a VC chain until a fixed point is reached
      */
     public static VCImplication simplifyToFixedPoint(VCImplication implication) {
         if (implication == null)
@@ -18,8 +18,8 @@ public class VCSimplification {
         VCImplication current = implication.clone();
         while (true) {
             VCImplication simplified = simplifyOnce(current);
-            if (current.equals(simplified)) // fixed point reached
-                return simplified;
+            if (current.equals(simplified))
+                return simplified; // fixed point reached
             current = simplified;
         }
     }
@@ -36,7 +36,6 @@ public class VCSimplification {
         if (!implication.equals(substituted))
             return substituted;
 
-        // TODO: add more simplification steps here (e.g., folding)
-        return substituted;
+        return VCFolding.apply(implication);
     }
 }

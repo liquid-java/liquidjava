@@ -48,6 +48,7 @@ public class VCSubstitution {
             return null;
 
         // skip the source node to remove it from the chain and start substitution from the next node
+        // ∀x. x == v => P(x) -> P(v)
         if (implication == node)
             return substitute(implication.getNext(), node, replacement);
 

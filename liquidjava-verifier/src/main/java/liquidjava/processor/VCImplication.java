@@ -3,6 +3,7 @@ package liquidjava.processor;
 import java.util.Objects;
 
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.opt.VCSimplification;
 import liquidjava.utils.Utils;
 import spoon.reflect.reference.CtTypeReference;
 
@@ -83,6 +84,10 @@ public class VCImplication {
                     next != null ? " => \n" + next : "");
         } else
             return String.format("%-20s %s", "", refinement.toString());
+    }
+
+    public VCImplication simplify() {
+        return VCSimplification.simplifyToFixedPoint(this);
     }
 
     public Predicate toConjunctions() {
