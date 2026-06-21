@@ -39,16 +39,14 @@ class VCFoldingTest {
 
     @Test
     void leavesDivisionAndModuloByZeroUnchanged() {
-        assertSimplificationSteps(folding::apply, vc("4 / 0 == 0"), chain(expect("4 / 0 == 0", "4 / 0 == 0")));
-        assertSimplificationSteps(folding::apply, vc("4 % 0 == 0"), chain(expect("4 % 0 == 0", "4 % 0 == 0")));
+        assertSimplificationSteps(folding::apply, vc("4 / 0 == 0"), chain(expect("4 / 0 == 0")));
+        assertSimplificationSteps(folding::apply, vc("4 % 0 == 0"), chain(expect("4 % 0 == 0")));
     }
 
     @Test
     void leavesRealDivisionAndModuloByZeroUnchanged() {
-        assertSimplificationSteps(folding::apply, vc("4.0 / 0.0 == 0.0"),
-                chain(expect("4.0 / 0.0 == 0.0", "4.0 / 0.0 == 0.0")));
-        assertSimplificationSteps(folding::apply, vc("4.0 % 0.0 == 0.0"),
-                chain(expect("4.0 % 0.0 == 0.0", "4.0 % 0.0 == 0.0")));
+        assertSimplificationSteps(folding::apply, vc("4.0 / 0.0 == 0.0"), chain(expect("4.0 / 0.0 == 0.0")));
+        assertSimplificationSteps(folding::apply, vc("4.0 % 0.0 == 0.0"), chain(expect("4.0 % 0.0 == 0.0")));
     }
 
     @Test
@@ -173,13 +171,12 @@ class VCFoldingTest {
         VCImplication implication = vc("x > 0", "1 + 2 > 0");
 
         VCImplication result = assertSimplificationSteps(folding::apply, implication,
-                chain(expect("x > 0", "x > 0"), expect("3 > 0", "1 + 2 > 0")));
+                chain(expect("x > 0"), expect("3 > 0", "1 + 2 > 0")));
 
         SimplifiedVCImplication simplifiedNext = assertInstanceOf(SimplifiedVCImplication.class, result.getNext());
         assertEquals("1 + 2 > 0", simplifiedNext.getOrigin().getRefinement().getExpression().toDisplayString());
 
-        result = assertSimplificationSteps(folding::apply, result,
-                chain(expect("x > 0", "x > 0"), expect("true", "3 > 0")));
+        result = assertSimplificationSteps(folding::apply, result, chain(expect("x > 0"), expect("true", "3 > 0")));
 
         simplifiedNext = assertInstanceOf(SimplifiedVCImplication.class, result.getNext());
         assertEquals("3 > 0", simplifiedNext.getOrigin().getRefinement().getExpression().toDisplayString());

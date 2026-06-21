@@ -33,11 +33,14 @@ public class VCImplication {
     }
 
     public VCImplication getOrigin() {
-        return new VCImplication(this, refinement.clone());
+        return null;
     }
 
     public Predicate getOriginRefinement() {
-        return getOrigin().getRefinement().clone();
+        VCImplication origin = getOrigin();
+        if (origin == null)
+            return refinement.clone();
+        return origin.getRefinement().clone();
     }
 
     public VCImplication copyWithRefinement(Predicate refinement) {

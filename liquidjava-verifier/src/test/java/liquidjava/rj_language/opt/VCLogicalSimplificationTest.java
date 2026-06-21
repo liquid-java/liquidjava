@@ -76,7 +76,7 @@ class VCLogicalSimplificationTest {
         VCImplication implication = vc("x > 0", "y || false");
 
         VCImplication result = assertSimplificationSteps(simplification::apply, implication,
-                chain(expect("x > 0", "x > 0"), expect("y", "y || false")));
+                chain(expect("x > 0"), expect("y", "y || false")));
 
         SimplifiedVCImplication simplifiedNext = assertInstanceOf(SimplifiedVCImplication.class, result.getNext());
         assertEquals("y || false", simplifiedNext.getOrigin().getRefinement().getExpression().toDisplayString());

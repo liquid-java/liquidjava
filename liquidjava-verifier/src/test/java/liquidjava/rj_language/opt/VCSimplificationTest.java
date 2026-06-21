@@ -41,8 +41,8 @@ class VCSimplificationTest {
         VCImplication implication = vc("∀x:int. x == 3", "∀y:int. true", "x > 0");
 
         assertSimplificationSteps(VCSimplification::simplifyOnce, implication,
-                chain(expect("true", "∀y:int. true"), expect("3 > 0", "∀x:int. x > 0")),
-                chain(expect("3 > 0", "∀y:int. x > 0")), chain(expect("true", "3 > 0")));
+                chain(expect("true"), expect("3 > 0", "∀x:int. x > 0")), chain(expect("3 > 0", "∀y:int. x > 0")),
+                chain(expect("true", "3 > 0")));
     }
 
     @Test
@@ -138,9 +138,8 @@ class VCSimplificationTest {
         VCImplication implication = vc("∀x:int. x == 1", "∀y:int. y == x + 1", "∀z:int. z == y + 1", "z == 3");
 
         assertSimplificationSteps(VCSimplification::simplifyOnce, implication,
-                chain(expect("y == 1 + 1", "∀x:int. y == x + 1"), expect("z == y + 1", "∀z:int. z == y + 1"),
-                        expect("z == 3", "z == 3")),
-                chain(expect("z == 1 + 1 + 1", "∀y:int. z == y + 1"), expect("z == 3", "z == 3")),
+                chain(expect("y == 1 + 1", "∀x:int. y == x + 1"), expect("z == y + 1"), expect("z == 3")),
+                chain(expect("z == 1 + 1 + 1", "∀y:int. z == y + 1"), expect("z == 3")),
                 chain(expect("1 + 1 + 1 == 3", "∀z:int. z == 3")), chain(expect("2 + 1 == 3", "1 + 1 + 1 == 3")),
                 chain(expect("3 == 3", "2 + 1 == 3")), chain(expect("true", "3 == 3")));
     }
@@ -150,7 +149,7 @@ class VCSimplificationTest {
         VCImplication implication = vc("∀x:int. x == 1", "∀y:int. y == x + 2", "y - 1 == 2");
 
         assertSimplificationSteps(VCSimplification::simplifyOnce, implication,
-                chain(expect("y == 1 + 2", "∀x:int. y == x + 2"), expect("y - 1 == 2", "y - 1 == 2")),
+                chain(expect("y == 1 + 2", "∀x:int. y == x + 2"), expect("y - 1 == 2")),
                 chain(expect("1 + 2 - 1 == 2", "∀y:int. y - 1 == 2")), chain(expect("3 - 1 == 2", "1 + 2 - 1 == 2")),
                 chain(expect("2 == 2", "3 - 1 == 2")), chain(expect("true", "2 == 2")));
     }
@@ -167,7 +166,6 @@ class VCSimplificationTest {
     void simplifyLeavesUnchangedVcAsPlainPredicates() {
         VCImplication implication = vc("x > 0", "y > x");
 
-        assertSimplificationSteps(VCSimplification::simplifyOnce, implication,
-                chain(expect("x > 0", "x > 0"), expect("y > x", "y > x")));
+        assertSimplificationSteps(VCSimplification::simplifyOnce, implication, chain(expect("x > 0"), expect("y > x")));
     }
 }
