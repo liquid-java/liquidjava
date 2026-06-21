@@ -1,6 +1,7 @@
 package liquidjava.rj_language.opt;
 
-import liquidjava.processor.SimplifiedVCImplication;
+import static liquidjava.rj_language.opt.VCSimplificationUtils.copyWithRefinement;
+
 import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.Expression;
@@ -32,7 +33,7 @@ abstract class VCExpressionSimplificationPass<C> implements VCSimplificationPass
         Expression expression = implication.getRefinement().getExpression();
         Expression simplified = simplify(expression, context);
         if (!expression.equals(simplified)) {
-            VCImplication result = new SimplifiedVCImplication(implication, new Predicate(simplified), implication);
+            VCImplication result = copyWithRefinement(implication, new Predicate(simplified));
             result.setNext(implication.getNext() == null ? null : implication.getNext().clone());
             return result;
         }
@@ -41,7 +42,7 @@ abstract class VCExpressionSimplificationPass<C> implements VCSimplificationPass
         if (implication.getNext() == null || implication.getNext().equals(next))
             return implication;
 
-        VCImplication result = implication.copyWithRefinement(implication.getRefinement().clone());
+        VCImplication result = copyWithRefinement(implication, implication.getRefinement().clone());
         result.setNext(next);
         return result;
     }

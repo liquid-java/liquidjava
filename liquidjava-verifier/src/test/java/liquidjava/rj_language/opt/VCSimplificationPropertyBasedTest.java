@@ -33,16 +33,19 @@ public class VCSimplificationPropertyBasedTest {
     @Property(trials = TRIALS)
     public void eachSimplificationStepPreservesVcSemantics(@From(VCImplicationGenerator.class) VCImplication vc) {
         setUpContext();
-        VCImplication current = vc;
+        VCSimplificationResult current = new VCSimplificationResult(vc);
 
         for (int step = 0; step < MAX_STEPS; step++) {
-            VCImplication simplified = VCSimplification.simplifyOnce(current);
-            if (current.equals(simplified))
+            VCSimplificationResult result = VCSimplification.simplifyOnce(current);
+            VCImplication simplified = result.getImplication();
+            if (result == current)
                 return;
-            assertEquivalent(current, simplified, step);
-            current = simplified;
+            assertTrue(current.getImplication().equals(result.getOrigin().getImplication()));
+            assertEquivalent(current.getImplication(), simplified, step);
+            current = result;
         }
-        fail("VC simplification did not reach a fixed point within " + MAX_STEPS + " steps: " + current);
+        fail("VC simplification did not reach a fixed point within " + MAX_STEPS + " steps: "
+                + current.getImplication());
     }
 
     private static void setUpContext() {

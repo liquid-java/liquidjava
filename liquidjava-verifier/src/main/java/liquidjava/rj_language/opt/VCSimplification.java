@@ -9,39 +9,47 @@ import liquidjava.processor.VCImplication;
  */
 public class VCSimplification {
 
-    private static final List<VCSimplificationPass> PASSES = List.of(new VCSubstitution(), new VCFunctionSubstitution(),
-            new VCBinderSimplification(), new VCFolding(), new VCArithmeticSimplification(),
-            new VCLogicalSimplification());
+    private static final List<VCSimplificationPass> PASSES = List.of(new VCSubstitution(), new VCBinderSimplification(),
+            new VCFolding(), new VCArithmeticSimplification(), new VCLogicalSimplification());
 
     /**
      * Applies all available simplification steps to a VC chain until a fixed point is reached
      */
-    public static VCImplication simplifyToFixedPoint(VCImplication implication) {
+    public static VCSimplificationResult simplifyToFixedPoint(VCImplication implication) {
         if (implication == null)
             return null;
 
-        // keep applying simplification steps until a fixed point is reached
-        VCImplication current = implication.clone();
+        VCSimplificationResult current = new VCSimplificationResult(implication);
         while (true) {
-            VCImplication simplified = simplifyOnce(current);
-            if (current.equals(simplified))
-                return simplified; // fixed point reached
+            VCSimplificationResult simplified = simplifyOnce(current);
+            if (simplified == current)
+                return current; // fixed point reached
             current = simplified;
         }
     }
 
     /**
-     * Applies one simplification step to a VC chain
+     * Applies one simplification step to a VC chain from all available simplification passes
      */
-    public static VCImplication simplifyOnce(VCImplication implication) {
-        if (implication == null)
-            return null;
-
+    public static VCSimplificationResult simplifyOnce(VCSimplificationResult implication) {
         for (VCSimplificationPass pass : PASSES) {
-            VCImplication simplified = pass.apply(implication);
-            if (!implication.equals(simplified))
+            VCSimplificationResult simplified = simplifyOnce(implication, pass);
+            if (simplified != implication)
                 return simplified;
         }
         return implication;
+    }
+
+    /**
+     * Applies one selected simplification pass to a VC chain
+     */
+    public static VCSimplificationResult simplifyOnce(VCSimplificationResult implication, VCSimplificationPass pass) {
+        if (implication == null)
+            return null;
+
+        VCImplication simplified = pass.apply(implication.getImplication());
+        if (implication.getImplication().equals(simplified))
+            return implication;
+        return new VCSimplificationResult(simplified, implication);
     }
 }

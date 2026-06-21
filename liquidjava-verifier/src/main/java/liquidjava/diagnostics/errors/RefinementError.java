@@ -9,6 +9,7 @@ import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.formatter.VariableFormatter;
+import liquidjava.rj_language.opt.VCSimplificationResult;
 import liquidjava.smt.Counterexample;
 import spoon.reflect.cu.SourcePosition;
 
@@ -20,13 +21,15 @@ import spoon.reflect.cu.SourcePosition;
 public class RefinementError extends LJError {
 
     private final Predicate expected;
-    private final VCImplication found;
+    private final VCSimplificationResult found;
     private final Counterexample counterexample;
 
-    public RefinementError(SourcePosition position, Predicate expected, VCImplication found,
+    public RefinementError(SourcePosition position, Predicate expected, VCSimplificationResult found,
             TranslationTable translationTable, Counterexample counterexample, String customMessage) {
-        super("Refinement Error", String.format("%s is not a subtype of %s",
-                found.toPredicate().getExpression().toDisplayString(), expected.getExpression().toDisplayString()),
+        super("Refinement Error",
+                String.format("%s is not a subtype of %s",
+                        found.getImplication().toPredicate().getExpression().toDisplayString(),
+                        expected.getExpression().toDisplayString()),
                 position, translationTable, customMessage);
         this.expected = expected;
         this.found = found;
@@ -46,7 +49,7 @@ public class RefinementError extends LJError {
             return null;
 
         List<String> foundVarNames = new ArrayList<>();
-        Expression foundExpression = found.toPredicate().getExpression();
+        Expression foundExpression = getFound().getImplication().toPredicate().getExpression();
         Expression expectedExpression = expected.getExpression();
         foundExpression.getVariableNames(foundVarNames);
         // also keep resolved static-final constants (e.g. Integer.MAX_VALUE) referenced by either side of the
@@ -77,7 +80,7 @@ public class RefinementError extends LJError {
         return expected;
     }
 
-    public VCImplication getFound() {
+    public VCSimplificationResult getFound() {
         return found;
     }
 }

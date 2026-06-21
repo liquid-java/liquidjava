@@ -1,8 +1,9 @@
 package liquidjava.rj_language.opt;
 
+import static liquidjava.rj_language.opt.VCSimplificationUtils.copyWithRefinement;
+
 import java.util.Optional;
 
-import liquidjava.processor.SimplifiedVCImplication;
 import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.BinaryExpression;
@@ -46,13 +47,13 @@ public class VCFunctionSubstitution implements VCSimplificationPass {
 
         // skip the source node to remove it from the chain and start substitution from the next node
         if (implication == node) {
-            VCImplication result = implication.copyWithRefinement(implication.getRefinement().clone());
-            result.setNext(substituteSuffix(implication.getNext(), node, invocation, replacement));
+            VCImplication result = copyWithRefinement(implication, implication.getRefinement().clone());
+            result.setNext(substituteSuffix(implication.getNext(), invocation, replacement));
             return result;
         }
 
         // preserve the current node and continue rewriting the suffix
-        VCImplication result = implication.copyWithRefinement(implication.getRefinement().clone());
+        VCImplication result = copyWithRefinement(implication, implication.getRefinement().clone());
         result.setNext(substitute(implication.getNext(), node, invocation, replacement));
         return result;
     }
@@ -60,27 +61,27 @@ public class VCFunctionSubstitution implements VCSimplificationPass {
     /**
      * Rewrites every node after the source equality with one function substitution
      */
-    private VCImplication substituteSuffix(VCImplication implication, VCImplication source,
-            FunctionInvocation invocation, Expression replacement) {
+    private VCImplication substituteSuffix(VCImplication implication, FunctionInvocation invocation,
+            Expression replacement) {
         if (implication == null)
             return null;
 
-        VCImplication result = substituteNode(implication, source, invocation, replacement);
-        result.setNext(substituteSuffix(implication.getNext(), source, invocation, replacement));
+        VCImplication result = substituteNode(implication, invocation, replacement);
+        result.setNext(substituteSuffix(implication.getNext(), invocation, replacement));
         return result;
     }
 
     /**
-     * Substitutes one exact function invocation inside one VC node while preserving simplification metadata
+     * Substitutes one exact function invocation inside one VC node
      */
-    private VCImplication substituteNode(VCImplication implication, VCImplication source, FunctionInvocation invocation,
+    private VCImplication substituteNode(VCImplication implication, FunctionInvocation invocation,
             Expression replacement) {
         Expression expression = implication.getRefinement().getExpression().clone();
         if (!containsExpression(expression, invocation))
-            return implication.copyWithRefinement(new Predicate(expression));
+            return copyWithRefinement(implication, new Predicate(expression));
 
         Expression substituted = expression.substitute(invocation, replacement.clone());
-        return new SimplifiedVCImplication(implication, new Predicate(substituted), source);
+        return copyWithRefinement(implication, new Predicate(substituted));
     }
 
     /**
