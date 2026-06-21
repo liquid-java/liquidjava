@@ -145,6 +145,18 @@ class VCSimplificationTest {
     }
 
     @Test
+    void simplifyPropagatesFunctionInvocationEqualitiesBeforeReachingFixedPoint() {
+        VCImplication implication = vc("f(x) == 0", "f(y) == f(x) + 1", "f(y) == 1");
+
+        assertSimplificationSteps(VCSimplification::simplifyOnce, implication,
+                chain(expect("f(x) == 0"), expect("f(y) == 0 + 1", "f(x) == 0"), expect("f(y) == 1")),
+                chain(expect("f(x) == 0"), expect("f(y) == 0 + 1", "f(x) == 0"), expect("0 + 1 == 1", "f(y) == 0 + 1")),
+                chain(expect("f(x) == 0"), expect("f(y) == 1", "f(y) == 0 + 1"), expect("0 + 1 == 1", "f(y) == 0 + 1")),
+                chain(expect("f(x) == 0"), expect("f(y) == 1", "f(y) == 0 + 1"), expect("1 == 1", "0 + 1 == 1")),
+                chain(expect("f(x) == 0"), expect("f(y) == 1", "f(y) == 0 + 1"), expect("true", "1 == 1")));
+    }
+
+    @Test
     void simplifyCombinesSubstitutionAndNestedFoldingAcrossFixedPoint() {
         VCImplication implication = vc("∀x:int. x == 1", "∀y:int. y == x + 2", "y - 1 == 2");
 
