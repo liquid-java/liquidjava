@@ -1,8 +1,5 @@
 package liquidjava.rj_language.opt;
 
-import liquidjava.processor.SimplifiedVCImplication;
-import liquidjava.processor.VCImplication;
-import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Enum;
 import liquidjava.rj_language.ast.Expression;
@@ -16,36 +13,17 @@ import liquidjava.rj_language.ast.UnaryExpression;
 /**
  * Simplifies VCImplication chains by folding constant expressions and other foldable patterns inside refinements
  */
-public class VCFolding {
+public class VCFolding extends VCExpressionSimplificationPass<Void> {
 
-    /**
-     * Applies folding to the first foldable predicate in a VC chain
-     */
-    public static VCImplication apply(VCImplication implication) {
-        if (implication == null)
-            return null;
-
-        Expression expression = implication.getRefinement().getExpression();
-        Expression folded = fold(expression);
-        if (!expression.equals(folded)) {
-            VCImplication result = new SimplifiedVCImplication(implication, new Predicate(folded), implication);
-            result.setNext(implication.getNext() == null ? null : implication.getNext().clone());
-            return result;
-        }
-
-        VCImplication next = apply(implication.getNext());
-        if (implication.getNext() == null || implication.getNext().equals(next))
-            return implication;
-
-        VCImplication result = implication.copyWithRefinement(implication.getRefinement().clone());
-        result.setNext(next);
-        return result;
+    @Override
+    protected Expression simplify(Expression expression, Void context) {
+        return fold(expression);
     }
 
     /**
      * Folds the first foldable expression found
      */
-    private static Expression fold(Expression expression) {
+    private Expression fold(Expression expression) {
         // enum constant -> literal
         if (expression instanceof Enum en && en.getResolvedLiteral() != null)
             return en.getResolvedLiteral().clone();
@@ -64,7 +42,7 @@ public class VCFolding {
     /**
      * Folds a binary expression and its operands
      */
-    private static Expression foldBinary(BinaryExpression binary) {
+    private Expression foldBinary(BinaryExpression binary) {
         Expression left = binary.getFirstOperand();
         Expression foldedLeft = fold(left);
         if (!left.equals(foldedLeft))
@@ -91,7 +69,7 @@ public class VCFolding {
     /**
      * Folds a unary expression and its operand
      */
-    private static Expression foldUnary(UnaryExpression unary) {
+    private Expression foldUnary(UnaryExpression unary) {
         Expression operand = unary.getExpression();
         Expression foldedOperand = fold(operand);
         if (!operand.equals(foldedOperand))
@@ -118,7 +96,7 @@ public class VCFolding {
     /**
      * Folds a conditional expression and its branches
      */
-    private static Expression foldIte(Ite ite) {
+    private Expression foldIte(Ite ite) {
         Expression condition = ite.getCondition();
         Expression foldedCondition = fold(condition);
         if (!condition.equals(foldedCondition))
@@ -149,7 +127,7 @@ public class VCFolding {
     /**
      * Folds a binary expression whose operands are both literals
      */
-    private static Expression foldLiteralBinary(Expression left, Expression right, String op) {
+    private Expression foldLiteralBinary(Expression left, Expression right, String op) {
         if (left instanceof LiteralInt leftInt && right instanceof LiteralInt rightInt)
             return foldInts(leftInt.getValue(), rightInt.getValue(), op);
 
@@ -183,7 +161,7 @@ public class VCFolding {
     /**
      * Combines adjacent integer constants in additions and subtractions
      */
-    private static Expression foldAdjacentInts(Expression left, Expression right, String op) {
+    private Expression foldAdjacentInts(Expression left, Expression right, String op) {
         if (!"+".equals(op) && !"-".equals(op))
             return null;
         if (!(right instanceof LiteralInt rightLiteral))
@@ -213,7 +191,7 @@ public class VCFolding {
     /**
      * Folds integer operations
      */
-    private static Expression foldInts(int left, int right, String op) {
+    private Expression foldInts(int left, int right, String op) {
         return switch (op) {
         case "+" -> new LiteralInt(left + right);
         case "-" -> new LiteralInt(left - right);
@@ -233,7 +211,7 @@ public class VCFolding {
     /**
      * Folds real number operations
      */
-    private static Expression foldReals(double left, double right, String op) {
+    private Expression foldReals(double left, double right, String op) {
         return switch (op) {
         case "+" -> new LiteralReal(left + right);
         case "-" -> new LiteralReal(left - right);
@@ -253,7 +231,7 @@ public class VCFolding {
     /**
      * Folds boolean operations
      */
-    private static Expression foldBooleans(boolean left, boolean right, String op) {
+    private Expression foldBooleans(boolean left, boolean right, String op) {
         return switch (op) {
         case "&&" -> new LiteralBoolean(left && right);
         case "||" -> new LiteralBoolean(left || right);
@@ -267,7 +245,7 @@ public class VCFolding {
     /**
      * Checks whether two expressions mix integer and real literals
      */
-    private static boolean isMixedNumeric(Expression left, Expression right) {
+    private boolean isMixedNumeric(Expression left, Expression right) {
         return left instanceof LiteralInt && right instanceof LiteralReal
                 || left instanceof LiteralReal && right instanceof LiteralInt;
     }
@@ -275,7 +253,7 @@ public class VCFolding {
     /**
      * Reads a numeric literal as a double
      */
-    private static double numericValue(Expression expression) {
+    private double numericValue(Expression expression) {
         if (expression instanceof LiteralInt literal)
             return literal.getValue();
         return ((LiteralReal) expression).getValue();

@@ -1,8 +1,5 @@
 package liquidjava.rj_language.opt;
 
-import liquidjava.processor.SimplifiedVCImplication;
-import liquidjava.processor.VCImplication;
-import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.GroupExpression;
@@ -13,36 +10,17 @@ import liquidjava.rj_language.ast.UnaryExpression;
 /**
  * Simplifies VCImplication chains by applying logical identities inside refinements
  */
-public class VCLogicalSimplification {
+public class VCLogicalSimplification extends VCExpressionSimplificationPass<Void> {
 
-    /**
-     * Applies the first logical simplification available in a VC chain
-     */
-    public static VCImplication apply(VCImplication implication) {
-        if (implication == null)
-            return null;
-
-        Expression expression = implication.getRefinement().getExpression();
-        Expression simplified = simplify(expression);
-        if (!expression.equals(simplified)) {
-            VCImplication result = new SimplifiedVCImplication(implication, new Predicate(simplified), implication);
-            result.setNext(implication.getNext() == null ? null : implication.getNext().clone());
-            return result;
-        }
-
-        VCImplication next = apply(implication.getNext());
-        if (implication.getNext() == null || implication.getNext().equals(next))
-            return implication;
-
-        VCImplication result = implication.copyWithRefinement(implication.getRefinement().clone());
-        result.setNext(next);
-        return result;
+    @Override
+    protected Expression simplify(Expression expression, Void context) {
+        return simplify(expression);
     }
 
     /**
      * Simplifies the first logical identity found inside an expression
      */
-    private static Expression simplify(Expression expression) {
+    private Expression simplify(Expression expression) {
         if (expression instanceof BinaryExpression binary)
             return simplifyBinary(binary);
         if (expression instanceof UnaryExpression unary)
@@ -57,7 +35,7 @@ public class VCLogicalSimplification {
     /**
      * Simplifies a binary expression by visiting operands before the current node
      */
-    private static Expression simplifyBinary(BinaryExpression binary) {
+    private Expression simplifyBinary(BinaryExpression binary) {
         Expression left = binary.getFirstOperand();
         Expression simplifiedLeft = simplify(left);
         if (!left.equals(simplifiedLeft))
@@ -78,7 +56,7 @@ public class VCLogicalSimplification {
     /**
      * Simplifies a unary expression by visiting its operand before the current node
      */
-    private static Expression simplifyUnary(UnaryExpression unary) {
+    private Expression simplifyUnary(UnaryExpression unary) {
         Expression operand = unary.getExpression();
         Expression simplifiedOperand = simplify(operand);
         if (!operand.equals(simplifiedOperand))
@@ -94,7 +72,7 @@ public class VCLogicalSimplification {
     /**
      * Simplifies a ternary expression by visiting condition, then branch, and else branch
      */
-    private static Expression simplifyIte(Ite ite) {
+    private Expression simplifyIte(Ite ite) {
         Expression condition = ite.getCondition();
         Expression simplifiedCondition = simplify(condition);
         if (!condition.equals(simplifiedCondition))
@@ -116,7 +94,7 @@ public class VCLogicalSimplification {
     /**
      * Simplifies an expression wrapped in parentheses while preserving the group node
      */
-    private static Expression simplifyGroup(GroupExpression group) {
+    private Expression simplifyGroup(GroupExpression group) {
         Expression expression = group.getExpression();
         Expression simplified = simplify(expression);
         if (!expression.equals(simplified))
@@ -127,7 +105,7 @@ public class VCLogicalSimplification {
     /**
      * Dispatches a local binary logical identity by operator
      */
-    private static Expression simplifyLocalBinary(Expression left, Expression right, String op) {
+    private Expression simplifyLocalBinary(Expression left, Expression right, String op) {
         return switch (op) {
         case "&&" -> simplifyConjunction(left, right);
         case "||" -> simplifyDisjunction(left, right);
@@ -141,7 +119,7 @@ public class VCLogicalSimplification {
     /**
      * Applies conjunction identities involving boolean literals and same operands
      */
-    private static Expression simplifyConjunction(Expression left, Expression right) {
+    private Expression simplifyConjunction(Expression left, Expression right) {
         // x && true -> x
         if (isTrue(right))
             return left.clone();
@@ -163,7 +141,7 @@ public class VCLogicalSimplification {
     /**
      * Applies disjunction identities involving boolean literals and same operands
      */
-    private static Expression simplifyDisjunction(Expression left, Expression right) {
+    private Expression simplifyDisjunction(Expression left, Expression right) {
         // x || true -> true
         if (isTrue(right))
             return right.clone();
@@ -185,7 +163,7 @@ public class VCLogicalSimplification {
     /**
      * Applies equality identity for same operands
      */
-    private static Expression simplifyEquality(Expression left, Expression right) {
+    private Expression simplifyEquality(Expression left, Expression right) {
         // x == x -> true
         if (left.equals(right))
             return new LiteralBoolean(true);
@@ -195,7 +173,7 @@ public class VCLogicalSimplification {
     /**
      * Applies inequality identity for same operands
      */
-    private static Expression simplifyInequality(Expression left, Expression right) {
+    private Expression simplifyInequality(Expression left, Expression right) {
         // x != x -> false
         if (left.equals(right))
             return new LiteralBoolean(false);
@@ -205,7 +183,7 @@ public class VCLogicalSimplification {
     /**
      * Applies implication identities involving boolean literals and same operands
      */
-    private static Expression simplifyImplication(Expression left, Expression right) {
+    private Expression simplifyImplication(Expression left, Expression right) {
         // x --> true -> true
         if (isTrue(right))
             return right.clone();
@@ -224,28 +202,28 @@ public class VCLogicalSimplification {
     /**
      * Checks whether an expression is true
      */
-    private static boolean isTrue(Expression expression) {
+    private boolean isTrue(Expression expression) {
         return expression instanceof LiteralBoolean literal && literal.isBooleanTrue();
     }
 
     /**
      * Checks whether an expression is false
      */
-    private static boolean isFalse(Expression expression) {
+    private boolean isFalse(Expression expression) {
         return expression instanceof LiteralBoolean literal && !literal.isBooleanTrue();
     }
 
     /**
      * Checks whether an expression is unary logical negation
      */
-    private static boolean isNot(Expression expression) {
+    private boolean isNot(Expression expression) {
         return expression instanceof UnaryExpression unary && "!".equals(unary.getOp());
     }
 
     /**
      * Returns the operand of a unary logical negation expression
      */
-    private static Expression negatedExpression(Expression expression) {
+    private Expression negatedExpression(Expression expression) {
         return ((UnaryExpression) expression).getExpression();
     }
 }

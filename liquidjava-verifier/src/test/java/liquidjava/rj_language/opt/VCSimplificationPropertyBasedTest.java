@@ -1,9 +1,10 @@
 package liquidjava.rj_language.opt;
 
-import static liquidjava.rj_language.opt.VCSubstitution.containsVar;
-import static liquidjava.rj_language.opt.VCSubstitution.isVar;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import com.pholser.junit.quickcheck.From;
 import com.pholser.junit.quickcheck.Property;
@@ -13,6 +14,7 @@ import liquidjava.processor.context.Context;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
+import liquidjava.rj_language.ast.Var;
 import liquidjava.smt.SMTEvaluator;
 import liquidjava.smt.SMTResult;
 import liquidjava.utils.TestUtils;
@@ -85,6 +87,16 @@ public class VCSimplificationPropertyBasedTest {
         Expression left = binary.getFirstOperand();
         Expression right = binary.getSecondOperand();
         return isVar(left, name) && !containsVar(right, name) || isVar(right, name) && !containsVar(left, name);
+    }
+
+    private static boolean isVar(Expression expression, String name) {
+        return expression instanceof Var var && name.equals(var.getName());
+    }
+
+    private static boolean containsVar(Expression expression, String name) {
+        List<String> names = new ArrayList<>();
+        expression.getVariableNames(names);
+        return names.contains(name);
     }
 
     private static void assertImplies(Predicate antecedent, Predicate consequent, VCImplication unsimplified,
