@@ -11,6 +11,7 @@ import com.pholser.junit.quickcheck.Property;
 import com.pholser.junit.quickcheck.runner.JUnitQuickcheck;
 import liquidjava.processor.VCImplication;
 import liquidjava.processor.context.Context;
+import liquidjava.processor.context.GhostFunction;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
@@ -19,12 +20,15 @@ import liquidjava.smt.SMTEvaluator;
 import liquidjava.smt.SMTResult;
 import liquidjava.utils.TestUtils;
 import org.junit.runner.RunWith;
+import spoon.Launcher;
+import spoon.reflect.factory.Factory;
 
 @RunWith(JUnitQuickcheck.class)
 public class VCSimplificationPropertyBasedTest {
 
     private static final int TRIALS = 50; // number of random VCs to test
     private static final int MAX_STEPS = 20; // to prevent infinite loops in case of non-termination
+    private static final Factory FACTORY = new Launcher().getFactory();
 
     @Property(trials = TRIALS)
     public void eachSimplificationStepPreservesVcSemantics(@From(VCImplicationGenerator.class) VCImplication vc) {
@@ -50,6 +54,9 @@ public class VCSimplificationPropertyBasedTest {
             TestUtils.addIntVariableToContext(variable);
         for (String variable : VCImplicationGenerator.FREE_VARS)
             TestUtils.addIntVariableToContext(variable);
+        for (String function : VCImplicationGenerator.FUNCTIONS)
+            Context.getInstance().addGhostFunction(
+                    new GhostFunction(function, List.of("int"), FACTORY.Type().INTEGER_PRIMITIVE, FACTORY, ""));
     }
 
     private static void assertEquivalent(VCImplication unsimplified, VCImplication simplified, int step) {
