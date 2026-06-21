@@ -1,7 +1,7 @@
 package liquidjava.rj_language.opt;
 
-import java.util.ArrayList;
-import java.util.List;
+import static liquidjava.rj_language.opt.VCSimplificationUtils.containsVar;
+
 import java.util.Optional;
 
 import liquidjava.processor.SimplifiedVCImplication;
@@ -113,23 +113,4 @@ public class VCSubstitution implements VCSimplificationPass {
         return expression instanceof Var var && name.equals(var.getName());
     }
 
-    /**
-     * Checks whether an expression contains a variable name
-     */
-    private boolean containsVar(Expression expression, String name) {
-        List<String> names = new ArrayList<>();
-        expression.getVariableNames(names);
-        return names.contains(name);
-    }
-
-    /**
-     * Checks whether a VC suffix contains a variable name
-     */
-    private boolean containsVar(VCImplication implication, String name) {
-        for (VCImplication current = implication; current != null; current = current.getNext()) {
-            if (containsVar(current.getRefinement().getExpression(), name))
-                return true;
-        }
-        return false;
-    }
 }

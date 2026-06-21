@@ -1,5 +1,8 @@
 package liquidjava.rj_language.opt;
 
+import static liquidjava.rj_language.opt.VCSimplificationUtils.isFalse;
+import static liquidjava.rj_language.opt.VCSimplificationUtils.isTrue;
+
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.GroupExpression;
@@ -197,20 +200,6 @@ public class VCLogicalSimplification extends VCExpressionSimplificationPass<Void
         if (left.equals(right))
             return new LiteralBoolean(true);
         return null;
-    }
-
-    /**
-     * Checks whether an expression is true
-     */
-    private boolean isTrue(Expression expression) {
-        return expression instanceof LiteralBoolean literal && literal.isBooleanTrue();
-    }
-
-    /**
-     * Checks whether an expression is false
-     */
-    private boolean isFalse(Expression expression) {
-        return expression instanceof LiteralBoolean literal && !literal.isBooleanTrue();
     }
 
     /**
