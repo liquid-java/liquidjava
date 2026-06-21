@@ -338,12 +338,14 @@ public class TranslatorToZ3 implements AutoCloseable {
             return z3.mkFPDiv(z3.mkFPRoundNearestTiesToEven(), toFP(eval), toFP(eval2));
         if (eval instanceof RealExpr || eval2 instanceof RealExpr)
             return z3.mkDiv(toReal(eval), toReal(eval2));
+        // Z3 integer division does not model Java's truncation toward zero for negative operands
         return z3.mkDiv((ArithExpr) eval, (ArithExpr) eval2);
     }
 
     public Expr<?> makeMod(Expr<?> eval, Expr<?> eval2) {
         if (eval instanceof FPExpr || eval2 instanceof FPExpr)
             return z3.mkFPRem(toFP(eval), toFP(eval2));
+        // Z3 integer modulo does not model Java's dividend-signed remainder for negative operands
         if (eval instanceof RealExpr || eval2 instanceof RealExpr)
             return z3.mkMod(toInt(eval), toInt(eval2));
         return z3.mkMod((IntExpr) eval, (IntExpr) eval2);

@@ -263,38 +263,30 @@ public abstract class TypeChecker extends CtScanner {
     }
 
     protected String getQualifiedClassName(CtElement element) {
-        if (element.getParent() instanceof CtClass<?>) {
-            return ((CtClass<?>) element.getParent()).getQualifiedName();
-        } else if (element instanceof CtClass<?>) {
-            return ((CtClass<?>) element).getQualifiedName();
-        }
-        return null;
+        return getEnclosingType(element).map(CtType::getQualifiedName).orElse(null);
     }
 
     protected String getSimpleClassName(CtElement element) {
-        if (element.getParent() instanceof CtClass<?>) {
-            return ((CtClass<?>) element.getParent()).getSimpleName();
-        } else if (element instanceof CtClass<?>) {
-            return ((CtClass<?>) element).getSimpleName();
-        }
-        return null;
+        return getEnclosingType(element).map(CtType::getSimpleName).orElse(null);
     }
 
     protected Optional<GhostFunction> createStateGhost(int order, CtElement element) {
-        CtClass<?> klass = null;
-        if (element.getParent() instanceof CtClass<?>) {
-            klass = (CtClass<?>) element.getParent();
-        } else if (element instanceof CtClass<?>) {
-            klass = (CtClass<?>) element;
-        }
-        if (klass != null) {
+        Optional<CtType<?>> enclosingType = getEnclosingType(element);
+        if (enclosingType.isPresent()) {
+            CtType<?> type = enclosingType.get();
             CtTypeReference<?> ret = factory.Type().INTEGER_PRIMITIVE;
-            List<String> params = Collections.singletonList(klass.getSimpleName());
+            List<String> params = Collections.singletonList(type.getSimpleName());
             String name = String.format("state%d", order);
-            GhostFunction gh = new GhostFunction(name, params, ret, factory, klass.getQualifiedName());
+            GhostFunction gh = new GhostFunction(name, params, ret, factory, type.getQualifiedName());
             return Optional.of(gh);
         }
         return Optional.empty();
+    }
+
+    private Optional<CtType<?>> getEnclosingType(CtElement element) {
+        if (element instanceof CtType<?> type)
+            return Optional.of(type);
+        return Optional.ofNullable(element.getParent(CtType.class));
     }
 
     protected void getGhostFunction(String value, CtElement element, SourcePosition position) throws LJError {
