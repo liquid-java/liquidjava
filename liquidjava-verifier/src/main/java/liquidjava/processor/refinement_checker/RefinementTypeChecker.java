@@ -321,6 +321,10 @@ public class RefinementTypeChecker extends TypeChecker {
     public <T> void visitCtVariableRead(CtVariableRead<T> variableRead) {
         super.visitCtVariableRead(variableRead);
         CtVariable<T> varDecl = variableRead.getVariable().getDeclaration();
+        // Some CtVariableRead forms have no resolvable declaration (e.g. accesses to symbols outside the
+        // model); with no name there is no context entry to attach, so leave the metadata as-is.
+        if (varDecl == null)
+            return;
         getPutVariableMetadata(variableRead, varDecl.getSimpleName());
     }
 
@@ -538,8 +542,11 @@ public class RefinementTypeChecker extends TypeChecker {
     }
 
     private Predicate getExpressionRefinements(CtExpression<?> element) throws LJError {
-        if (element instanceof CtVariableRead<?>) {
-            // CtVariableRead<?> elemVar = (CtVariableRead<?>) element;
+        if (element instanceof CtFieldRead<?> fieldRead) {
+            visitCtFieldRead(fieldRead);
+            return getRefinement(element);
+        } else if (element instanceof CtVariableRead<?> varRead) {
+            visitCtVariableRead(varRead);
             return getRefinement(element);
         } else if (element instanceof CtBinaryOperator<?>) {
             CtBinaryOperator<?> binop = (CtBinaryOperator<?>) element;
