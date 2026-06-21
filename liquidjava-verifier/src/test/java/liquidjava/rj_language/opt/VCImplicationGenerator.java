@@ -21,7 +21,7 @@ public class VCImplicationGenerator extends Generator<VCImplication> {
 
     @Override
     public VCImplication generate(SourceOfRandomness random, GenerationStatus status) {
-        return switch (random.nextInt(0, 11)) {
+        return switch (random.nextInt(0, 12)) {
         case 0 -> vc(substitution(random, "x"), comparison(random, "x"));
         case 1 -> vc(reverseSubstitution(random, "x"), comparison(random, "x"));
         case 2 -> vc(nonSubstitution(random, "x"), substitution(random, "y"), comparison(random, "y"));
@@ -33,6 +33,7 @@ public class VCImplicationGenerator extends Generator<VCImplication> {
         case 8 -> vc(adjacentConstants(random) + " " + comparisonOperator(random) + " " + intLiteral(random));
         case 9 -> vc(arithmeticIdentity(random));
         case 10 -> guardedArithmeticIdentity(random);
+        case 11 -> vc(logicalIdentity(random));
         default -> vc(substitution(random, "x"), substitution(random, "y"), foldableComparison(random));
         };
     }
@@ -122,6 +123,29 @@ public class VCImplicationGenerator extends Generator<VCImplication> {
         default -> var + " % " + var + " == 0";
         };
         return vc(guard, use);
+    }
+
+    private static String logicalIdentity(SourceOfRandomness random) {
+        String predicate = "(" + comparison(random, FREE_VARS[random.nextInt(0, FREE_VARS.length - 1)]) + ")";
+        return switch (random.nextInt(0, 16)) {
+        case 0 -> predicate + " && true";
+        case 1 -> "true && " + predicate;
+        case 2 -> predicate + " && false";
+        case 3 -> "false && " + predicate;
+        case 4 -> predicate + " || true";
+        case 5 -> "true || " + predicate;
+        case 6 -> predicate + " || false";
+        case 7 -> "false || " + predicate;
+        case 8 -> predicate + " && " + predicate;
+        case 9 -> predicate + " || " + predicate;
+        case 10 -> predicate + " --> true";
+        case 11 -> "false --> " + predicate;
+        case 12 -> "true --> " + predicate;
+        case 13 -> predicate + " --> " + predicate;
+        case 14 -> predicate + " == " + predicate;
+        case 15 -> predicate + " != " + predicate;
+        default -> "!!" + predicate;
+        };
     }
 
     private static String comparisonOperator(SourceOfRandomness random) {

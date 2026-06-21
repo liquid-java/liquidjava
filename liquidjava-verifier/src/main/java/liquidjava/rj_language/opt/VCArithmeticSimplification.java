@@ -243,29 +243,18 @@ public class VCArithmeticSimplification {
     }
 
     /**
-     * Records direct non-zero premises from equalities and inequalities
+     * Records direct non-zero premises shaped as x != 0 or 0 != x
      */
     private static void addNonZeroExpression(Expression expression, List<Expression> nonZeroExpressions) {
-        if (!(expression instanceof BinaryExpression binary))
+        if (!(expression instanceof BinaryExpression binary) || !"!=".equals(binary.getOperator()))
             return;
 
         Expression left = binary.getFirstOperand();
         Expression right = binary.getSecondOperand();
-        if ("!=".equals(binary.getOperator())) {
-            // x != 0 -> x is non-zero
-            if (isZero(right))
-                nonZeroExpressions.add(left.clone());
-            // 0 != x -> x is non-zero
-            if (isZero(left))
-                nonZeroExpressions.add(right.clone());
-        } else if ("==".equals(binary.getOperator())) {
-            // x == n && n != 0 -> x is non-zero
-            if (isNumericLiteral(right) && !isZero(right))
-                nonZeroExpressions.add(left.clone());
-            // n == x && n != 0 -> x is non-zero
-            if (isNumericLiteral(left) && !isZero(left))
-                nonZeroExpressions.add(right.clone());
-        }
+        if (isZero(left))
+            nonZeroExpressions.add(right.clone());
+        if (isZero(right))
+            nonZeroExpressions.add(left.clone());
     }
 
     /**
@@ -284,13 +273,6 @@ public class VCArithmeticSimplification {
         if (expression instanceof LiteralReal literal)
             return literal.getValue() == 0.0;
         return false;
-    }
-
-    /**
-     * Checks whether an expression is a numeric literal
-     */
-    private static boolean isNumericLiteral(Expression expression) {
-        return expression instanceof LiteralInt || expression instanceof LiteralReal;
     }
 
     /**

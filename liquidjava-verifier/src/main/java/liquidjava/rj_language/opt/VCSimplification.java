@@ -11,7 +11,7 @@ import liquidjava.processor.VCImplication;
 public class VCSimplification {
 
     private static final List<UnaryOperator<VCImplication>> PASSES = List.of(VCSubstitution::apply, VCFolding::apply,
-            VCArithmeticSimplification::apply);
+            VCArithmeticSimplification::apply, VCLogicalSimplification::apply);
 
     /**
      * Applies all available simplification steps to a VC chain until a fixed point is reached

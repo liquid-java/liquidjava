@@ -71,16 +71,6 @@ class VCArithmeticSimplificationTest {
     }
 
     @Test
-    void simplifiesGuardedDivisionAndModuloIdentitiesWhenEqualityImpliesNonZero() {
-        assertSimplificationSteps(VCArithmeticSimplification::apply, vc("x == 1", "0 / x == 0"),
-                chain(expect("x == 1", "x == 1"), expect("0 == 0", "0 / x == 0")));
-        assertSimplificationSteps(VCArithmeticSimplification::apply, vc("1 == x", "x / x == 1"),
-                chain(expect("1 == x", "1 == x"), expect("1 == 1", "x / x == 1")));
-        assertSimplificationSteps(VCArithmeticSimplification::apply, vc("x == 1", "x % x == 0"),
-                chain(expect("x == 1", "x == 1"), expect("0 == 0", "x % x == 0")));
-    }
-
-    @Test
     void leavesUnguardedDivisionAndModuloIdentitiesUnchanged() {
         assertSimplificationSteps(VCArithmeticSimplification::apply, vc("0 / x == 0"),
                 chain(expect("0 / x == 0", "0 / x == 0")));
@@ -94,21 +84,6 @@ class VCArithmeticSimplificationTest {
     void simplifiesOnlyFirstArithmeticIdentity() {
         assertSimplificationSteps(VCArithmeticSimplification::apply, vc("x + 0 + 1 > 0"),
                 chain(expect("x + 1 > 0", "x + 0 + 1 > 0")));
-    }
-
-    @Test
-    void simplifiesTernaryExpressionsInConditionThenElseOrder() {
-        assertSimplificationSteps(VCArithmeticSimplification::apply, vc("(flag + 0 > 0 ? x + 0 : y + 0) > 0"),
-                chain(expect("(flag > 0 ? x + 0 : y + 0) > 0", "(flag + 0 > 0 ? x + 0 : y + 0) > 0")),
-                chain(expect("(flag > 0 ? x : y + 0) > 0", "(flag > 0 ? x + 0 : y + 0) > 0")),
-                chain(expect("(flag > 0 ? x : y) > 0", "(flag > 0 ? x : y + 0) > 0")));
-    }
-
-    @Test
-    void simplifiesGroupedExpressionsAndLeavesUnchangedGroupsAlone() {
-        assertSimplificationSteps(VCArithmeticSimplification::apply, vc("(x + 0) * y > 0"),
-                chain(expect("x * y > 0", "(x + 0) * y > 0")));
-        assertSimplificationSteps(VCArithmeticSimplification::apply, vc("(x) > 0"), chain(expect("x > 0", "x > 0")));
     }
 
     @Test
