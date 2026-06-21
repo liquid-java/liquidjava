@@ -75,7 +75,8 @@ public class VCSubstitution implements VCSimplificationPass {
         if (implication == null)
             return Optional.empty();
 
-        Optional<Substitution> current = getSubstitution(implication);
+        Optional<Substitution> current = containsVar(implication.getNext(), implication.getName())
+                ? getSubstitution(implication) : Optional.empty();
         if (current.isPresent())
             return current;
 
@@ -119,5 +120,16 @@ public class VCSubstitution implements VCSimplificationPass {
         List<String> names = new ArrayList<>();
         expression.getVariableNames(names);
         return names.contains(name);
+    }
+
+    /**
+     * Checks whether a VC suffix contains a variable name
+     */
+    private boolean containsVar(VCImplication implication, String name) {
+        for (VCImplication current = implication; current != null; current = current.getNext()) {
+            if (containsVar(current.getRefinement().getExpression(), name))
+                return true;
+        }
+        return false;
     }
 }
