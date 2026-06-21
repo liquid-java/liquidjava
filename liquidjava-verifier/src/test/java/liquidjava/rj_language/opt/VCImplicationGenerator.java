@@ -21,7 +21,7 @@ public class VCImplicationGenerator extends Generator<VCImplication> {
 
     @Override
     public VCImplication generate(SourceOfRandomness random, GenerationStatus status) {
-        return switch (random.nextInt(0, 12)) {
+        return switch (random.nextInt(0, 14)) {
         case 0 -> vc(substitution(random, "x"), comparison(random, "x"));
         case 1 -> vc(reverseSubstitution(random, "x"), comparison(random, "x"));
         case 2 -> vc(nonSubstitution(random, "x"), substitution(random, "y"), comparison(random, "y"));
@@ -34,6 +34,8 @@ public class VCImplicationGenerator extends Generator<VCImplication> {
         case 9 -> vc(arithmeticIdentity(random));
         case 10 -> guardedArithmeticIdentity(random);
         case 11 -> vc(logicalIdentity(random));
+        case 12 -> vc(unusedTrueBinder(random));
+        case 13 -> vc(falseBinder(random));
         default -> vc(substitution(random, "x"), substitution(random, "y"), foldableComparison(random));
         };
     }
@@ -58,6 +60,14 @@ public class VCImplicationGenerator extends Generator<VCImplication> {
         if (random.nextBoolean())
             return "∀" + binder + ":int. " + binder + " > " + intLiteral(random);
         return "∀" + binder + ":int. " + binder + " == " + binder + " " + signed(random.nextInt(1, 5));
+    }
+
+    private static String[] unusedTrueBinder(SourceOfRandomness random) {
+        return new String[] { "∀x:int. true", comparison(random, "a") };
+    }
+
+    private static String[] falseBinder(SourceOfRandomness random) {
+        return new String[] { "∀x:int. false", comparison(random, "x") };
     }
 
     private static String comparison(SourceOfRandomness random, String preferredVar) {

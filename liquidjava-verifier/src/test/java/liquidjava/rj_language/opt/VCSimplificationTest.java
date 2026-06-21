@@ -37,6 +37,31 @@ class VCSimplificationTest {
     }
 
     @Test
+    void simplifyOnceAppliesSubstitutionBeforeBinderSimplification() {
+        VCImplication implication = vc("∀x:int. x == 3", "∀y:int. true", "x > 0");
+
+        assertSimplificationSteps(VCSimplification::simplifyOnce, implication,
+                chain(expect("true", "∀y:int. true"), expect("3 > 0", "∀x:int. x > 0")),
+                chain(expect("3 > 0", "∀y:int. x > 0")), chain(expect("true", "3 > 0")));
+    }
+
+    @Test
+    void simplifyOnceAppliesBinderSimplificationBeforeFolding() {
+        VCImplication implication = vc("∀x:int. true", "1 + 2 > 0");
+
+        assertSimplificationSteps(VCSimplification::simplifyOnce, implication,
+                chain(expect("1 + 2 > 0", "∀x:int. 1 + 2 > 0")), chain(expect("3 > 0", "1 + 2 > 0")));
+    }
+
+    @Test
+    void simplifyOnceAppliesBinderSimplificationBeforeLogicalSimplification() {
+        VCImplication implication = vc("∀x:int. true", "y && true");
+
+        assertSimplificationSteps(VCSimplification::simplifyOnce, implication,
+                chain(expect("y && true", "∀x:int. y && true")), chain(expect("y", "y && true")));
+    }
+
+    @Test
     void simplifyOnceAppliesFoldingWhenNoSubstitutionIsAvailable() {
         VCImplication implication = vc("1 + 2 > 2");
 
@@ -89,6 +114,13 @@ class VCSimplificationTest {
         assertSimplificationSteps(VCSimplification::simplifyOnce, implication,
                 chain(expect("1 + 2 + 1 > 3", "∀x:int. x + 1 > 3")), chain(expect("3 + 1 > 3", "1 + 2 + 1 > 3")),
                 chain(expect("4 > 3", "3 + 1 > 3")), chain(expect("true", "4 > 3")));
+    }
+
+    @Test
+    void simplifyToFixedPointRemovesTrueBindersOverMultipleSteps() {
+        VCImplication implication = vc("∀x:int. true", "∀y:int. true", "z > 0");
+
+        assertSimplifiedVC(VCSimplification.simplifyToFixedPoint(implication), expect("z > 0", "∀y:int. z > 0"));
     }
 
     @Test

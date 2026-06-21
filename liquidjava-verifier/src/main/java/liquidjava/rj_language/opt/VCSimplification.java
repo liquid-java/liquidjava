@@ -9,8 +9,8 @@ import liquidjava.processor.VCImplication;
  */
 public class VCSimplification {
 
-    private static final List<VCSimplificationPass> PASSES = List.of(new VCSubstitution(), new VCFolding(),
-            new VCArithmeticSimplification(), new VCLogicalSimplification());
+    private static final List<VCSimplificationPass> PASSES = List.of(new VCSubstitution(), new VCBinderSimplification(),
+            new VCFolding(), new VCArithmeticSimplification(), new VCLogicalSimplification());
 
     /**
      * Applies all available simplification steps to a VC chain until a fixed point is reached
