@@ -11,14 +11,18 @@ public final class VCSimplificationResult {
 
     private final VCImplication implication;
     private final VCSimplificationResult origin;
+    private final String simplification;
 
     public VCSimplificationResult(VCImplication implication) {
-        this(implication, null);
+        this.implication = Objects.requireNonNull(implication).clone();
+        this.origin = null;
+        this.simplification = null;
     }
 
-    public VCSimplificationResult(VCImplication implication, VCSimplificationResult origin) {
+    public VCSimplificationResult(VCImplication implication, VCSimplificationResult origin, String simplification) {
         this.implication = Objects.requireNonNull(implication).clone();
-        this.origin = origin;
+        this.origin = Objects.requireNonNull(origin);
+        this.simplification = Objects.requireNonNull(simplification);
     }
 
     /**
@@ -33,6 +37,13 @@ public final class VCSimplificationResult {
      */
     public VCSimplificationResult getOrigin() {
         return origin;
+    }
+
+    /**
+     * Returns the name of the simplification pass that produced this result or null for the original VC chain
+     */
+    public String getSimplification() {
+        return simplification;
     }
 
     @Override

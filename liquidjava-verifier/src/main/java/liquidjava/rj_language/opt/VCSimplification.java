@@ -50,6 +50,6 @@ public class VCSimplification {
         VCImplication simplified = pass.apply(implication.getImplication());
         if (implication.getImplication().equals(simplified))
             return implication;
-        return new VCSimplificationResult(simplified, implication);
+        return new VCSimplificationResult(simplified, implication, pass.getName());
     }
 }
