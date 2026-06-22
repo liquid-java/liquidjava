@@ -1,20 +1,22 @@
 package liquidjava.rj_language.opt;
 
 import static liquidjava.rj_language.opt.VCSimplificationUtils.copyWithRefinement;
+import static liquidjava.rj_language.opt.VCSimplificationUtils.isTrue;
 
 import liquidjava.processor.VCImplication;
 import liquidjava.processor.context.Context;
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.ast.LiteralBoolean;
 import liquidjava.smt.SMTEvaluator;
 import liquidjava.smt.SMTResult;
 
 /**
- * Removes antecedent constraints that are implied by stronger constraints later in the VC chain
+ * Simplifies antecedent constraints that are implied by stronger constraints later in the VC chain
  */
-public class VCConstraintElimination implements VCSimplificationPass {
+public class VCConstraintSimplification implements VCSimplificationPass {
 
     /**
-     * Applies one constraint elimination in a VC chain
+     * Applies one constraint simplification in a VC chain
      */
     @Override
     public VCImplication apply(VCImplication implication) {
@@ -24,16 +26,19 @@ public class VCConstraintElimination implements VCSimplificationPass {
     }
 
     /**
-     * Removes the first antecedent implied by a later antecedent
+     * Simplifies the first antecedent implied by a later antecedent
      */
     private VCImplication simplify(VCImplication implication) {
         if (implication == null || implication.getNext() == null)
             return null;
 
-        VCImplication implying = findImplyingAntecedent(implication);
-        if (implying != null)
-            return eliminate(implication, implying);
+        if (!isTrue(implication.getRefinement().getExpression())) { // skip trivial constraints
+            VCImplication implying = findImplyingAntecedent(implication);
+            if (implying != null)
+                return simplifyConstraint(implication);
+        }
 
+        // continue searching for simplifications in the suffix
         VCImplication next = simplify(implication.getNext());
         if (next == null)
             return null;
@@ -50,6 +55,7 @@ public class VCConstraintElimination implements VCSimplificationPass {
     private VCImplication findImplyingAntecedent(VCImplication implication) {
         for (VCImplication candidate = implication.getNext(); candidate != null
                 && candidate.getNext() != null; candidate = candidate.getNext()) {
+            // ∀x. x > 0 => x > 1 -> ∀x. true => x > 1
             if (implies(candidate.getRefinement(), implication.getRefinement()))
                 return candidate;
         }
@@ -57,26 +63,14 @@ public class VCConstraintElimination implements VCSimplificationPass {
     }
 
     /**
-     * Eliminates one redundant constraint while preserving any binder attached to it
+     * Simplifies a redundant constraint to true
      */
-    private VCImplication eliminate(VCImplication implication, VCImplication implying) {
+    private VCImplication simplifyConstraint(VCImplication implication) {
         if (!implication.hasBinder())
             return implication.getNext().clone();
 
-        VCImplication result = copyWithRefinement(implication, implying.getRefinement().clone());
-        result.setNext(remove(implication.getNext(), implying));
-        return result;
-    }
-
-    /**
-     * Removes one node from a suffix
-     */
-    private VCImplication remove(VCImplication implication, VCImplication target) {
-        if (implication == target)
-            return implication.getNext() == null ? null : implication.getNext().clone();
-
-        VCImplication result = copyWithRefinement(implication, implication.getRefinement().clone());
-        result.setNext(remove(implication.getNext(), target));
+        VCImplication result = copyWithRefinement(implication, new Predicate(new LiteralBoolean(true)));
+        result.setNext(implication.getNext().clone());
         return result;
     }
 
