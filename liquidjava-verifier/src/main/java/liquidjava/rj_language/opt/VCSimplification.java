@@ -11,7 +11,7 @@ import liquidjava.processor.VCImplication;
 public class VCSimplification {
 
     private static final List<VCSimplificationPass> PASSES = List.of(new VCSubstitution(), new VCFunctionSubstitution(),
-            new VCBinderSimplification(), new VCFolding(), new VCArithmeticSimplification(),
+            new VCBinderSimplification(), new VCFolding(), new VCArithmeticSimplification(), new VCConstraintElimination(),
             new VCLogicalSimplification());
 
     /**
