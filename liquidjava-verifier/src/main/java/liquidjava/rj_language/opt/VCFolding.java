@@ -94,6 +94,12 @@ public class VCFolding extends VCExpressionSimplificationPass<Void> {
      */
     private Expression foldIte(Ite ite) {
         Expression condition = ite.getCondition();
+
+        // true ? x : y -> x
+        // false ? x : y -> y
+        if (condition instanceof LiteralBoolean literal)
+            return literal.isBooleanTrue() ? ite.getThen().clone() : ite.getElse().clone();
+
         Expression foldedCondition = fold(condition);
         if (!condition.equals(foldedCondition))
             return new Ite(foldedCondition, ite.getThen().clone(), ite.getElse().clone());
@@ -107,11 +113,6 @@ public class VCFolding extends VCExpressionSimplificationPass<Void> {
         Expression foldedElse = fold(elseExpression);
         if (!elseExpression.equals(foldedElse))
             return new Ite(condition.clone(), thenExpression.clone(), foldedElse);
-
-        // true ? x : y -> x
-        // false ? x : y -> y
-        if (condition instanceof LiteralBoolean literal)
-            return literal.isBooleanTrue() ? thenExpression : elseExpression;
 
         // y ? x : x -> x
         if (thenExpression.equals(elseExpression))
