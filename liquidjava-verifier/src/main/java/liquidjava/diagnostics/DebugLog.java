@@ -7,6 +7,7 @@ import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
+import liquidjava.rj_language.opt.VCSimplificationResult;
 import liquidjava.utils.Utils;
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.reference.CtTypeReference;
@@ -122,73 +123,47 @@ public final class DebugLog {
         System.out.println(SMT_TAG + " " + formatConclusion(conclusion));
     }
 
-    /**
-     * Print the simplifier input and output side by side. This keeps the raw expression visible in debug traces while
-     * callers continue using the simplified expression for user-facing diagnostics. Long predicates are split on
-     * top-level {@code &&} so each conjunct lands on its own line.
-     */
-    public static void simplification(Expression input, Expression output) {
-        if (!enabled()) {
-            return;
-        }
-        printSplitConjunction("Before simplification:", Colors.YELLOW, input);
-        printSplitConjunction("After simplification: ", Colors.BOLD_YELLOW, output);
-    }
-
-    private static void printSplitConjunction(String header, String color, Expression exp) {
-        List<Expression> conjuncts = new ArrayList<>();
-        flattenConjunction(exp, conjuncts);
-        if (conjuncts.size() <= 1) {
-            System.out.println(SMP_TAG + " " + header + " " + color + exp + Colors.RESET);
-            return;
-        }
-        System.out.println(SMP_TAG + " " + header);
-        String joiner = " " + Colors.GREY + "&&" + Colors.RESET;
-        for (int i = 0; i < conjuncts.size(); i++) {
-            String suffix = (i < conjuncts.size() - 1) ? joiner : "";
-            System.out.println(SMP_TAG + "   " + color + conjuncts.get(i) + Colors.RESET + suffix);
-        }
-    }
-
     private static final String PASS_NAME_COLOR = Colors.GOLD;
     private static final int PASS_NAME_WIDTH = 28;
     private static int simplificationPass;
     private static String previousSimplification;
 
-    /**
-     * Start a simplification log. DebugLog owns the running pass number and the previous expression snapshot because
-     * both are only needed for debug output.
-     */
-    public static void simplificationStart(Expression input) {
+    public static void simplificationStart(VCImplication input) {
         if (!enabled()) {
             return;
         }
-        previousSimplification = input.toString();
+        previousSimplification = formatSimplification(input);
         simplificationPass = 0;
-        printSimplificationPass(simplificationPass, "initial expression", previousSimplification);
+        printSimplificationPass(simplificationPass, "initial VC", previousSimplification);
     }
 
-    /**
-     * One line per simplifier phase.
-     */
-    public static void simplificationPass(String name, Expression result) {
-        if (!enabled()) {
+    public static void simplificationPass(VCSimplificationResult result) {
+        if (!enabled() || result == null || result.getSimplification() == null) {
             return;
         }
-        String resultStr = result.toString();
-        printSimplificationPass(++simplificationPass, name, previousSimplification, resultStr);
+        if (previousSimplification == null && result.getOrigin() != null) {
+            previousSimplification = formatSimplification(result.getOrigin().getImplication());
+        }
+        String resultStr = formatSimplification(result.getImplication());
+        printSimplificationPass(++simplificationPass, result.getSimplification(), previousSimplification, resultStr);
         previousSimplification = resultStr;
     }
 
+    public static void simplificationEnd(VCSimplificationResult result) {
+        if (!enabled()) {
+            return;
+        }
+        String finalSimplification = result == null ? "" : formatSimplification(result.getImplication());
+        printSimplificationPass(++simplificationPass, "Final VC", finalSimplification);
+        System.out.printf("%s end: %sFixed Point%s%n", SMP_TAG, Colors.GREY, Colors.RESET);
+        previousSimplification = null;
+        simplificationPass = 0;
+    }
+
     /**
-     * Prints {@code (no change)} when the step left the expression unchanged, and otherwise emits a unified-diff-style
-     * pair (red {@code -} for the previous expression with removed tokens highlighted, green {@code +} for the new one
-     * with added tokens highlighted), so substitutions inside a long predicate are obvious at a glance.
-     *
-     * <p>
-     * {@code previous} is taken as a string rather than an {@link Expression} because the simplifier mutates the AST in
-     * place: caching an {@code Expression} reference and re-stringifying it after a later pass would yield the
-     * already-mutated form, masking real changes as "no change".
+     * Prints {@code (no change)} when the step left the VC unchanged, and otherwise emits a unified-diff-style pair
+     * (red {@code -} for the previous VC with removed tokens highlighted, green {@code +} for the new one with added
+     * tokens highlighted), so substitutions inside a long VC are obvious at a glance.
      */
     private static void printSimplificationPass(int pass, String name, String previous, String result) {
         if (previous != null && previous.equals(result)) {
@@ -198,16 +173,34 @@ public final class DebugLog {
         }
         System.out.printf("%s pass %02d: %s%s%s%n", SMP_TAG, pass, PASS_NAME_COLOR, name, Colors.RESET);
         if (previous == null) {
-            System.out.printf("%s   %s%n", SMP_TAG, result);
+            printBlock(result);
             return;
         }
         String[] diff = wordDiff(previous, result);
-        System.out.printf("%s   %s-%s %s%n", SMP_TAG, Colors.RED, Colors.RESET, diff[0]);
-        System.out.printf("%s   %s+%s %s%n", SMP_TAG, Colors.GREEN, Colors.RESET, diff[1]);
+        printDiffBlock("-", Colors.RED, diff[0]);
+        printDiffBlock("+", Colors.GREEN, diff[1]);
     }
 
     private static void printSimplificationPass(int pass, String name, String result) {
-        System.out.printf("%s pass %02d: %s%n %s%n", SMP_TAG, pass, paintPassName(name), result);
+        System.out.printf("%s pass %02d: %s%n", SMP_TAG, pass, paintPassName(name));
+        printBlock(result);
+    }
+
+    private static String formatSimplification(VCImplication implication) {
+        return implication == null ? "" : implication.toString().stripTrailing();
+    }
+
+    private static void printBlock(String text) {
+        for (String line : text.split("\\R", -1)) {
+            System.out.printf("%s   %s%n", SMP_TAG, line);
+        }
+    }
+
+    private static void printDiffBlock(String marker, String color, String text) {
+        String prefix = color + marker + Colors.RESET;
+        for (String line : text.split("\\R", -1)) {
+            System.out.printf("%s   %s %s%n", SMP_TAG, prefix, line);
+        }
     }
 
     /**
@@ -223,7 +216,7 @@ public final class DebugLog {
     /**
      * Word-level LCS diff. Returns {@code [previousColored, currentColored]} where tokens that don't appear in the LCS
      * are wrapped in red (for the previous string) and green (for the current string). Splitting on a single space is
-     * intentional — the {@link Expression#toString()} output spaces operators and operands.
+     * intentional because VC and expression formatting space operators and operands.
      */
     private static String[] wordDiff(String previous, String current) {
         String[] prev = previous.split(" ");

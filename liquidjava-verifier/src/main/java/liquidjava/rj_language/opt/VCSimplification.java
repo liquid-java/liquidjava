@@ -2,6 +2,7 @@ package liquidjava.rj_language.opt;
 
 import java.util.List;
 
+import liquidjava.diagnostics.DebugLog;
 import liquidjava.processor.VCImplication;
 
 /**
@@ -19,11 +20,14 @@ public class VCSimplification {
         if (implication == null)
             return null;
 
+        DebugLog.simplificationStart(implication);
         VCSimplificationResult current = new VCSimplificationResult(implication);
         while (true) {
             VCSimplificationResult simplified = simplifyOnce(current);
-            if (simplified == current)
+            if (simplified == current) {
+                DebugLog.simplificationEnd(current);
                 return current; // fixed point reached
+            }
             current = simplified;
         }
     }
@@ -50,6 +54,8 @@ public class VCSimplification {
         VCImplication simplified = pass.apply(implication.getImplication());
         if (implication.getImplication().equals(simplified))
             return implication;
-        return new VCSimplificationResult(simplified, implication, pass.getName());
+        VCSimplificationResult result = new VCSimplificationResult(simplified, implication, pass.getName());
+        DebugLog.simplificationPass(result);
+        return result;
     }
 }
