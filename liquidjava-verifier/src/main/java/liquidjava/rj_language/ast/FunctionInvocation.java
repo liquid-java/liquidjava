@@ -93,7 +93,7 @@ public class FunctionInvocation extends Expression {
         final int prime = 31;
         int result = 1;
         result = prime * result + ((getArgs() == null) ? 0 : getArgs().hashCode());
-        result = prime * result + ((name == null) ? 0 : name.hashCode());
+        result = prime * result + ((name == null) ? 0 : Utils.getSimpleName(name).hashCode()); // same here
         return result;
     }
 
@@ -114,7 +114,10 @@ public class FunctionInvocation extends Expression {
         if (name == null) {
             return other.name == null;
         } else {
-            return name.equals(other.name);
+            // prefixes are inconsistent for refined class ghost calls: some use the
+            // original class prefix, others use the caller class prefix
+            // for now we compare simple names, but prefix handling should be fixed instead of having this workaround
+            return other.name != null && Utils.getSimpleName(name).equals(Utils.getSimpleName(other.name));
         }
     }
 }
