@@ -1,7 +1,10 @@
 package liquidjava.rj_language.opt;
 
 import static liquidjava.rj_language.opt.VCSimplificationUtils.copyWithRefinement;
+import static liquidjava.rj_language.opt.VCSimplificationUtils.containsExpression;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 import liquidjava.processor.VCImplication;
@@ -18,7 +21,8 @@ public class VCFunctionSubstitution implements VCSimplificationPass {
     /**
      * A substitution discovered from a function invocation equality
      */
-    private record Substitution(VCImplication node, FunctionInvocation invocation, Expression replacement) {
+    private record Substitution(VCImplication node, FunctionInvocation invocation, Expression replacement,
+            Expression sourceEquality) {
     }
 
     /**
@@ -31,30 +35,50 @@ public class VCFunctionSubstitution implements VCSimplificationPass {
 
         if (substitutionOpt.isPresent()) {
             Substitution substitution = substitutionOpt.get();
-            result = substitute(result, substitution.node(), substitution.invocation(), substitution.replacement());
+            result = substitute(result, substitution.node(), substitution.invocation(), substitution.replacement(),
+                    substitution.sourceEquality());
         }
         return result;
     }
 
     /**
-     * Preserves nodes before the source equality and starts rewriting at the source suffix
+     * Rewrites one VC chain with a single substitution and removes its source equality
      */
     private VCImplication substitute(VCImplication implication, VCImplication node, FunctionInvocation invocation,
-            Expression replacement) {
+            Expression replacement, Expression sourceEquality) {
         if (implication == null)
             return null;
 
-        // skip the source node to remove it from the chain and start substitution from the next node
+        // consume the source equality and start substitution from the next node
         if (implication == node) {
-            VCImplication result = copyWithRefinement(implication, implication.getRefinement().clone());
-            result.setNext(substituteSuffix(implication.getNext(), invocation, replacement));
-            return result;
+            VCImplication suffix = substituteSuffix(implication.getNext(), invocation, replacement);
+            VCImplication source = removeSourceEquality(implication, sourceEquality);
+            if (source == null)
+                return suffix;
+            source.setNext(suffix);
+            return source;
         }
 
         // preserve the current node and continue rewriting the suffix
         VCImplication result = copyWithRefinement(implication, implication.getRefinement().clone());
-        result.setNext(substitute(implication.getNext(), node, invocation, replacement));
+        result.setNext(substitute(implication.getNext(), node, invocation, replacement, sourceEquality));
         return result;
+    }
+
+    /**
+     * Removes the equality conjunct that supplied the substitution, preserving any sibling conjuncts
+     */
+    private VCImplication removeSourceEquality(VCImplication implication, Expression sourceEquality) {
+        List<Expression> remaining = new ArrayList<>(implication.getRefinement().getExpression().getConjuncts());
+        if (!remaining.remove(sourceEquality))
+            return copyWithRefinement(implication, implication.getRefinement().clone());
+        if (remaining.isEmpty())
+            return null;
+
+        Predicate refinement = new Predicate();
+        for (Expression conjunct : remaining)
+            refinement = Predicate.createConjunction(refinement, new Predicate(conjunct.clone()));
+        return copyWithRefinement(implication, refinement);
     }
 
     /**
@@ -121,33 +145,13 @@ public class VCFunctionSubstitution implements VCSimplificationPass {
         Expression left = binary.getFirstOperand();
         Expression right = binary.getSecondOperand();
         if (left instanceof FunctionInvocation invocation && !containsExpression(right, left))
-            return Optional.of(new Substitution(implication, (FunctionInvocation) invocation.clone(), right.clone()));
+            return Optional.of(new Substitution(implication, (FunctionInvocation) invocation.clone(), right.clone(),
+                    binary.clone()));
         if (right instanceof FunctionInvocation invocation && !containsExpression(left, right))
-            return Optional.of(new Substitution(implication, (FunctionInvocation) invocation.clone(), left.clone()));
+            return Optional.of(new Substitution(implication, (FunctionInvocation) invocation.clone(), left.clone(),
+                    binary.clone()));
 
         return Optional.empty();
     }
 
-    /**
-     * Checks whether an expression contains another expression
-     */
-    private boolean containsExpression(Expression expression, Expression target) {
-        if (expression.equals(target))
-            return true;
-
-        for (Expression child : expression.getChildren())
-            if (containsExpression(child, target))
-                return true;
-        return false;
-    }
-
-    /**
-     * Checks whether a VC suffix contains an expression
-     */
-    private boolean containsExpression(VCImplication implication, Expression target) {
-        for (VCImplication current = implication; current != null; current = current.getNext())
-            if (containsExpression(current.getRefinement().getExpression(), target))
-                return true;
-        return false;
-    }
 }

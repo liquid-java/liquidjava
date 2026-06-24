@@ -13,21 +13,21 @@ class VCFunctionSubstitutionTest {
     void substitutesExactFunctionInvocationIntoSuffix() {
         VCImplication implication = vc("f(x) == 0", "f(y) == f(x) + 1");
 
-        assertSimplificationSteps(substitution::apply, implication, step("f(x) == 0", "f(y) == 0 + 1"));
+        assertSimplificationSteps(substitution::apply, implication, step("f(y) == 0 + 1"));
     }
 
     @Test
     void substitutesReverseFunctionEquality() {
         VCImplication implication = vc("0 == f(x)", "f(y) == f(x) + 1");
 
-        assertSimplificationSteps(substitution::apply, implication, step("0 == f(x)", "f(y) == 0 + 1"));
+        assertSimplificationSteps(substitution::apply, implication, step("f(y) == 0 + 1"));
     }
 
     @Test
-    void preservesSourceNode() {
+    void consumesSourceNodeWhenSubstitutedInvocationIsGoneFromSuffix() {
         VCImplication implication = vc("f(x) == 0", "f(x) > -1");
 
-        assertSimplificationSteps(substitution::apply, implication, step("f(x) == 0", "0 > -1"));
+        assertSimplificationSteps(substitution::apply, implication, step("0 > -1"));
     }
 
     @Test
@@ -41,8 +41,8 @@ class VCFunctionSubstitutionTest {
     void skipsUsedUpEqualityAndUsesNextAvailableEquality() {
         VCImplication implication = vc("f(x) == 0", "f(y) == f(x) + 1", "f(y) == 1");
 
-        assertSimplificationSteps(substitution::apply, implication, step("f(x) == 0", "f(y) == 0 + 1", "f(y) == 1"),
-                step("f(x) == 0", "f(y) == 0 + 1", "0 + 1 == 1"));
+        assertSimplificationSteps(substitution::apply, implication, step("f(y) == 0 + 1", "f(y) == 1"),
+                step("0 + 1 == 1"));
     }
 
     @Test
@@ -63,6 +63,13 @@ class VCFunctionSubstitutionTest {
     void extractsEqualityFromTopLevelConjunction() {
         VCImplication implication = vc("ok && f(x) == 0", "f(y) == f(x) + 1");
 
-        assertSimplificationSteps(substitution::apply, implication, step("ok && f(x) == 0", "f(y) == 0 + 1"));
+        assertSimplificationSteps(substitution::apply, implication, step("ok", "f(y) == 0 + 1"));
+    }
+
+    @Test
+    void removesOnlySourceEqualityConjunct() {
+        VCImplication implication = vc("ok && f(x) == 0 && ready", "f(y) == f(x) + 1");
+
+        assertSimplificationSteps(substitution::apply, implication, step("ok && ready", "f(y) == 0 + 1"));
     }
 }
