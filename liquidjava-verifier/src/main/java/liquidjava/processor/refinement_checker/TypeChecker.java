@@ -21,7 +21,6 @@ import liquidjava.rj_language.parsing.RefinementsParser;
 import liquidjava.smt.SMTEvaluator;
 import liquidjava.smt.SMTResult;
 import liquidjava.utils.Utils;
-import liquidjava.utils.constants.Formats;
 import liquidjava.utils.constants.Keys;
 import liquidjava.utils.constants.Types;
 import spoon.reflect.code.CtExpression;
@@ -351,7 +350,7 @@ public abstract class TypeChecker extends CtScanner {
         cEt = cEt.substituteVariable(Keys.WILDCARD, simpleName);
         Predicate cet = cEt.substituteVariable(Keys.WILDCARD, simpleName);
 
-        String newName = String.format(Formats.INSTANCE, simpleName, context.getCounter());
+        String newName = context.getVariableName(simpleName, usage);
         Predicate correctNewRefinement = refinementFound.substituteVariable(Keys.WILDCARD, newName);
         correctNewRefinement = correctNewRefinement.substituteVariable(Keys.THIS, newName);
         cEt = cEt.substituteVariable(simpleName, newName);
