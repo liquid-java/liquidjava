@@ -6,7 +6,6 @@ import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.TranslationTable;
 import liquidjava.rj_language.Predicate;
-import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.formatter.VariableFormatter;
 import liquidjava.rj_language.opt.VCSimplificationResult;
 import liquidjava.smt.Counterexample;
@@ -45,38 +44,30 @@ public class RefinementError extends LJError {
 
     @Override
     public String getDetails() {
-        String counterexampleString = getCounterExampleString();
-        if (counterexampleString == null)
+        Counterexample counterexamples = getCounterExamples();
+        if (counterexamples == null)
             return "";
+
+        String counterexampleString = counterexamples.assignments().stream()
+                .map(a -> VariableFormatter.format(a.first()) + " == " + a.second())
+                .collect(Collectors.joining(" && "));
         return "Counterexample: " + counterexampleString;
     }
 
-    public String getCounterExampleString() {
+    // Filters counterexample assignments only in found VC and sorts them in the order of its binders
+    public Counterexample getCounterExamples() {
         if (counterexample == null || counterexample.assignments().isEmpty())
             return null;
 
-        List<String> foundVarNames = new ArrayList<>();
-        Expression foundExpression = getFound().getImplication().toPredicate().getExpression();
-        Expression expectedExpression = expected.getExpression();
-        foundExpression.getVariableNames(foundVarNames);
-        // also keep resolved static-final constants (e.g. Integer.MAX_VALUE) referenced by either side of the
-        // subtyping check, so the counterexample maps the symbolic name back to its compile-time value
-        foundExpression.getResolvedConstantNames(foundVarNames);
-        expectedExpression.getResolvedConstantNames(foundVarNames);
-        List<String> foundAssignments = foundExpression.getConjuncts().stream().map(Expression::toString).toList();
-        String counterexampleString = counterexample.assignments().stream()
-                // only include variables that appear in the found value and are not already fixed there
-                .filter(a -> foundVarNames.contains(a.first())
-                        && !foundAssignments.contains(a.first() + " == " + a.second()))
-                // format as "var == value"
-                .map(a -> VariableFormatter.format(a.first()) + " == " + a.second())
-                // join with "&&"
-                .collect(Collectors.joining(" && "));
+        List<String> binderNames = getFound().getBinders();
+        var assignments = counterexample.assignments().stream().filter(a -> binderNames.contains(a.first()))
+                .sorted((a, b) -> Integer.compare(binderNames.indexOf(a.first()), binderNames.indexOf(b.first())))
+                .toList();
 
-        if (counterexampleString.isEmpty())
+        if (assignments.isEmpty())
             return null;
 
-        return counterexampleString;
+        return new Counterexample(assignments);
     }
 
     public Counterexample getCounterexample() {
