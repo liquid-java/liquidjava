@@ -1,11 +1,12 @@
 package liquidjava.diagnostics.errors;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.TranslationTable;
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.formatter.VariableFormatter;
 import liquidjava.rj_language.opt.VCSimplificationResult;
 import liquidjava.smt.Counterexample;
@@ -60,7 +61,10 @@ public class RefinementError extends LJError {
             return null;
 
         List<String> binderNames = getFound().getBinders();
+        Set<String> knownAssignments = getFound().getImplication().toPredicate().getExpression().getConjuncts().stream()
+                .map(Expression::toString).collect(Collectors.toSet());
         var assignments = counterexample.assignments().stream().filter(a -> binderNames.contains(a.first()))
+                .filter(a -> !knownAssignments.contains(a.first() + " == " + a.second()))
                 .sorted((a, b) -> Integer.compare(binderNames.indexOf(a.first()), binderNames.indexOf(b.first())))
                 .toList();
 
