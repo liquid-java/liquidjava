@@ -3,6 +3,7 @@ package liquidjava.diagnostics;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Objects;
 
 import spoon.reflect.cu.SourcePosition;
 
@@ -160,7 +161,7 @@ public class LJDiagnostic extends RuntimeException {
         if (obj == null || getClass() != obj.getClass())
             return false;
         LJDiagnostic other = (LJDiagnostic) obj;
-        return title.equals(other.title) && message.equals(other.message)
+        return title.equals(other.title) && Objects.equals(message, other.message)
                 && ((file == null && other.file == null) || (file != null && file.equals(other.file)))
                 && ((position == null && other.position == null)
                         || (position != null && position.equals(other.position)));
@@ -169,7 +170,7 @@ public class LJDiagnostic extends RuntimeException {
     @Override
     public int hashCode() {
         int result = title.hashCode();
-        result = 31 * result + message.hashCode();
+        result = 31 * result + Objects.hashCode(message);
         result = 31 * result + (file != null ? file.hashCode() : 0);
         result = 31 * result + (position != null ? position.hashCode() : 0);
         return result;
