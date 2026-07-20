@@ -14,15 +14,15 @@ public final class VCSimplificationResult {
     private final String simplification;
 
     public VCSimplificationResult(VCImplication implication) {
-        this.implication = Objects.requireNonNull(implication).clone();
+        this.implication = implication.clone();
         this.origin = null;
         this.simplification = null;
     }
 
     public VCSimplificationResult(VCImplication implication, VCSimplificationResult origin, String simplification) {
-        this.implication = Objects.requireNonNull(implication).clone();
-        this.origin = Objects.requireNonNull(origin);
-        this.simplification = Objects.requireNonNull(simplification);
+        this.implication = implication.clone();
+        this.origin = origin;
+        this.simplification = simplification;
     }
 
     /**
