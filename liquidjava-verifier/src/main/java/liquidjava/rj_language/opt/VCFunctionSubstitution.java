@@ -19,9 +19,10 @@ import liquidjava.rj_language.ast.FunctionInvocation;
 public class VCFunctionSubstitution implements VCSimplificationPass {
 
     /**
-     * A substitution discovered from a function invocation equality
+     * A substitution discovered from a function invocation equality. At {@code sourceNode}, remove
+     * {@code sourceEquality} and in the following nodes replace {@code invocation} with {@code replacement}
      */
-    private record Substitution(VCImplication node, FunctionInvocation invocation, Expression replacement,
+    private record Substitution(VCImplication sourceNode, FunctionInvocation invocation, Expression replacement,
             Expression sourceEquality) {
     }
 
@@ -35,8 +36,8 @@ public class VCFunctionSubstitution implements VCSimplificationPass {
 
         if (substitutionOpt.isPresent()) {
             Substitution substitution = substitutionOpt.get();
-            result = substitute(result, substitution.node(), substitution.invocation(), substitution.replacement(),
-                    substitution.sourceEquality());
+            result = substitute(result, substitution.sourceNode(), substitution.invocation(),
+                    substitution.replacement(), substitution.sourceEquality());
         }
         return result;
     }
