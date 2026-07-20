@@ -31,15 +31,14 @@ public class VCFunctionSubstitution implements VCSimplificationPass {
      */
     @Override
     public VCImplication apply(VCImplication implication) {
-        VCImplication result = implication.clone();
-        Optional<Substitution> substitutionOpt = findSubstitution(result);
+        Optional<Substitution> substitutionOpt = findSubstitution(implication);
 
         if (substitutionOpt.isPresent()) {
             Substitution substitution = substitutionOpt.get();
-            result = substitute(result, substitution.sourceNode(), substitution.invocation(),
+            return substitute(implication, substitution.sourceNode(), substitution.invocation(),
                     substitution.replacement(), substitution.sourceEquality());
         }
-        return result;
+        return implication;
     }
 
     /**
@@ -61,7 +60,7 @@ public class VCFunctionSubstitution implements VCSimplificationPass {
         }
 
         // preserve the current node and continue rewriting the suffix
-        VCImplication result = copyWithRefinement(implication, implication.getRefinement().clone());
+        VCImplication result = copyWithRefinement(implication, implication.getRefinement());
         result.setNext(substitute(implication.getNext(), node, invocation, replacement, sourceEquality));
         return result;
     }
@@ -77,7 +76,7 @@ public class VCFunctionSubstitution implements VCSimplificationPass {
 
         Predicate refinement = new Predicate();
         for (Expression conjunct : remaining)
-            refinement = Predicate.createConjunction(refinement, new Predicate(conjunct.clone()));
+            refinement = Predicate.createConjunction(refinement, new Predicate(conjunct));
         return copyWithRefinement(implication, refinement);
     }
 
@@ -99,11 +98,11 @@ public class VCFunctionSubstitution implements VCSimplificationPass {
      */
     private VCImplication substituteNode(VCImplication implication, FunctionInvocation invocation,
             Expression replacement) {
-        Expression expression = implication.getRefinement().getExpression().clone();
+        Expression expression = implication.getRefinement().getExpression();
         if (!containsExpression(expression, invocation))
-            return copyWithRefinement(implication, new Predicate(expression));
+            return copyWithRefinement(implication, implication.getRefinement());
 
-        Expression substituted = expression.substitute(invocation, replacement.clone());
+        Expression substituted = expression.substitute(invocation, replacement);
         return copyWithRefinement(implication, new Predicate(substituted));
     }
 
@@ -125,7 +124,7 @@ public class VCFunctionSubstitution implements VCSimplificationPass {
      * Extracts a substitution from one VC node refinement
      */
     private Optional<Substitution> getSubstitution(VCImplication implication) {
-        return getSubstitution(implication, implication.getRefinement().getExpression().clone());
+        return getSubstitution(implication, implication.getRefinement().getExpression());
     }
 
     /**
@@ -145,11 +144,9 @@ public class VCFunctionSubstitution implements VCSimplificationPass {
         Expression left = binary.getFirstOperand();
         Expression right = binary.getSecondOperand();
         if (left instanceof FunctionInvocation invocation && !containsExpression(right, left))
-            return Optional.of(new Substitution(implication, (FunctionInvocation) invocation.clone(), right.clone(),
-                    binary.clone()));
+            return Optional.of(new Substitution(implication, invocation, right, binary));
         if (right instanceof FunctionInvocation invocation && !containsExpression(left, right))
-            return Optional.of(new Substitution(implication, (FunctionInvocation) invocation.clone(), left.clone(),
-                    binary.clone()));
+            return Optional.of(new Substitution(implication, invocation, left, binary));
 
         return Optional.empty();
     }
