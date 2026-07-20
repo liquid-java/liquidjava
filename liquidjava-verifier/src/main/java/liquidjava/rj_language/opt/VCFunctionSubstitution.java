@@ -70,8 +70,7 @@ public class VCFunctionSubstitution implements VCSimplificationPass {
      */
     private VCImplication removeSourceEquality(VCImplication implication, Expression sourceEquality) {
         List<Expression> remaining = new ArrayList<>(implication.getRefinement().getExpression().getConjuncts());
-        if (!remaining.remove(sourceEquality))
-            return copyWithRefinement(implication, implication.getRefinement().clone());
+        remaining.remove(sourceEquality);
         if (remaining.isEmpty())
             return null;
 
