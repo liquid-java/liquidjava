@@ -2,6 +2,7 @@ package liquidjava.rj_language.opt;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static liquidjava.rj_language.opt.VCSimplificationUtils.containsExpression;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,6 +16,7 @@ import liquidjava.processor.context.GhostFunction;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
+import liquidjava.rj_language.ast.FunctionInvocation;
 import liquidjava.rj_language.ast.Var;
 import liquidjava.smt.SMTEvaluator;
 import liquidjava.smt.SMTResult;
@@ -81,8 +83,26 @@ public class VCSimplificationPropertyBasedTest {
         for (VCImplication current = implication; current != null; current = current.getNext()) {
             if (isSubstitution(current))
                 premises = Predicate.createConjunction(premises, current.getRefinement());
+            for (Expression conjunct : current.getRefinement().getExpression().getConjuncts()) {
+                if (!isFunctionSubstitution(conjunct, current.getNext()))
+                    continue;
+                premises = Predicate.createConjunction(premises, new Predicate(conjunct.clone()));
+            }
         }
         return premises;
+    }
+
+    private static boolean isFunctionSubstitution(Expression expression, VCImplication suffix) {
+        if (!(expression instanceof BinaryExpression binary) || !"==".equals(binary.getOperator()))
+            return false;
+
+        Expression left = binary.getFirstOperand();
+        Expression right = binary.getSecondOperand();
+        if (left instanceof FunctionInvocation && !containsExpression(right, left))
+            return containsExpression(suffix, left);
+        if (right instanceof FunctionInvocation && !containsExpression(left, right))
+            return containsExpression(suffix, right);
+        return false;
     }
 
     private static boolean isSubstitution(VCImplication implication) {

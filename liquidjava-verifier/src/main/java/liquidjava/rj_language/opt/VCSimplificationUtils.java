@@ -28,6 +28,23 @@ public final class VCSimplificationUtils {
         return false;
     }
 
+    public static boolean containsExpression(Expression expression, Expression target) {
+        if (expression.equals(target))
+            return true;
+
+        for (Expression child : expression.getChildren())
+            if (containsExpression(child, target))
+                return true;
+        return false;
+    }
+
+    public static boolean containsExpression(VCImplication implication, Expression target) {
+        for (VCImplication current = implication; current != null; current = current.getNext())
+            if (containsExpression(current.getRefinement().getExpression(), target))
+                return true;
+        return false;
+    }
+
     public static boolean isTrue(Expression expression) {
         return expression instanceof LiteralBoolean literal && literal.isBooleanTrue();
     }
