@@ -46,7 +46,7 @@ public class RefinementError extends LJError {
 
     @Override
     public String getDetails() {
-        if (counterexample == null)
+        if (counterexample.isEmpty())
             return "";
 
         String counterexampleString = counterexample.assignments().stream()
@@ -69,9 +69,6 @@ public class RefinementError extends LJError {
 
     // Filters counterexample assignments only in found VC and sorts them in the order of its binders
     private Counterexample filterCounterexample(Counterexample counterexample) {
-        if (counterexample == null || counterexample.assignments().isEmpty())
-            return null;
-
         List<String> binderNames = getFound().getBinders();
         Set<String> knownAssignments = getFound().getImplication().toPredicate().getExpression().getConjuncts().stream()
                 .map(Expression::toString).collect(Collectors.toSet());
@@ -80,9 +77,6 @@ public class RefinementError extends LJError {
                 .filter(a -> !knownAssignments.contains(a.first() + " == " + a.second()))
                 .sorted((a, b) -> Integer.compare(binderNames.indexOf(a.first()), binderNames.indexOf(b.first())))
                 .toList();
-
-        if (assignments.isEmpty())
-            return null;
 
         return new Counterexample(assignments);
     }
