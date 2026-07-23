@@ -10,6 +10,7 @@ import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.formatter.VariableFormatter;
 import liquidjava.rj_language.opt.VCSimplificationResult;
 import liquidjava.smt.Counterexample;
+import liquidjava.utils.Pair;
 import spoon.reflect.cu.SourcePosition;
 
 /**
@@ -34,7 +35,7 @@ public class RefinementError extends LJError {
                 position, translationTable, customMessage);
         this.expected = expected;
         this.found = found;
-        this.counterexample = counterexample;
+        this.counterexample = filterCounterexample(counterexample);
         this.declarationPosition = declarationPosition;
     }
 
@@ -45,33 +46,13 @@ public class RefinementError extends LJError {
 
     @Override
     public String getDetails() {
-        Counterexample counterexamples = getCounterExamples();
-        if (counterexamples == null)
+        if (counterexample == null)
             return "";
 
-        String counterexampleString = counterexamples.assignments().stream()
+        String counterexampleString = counterexample.assignments().stream()
                 .map(a -> VariableFormatter.format(a.first()) + " == " + a.second())
                 .collect(Collectors.joining(" && "));
         return "Counterexample: " + counterexampleString;
-    }
-
-    // Filters counterexample assignments only in found VC and sorts them in the order of its binders
-    public Counterexample getCounterExamples() {
-        if (counterexample == null || counterexample.assignments().isEmpty())
-            return null;
-
-        List<String> binderNames = getFound().getBinders();
-        Set<String> knownAssignments = getFound().getImplication().toPredicate().getExpression().getConjuncts().stream()
-                .map(Expression::toString).collect(Collectors.toSet());
-        var assignments = counterexample.assignments().stream().filter(a -> binderNames.contains(a.first()))
-                .filter(a -> !knownAssignments.contains(a.first() + " == " + a.second()))
-                .sorted((a, b) -> Integer.compare(binderNames.indexOf(a.first()), binderNames.indexOf(b.first())))
-                .toList();
-
-        if (assignments.isEmpty())
-            return null;
-
-        return new Counterexample(assignments);
     }
 
     public Counterexample getCounterexample() {
@@ -84,5 +65,25 @@ public class RefinementError extends LJError {
 
     public VCSimplificationResult getFound() {
         return found;
+    }
+
+    // Filters counterexample assignments only in found VC and sorts them in the order of its binders
+    private Counterexample filterCounterexample(Counterexample counterexample) {
+        if (counterexample == null || counterexample.assignments().isEmpty())
+            return null;
+
+        List<String> binderNames = getFound().getBinders();
+        Set<String> knownAssignments = getFound().getImplication().toPredicate().getExpression().getConjuncts().stream()
+                .map(Expression::toString).collect(Collectors.toSet());
+        List<Pair<String, String>> assignments = counterexample.assignments().stream()
+                .filter(a -> binderNames.contains(a.first()))
+                .filter(a -> !knownAssignments.contains(a.first() + " == " + a.second()))
+                .sorted((a, b) -> Integer.compare(binderNames.indexOf(a.first()), binderNames.indexOf(b.first())))
+                .toList();
+
+        if (assignments.isEmpty())
+            return null;
+
+        return new Counterexample(assignments);
     }
 }
