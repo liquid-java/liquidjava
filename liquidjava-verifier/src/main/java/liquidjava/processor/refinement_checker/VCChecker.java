@@ -23,7 +23,6 @@ import liquidjava.smt.SMTEvaluator;
 import liquidjava.smt.SMTResult;
 import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Keys;
-import liquidjava.utils.Utils;
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.factory.Factory;

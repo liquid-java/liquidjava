@@ -86,7 +86,7 @@ class TestCounterexamples {
         CommandLineLauncher.launch(TEST_SUITE + test);
         List<LJError> errors = Diagnostics.getInstance().getErrors().stream().toList();
         assertEquals(1, errors.size(), "Expected exactly one error from " + test);
-        return assertInstanceOf(RefinementError.class, errors.getFirst());
+        return assertInstanceOf(RefinementError.class, errors.get(0));
     }
 
     @SafeVarargs
