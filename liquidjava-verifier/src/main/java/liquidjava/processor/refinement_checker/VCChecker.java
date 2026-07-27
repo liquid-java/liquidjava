@@ -353,6 +353,10 @@ public class VCChecker {
         pathVariables.remove(rv);
     }
 
+    void clearPathVariables() {
+        pathVariables.clear();
+    }
+
     void removePathVariableThatIncludes(String otherVar) {
         pathVariables.stream().filter(rv -> rv.getRefinement().getVariableNames().contains(otherVar)).toList()
                 .forEach(pathVariables::remove);
