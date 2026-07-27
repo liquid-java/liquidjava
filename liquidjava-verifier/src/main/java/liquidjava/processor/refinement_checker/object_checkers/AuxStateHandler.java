@@ -594,11 +594,19 @@ public class AuxStateHandler {
             // v--------- field read
             // means invocation is in a form of `t.method(args)`
             String name = v.getVariable().getSimpleName();
+            if (target2 instanceof CtFieldRead<?> fieldRead && fieldRead.getTarget() instanceof CtThisAccess<?>) {
+                String fieldName = String.format(Formats.THIS, name);
+                if (tc.getContext().hasVariable(fieldName))
+                    name = fieldName;
+            }
             Optional<VariableInstance> invocationCallee = tc.getContext().getLastVariableInstance(name);
             if (invocationCallee.isPresent()) {
                 invocation.putMetadata(Keys.TARGET, invocationCallee.get());
             } else if (target2.getMetadata(Keys.TARGET) == null) {
                 RefinedVariable var = tc.getContext().getVariableByName(name);
+                if (var == null)
+                    return name;
+
                 String nName = String.format(Formats.INSTANCE, name, tc.getContext().getCounter());
                 RefinedVariable rv = tc.getContext().addInstanceToContext(nName, var.getType(),
                         var.getRefinement().substituteVariable(name, nName), target2);

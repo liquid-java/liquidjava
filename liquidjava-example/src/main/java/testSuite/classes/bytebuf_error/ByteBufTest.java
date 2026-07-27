@@ -9,12 +9,12 @@ public class ByteBufTest {
 
     public static final int TEST_BUFFER_SIZE = 128;
 
-    // private ByteBuffer mDirectBuffer;
+    private ByteBuffer mDirectBuffer;
 
     public ByteBufTest() {
         // FIX (from accepted answer): mDirectBuffer = ByteBuffer.wrap(new byte[TEST_BUFFER_SIZE]);
         // or guard with: if (mDirectBuffer.hasArray()) { ... }
-        ByteBuffer mDirectBuffer = ByteBuffer.allocateDirect(TEST_BUFFER_SIZE);
+        mDirectBuffer = ByteBuffer.allocateDirect(TEST_BUFFER_SIZE);
         // VIOLATION: a direct buffer is not array-backed -> array() throws
         // UnsupportedOperationException.
         byte[] buf = mDirectBuffer.array(); // State Refinement Error
