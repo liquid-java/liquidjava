@@ -40,6 +40,10 @@ public class Context {
     public void reinitializeContext() {
         ctxVars = new Stack<>();
         ctxVars.add(new ArrayList<>()); // global vars
+        clearInstanceVariables();
+    }
+
+    public void clearInstanceVariables() {
         ctxInstanceVars = new ArrayList<>();
     }
 
