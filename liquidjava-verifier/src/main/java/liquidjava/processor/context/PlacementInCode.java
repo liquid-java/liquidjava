@@ -50,6 +50,13 @@ public class PlacementInCode {
         return new PlacementInCode(elemText, elem.getPosition(), annotationPosition);
     }
 
+    public String getSimplePosition() {
+        if (position.getFile() == null) {
+            return "No position provided. Possibly asking for generated code";
+        }
+        return position.getFile().getName() + ":" + position.getLine() + ", " + position.getColumn();
+    }
+
     public String toString() {
         if (position.getFile() == null) {
             return "No position provided. Possibly asking for generated code";

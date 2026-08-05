@@ -428,7 +428,7 @@ public class AuxStateHandler {
                 .changeOldMentions(vi.getName(), instanceName);
 
         if (!tc.checkStateSMT(prevState, expectState, fw.getPosition())) { // Invalid field transition
-            tc.throwStateRefinementError(fw.getPosition(), prevState, expectState, stateChange.getMessage());
+            tc.throwStateRefinementError(fw, prevState, expectState, stateChange.getMessage());
             return;
         }
 
@@ -520,7 +520,7 @@ public class AuxStateHandler {
             // combine messages of all state changes
             String message = stateChanges.stream().map(ObjectState::getMessage)
                     .filter(msg -> msg != null && !msg.isBlank()).distinct().collect(Collectors.joining("\n"));
-            tc.throwStateRefinementError(invocation.getPosition(), prevState, expectedStatesDisjunction, message);
+            tc.throwStateRefinementError(invocation, prevState, expectedStatesDisjunction, message);
         }
     }
 

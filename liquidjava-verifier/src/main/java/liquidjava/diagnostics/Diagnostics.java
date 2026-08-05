@@ -55,7 +55,7 @@ public class Diagnostics {
     }
 
     public String getErrorOutput() {
-        return String.join("\n", errors.stream().map(LJError::toString).toList());
+        return String.join("\n", errors.stream().map(LJError::getFullMessage).toList());
     }
 
     public String getWarningOutput() {

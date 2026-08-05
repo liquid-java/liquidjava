@@ -391,14 +391,14 @@ public abstract class TypeChecker extends CtScanner {
         return result.isOk();
     }
 
-    public void throwRefinementError(SourcePosition position, Predicate expectedType, Predicate foundType,
+    public void throwRefinementError(CtElement element, Predicate expectedType, Predicate foundType,
             String customMessage) throws LJError {
-        vcChecker.throwRefinementError(position, expectedType, foundType, null, customMessage);
+        vcChecker.throwRefinementError(element, expectedType, foundType, customMessage);
     }
 
-    public void throwStateRefinementError(SourcePosition position, Predicate found, Predicate expected,
-            String customMessage) throws LJError {
-        vcChecker.throwStateRefinementError(position, found, expected, customMessage);
+    public void throwStateRefinementError(CtElement element, Predicate found, Predicate expected, String customMessage)
+            throws LJError {
+        vcChecker.throwStateRefinementError(element, found, expected, customMessage);
     }
 
     public void throwStateConflictError(SourcePosition position, Predicate expectedType) throws LJError {

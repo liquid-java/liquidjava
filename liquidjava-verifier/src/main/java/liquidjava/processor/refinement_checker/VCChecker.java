@@ -18,12 +18,10 @@ import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.Ite;
 import liquidjava.rj_language.ast.Var;
-import liquidjava.smt.Counterexample;
 import liquidjava.smt.SMTEvaluator;
 import liquidjava.smt.SMTResult;
 import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Keys;
-import liquidjava.utils.Utils;
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.factory.Factory;
@@ -82,8 +80,7 @@ public class VCChecker {
         }
         DebugLog.smtResult(result);
         if (result.isError()) {
-            throw new RefinementError(element.getPosition(), expectedType, implBeforeChange.simplify(), map,
-                    result.getCounterexample(), customMessage);
+            throw new RefinementError(element, expectedType, implBeforeChange, map, customMessage);
         }
     }
 
@@ -102,7 +99,7 @@ public class VCChecker {
             Factory f) throws LJError {
         SMTResult result = verifySMTSubtypeStates(type, expectedType, list, element.getPosition(), f);
         if (result.isError())
-            throwRefinementError(element.getPosition(), expectedType, type, result.getCounterexample(), null);
+            throwRefinementError(element, expectedType, type, null);
     }
 
     /**
@@ -403,18 +400,18 @@ public class VCChecker {
         return joinPredicates(predicates[0], mainVars, lrv, map);
     }
 
-    protected void throwRefinementError(SourcePosition position, Predicate expected, Predicate found,
-            Counterexample counterexample, String customMessage) throws RefinementError {
+    protected void throwRefinementError(CtElement element, Predicate expected, Predicate found, String customMessage)
+            throws RefinementError {
         TranslationTable map = new TranslationTable();
         VCImplication premises = buildPremiseChain(map, expected, found);
-        throw new RefinementError(position, expected, premises.simplify(), map, counterexample, customMessage);
+        throw new RefinementError(element, expected, premises, map, customMessage);
     }
 
-    protected void throwStateRefinementError(SourcePosition position, Predicate found, Predicate expected,
+    protected void throwStateRefinementError(CtElement element, Predicate found, Predicate expected,
             String customMessage) throws StateRefinementError {
         TranslationTable map = new TranslationTable();
         VCImplication foundState = buildPremiseChain(map, expected, found);
-        throw new StateRefinementError(position, expected, foundState.simplify(), map, customMessage);
+        throw new StateRefinementError(element, expected, foundState, map, customMessage);
     }
 
     protected void throwStateConflictError(SourcePosition position, Predicate expected) throws StateConflictError {
