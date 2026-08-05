@@ -1,7 +1,5 @@
 package liquidjava.rj_language.opt;
 
-import java.util.Objects;
-
 import liquidjava.processor.VCImplication;
 
 /**

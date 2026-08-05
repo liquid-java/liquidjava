@@ -108,14 +108,13 @@ class VCSimplificationTest {
     }
 
     @Test
-    void simplifyUsesFoldingToEnableBinderSimplificationOnNextStep() {
-        assertSimplificationSteps(vc("∀x:int. 1 > 2", "y > 0"), step("false", "y > 0"), step("true"));
+    void simplifyRemovesUnusedBinderBeforeFolding() {
+        assertSimplificationSteps(vc("∀x:int. 1 > 2", "y > 0"), step("y > 0"));
     }
 
     @Test
-    void simplifyUsesArithmeticAndLogicalSimplificationToEnableBinderRemoval() {
-        assertSimplificationSteps(vc("∀x:int. x + 0 == x", "y > 0"), step("x == x", "y > 0"), step("true", "y > 0"),
-                step("y > 0"));
+    void simplifyRemovesUnusedBinderBeforeArithmeticAndLogicalSimplification() {
+        assertSimplificationSteps(vc("∀x:int. x + 0 == x", "y > 0"), step("y > 0"));
     }
 
     @Test
