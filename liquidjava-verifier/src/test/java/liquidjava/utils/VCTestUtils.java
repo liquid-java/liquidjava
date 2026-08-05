@@ -13,11 +13,12 @@ import liquidjava.rj_language.opt.VCSimplificationPass;
 import liquidjava.rj_language.opt.VCSimplificationResult;
 import liquidjava.rj_language.parsing.RefinementsParser;
 import spoon.Launcher;
+import spoon.reflect.factory.TypeFactory;
 import spoon.reflect.reference.CtTypeReference;
 
 public class VCTestUtils {
 
-    private static final CtTypeReference<?> INT = new Launcher().getFactory().Type().INTEGER_PRIMITIVE;
+    private static final TypeFactory TYPE_FACTORY = new Launcher().getFactory().Type();
 
     public static VCImplication vc(String... implications) {
         VCImplication first = null;
@@ -97,7 +98,9 @@ public class VCTestUtils {
 
     private static CtTypeReference<?> type(String name) {
         if ("int".equals(name))
-            return INT;
+            return TYPE_FACTORY.INTEGER_PRIMITIVE;
+        if ("boolean".equals(name))
+            return TYPE_FACTORY.BOOLEAN_PRIMITIVE;
         throw new IllegalArgumentException("Unsupported test type: " + name);
     }
 
