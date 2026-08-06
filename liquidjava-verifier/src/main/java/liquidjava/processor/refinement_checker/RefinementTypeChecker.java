@@ -266,6 +266,11 @@ public class RefinementTypeChecker extends TypeChecker {
             ret = c.get().substituteVariable(Keys.WILDCARD, name).substituteVariable(f.getSimpleName(), name);
         }
         RefinedVariable v = context.addVarToContext(name, f.getType(), ret, f);
+        if (f.getAssignment() != null) {
+            Predicate refinement = getRefinement(f.getAssignment());
+            checkVariableRefinements(refinement != null ? refinement : new Predicate(), name, f.getType(), f, f);
+            AuxStateHandler.addStateRefinements(this, name, f.getAssignment());
+        }
         getMessageFromAnnotation(f).ifPresent(v::setMessage);
         if (v instanceof Variable) {
             ((Variable) v).setLocation("this");
