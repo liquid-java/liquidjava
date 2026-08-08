@@ -72,6 +72,10 @@ public class OperationsChecker {
         if (parent instanceof CtAnnotation)
             return; // Operations in annotations are not handled here
 
+        String type = operator.getType().getQualifiedName();
+        if (type.equals("java.lang.String"))
+            return;
+
         if (parent instanceof CtAssignment<?, ?>
                 && ((CtAssignment<?, ?>) parent).getAssigned()instanceof CtVariableWrite<?> parentVar) {
             oper = getOperationRefinements(operator, parentVar, operator);
@@ -81,7 +85,6 @@ public class OperationsChecker {
             Predicate varRight = getOperationRefinements(operator, right);
             oper = Predicate.createOperation(varLeft, getOperatorFromKind(operator.getKind()), varRight);
         }
-        String type = operator.getType().getQualifiedName();
         List<String> types = Arrays.asList(Types.IMPLEMENTED);
         if (type.contentEquals("boolean")) {
             operator.putMetadata(Keys.REFINEMENT, oper);
@@ -90,8 +93,6 @@ public class OperationsChecker {
                 operator.putMetadata(Keys.REFINEMENT, Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), oper));
         } else if (types.contains(type)) {
             operator.putMetadata(Keys.REFINEMENT, Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), oper));
-        } else if (type.equals("java.lang.String")) {
-            // skip strings
         } else {
             throw new NotImplementedException("Literal type not implemented");
         }
