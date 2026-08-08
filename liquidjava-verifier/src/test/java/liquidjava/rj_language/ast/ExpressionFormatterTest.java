@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.junit.jupiter.api.Test;
 
+import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.parsing.RefinementsParser;
 
 class ExpressionFormatterTest {
@@ -106,13 +107,17 @@ class ExpressionFormatterTest {
     void formatsWithQualifiedNames() {
         Expression exp = new BinaryExpression(parse("size(this)", "java.util.ArrayList"), "==",
                 parse("size(this)", "java.util.ArrayDeque"));
-        assertEquals("java.util.ArrayList.size(this) == java.util.ArrayDeque.size(this)",
-                exp.toDisplayString());
+        assertEquals("java.util.ArrayList.size(this) == java.util.ArrayDeque.size(this)", exp.toDisplayString());
+
+        Predicate differentInstances = Predicate.createEquals(Predicate.createVar("#java.util.ArrayList.size_1"),
+                Predicate.createVar("#java.util.ArrayDeque.size_2"));
+        assertEquals("java.util.ArrayList.size¹ == java.util.ArrayDeque.size²",
+                differentInstances.getExpression().toDisplayString());
     }
 
     @Test
     void formatsWithoutQualifiedNames() {
         assertEquals("size(this)", parse("size(this)", "java.util.List").toDisplayString());
-        assertEquals("size(this) == size(this)", parse("size(this) == size(this)", "java.util.List").toDisplayString());
+        assertEquals("size(this) == size(this)", parse("size(this) == size(this)", "java.util.List").toDisplayString());   
     }
 }

@@ -2,6 +2,7 @@ package liquidjava.rj_language.ast.formatter;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Function;
 
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.FunctionInvocation;
@@ -20,25 +21,29 @@ final class ExpressionNameResolver {
     }
 
     public String resolveVariable(String name) {
-        return resolve(VariableFormatter.format(name), variables);
+        String formatted = VariableFormatter.format(name);
+        return isAmbiguous(name, variables, ExpressionNameResolver::getVariableSimpleName) ? formatted
+                : Utils.getSimpleName(formatted);
     }
 
     public String resolveFunction(String name) {
-        return resolve(name, functions);
+        return isAmbiguous(name, functions, Utils::getSimpleName) ? name : Utils.getSimpleName(name);
     }
 
     private void collect(Expression expression) {
         if (expression instanceof Var var)
-            variables.add(VariableFormatter.format(var.getName()));
-        else if (expression instanceof FunctionInvocation function)
-            functions.add(function.getName());
+            variables.add(var.getName());
+        else if (expression instanceof FunctionInvocation fun)
+            functions.add(fun.getName());
         expression.getChildren().forEach(this::collect);
     }
 
-    private static String resolve(String name, Set<String> names) {
-        String simpleName = Utils.getSimpleName(name);
-        boolean ambiguous = names.stream()
-                .anyMatch(other -> !other.equals(name) && Utils.getSimpleName(other).equals(simpleName));
-        return ambiguous ? name : simpleName;
+    private static String getVariableSimpleName(String name) {
+        return Utils.getSimpleName(VariableFormatter.withoutInstance(name));
+    }
+
+    private static boolean isAmbiguous(String name, Set<String> names, Function<String, String> getSimpleName) {
+        String simpleName = getSimpleName.apply(name);
+        return names.stream().anyMatch(other -> !other.equals(name) && getSimpleName.apply(other).equals(simpleName));
     }
 }
