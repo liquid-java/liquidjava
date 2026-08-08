@@ -9,11 +9,15 @@ import liquidjava.rj_language.parsing.RefinementsParser;
 class ExpressionFormatterTest {
 
     private static Expression parse(String refinement) {
-        return RefinementsParser.createAST(refinement, "");
+        return parse(refinement, "");
+    }
+
+    private static Expression parse(String refinement, String prefix) {
+        return RefinementsParser.createAST(refinement, prefix);
     }
 
     @Test
-    void formatsUnaryAtoms() {
+    void formatsUnary() {
         assertEquals("!x", parse("!x").toDisplayString());
         assertEquals("!false", parse("!false").toDisplayString());
     }
@@ -50,7 +54,7 @@ class ExpressionFormatterTest {
     }
 
     @Test
-    void omitsUnnecessaryGroupParentheses() {
+    void formatsGrouping() {
         assertEquals("x", parse("(x)").toDisplayString());
         assertEquals("x", parse("((x))").toDisplayString());
         assertEquals("1", parse("(1)").toDisplayString());
@@ -96,5 +100,19 @@ class ExpressionFormatterTest {
         assertEquals("a ? b : (c ? d : e)", parse("a ? b : (c ? d : e)").toDisplayString());
         assertEquals("a ? b : (c ? d : (e ? f : g))", parse("a ? b : c ? d : e ? f : g").toDisplayString());
         assertEquals("a ? b : c", parse("a ? b : c").toDisplayString());
+    }
+
+    @Test
+    void formatsWithQualifiedNames() {
+        Expression exp = new BinaryExpression(parse("size(this)", "java.util.ArrayList"), "==",
+                parse("size(this)", "java.util.ArrayDeque"));
+        assertEquals("java.util.ArrayList.size(this) == java.util.ArrayDeque.size(this)",
+                exp.toDisplayString());
+    }
+
+    @Test
+    void formatsWithoutQualifiedNames() {
+        assertEquals("size(this)", parse("size(this)", "java.util.List").toDisplayString());
+        assertEquals("size(this) == size(this)", parse("size(this) == size(this)", "java.util.List").toDisplayString());
     }
 }

@@ -19,7 +19,6 @@ import liquidjava.rj_language.ast.Enum;
 import liquidjava.rj_language.ast.UnaryExpression;
 import liquidjava.rj_language.ast.Var;
 import liquidjava.rj_language.visitors.ExpressionVisitor;
-import liquidjava.utils.Utils;
 
 /**
  * Formatter for expressions that only adds parentheses when required by precedence and associativity rules and formats
@@ -27,12 +26,18 @@ import liquidjava.utils.Utils;
  */
 public class ExpressionFormatter implements ExpressionVisitor<String> {
 
+    private final ExpressionNameResolver nameResolver;
+
+    private ExpressionFormatter(Expression expression) {
+        this.nameResolver = ExpressionNameResolver.forExpression(expression);
+    }
+
     public static String format(Predicate predicate) {
         return format(predicate.getExpression());
     }
 
     public static String format(Expression expression) {
-        return new ExpressionFormatter().formatExpression(expression);
+        return new ExpressionFormatter(expression).formatExpression(expression);
     }
 
     private String formatExpression(Expression expression) {
@@ -108,7 +113,7 @@ public class ExpressionFormatter implements ExpressionVisitor<String> {
 
     @Override
     public String visitFunctionInvocation(FunctionInvocation fun) {
-        return Utils.getSimpleName(fun.getName()) + "(" + formatArguments(fun.getArgs()) + ")";
+        return nameResolver.resolveFunction(fun.getName()) + "(" + formatArguments(fun.getArgs()) + ")";
     }
 
     @Override
@@ -159,6 +164,6 @@ public class ExpressionFormatter implements ExpressionVisitor<String> {
 
     @Override
     public String visitVar(Var var) {
-        return VariableFormatter.format(var.getName());
+        return nameResolver.resolveVariable(var.getName());
     }
 }
