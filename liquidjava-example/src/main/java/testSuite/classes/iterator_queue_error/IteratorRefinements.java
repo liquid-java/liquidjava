@@ -1,7 +1,6 @@
 package testSuite.classes.iterator_queue_error;
 
 import liquidjava.specification.ExternalRefinementsFor;
-import liquidjava.specification.Refinement;
 import liquidjava.specification.StateRefinement;
 import liquidjava.specification.StateSet;
 

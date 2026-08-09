@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.TranslationTable;
-import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.formatter.VariableFormatter;
