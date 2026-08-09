@@ -220,7 +220,7 @@ public class MethodsFunctionsChecker {
                 .substituteVariable(Keys.THIS, returnVarName);
 
         rtc.getContext().addVarToContext(returnVarName, method.getType(), cretRef, ret);
-        rtc.checkSMT(cexpectedType, ret, fi.getMessage());
+        rtc.checkSMT(cexpectedType, ret, fi.getPlacementInCode().getPosition(), fi.getMessage());
         rtc.getContext().newRefinementToVariableInContext(returnVarName, cexpectedType);
 
     }
@@ -426,7 +426,7 @@ public class MethodsFunctionsChecker {
                 VariableInstance vi = (VariableInstance) invocation.getMetadata(Keys.TARGET);
                 c = c.substituteVariable(Keys.THIS, vi.getName());
             }
-            rtc.checkSMT(c, invocation, fArg.getMessage());
+            rtc.checkSMT(c, invocation, fArg.getPlacementInCode().getPosition(), fArg.getMessage());
         }
     }
 

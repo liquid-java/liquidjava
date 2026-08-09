@@ -47,6 +47,10 @@ public class LJDiagnostic extends RuntimeException {
         return position;
     }
 
+    public SourcePosition getDeclarationPosition() {
+        return null;
+    }
+
     public void setPosition(SourcePosition pos) {
         if (pos == null || pos.getFile() == null)
             return;
@@ -89,6 +93,13 @@ public class LJDiagnostic extends RuntimeException {
         // location
         if (file != null && position != null) {
             sb.append("\n").append(file).append(":").append(position.getLine()).append(Colors.RESET).append("\n");
+        }
+
+        // declaration position
+        SourcePosition declPos = getDeclarationPosition();
+        if (declPos != null && declPos.getFile() != null && !declPos.equals(position)) {
+            sb.append("↳ ").append(declPos.getFile().getPath()).append(":").append(declPos.getLine())
+                    .append(Colors.RESET).append("\n");
         }
 
         return sb.toString();

@@ -23,9 +23,11 @@ public class RefinementError extends LJError {
     private final Predicate expected;
     private final VCSimplificationResult found;
     private final Counterexample counterexample;
+    private final SourcePosition declarationPosition;
 
-    public RefinementError(SourcePosition position, Predicate expected, VCSimplificationResult found,
-            TranslationTable translationTable, Counterexample counterexample, String customMessage) {
+    public RefinementError(SourcePosition position, SourcePosition declarationPosition, Predicate expected,
+            VCSimplificationResult found, TranslationTable translationTable, Counterexample counterexample,
+            String customMessage) {
         super("Refinement Error",
                 String.format("%s is not a subtype of %s",
                         found.getImplication().toPredicate().getExpression().toDisplayString(),
@@ -34,6 +36,12 @@ public class RefinementError extends LJError {
         this.expected = expected;
         this.found = found;
         this.counterexample = counterexample;
+        this.declarationPosition = declarationPosition;
+    }
+
+    @Override
+    public SourcePosition getDeclarationPosition() {
+        return declarationPosition;
     }
 
     @Override
