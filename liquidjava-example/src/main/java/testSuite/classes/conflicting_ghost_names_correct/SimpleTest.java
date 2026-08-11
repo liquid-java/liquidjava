@@ -10,8 +10,10 @@ public class SimpleTest {
         list.get(0);
 
         Stack<Integer> stack = new Stack<>();
-		stack.push(1);
-		stack.peek();
+		if (stack.empty()) {
+			stack.push(1);
+            stack.peek();
+		}
 		stack.pop();
     }
 }
