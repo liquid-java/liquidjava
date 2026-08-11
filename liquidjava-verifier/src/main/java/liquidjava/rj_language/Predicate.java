@@ -6,11 +6,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import liquidjava.diagnostics.DebugLog;
 import liquidjava.diagnostics.errors.LJError;
 import liquidjava.diagnostics.errors.NotFoundError;
-import liquidjava.processor.VCImplication;
-import liquidjava.rj_language.opt.VCSimplificationResult;
 import liquidjava.processor.context.AliasWrapper;
 import liquidjava.processor.context.Context;
 import liquidjava.processor.context.GhostFunction;

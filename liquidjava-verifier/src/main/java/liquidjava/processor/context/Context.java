@@ -40,7 +40,19 @@ public class Context {
     public void reinitializeContext() {
         ctxVars = new Stack<>();
         ctxVars.add(new ArrayList<>()); // global vars
+        clearInstanceVariables();
+    }
+
+    public void clearInstanceVariables() {
         ctxInstanceVars = new ArrayList<>();
+    }
+
+    public void restoreInstanceVariables() {
+        for (RefinedVariable variable : getCtxVars()) {
+            if (variable instanceof Variable) {
+                ((Variable) variable).getLastInstance().ifPresent(this::addInstanceVariable);
+            }
+        }
     }
 
     public void reinitializeAllContext() {

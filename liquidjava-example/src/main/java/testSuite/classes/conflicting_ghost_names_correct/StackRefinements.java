@@ -2,6 +2,7 @@ package testSuite.classes.conflicting_ghost_names_correct;
 
 import liquidjava.specification.ExternalRefinementsFor;
 import liquidjava.specification.Ghost;
+import liquidjava.specification.Refinement;
 import liquidjava.specification.StateRefinement;
 
 @ExternalRefinementsFor("java.util.Stack")
@@ -18,4 +19,7 @@ public interface StackRefinements<E> {
 
 	@StateRefinement(from="size(this) > 0")
 	public E peek();
+
+	@Refinement("_ ? size(this) == 0 : size(this) > 0")
+	public boolean empty();
 }

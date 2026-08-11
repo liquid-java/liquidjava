@@ -105,7 +105,9 @@ public abstract class TypeChecker extends CtScanner {
             }
         }
         if (ref.isPresent()) {
-            Predicate p = new Predicate(ref.get(), element);
+            String prefix = getQualifiedClassName(element);
+            Predicate p = prefix == null ? new Predicate(ref.get(), element)
+                    : new Predicate(ref.get(), element, prefix);
             if (!p.getExpression().isBooleanExpression()) {
                 SourcePosition position = Utils.getLJAnnotationPosition(element, ref.get());
                 throw new InvalidRefinementError(position, "Refinement predicate must be a boolean expression",

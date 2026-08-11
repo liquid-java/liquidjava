@@ -105,7 +105,9 @@ public class RefinementTypeChecker extends TypeChecker {
 
     @Override
     public <T> void visitCtConstructor(CtConstructor<T> constructor) {
+        context.clearInstanceVariables();
         context.enterContext();
+        context.restoreInstanceVariables();
         mfc.loadFunctionInfo(constructor);
         try {
             super.visitCtConstructor(constructor);
@@ -114,10 +116,13 @@ public class RefinementTypeChecker extends TypeChecker {
         }
         contextHistory.saveContext(constructor, context);
         context.exitContext();
+        vcChecker.clearPathVariables();
     }
 
     public <R> void visitCtMethod(CtMethod<R> method) {
+        context.clearInstanceVariables();
         context.enterContext();
+        context.restoreInstanceVariables();
         if (!method.getSignature().equals("main(java.lang.String[])")) {
             mfc.loadFunctionInfo(method);
         }
@@ -128,6 +133,7 @@ public class RefinementTypeChecker extends TypeChecker {
         }
         contextHistory.saveContext(method, context);
         context.exitContext();
+        vcChecker.clearPathVariables();
     }
 
     @Override
@@ -262,6 +268,11 @@ public class RefinementTypeChecker extends TypeChecker {
             ret = c.get().substituteVariable(Keys.WILDCARD, name).substituteVariable(f.getSimpleName(), name);
         }
         RefinedVariable v = context.addVarToContext(name, f.getType(), ret, f);
+        if (f.getAssignment() != null) {
+            Predicate refinement = getRefinement(f.getAssignment());
+            checkVariableRefinements(refinement != null ? refinement : new Predicate(), name, f.getType(), f, f);
+            AuxStateHandler.addStateRefinements(this, name, f.getAssignment());
+        }
         getMessageFromAnnotation(f).ifPresent(v::setMessage);
         if (v instanceof Variable) {
             ((Variable) v).setLocation("this");
@@ -409,30 +420,38 @@ public class RefinementTypeChecker extends TypeChecker {
         // VISIT THEN
         context.enterContext();
         visitCtBlock(ifElement.getThenStatement());
-        if (canCompleteNormally(ifElement.getThenStatement())) {
+        boolean thenCompletes = canCompleteNormally(ifElement.getThenStatement());
+        if (thenCompletes) {
             context.variablesSetThenIf();
         }
         contextHistory.saveContext(ifElement.getThenStatement(), context);
         context.exitContext();
 
         // VISIT ELSE
+        boolean elseCompletes = true;
         if (ifElement.getElseStatement() != null) {
             context.getVariableByName(pathVarName);
             context.newRefinementToVariableInContext(pathVarName, elseRefs);
 
             context.enterContext();
             visitCtBlock(ifElement.getElseStatement());
-            if (canCompleteNormally(ifElement.getElseStatement())) {
+            elseCompletes = canCompleteNormally(ifElement.getElseStatement());
+            if (elseCompletes) {
                 context.variablesSetElseIf();
             }
             contextHistory.saveContext(ifElement.getElseStatement(), context);
             context.exitContext();
         }
         // end
-        // Reset the path variable's refinement to the original condition after the if,
-        // so branch-local truth assertions (and any typestate they imply) don't leak past the join.
-        context.newRefinementToVariableInContext(pathVarName, expRefs);
-        vcChecker.removePathVariable(freshRV);
+        if (thenCompletes == elseCompletes) {
+            // Reset the path variable's refinement to the original condition after the if,
+            // so branch-local truth assertions (and any typestate they imply) don't leak past the join.
+            context.newRefinementToVariableInContext(pathVarName, expRefs);
+            vcChecker.removePathVariable(freshRV);
+        } else {
+            // Keep the refinement of the only branch that reaches the code after the if.
+            context.newRefinementToVariableInContext(pathVarName, thenCompletes ? thenRefs : elseRefs);
+        }
         context.exitContext();
         context.variablesCombineFromIf(expRefs);
         context.variablesFinishIfCombination();
