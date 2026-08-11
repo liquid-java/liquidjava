@@ -107,6 +107,7 @@ public class RefinementTypeChecker extends TypeChecker {
     public <T> void visitCtConstructor(CtConstructor<T> constructor) {
         context.clearInstanceVariables();
         context.enterContext();
+        context.restoreInstanceVariables();
         mfc.loadFunctionInfo(constructor);
         try {
             super.visitCtConstructor(constructor);
@@ -121,6 +122,7 @@ public class RefinementTypeChecker extends TypeChecker {
     public <R> void visitCtMethod(CtMethod<R> method) {
         context.clearInstanceVariables();
         context.enterContext();
+        context.restoreInstanceVariables();
         if (!method.getSignature().equals("main(java.lang.String[])")) {
             mfc.loadFunctionInfo(method);
         }
@@ -266,6 +268,11 @@ public class RefinementTypeChecker extends TypeChecker {
             ret = c.get().substituteVariable(Keys.WILDCARD, name).substituteVariable(f.getSimpleName(), name);
         }
         RefinedVariable v = context.addVarToContext(name, f.getType(), ret, f);
+        if (f.getAssignment() != null) {
+            Predicate refinement = getRefinement(f.getAssignment());
+            checkVariableRefinements(refinement != null ? refinement : new Predicate(), name, f.getType(), f, f);
+            AuxStateHandler.addStateRefinements(this, name, f.getAssignment());
+        }
         getMessageFromAnnotation(f).ifPresent(v::setMessage);
         if (v instanceof Variable) {
             ((Variable) v).setLocation("this");
