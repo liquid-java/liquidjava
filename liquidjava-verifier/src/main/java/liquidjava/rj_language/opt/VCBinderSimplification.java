@@ -8,11 +8,14 @@ import static liquidjava.rj_language.opt.VCSimplificationUtils.isTrue;
 import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.LiteralBoolean;
+import liquidjava.rj_language.ast.Var;
 
 /**
  * Simplifies VCImplication chains by removing vacuous binder implications
  */
 public class VCBinderSimplification implements VCSimplificationPass {
+
+    private static final String FRESH_PREFIX = "#fresh_";
 
     /**
      * Applies one binder simplification in a VC chain
@@ -34,8 +37,8 @@ public class VCBinderSimplification implements VCSimplificationPass {
         if (isFalseBinder(implication))
             return collapseFalseBinder(implication);
 
-        if (isTrueBinder(implication) && !containsVar(implication.getNext(), implication.getName()))
-            return removeTrueBinder(implication);
+        if (isRemovableUnusedBinder(implication))
+            return removeBinder(implication);
 
         VCImplication next = simplify(implication.getNext());
         if (next == null)
@@ -47,18 +50,40 @@ public class VCBinderSimplification implements VCSimplificationPass {
     }
 
     /**
-     * Removes a true binder whose name is not used in the suffix
+     * Removes a binder that can be omitted from the suffix
      */
-    private VCImplication removeTrueBinder(VCImplication implication) {
+    private VCImplication removeBinder(VCImplication implication) {
         VCImplication next = implication.getNext();
 
-        // ∀x. true => P -> P
+        // ∀x. true => P -> P, and unused generated path conditions can be omitted from diagnostics
         if (next != null)
             return next.clone();
 
         // ∀x. true -> true
         Predicate truePredicate = new Predicate(new LiteralBoolean(true));
         return new VCImplication(truePredicate);
+    }
+
+    /**
+     * Checks whether a binder is unused and can be removed without changing the VC conclusion
+     */
+    private boolean isRemovableUnusedBinder(VCImplication implication) {
+        if (!implication.hasBinder() || containsVar(implication.getNext(), implication.getName()))
+            return false;
+
+        return isTrueBinder(implication) || isUnusedFreshPathBinder(implication);
+    }
+
+    /**
+     * Checks for a generated boolean path binder refined exactly by itself
+     */
+    private boolean isUnusedFreshPathBinder(VCImplication implication) {
+        if (!implication.hasNext() || !implication.getName().startsWith(FRESH_PREFIX)
+                || !"boolean".equals(implication.getType().getQualifiedName()))
+            return false;
+
+        return implication.getRefinement().getExpression()instanceof Var var
+                && implication.getName().equals(var.getName());
     }
 
     /**

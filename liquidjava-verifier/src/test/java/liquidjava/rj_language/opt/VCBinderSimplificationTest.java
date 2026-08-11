@@ -13,6 +13,21 @@ class VCBinderSimplificationTest {
     }
 
     @Test
+    void removesFreshPathBinderWhenVariableIsUnusedDownstream() {
+        assertSimplificationSteps(binderSimplification, vc("∀#fresh_1:boolean. #fresh_1", "y > 0"), step("y > 0"));
+    }
+
+    @Test
+    void keepsNonTrueBinderWhenVariableIsUnusedDownstream() {
+        assertSimplificationSteps(binderSimplification, vc("∀x:int. x > 0", "y > 0"), step("x > 0", "y > 0"));
+    }
+
+    @Test
+    void keepsNonTrueTerminalBinderAsConclusion() {
+        assertSimplificationSteps(binderSimplification, vc("∀x:int. x > 0"), step("x > 0"));
+    }
+
+    @Test
     void keepsTrueBinderWhenVariableIsUsedDownstream() {
         assertSimplificationSteps(binderSimplification, vc("∀x:int. true", "x > 0"), step("true", "x > 0"));
     }
