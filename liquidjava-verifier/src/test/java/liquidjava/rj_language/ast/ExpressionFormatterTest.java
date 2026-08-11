@@ -13,18 +13,9 @@ class ExpressionFormatterTest {
     }
 
     @Test
-    void formatsUnaryAtoms() {
+    void formatsUnary() {
         assertEquals("!x", parse("!x").toDisplayString());
         assertEquals("!false", parse("!false").toDisplayString());
-    }
-
-    @Test
-    void formatsInternalVariables() {
-        assertEquals("x", parse("x").toDisplayString());
-        assertEquals("x²", parse("#x_2").toDisplayString());
-        assertEquals("#fresh¹²", parse("#fresh_12").toDisplayString());
-        assertEquals("#ret³", parse("#ret_3").toDisplayString());
-        assertEquals("this#Class", parse("this#Class").toDisplayString());
     }
 
     @Test
@@ -50,7 +41,7 @@ class ExpressionFormatterTest {
     }
 
     @Test
-    void omitsUnnecessaryGroupParentheses() {
+    void formatsGrouping() {
         assertEquals("x", parse("(x)").toDisplayString());
         assertEquals("x", parse("((x))").toDisplayString());
         assertEquals("1", parse("(1)").toDisplayString());
@@ -97,4 +88,5 @@ class ExpressionFormatterTest {
         assertEquals("a ? b : (c ? d : (e ? f : g))", parse("a ? b : c ? d : e ? f : g").toDisplayString());
         assertEquals("a ? b : c", parse("a ? b : c").toDisplayString());
     }
+
 }

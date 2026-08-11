@@ -24,6 +24,11 @@ public final class VariableFormatter {
         return prefix + baseName + toSuperscript(counter);
     }
 
+    public static String withoutInstance(String name) {
+        Matcher matcher = INSTACE_VAR_PATTERN.matcher(name);
+        return matcher.matches() ? matcher.group(1) : name;
+    }
+
     private static String toSuperscript(String number) {
         StringBuilder sb = new StringBuilder(number.length());
         for (char c : number.toCharArray()) {
