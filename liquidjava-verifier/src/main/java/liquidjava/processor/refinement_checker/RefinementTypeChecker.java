@@ -107,6 +107,7 @@ public class RefinementTypeChecker extends TypeChecker {
     public <T> void visitCtConstructor(CtConstructor<T> constructor) {
         context.clearInstanceVariables();
         context.enterContext();
+        context.restoreInstanceVariables();
         mfc.loadFunctionInfo(constructor);
         try {
             super.visitCtConstructor(constructor);
@@ -121,6 +122,7 @@ public class RefinementTypeChecker extends TypeChecker {
     public <R> void visitCtMethod(CtMethod<R> method) {
         context.clearInstanceVariables();
         context.enterContext();
+        context.restoreInstanceVariables();
         if (!method.getSignature().equals("main(java.lang.String[])")) {
             mfc.loadFunctionInfo(method);
         }

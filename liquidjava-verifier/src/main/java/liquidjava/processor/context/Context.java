@@ -47,6 +47,14 @@ public class Context {
         ctxInstanceVars = new ArrayList<>();
     }
 
+    public void restoreInstanceVariables() {
+        for (RefinedVariable variable : getCtxVars()) {
+            if (variable instanceof Variable) {
+                ((Variable) variable).getLastInstance().ifPresent(this::addInstanceVariable);
+            }
+        }
+    }
+
     public void reinitializeAllContext() {
         reinitializeContext();
         ctxFunctions = new ArrayList<>();
