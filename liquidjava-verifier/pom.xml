@@ -11,7 +11,7 @@
 
 	<groupId>io.github.liquid-java</groupId>
 	<artifactId>liquidjava-verifier</artifactId>
-	<version>0.0.29</version>
+	<version>0.0.30</version>
 	<name>liquidjava-verifier</name>
 	<description>LiquidJava Verifier</description>
 	<url>https://github.com/liquid-java/liquidjava</url>
@@ -241,6 +241,7 @@
 					<skipPublishing>${maven.deploy.skip}</skipPublishing>
 					<autoPublish>true</autoPublish>
 					<waitUntil>published</waitUntil>
+					<waitMaxTime>3600</waitMaxTime>
 				</configuration>
 			</plugin>
 		</plugins>
