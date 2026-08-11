@@ -1,6 +1,7 @@
 package liquidjava.diagnostics.errors;
 
 import liquidjava.diagnostics.TranslationTable;
+import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
 import spoon.reflect.code.CtInvocation;
 import spoon.reflect.declaration.CtElement;
