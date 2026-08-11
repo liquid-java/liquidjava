@@ -47,6 +47,10 @@ public class LJDiagnostic extends RuntimeException {
         return position;
     }
 
+    public SourcePosition getDeclarationPosition() {
+        return null;
+    }
+
     public void setPosition(SourcePosition pos) {
         if (pos == null || pos.getFile() == null)
             return;
@@ -91,23 +95,38 @@ public class LJDiagnostic extends RuntimeException {
             sb.append("\n").append(file).append(":").append(position.getLine()).append(Colors.RESET).append("\n");
         }
 
+        // declaration position
+        SourcePosition declPos = getDeclarationPosition();
+        if (declPos != null && declPos.getFile() != null && !declPos.equals(position)) {
+            sb.append(Colors.CYAN).append("\n--> Refinement declared here:\n").append(Colors.RESET);
+            String declarationSnippet = getSnippet(declPos, 1, 0, Colors.CYAN, null, true);
+            if (declarationSnippet != null) {
+                sb.append(declarationSnippet);
+            }
+            sb.append(declPos.getFile().getPath()).append(":").append(declPos.getLine()).append(Colors.RESET)
+                    .append("\n");
+        }
+
         return sb.toString();
     }
 
     public String getSnippet() {
-        if (file == null || position == null)
+        return getSnippet(position, 2, 2, accentColor, customMessage, false);
+    }
+
+    private String getSnippet(SourcePosition snippetPosition, int contextBefore, int contextAfter, String markerColor,
+            String markerMessage, boolean firstLineOnly) {
+        if (snippetPosition == null || snippetPosition.getFile() == null)
             return null;
 
-        Path path = Path.of(file);
+        Path path = snippetPosition.getFile().toPath();
         try {
             List<String> lines = Files.readAllLines(path);
             StringBuilder sb = new StringBuilder();
 
-            // before and after lines for context
-            int contextBefore = 2;
-            int contextAfter = 2;
-            int startLine = Math.max(1, position.getLine() - contextBefore);
-            int endLine = Math.min(lines.size(), position.getEndLine() + contextAfter);
+            int startLine = Math.max(1, snippetPosition.getLine() - contextBefore);
+            int highlightedEndLine = firstLineOnly ? snippetPosition.getLine() : snippetPosition.getEndLine();
+            int endLine = Math.min(lines.size(), highlightedEndLine + contextAfter);
 
             // calculate padding for line numbers
             int padding = String.valueOf(endLine).length();
@@ -121,9 +140,10 @@ public class LJDiagnostic extends RuntimeException {
                 sb.append(Colors.GREY).append(lineNumStr).append(PIPE).append(line).append(Colors.RESET).append("\n");
 
                 // add error markers on the line(s) with the error
-                if (i >= position.getLine() && i <= position.getEndLine()) {
-                    int colStart = (i == position.getLine()) ? position.getColumn() : 1;
-                    int colEnd = (i == position.getEndLine()) ? position.getEndColumn() : rawLine.length();
+                if (i >= snippetPosition.getLine() && i <= highlightedEndLine) {
+                    int colStart = (i == snippetPosition.getLine()) ? snippetPosition.getColumn() : 1;
+                    int colEnd = (i == snippetPosition.getEndLine()) ? snippetPosition.getEndColumn()
+                            : rawLine.length();
 
                     if (colStart > 0 && colEnd > 0) {
                         int tabsBeforeStart = (int) rawLine.substring(0, Math.max(0, colStart - 1)).chars()
@@ -136,13 +156,13 @@ public class LJDiagnostic extends RuntimeException {
                         // line number padding + pipe + column offset
                         String indent = " ".repeat(padding) + Colors.GREY + PIPE + Colors.RESET
                                 + " ".repeat(visualColStart - 1);
-                        String markers = accentColor + "^".repeat(Math.max(1, visualColEnd - visualColStart + 1));
+                        String markers = markerColor + "^".repeat(Math.max(1, visualColEnd - visualColStart + 1));
                         sb.append(indent).append(markers);
 
                         // custom message
-                        if (customMessage != null && !customMessage.isBlank()) {
+                        if (markerMessage != null && !markerMessage.isBlank()) {
                             String offset = " ".repeat(padding + visualColEnd + PIPE.length() + 1);
-                            sb.append(" " + customMessage.replace("\n", "\n" + offset));
+                            sb.append(" " + markerMessage.replace("\n", "\n" + offset));
                         }
                         sb.append(Colors.RESET).append("\n");
                     }

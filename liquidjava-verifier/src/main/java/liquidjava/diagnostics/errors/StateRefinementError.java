@@ -15,15 +15,23 @@ public class StateRefinementError extends LJError {
 
     private final Predicate expected;
     private final VCSimplificationResult found;
+    private final SourcePosition declarationPosition;
 
-    public StateRefinementError(SourcePosition position, Predicate expected, VCSimplificationResult found,
-            TranslationTable translationTable, String customMessage) {
+    public StateRefinementError(SourcePosition position, SourcePosition declarationPosition, Predicate expected,
+            VCSimplificationResult found, TranslationTable translationTable, String customMessage) {
         super("State Refinement Error",
-                String.format("Expected state %s but found %s", expected.getExpression().toDisplayString(),
-                        found.getImplication().toPredicate().getExpression().toDisplayString()),
+                String.format("found %s but expected %s",
+                        found.getImplication().toPredicate().getExpression().toDisplayString(),
+                        expected.getExpression().toDisplayString()),
                 position, translationTable, customMessage);
+        this.declarationPosition = declarationPosition;
         this.expected = expected;
         this.found = found;
+    }
+
+    @Override
+    public SourcePosition getDeclarationPosition() {
+        return declarationPosition;
     }
 
     public Predicate getExpected() {

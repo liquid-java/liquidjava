@@ -38,13 +38,8 @@ public class VCChecker {
         pathVariables = new Stack<>();
     }
 
-    public void processSubtyping(Predicate expectedType, List<GhostState> list, CtElement element, Factory f)
-            throws LJError {
-        processSubtyping(expectedType, list, element, f, null);
-    }
-
     public void processSubtyping(Predicate expectedType, List<GhostState> list, CtElement element, Factory f,
-            String customMessage) throws LJError {
+            SourcePosition declarationPosition, String customMessage) throws LJError {
         List<RefinedVariable> lrv = new ArrayList<>(), mainVars = new ArrayList<>();
         gatherVariables(expectedType, lrv, mainVars);
         if (expectedType.isBooleanTrue())
@@ -82,8 +77,8 @@ public class VCChecker {
         }
         DebugLog.smtResult(result);
         if (result.isError()) {
-            throw new RefinementError(element.getPosition(), expectedType, implBeforeChange.simplify(), map,
-                    result.getCounterexample(), customMessage);
+            throw new RefinementError(element.getPosition(), declarationPosition, expectedType,
+                    implBeforeChange.simplify(), map, result.getCounterexample(), customMessage);
         }
     }
 
@@ -99,10 +94,11 @@ public class VCChecker {
      * @throws LJError
      */
     public void processSubtyping(Predicate type, Predicate expectedType, List<GhostState> list, CtElement element,
-            Factory f) throws LJError {
+            SourcePosition declarationPosition, Factory f) throws LJError {
         SMTResult result = verifySMTSubtypeStates(type, expectedType, list, element.getPosition(), f);
         if (result.isError())
-            throwRefinementError(element.getPosition(), expectedType, type, result.getCounterexample(), null);
+            throwRefinementError(element.getPosition(), declarationPosition, expectedType, type,
+                    result.getCounterexample(), null);
     }
 
     /**
@@ -407,18 +403,20 @@ public class VCChecker {
         return joinPredicates(predicates[0], mainVars, lrv, map);
     }
 
-    protected void throwRefinementError(SourcePosition position, Predicate expected, Predicate found,
-            Counterexample counterexample, String customMessage) throws RefinementError {
+    protected void throwRefinementError(SourcePosition position, SourcePosition declarationPosition, Predicate expected,
+            Predicate found, Counterexample counterexample, String customMessage) throws RefinementError {
         TranslationTable map = new TranslationTable();
         VCImplication premises = buildPremiseChain(map, expected, found);
-        throw new RefinementError(position, expected, premises.simplify(), map, counterexample, customMessage);
+        throw new RefinementError(position, declarationPosition, expected, premises.simplify(), map, counterexample,
+                customMessage);
     }
 
-    protected void throwStateRefinementError(SourcePosition position, Predicate found, Predicate expected,
-            String customMessage) throws StateRefinementError {
+    protected void throwStateRefinementError(SourcePosition position, SourcePosition declarationPosition,
+            Predicate found, Predicate expected, String customMessage) throws StateRefinementError {
         TranslationTable map = new TranslationTable();
         VCImplication foundState = buildPremiseChain(map, expected, found);
-        throw new StateRefinementError(position, expected, foundState.simplify(), map, customMessage);
+        throw new StateRefinementError(position, declarationPosition, expected, foundState.simplify(), map,
+                customMessage);
     }
 
     protected void throwStateConflictError(SourcePosition position, Predicate expected) throws StateConflictError {

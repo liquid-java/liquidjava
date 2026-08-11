@@ -364,22 +364,21 @@ public abstract class TypeChecker extends CtScanner {
             rv.addSuperType(t);
         context.addRefinementInstanceToVariable(simpleName, newName);
         String customMessage = getMessageFromAnnotation(variable).orElse(mainRV != null ? mainRV.getMessage() : null);
-        checkSMT(cEt, usage, customMessage); // TODO CHANGE
+        checkSMT(cEt, usage, variable.getPosition(), customMessage); // TODO CHANGE
         context.addRefinementToVariableInContext(simpleName, type, cet, usage);
     }
 
-    public void checkSMT(Predicate expectedType, CtElement element) throws LJError {
-        checkSMT(expectedType, element, null);
-    }
-
-    public void checkSMT(Predicate expectedType, CtElement element, String customMessage) throws LJError {
-        vcChecker.processSubtyping(expectedType, context.getGhostStates(), element, factory, customMessage);
+    public void checkSMT(Predicate expectedType, CtElement element, SourcePosition declarationPosition,
+            String customMessage) throws LJError {
+        vcChecker.processSubtyping(expectedType, context.getGhostStates(), element, factory, declarationPosition,
+                customMessage);
         element.putMetadata(Keys.REFINEMENT, expectedType);
     }
 
-    public void checkStateSMT(Predicate prevState, Predicate expectedState, CtElement target, String moreInfo)
-            throws LJError {
-        vcChecker.processSubtyping(prevState, expectedState, context.getGhostStates(), target, factory);
+    public void checkStateSMT(Predicate prevState, Predicate expectedState, CtElement target,
+            SourcePosition declarationPosition, String moreInfo) throws LJError {
+        vcChecker.processSubtyping(prevState, expectedState, context.getGhostStates(), target, declarationPosition,
+                factory);
     }
 
     public boolean checkStateSMT(Predicate prevState, Predicate expectedState, SourcePosition p) throws LJError {
@@ -393,14 +392,14 @@ public abstract class TypeChecker extends CtScanner {
         return result.isOk();
     }
 
-    public void throwRefinementError(SourcePosition position, Predicate expectedType, Predicate foundType,
-            String customMessage) throws LJError {
-        vcChecker.throwRefinementError(position, expectedType, foundType, null, customMessage);
+    public void throwRefinementError(SourcePosition position, SourcePosition declarationPosition,
+            Predicate expectedType, Predicate foundType, String customMessage) throws LJError {
+        vcChecker.throwRefinementError(position, declarationPosition, expectedType, foundType, null, customMessage);
     }
 
-    public void throwStateRefinementError(SourcePosition position, Predicate found, Predicate expected,
-            String customMessage) throws LJError {
-        vcChecker.throwStateRefinementError(position, found, expected, customMessage);
+    public void throwStateRefinementError(SourcePosition position, SourcePosition declarationPosition, Predicate found,
+            Predicate expected, String customMessage) throws LJError {
+        vcChecker.throwStateRefinementError(position, declarationPosition, found, expected, customMessage);
     }
 
     public void throwStateConflictError(SourcePosition position, Predicate expectedType) throws LJError {

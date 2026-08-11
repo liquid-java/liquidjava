@@ -373,7 +373,7 @@ public class AuxStateHandler {
         VariableInstance target = getTarget(invocation);
         if (target != null) {
             if (f.hasStateChange() && !f.getFromStates().isEmpty()) {
-                changeState(tc, target, f.getAllStates(), parentTargetName, map, invocation);
+                changeState(tc, target, f, parentTargetName, map, invocation);
             }
             if (!f.hasStateChange()) {
                 sameState(tc, target, parentTargetName, invocation);
@@ -428,7 +428,8 @@ public class AuxStateHandler {
                 .changeOldMentions(vi.getName(), instanceName);
 
         if (!tc.checkStateSMT(prevState, expectState, fw.getPosition())) { // Invalid field transition
-            tc.throwStateRefinementError(fw.getPosition(), prevState, expectState, stateChange.getMessage());
+            tc.throwStateRefinementError(fw.getPosition(), field.getDeclaringType().getPosition(), prevState,
+                    expectState, stateChange.getMessage());
             return;
         }
 
@@ -451,7 +452,7 @@ public class AuxStateHandler {
         // is a subtype of the variable's main refinement
         if (rv instanceof Variable) {
             Predicate superC = rv.getMainRefinement().substituteVariable(rv.getName(), vi2.getName());
-            tc.checkSMT(superC, fw);
+            tc.checkSMT(superC, fw, rv.getPlacementInCode().getPosition(), null);
             tc.getContext().addRefinementInstanceToVariable(parentTargetName, newInstanceName);
         }
     }
@@ -466,11 +467,12 @@ public class AuxStateHandler {
      * @param map
      * @param invocation
      */
-    private static void changeState(TypeChecker tc, VariableInstance vi, List<ObjectState> stateChanges, String name,
+    private static void changeState(TypeChecker tc, VariableInstance vi, RefinedFunction function, String name,
             Map<String, String> map, CtElement invocation) throws LJError {
         if (vi.getRefinement() == null) {
             return;
         }
+        List<ObjectState> stateChanges = function.getAllStates();
         String instanceName = vi.getName();
         Predicate prevState = vi.getRefinement().substituteVariable(Keys.WILDCARD, instanceName)
                 .substituteVariable(name, instanceName);
@@ -520,7 +522,8 @@ public class AuxStateHandler {
             // combine messages of all state changes
             String message = stateChanges.stream().map(ObjectState::getMessage)
                     .filter(msg -> msg != null && !msg.isBlank()).distinct().collect(Collectors.joining("\n"));
-            tc.throwStateRefinementError(invocation.getPosition(), prevState, expectedStatesDisjunction, message);
+            tc.throwStateRefinementError(invocation.getPosition(), function.getPlacementInCode().getPosition(),
+                    prevState, expectedStatesDisjunction, message);
         }
     }
 
@@ -575,7 +578,7 @@ public class AuxStateHandler {
             // is a subtype of the variable's main refinement
             if (rv instanceof Variable) {
                 Predicate superC = rv.getMainRefinement().substituteVariable(rv.getName(), vi2.getName());
-                tc.checkSMT(superC, invocation);
+                tc.checkSMT(superC, invocation, rv.getPlacementInCode().getPosition(), null);
                 tc.getContext().addRefinementInstanceToVariable(superName, name2);
             }
         }

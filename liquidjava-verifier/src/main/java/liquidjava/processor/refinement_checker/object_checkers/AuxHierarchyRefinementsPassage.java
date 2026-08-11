@@ -83,7 +83,8 @@ public class AuxHierarchyRefinementsPassage {
             } else {
                 boolean ok = tc.checkStateSMT(superArgRef, argRef, params.get(i).getPosition());
                 if (!ok) {
-                    tc.throwRefinementError(method.getPosition(), argRef, superArgRef, function.getMessage());
+                    tc.throwRefinementError(method.getPosition(), function.getPlacementInCode().getPosition(), argRef,
+                            superArgRef, function.getMessage());
                 }
             }
         }
@@ -107,7 +108,7 @@ public class AuxHierarchyRefinementsPassage {
             for (String m : super2function.keySet())
                 functionRef = functionRef.substituteVariable(m, super2function.get(m));
 
-            tc.checkStateSMT(functionRef, superRef, method,
+            tc.checkStateSMT(functionRef, superRef, method, function.getPlacementInCode().getPosition(),
                     "Return of subclass must be subtype of the return of the superclass");
         }
     }
@@ -143,13 +144,13 @@ public class AuxHierarchyRefinementsPassage {
                     Predicate subConst = matchVariableNames(thisName, superFunction, subFunction, subState.getFrom());
 
                     // fromSup <: fromSub <==> fromSup is sub type and fromSub is expectedType
-                    tc.checkStateSMT(superConst, subConst, method,
+                    tc.checkStateSMT(superConst, subConst, method, subFunction.getPlacementInCode().getPosition(),
                             "FROM State from Superclass must be subtype of FROM State from Subclass");
 
                     superConst = matchVariableNames(thisName, superState.getTo());
                     subConst = matchVariableNames(thisName, superFunction, subFunction, subState.getTo());
                     // toSub <: toSup <==> ToSub is sub type and toSup is expectedType
-                    tc.checkStateSMT(subConst, superConst, method,
+                    tc.checkStateSMT(subConst, superConst, method, superFunction.getPlacementInCode().getPosition(),
                             "TO State from Subclass must be subtype of TO State from Superclass");
 
                 }
