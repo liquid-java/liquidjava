@@ -25,6 +25,7 @@ import spoon.reflect.code.CtConditional;
 import spoon.reflect.code.CtBinaryOperator;
 import spoon.reflect.code.CtExpression;
 import spoon.reflect.code.CtFieldRead;
+import spoon.reflect.code.CtFieldWrite;
 import spoon.reflect.code.CtIf;
 import spoon.reflect.code.CtInvocation;
 import spoon.reflect.code.CtLiteral;
@@ -39,7 +40,6 @@ import spoon.reflect.declaration.CtAnnotation;
 import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtExecutable;
-import spoon.reflect.declaration.CtVariable;
 import spoon.reflect.declaration.ParentNotInitializedException;
 import spoon.reflect.reference.CtVariableReference;
 import spoon.support.reflect.code.CtIfImpl;
@@ -123,6 +123,8 @@ public class OperationsChecker {
         Predicate all;
         if (ex instanceof CtVariableWrite<T> w) {
             name = w.getVariable().getSimpleName();
+            if (w instanceof CtFieldWrite<?>)
+                name = String.format(Formats.THIS, name);
             all = getRefinementUnaryVariableWrite(ex, operator, w, name);
             rtc.checkVariableRefinements(all, name, w.getType(), operator, w.getVariable().getDeclaration());
             return;
@@ -389,9 +391,8 @@ public class OperationsChecker {
     private <T> Predicate getRefinementUnaryVariableWrite(CtExpression<T> ex, CtUnaryOperator<T> operator,
             CtVariableWrite<T> w, String name) throws LJError {
         String newName = String.format(Formats.INSTANCE, name, rtc.getContext().getCounter());
-        CtVariable<T> varDecl = w.getVariable().getDeclaration();
 
-        Predicate metadada = rtc.getContext().getVariableRefinements(varDecl.getSimpleName());
+        Predicate metadada = rtc.getContext().getVariableRefinements(name);
         metadada = metadada.substituteVariable(Keys.WILDCARD, newName);
         metadada = metadada.substituteVariable(name, newName);
 
