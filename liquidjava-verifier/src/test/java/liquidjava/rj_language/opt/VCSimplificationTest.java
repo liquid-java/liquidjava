@@ -174,10 +174,10 @@ class VCSimplificationTest {
     }
 
     @Test
-    void simplifyEliminatesConstraintImpliedByLaterAntecedent() {
+    void simplifyEliminatesRemovableConstraintImpliedByEarlierAntecedent() {
         TestUtils.addIntVariableToContext("x");
         TestUtils.addIntVariableToContext("y");
-        assertSimplificationSteps(vc("∀x:int. x > 0", "∀cond:boolean. x > 1", "∀y:int. y == x + 1", "y < 0"),
-                step("x > 0", "x > 1", "x + 1 < 0"), step("x > 1", "x + 1 < 0"));
+        assertSimplificationSteps(vc("∀x:int. x > 1", "∀cond:boolean. x > 0", "∀y:int. y == x + 1", "y < 0"),
+                step("x > 1", "x > 0", "x + 1 < 0"), step("x > 1", "x + 1 < 0"));
     }
 }

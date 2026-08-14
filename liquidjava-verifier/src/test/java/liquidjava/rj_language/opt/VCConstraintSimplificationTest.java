@@ -3,14 +3,11 @@ package liquidjava.rj_language.opt;
 import static liquidjava.utils.VCTestUtils.assertSimplificationSteps;
 import static liquidjava.utils.VCTestUtils.step;
 import static liquidjava.utils.VCTestUtils.vc;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import liquidjava.processor.VCImplication;
 import liquidjava.processor.context.Context;
 import liquidjava.utils.TestUtils;
 
@@ -31,23 +28,10 @@ class VCConstraintSimplificationTest {
     }
 
     @Test
-    void keepsRequiredBinderAndRemovesLaterStrongerBinder() {
+    void keepsRedundantConstraintWhenItsBinderIsRequired() {
         assertSimplificationSteps(simplification,
                 vc("∀x:int. x > 0", "∀cond:boolean. x > 1", "∀y:int. y == x + 1", "y < 0"),
-                step("x > 1", "y == x + 1", "y < 0"));
-    }
-
-    @Test
-    void preservesRequiredBinderWhenRemovingStrongerBinder() {
-        VCImplication simplified = simplification
-                .apply(vc("∀x:int. x > 0", "∀cond:boolean. x > 1", "∀y:int. y == x + 1", "y < 0"));
-
-        assertTrue(simplified.hasBinder());
-        assertEquals("x", simplified.getName());
-        assertEquals("int", simplified.getType().getQualifiedName());
-        assertTrue(simplified.getNext().hasBinder());
-        assertEquals("y", simplified.getNext().getName());
-        assertEquals("int", simplified.getNext().getType().getQualifiedName());
+                step("x > 0", "x > 1", "y == x + 1", "y < 0"));
     }
 
     @Test
@@ -89,7 +73,8 @@ class VCConstraintSimplificationTest {
 
     @Test
     void simplifiesOnlyFirstImpliedConstraint() {
-        assertSimplificationSteps(simplification, vc("∀x:int. x > 0", "x > 1", "x > 2", "y > 0"),
-                step("x > 1", "x > 2", "y > 0"), step("x > 2", "y > 0"));
+        assertSimplificationSteps(simplification,
+                vc("∀x:int. x > 2", "∀#fresh_1:boolean. x > 1", "∀#fresh_2:boolean. x > 0", "y > 0"),
+                step("x > 2", "x > 0", "y > 0"), step("x > 2", "y > 0"));
     }
 }
