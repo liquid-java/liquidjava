@@ -31,14 +31,14 @@ class VCConstraintSimplificationTest {
     }
 
     @Test
-    void simplifiesConstraintImpliedByLaterAntecedent() {
+    void keepsRequiredBinderAndRemovesLaterStrongerBinder() {
         assertSimplificationSteps(simplification,
                 vc("∀x:int. x > 0", "∀cond:boolean. x > 1", "∀y:int. y == x + 1", "y < 0"),
-                step("true", "x > 1", "y == x + 1", "y < 0"));
+                step("x > 1", "y == x + 1", "y < 0"));
     }
 
     @Test
-    void preservesBothBindersWhenSimplifyingConstraint() {
+    void preservesRequiredBinderWhenRemovingStrongerBinder() {
         VCImplication simplified = simplification
                 .apply(vc("∀x:int. x > 0", "∀cond:boolean. x > 1", "∀y:int. y == x + 1", "y < 0"));
 
@@ -46,14 +46,34 @@ class VCConstraintSimplificationTest {
         assertEquals("x", simplified.getName());
         assertEquals("int", simplified.getType().getQualifiedName());
         assertTrue(simplified.getNext().hasBinder());
-        assertEquals("cond", simplified.getNext().getName());
-        assertEquals("boolean", simplified.getNext().getType().getQualifiedName());
+        assertEquals("y", simplified.getNext().getName());
+        assertEquals("int", simplified.getNext().getType().getQualifiedName());
     }
 
     @Test
-    void keepsConstraintThatIsNotImpliedByLaterAntecedent() {
-        assertSimplificationSteps(simplification, vc("∀x:int. x > 1", "x > 0", "y > 0"),
-                step("x > 1", "x > 0", "y > 0"));
+    void removesConstraintImpliedByEarlierAntecedent() {
+        assertSimplificationSteps(simplification, vc("∀x:int. x > 1", "∀cond:boolean. x > 0", "∀y:int. y == x + 1"),
+                step("x > 1", "y == x + 1"));
+    }
+
+    @Test
+    void removesCoverageConstraintsImpliedByStrongerLaterConstraints() {
+        assertSimplificationSteps(simplification,
+                vc("∀x:int. x >= 0", "∀#fresh_40:boolean. !(y < 40)", "∀#fresh_60:boolean. !(y < 60)",
+                        "∀#fresh_80:boolean. !(y < 80)", "x + y > 0"),
+                step("x >= 0", "!(y < 60)", "!(y < 80)", "x + y > 0"), step("x >= 0", "!(y < 80)", "x + y > 0"));
+    }
+
+    @Test
+    void keepsConstraintsWhenBothBindersAreRequired() {
+        assertSimplificationSteps(simplification, vc("∀x:int. y >= 0", "∀y:int. y > 0", "x + y > 0"),
+                step("y >= 0", "y > 0", "x + y > 0"));
+    }
+
+    @Test
+    void keepsConstraintsThatDoNotImplyEachOther() {
+        assertSimplificationSteps(simplification, vc("∀x:int. x > 1", "y > 0", "x + y > 0"),
+                step("x > 1", "y > 0", "x + y > 0"));
     }
 
     @Test
@@ -70,6 +90,6 @@ class VCConstraintSimplificationTest {
     @Test
     void simplifiesOnlyFirstImpliedConstraint() {
         assertSimplificationSteps(simplification, vc("∀x:int. x > 0", "x > 1", "x > 2", "y > 0"),
-                step("true", "x > 1", "x > 2", "y > 0"), step("true", "x > 2", "y > 0"));
+                step("x > 1", "x > 2", "y > 0"), step("x > 2", "y > 0"));
     }
 }

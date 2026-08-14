@@ -1,17 +1,17 @@
 package liquidjava.rj_language.opt;
 
+import static liquidjava.rj_language.opt.VCSimplificationUtils.containsVar;
 import static liquidjava.rj_language.opt.VCSimplificationUtils.copyWithRefinement;
 import static liquidjava.rj_language.opt.VCSimplificationUtils.isTrue;
 
 import liquidjava.processor.VCImplication;
 import liquidjava.processor.context.Context;
 import liquidjava.rj_language.Predicate;
-import liquidjava.rj_language.ast.LiteralBoolean;
 import liquidjava.smt.SMTEvaluator;
 import liquidjava.smt.SMTResult;
 
 /**
- * Simplifies antecedent constraints that are implied by stronger constraints later in the VC chain
+ * Removes antecedent constraints that are implied by another antecedent
  */
 public class VCConstraintSimplification implements VCSimplificationPass {
 
@@ -26,51 +26,73 @@ public class VCConstraintSimplification implements VCSimplificationPass {
     }
 
     /**
-     * Simplifies the first antecedent implied by a later antecedent
+     * Removes the first antecedent implied by another antecedent
      */
     private VCImplication simplify(VCImplication implication) {
-        if (implication == null || implication.getNext() == null)
-            return null;
+        for (VCImplication redundant = implication; redundant.getNext() != null; redundant = redundant.getNext()) {
+            if (isTrue(redundant.getRefinement().getExpression()))
+                continue;
 
-        if (!isTrue(implication.getRefinement().getExpression())) { // skip trivial constraints
-            VCImplication implying = findImplyingAntecedent(implication);
-            if (implying != null)
-                return simplifyConstraint(implication);
-        }
-
-        // continue searching for simplifications in the suffix
-        VCImplication next = simplify(implication.getNext());
-        if (next == null)
-            return null;
-
-        VCImplication result = copyWithRefinement(implication, implication.getRefinement().clone());
-        result.setNext(next);
-        return result;
-    }
-
-    /**
-     * Finds a later antecedent that implies the current constraint. The final node is the conclusion and is not a
-     * candidate
-     */
-    private VCImplication findImplyingAntecedent(VCImplication implication) {
-        for (VCImplication candidate = implication.getNext(); candidate != null
-                && candidate.getNext() != null; candidate = candidate.getNext()) {
-            // ∀x. x > 0 => x > 1 -> ∀x. true => x > 1
-            if (implies(candidate.getRefinement(), implication.getRefinement()))
-                return candidate;
+            for (VCImplication stronger = implication; stronger.getNext() != null; stronger = stronger.getNext()) {
+                if (stronger != redundant && canEliminate(implication, stronger, redundant)
+                        && implies(stronger.getRefinement(), redundant.getRefinement()))
+                    return eliminate(implication, stronger, redundant);
+            }
         }
         return null;
     }
 
     /**
-     * Simplifies a redundant constraint to true
+     * Checks whether either node can be removed while preserving required binders
      */
-    private VCImplication simplifyConstraint(VCImplication implication) {
-        if (!implication.hasBinder())
-            return implication.getNext().clone();
+    private boolean canEliminate(VCImplication implication, VCImplication stronger, VCImplication redundant) {
+        return isRemovable(implication, redundant) || isRelocatable(implication, stronger);
+    }
 
-        VCImplication result = copyWithRefinement(implication, new Predicate(new LiteralBoolean(true)));
-        result.setNext(implication.getNext().clone());
+    /**
+     * Removes the redundant node, or moves the stronger refinement onto its required binder and removes the stronger
+     * node
+     */
+    private VCImplication eliminate(VCImplication implication, VCImplication stronger, VCImplication redundant) {
+        if (isRemovable(implication, redundant))
+            return rewrite(implication, redundant, null, null);
+        return rewrite(implication, stronger, redundant, stronger.getRefinement());
+    }
+
+    /**
+     * Checks whether removing a node also removes every use of its binder
+     */
+    private boolean isRemovable(VCImplication implication, VCImplication node) {
+        if (!node.hasBinder())
+            return true;
+
+        for (VCImplication current = implication; current != null; current = current.getNext())
+            if (current != node && containsVar(current.getRefinement().getExpression(), node.getName()))
+                return false;
+        return true;
+    }
+
+    /**
+     * Checks whether a node can be removed while retaining its refinement elsewhere
+     */
+    private boolean isRelocatable(VCImplication implication, VCImplication node) {
+        return isRemovable(implication, node)
+                && (!node.hasBinder() || !containsVar(node.getRefinement().getExpression(), node.getName()));
+    }
+
+    /**
+     * Clones a chain while removing one node and optionally replacing another node's refinement
+     */
+    private VCImplication rewrite(VCImplication implication, VCImplication removed, VCImplication replaced,
+            Predicate replacement) {
+        if (implication == null)
+            return null;
+        if (implication == removed)
+            return rewrite(implication.getNext(), removed, replaced, replacement);
+
+        Predicate refinement = implication == replaced ? replacement.clone() : implication.getRefinement().clone();
+        VCImplication result = copyWithRefinement(implication, refinement);
+        result.setNext(rewrite(implication.getNext(), removed, replaced, replacement));
         return result;
     }
 
