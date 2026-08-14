@@ -34,7 +34,9 @@ public class ExternalMethodNotFoundWarning extends LJWarning {
     }
 
     @Override
-    public String getDetails() {
-        return overloads.length > 0 ? String.format("Available overloads:\n  %s", String.join("\n  ", overloads)) : "";
+    public String getHint() {
+        if (overloads.length == 0)
+            return null;
+        return String.format("Available overloads:\n  %s", String.join("\n  ", overloads));
     }
 }

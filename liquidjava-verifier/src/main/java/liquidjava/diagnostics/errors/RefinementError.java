@@ -45,9 +45,9 @@ public class RefinementError extends LJError {
     }
 
     @Override
-    public String getDetails() {
+    public String getHint() {
         if (counterexample.isEmpty())
-            return "";
+            return null;
 
         String counterexampleString = counterexample.assignments().stream()
                 .map(a -> VariableFormatter.format(a.first()) + " == " + a.second())

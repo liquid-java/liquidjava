@@ -39,8 +39,8 @@ public class LJDiagnostic extends RuntimeException {
         return customMessage;
     }
 
-    public String getDetails() {
-        return hint != null ? hint : "";
+    public String getHint() {
+        return hint;
     }
 
     public SourcePosition getPosition() {
@@ -84,10 +84,10 @@ public class LJDiagnostic extends RuntimeException {
             sb.append(snippet);
         }
 
-        // details
-        String details = getDetails();
-        if (!details.isEmpty()) {
-            sb.append(" --> ").append(String.join("\n     ", details.split("\n"))).append("\n");
+        // hint
+        String hint = getHint();
+        if (hint != null && !hint.isBlank()) {
+            sb.append(" --> ").append(String.join("\n     ", hint.split("\n"))).append("\n");
         }
 
         // location
@@ -100,9 +100,9 @@ public class LJDiagnostic extends RuntimeException {
         if (declPos != null && declPos.getFile() != null && !declPos.equals(position)) {
             sb.append(Colors.CYAN).append("\n--> Refinement declared here:\n").append(Colors.RESET);
             String declarationSnippet = getSnippet(declPos, 1, 0, Colors.CYAN, null, true);
-            if (declarationSnippet != null) {
+            if (declarationSnippet != null)
                 sb.append(declarationSnippet);
-            }
+
             sb.append(declPos.getFile().getPath()).append(":").append(declPos.getLine()).append(Colors.RESET)
                     .append("\n");
         }

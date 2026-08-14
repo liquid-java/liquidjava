@@ -15,13 +15,13 @@ class RefinementsParserTest {
     void hintsArrowVsImplication() {
         SyntaxError e = assertThrows(SyntaxError.class,
                 () -> RefinementsParser.createAST("_ == true -> markSupported(this)", ""));
-        assertEquals("Logical implication is --> (two dashes), not ->", e.getDetails());
+        assertEquals("Logical implication is --> (two dashes), not ->", e.getHint());
     }
 
     @Test
     void hintsAssignVsEquals() {
         SyntaxError e = assertThrows(SyntaxError.class, () -> RefinementsParser.createAST("_ = 1", ""));
-        assertEquals("Predicates must be compared with == instead of =", e.getDetails());
+        assertEquals("Predicates must be compared with == instead of =", e.getHint());
     }
 
     @Test
@@ -33,7 +33,7 @@ class RefinementsParserTest {
     @Test
     void noHintForUnrelatedSyntaxError() {
         SyntaxError e = assertThrows(SyntaxError.class, () -> RefinementsParser.createAST("a +", ""));
-        assertEquals("", e.getDetails());
+        assertEquals(null, e.getHint());
     }
 
     @Test
