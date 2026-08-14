@@ -3,9 +3,18 @@ package liquidjava.rj_language.opt;
 import static liquidjava.utils.VCTestUtils.*;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
+import liquidjava.processor.context.Context;
+import liquidjava.utils.TestUtils;
+
 class VCSimplificationTest {
+
+    @AfterEach
+    void resetContext() {
+        Context.getInstance().reinitializeAllContext();
+    }
 
     @Test
     void simplifyReturnsNullForNullImplication() {
@@ -162,5 +171,13 @@ class VCSimplificationTest {
     @Test
     void simplifyLeavesUnchangedVcAsPlainPredicates() {
         assertSimplificationSteps(vc("x > 0", "y > x"), step("x > 0", "y > x"));
+    }
+
+    @Test
+    void simplifyEliminatesRemovableConstraintImpliedByEarlierAntecedent() {
+        TestUtils.addIntVariableToContext("x");
+        TestUtils.addIntVariableToContext("y");
+        assertSimplificationSteps(vc("∀x:int. x > 1", "∀cond:boolean. x > 0", "∀y:int. y == x + 1", "y < 0"),
+                step("x > 1", "x > 0", "x + 1 < 0"), step("x > 1", "x + 1 < 0"));
     }
 }
