@@ -9,7 +9,7 @@ public class ErrorDependentRefinement {
         int smaller = 5;
         @Refinement("bigger > 20")
         int bigger = 50;
-        @Refinement("_ > smaller  && _ < bigger")
+        @Refinement("_ > smaller && _ < bigger")
         int middle = 21; // Refinement Error
     }
 }

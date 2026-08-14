@@ -13,8 +13,6 @@ import java.util.stream.Stream;
 
 import liquidjava.api.CommandLineLauncher;
 import liquidjava.diagnostics.Diagnostics;
-import liquidjava.diagnostics.errors.*;
-
 import liquidjava.diagnostics.errors.LJError;
 import liquidjava.utils.Pair;
 

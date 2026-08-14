@@ -1,7 +1,7 @@
 package liquidjava.diagnostics.errors;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.TranslationTable;
@@ -10,6 +10,7 @@ import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.formatter.VariableFormatter;
 import liquidjava.rj_language.opt.VCSimplificationResult;
 import liquidjava.smt.Counterexample;
+import liquidjava.utils.Pair;
 import spoon.reflect.cu.SourcePosition;
 
 /**
@@ -34,7 +35,7 @@ public class RefinementError extends LJError {
                 position, translationTable, customMessage);
         this.expected = expected;
         this.found = found;
-        this.counterexample = counterexample;
+        this.counterexample = filterCounterexample(counterexample);
         this.declarationPosition = declarationPosition;
     }
 
@@ -45,38 +46,13 @@ public class RefinementError extends LJError {
 
     @Override
     public String getDetails() {
-        String counterexampleString = getCounterExampleString();
-        if (counterexampleString == null)
+        if (counterexample.isEmpty())
             return "";
-        return "Counterexample: " + counterexampleString;
-    }
 
-    public String getCounterExampleString() {
-        if (counterexample == null || counterexample.assignments().isEmpty())
-            return null;
-
-        List<String> foundVarNames = new ArrayList<>();
-        Expression foundExpression = getFound().getImplication().toPredicate().getExpression();
-        Expression expectedExpression = expected.getExpression();
-        foundExpression.getVariableNames(foundVarNames);
-        // also keep resolved static-final constants (e.g. Integer.MAX_VALUE) referenced by either side of the
-        // subtyping check, so the counterexample maps the symbolic name back to its compile-time value
-        foundExpression.getResolvedConstantNames(foundVarNames);
-        expectedExpression.getResolvedConstantNames(foundVarNames);
-        List<String> foundAssignments = foundExpression.getConjuncts().stream().map(Expression::toString).toList();
         String counterexampleString = counterexample.assignments().stream()
-                // only include variables that appear in the found value and are not already fixed there
-                .filter(a -> foundVarNames.contains(a.first())
-                        && !foundAssignments.contains(a.first() + " == " + a.second()))
-                // format as "var == value"
                 .map(a -> VariableFormatter.format(a.first()) + " == " + a.second())
-                // join with "&&"
                 .collect(Collectors.joining(" && "));
-
-        if (counterexampleString.isEmpty())
-            return null;
-
-        return counterexampleString;
+        return "Counterexample: " + counterexampleString;
     }
 
     public Counterexample getCounterexample() {
@@ -89,5 +65,19 @@ public class RefinementError extends LJError {
 
     public VCSimplificationResult getFound() {
         return found;
+    }
+
+    // Filters counterexample assignments only in found VC and sorts them in the order of its binders
+    private Counterexample filterCounterexample(Counterexample counterexample) {
+        List<String> binderNames = getFound().getBinders();
+        Set<String> knownAssignments = getFound().getImplication().toPredicate().getExpression().getConjuncts().stream()
+                .map(Expression::toString).collect(Collectors.toSet());
+        List<Pair<String, String>> assignments = counterexample.assignments().stream()
+                .filter(a -> binderNames.contains(a.first()))
+                .filter(a -> !knownAssignments.contains(a.first() + " == " + a.second()))
+                .sorted((a, b) -> Integer.compare(binderNames.indexOf(a.first()), binderNames.indexOf(b.first())))
+                .toList();
+
+        return new Counterexample(assignments);
     }
 }

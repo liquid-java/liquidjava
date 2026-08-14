@@ -1,5 +1,8 @@
 package liquidjava.rj_language.opt;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import liquidjava.processor.VCImplication;
 
 /**
@@ -42,6 +45,17 @@ public final class VCSimplificationResult {
      */
     public String getSimplification() {
         return simplification;
+    }
+
+    /**
+     * Returns the list of binder names in the simplified VC chain in order of appearance
+     */
+    public List<String> getBinders() {
+        ArrayList<String> binderNames = new ArrayList<>();
+        for (VCImplication current = getImplication(); current != null; current = current.getNext())
+            if (current.hasBinder())
+                binderNames.add(current.getName());
+        return binderNames;
     }
 
     @Override
