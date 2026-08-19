@@ -5,7 +5,7 @@
 
 	<groupId>io.github.liquid-java</groupId>
 	<artifactId>liquidjava-api</artifactId>
-	<version>0.0.6</version>
+	<version>0.0.7</version>
 	<name>liquidjava-api</name>
 	<description>LiquidJava API</description>
 	<url>https://github.com/liquid-java/liquidjava</url>
