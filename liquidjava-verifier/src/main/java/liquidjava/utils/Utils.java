@@ -1,8 +1,8 @@
 package liquidjava.utils;
 
+import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
-import java.util.Scanner;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -110,21 +110,41 @@ public class Utils {
         return element.getPosition();
     }
 
+    /**
+     * The source text of the element at {@code position}. The first line is taken from the element's column (leading
+     * indentation / preceding tokens dropped); a statement that wraps across lines has its continuation lines appended
+     * (joined with a space) until a line ends in a statement terminator ({@code ;}, {@code {} or {@code }}) or the
+     * element's end line is reached. The terminator stop keeps multi-line statements whole while halting block-bodied
+     * elements (methods, ifs, loops) at their opening brace instead of swallowing the whole body. Single-line elements
+     * read exactly one line, unchanged.
+     */
     public static String getExpressionFromPosition(SourcePosition position) {
         if (position == null || position.getFile() == null)
             return null;
-        try (Scanner scanner = new Scanner(position.getFile())) {
-            int currentLine = 1;
-            while (scanner.hasNextLine()) {
-                String line = scanner.nextLine();
-                if (currentLine == position.getLine()) {
-                    return line.substring(position.getColumn() - 2).trim();
-                }
-                currentLine++;
+        try {
+            List<String> lines = Files.readAllLines(position.getFile().toPath());
+            StringBuilder sb = new StringBuilder();
+            for (int n = position.getLine(); n <= position.getEndLine() && n <= lines.size(); n++) {
+                // First line starts at the element's column; continuation lines are taken whole.
+                String piece = (n == position.getLine() ? lines.get(n - 1).substring(position.getColumn() - 2)
+                        : lines.get(n - 1)).trim();
+                if (sb.length() > 0)
+                    sb.append(' ');
+                sb.append(piece);
+                if (endsStatement(piece))
+                    break;
             }
+            return sb.length() == 0 ? null : sb.toString();
         } catch (Exception e) {
-            // ignore
+            return null; // unreadable file / out-of-range column → no snippet
         }
-        return null;
+    }
+
+    /**
+     * A trimmed source line ends a statement / opens a block when its last char is {@code ;}, <code>{</code> or
+     * <code>}</code> — used to bound multi-line snippet extraction.
+     */
+    private static boolean endsStatement(String trimmedLine) {
+        return !trimmedLine.isEmpty() && "{};".indexOf(trimmedLine.charAt(trimmedLine.length() - 1)) >= 0;
     }
 }
