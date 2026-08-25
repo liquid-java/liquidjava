@@ -20,6 +20,7 @@ import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtMethod;
 import spoon.reflect.factory.Factory;
 import spoon.reflect.reference.CtTypeReference;
+import spoon.support.reflect.cu.position.SourcePositionImpl;
 
 public class Utils {
 
@@ -60,11 +61,13 @@ public class Utils {
     // Get the position of the annotation with the given value
     public static SourcePosition getLJAnnotationPosition(CtElement element, String value) {
         String quotedValue = "\"" + value + "\"";
-        return getLiquidJavaAnnotations(element)
-                .flatMap(annotation -> getLJAnnotationValues(annotation)
-                        .filter(expr -> quotedValue.equals(expr.toString()))
-                        .map(expr -> expr.getPosition() != null ? expr.getPosition() : annotation.getPosition()))
-                .findFirst().orElse(element.getPosition());
+        return getLiquidJavaAnnotations(element).flatMap(annotation -> getLJAnnotationValues(annotation)
+                .filter(expr -> quotedValue.equals(expr.toString())).map(expr -> {
+                    SourcePosition position = expr.getPosition();
+                    return (SourcePosition) new SourcePositionImpl(position.getCompilationUnit(),
+                            position.getSourceStart() + 1, position.getSourceEnd() - 1,
+                            position.getCompilationUnit().getLineSeparatorPositions());
+                })).findFirst().orElse(element.getPosition());
     }
 
     // Get the position of the first value of the first LJ annotation on the element
