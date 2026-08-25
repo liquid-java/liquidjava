@@ -103,8 +103,8 @@ public class LJDiagnostic extends RuntimeException {
             if (declarationSnippet != null)
                 sb.append(declarationSnippet);
 
-            sb.append(declPos.getFile().getPath()).append(":").append(declPos.getLine()).append(Colors.RESET)
-                    .append("\n");
+            sb.append("\n").append(declPos.getFile().getPath()).append(":").append(declPos.getLine())
+                    .append(Colors.RESET).append("\n");
         }
 
         return sb.toString();
