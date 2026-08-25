@@ -67,12 +67,6 @@ public class Utils {
                 .findFirst().orElse(element.getPosition());
     }
 
-    // Get the position of the first LJ annotation on the element
-    public static SourcePosition getFirstLJAnnotationPosition(CtElement element) {
-        return getLiquidJavaAnnotations(element).map(CtAnnotation::getPosition).filter(pos -> pos != null).findFirst()
-                .orElse(element.getPosition());
-    }
-
     // Get the position of the first value of the first LJ annotation on the element
     public static SourcePosition getFirstLJAnnotationValuePosition(CtElement element) {
         return getLiquidJavaAnnotations(element)

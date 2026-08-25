@@ -99,7 +99,7 @@ public class LJDiagnostic extends RuntimeException {
         SourcePosition declPos = getDeclarationPosition();
         if (declPos != null && declPos.getFile() != null && !declPos.equals(position)) {
             sb.append(Colors.CYAN).append("\n--> Refinement declared here:\n").append(Colors.RESET);
-            String declarationSnippet = getSnippet(declPos, 1, 0, Colors.CYAN, null, true);
+            String declarationSnippet = getSnippet(declPos, 1, 1, Colors.CYAN, null, true);
             if (declarationSnippet != null)
                 sb.append(declarationSnippet);
 
