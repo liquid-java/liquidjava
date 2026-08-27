@@ -1,5 +1,7 @@
 package liquidjava.diagnostics.errors;
 
+import static liquidjava.rj_language.opt.VCSimplificationUtils.isTrue;
+
 import liquidjava.diagnostics.TranslationTable;
 import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
@@ -27,6 +29,8 @@ public class StateRefinementError extends LJError {
         this.declarationPosition = declarationPosition;
         this.expected = expected;
         this.found = found;
+        if (isTrue(found.getImplication().toPredicate().getExpression()))
+            setHint("No initial state is known for the object. Ensure its constructor is called to define it.");
     }
 
     @Override
