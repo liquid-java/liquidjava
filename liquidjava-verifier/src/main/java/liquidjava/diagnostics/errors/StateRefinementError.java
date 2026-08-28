@@ -30,7 +30,7 @@ public class StateRefinementError extends LJError {
         this.expected = expected;
         this.found = found;
         if (isTrue(found.getImplication().toPredicate().getExpression()))
-            setHint("No initial state is known for the object. Ensure its constructor is called to define it.");
+            setHint("No state information is known for this object. Make sure its state is initialized and available at this point.");
     }
 
     @Override
