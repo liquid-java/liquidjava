@@ -9,6 +9,9 @@ import org.apache.commons.text.similarity.JaroWinklerSimilarity;
 
 import liquidjava.utils.Utils;
 
+/**
+ * Finds the closest matching name among the elements available in the current context using Jaro-Winkler similarity
+ */
 public final class NameSuggester {
 
     private static final int MINIMUM_NAME_LENGTH = 3;
