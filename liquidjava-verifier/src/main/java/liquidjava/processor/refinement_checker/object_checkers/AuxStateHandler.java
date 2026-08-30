@@ -206,9 +206,9 @@ public class AuxStateHandler {
      */
     private static Predicate createStatePredicate(String value, String targetClass, TypeChecker tc, CtElement e,
             boolean isTo, String prefix) throws LJError {
+        SourcePosition position = Utils.getLJAnnotationPosition(e, value);
         Predicate p = new Predicate(value, e, prefix);
         if (!p.getExpression().isBooleanExpression()) {
-            SourcePosition position = Utils.getLJAnnotationPosition(e, value);
             throw new InvalidRefinementError(position, "State refinement transition must be a boolean expression",
                     value);
         }
@@ -233,11 +233,9 @@ public class AuxStateHandler {
         Predicate c1 = isTo ? getMissingStates(targetClass, tc, p) : p;
         Predicate c = c1.substituteVariable(Keys.THIS, name);
         c = c.changeOldMentions(nameOld, name);
-        boolean ok = tc.checkStateSMT(new Predicate(), c.negate(), e.getPosition(), true);
-        if (ok) {
-            SourcePosition pos = Utils.getLJAnnotationPosition(e, value);
-            tc.throwStateConflictError(pos, p);
-        }
+        boolean ok = tc.checkStateSMT(new Predicate(), c.negate(), position, true);
+        if (ok)
+            tc.throwStateConflictError(position, p);
         return c1;
     }
 
