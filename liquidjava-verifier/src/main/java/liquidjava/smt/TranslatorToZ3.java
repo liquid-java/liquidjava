@@ -23,11 +23,11 @@ import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.errors.LJError;
 import liquidjava.diagnostics.errors.NotFoundError;
+import liquidjava.diagnostics.errors.NotFoundError.Kind;
 import liquidjava.processor.context.AliasWrapper;
 import liquidjava.utils.Pair;
 import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Formats;
-import liquidjava.utils.constants.Keys;
 import com.microsoft.z3.enumerations.Z3_sort_kind;
 
 import org.apache.commons.lang3.NotImplementedException;
@@ -120,12 +120,12 @@ public class TranslatorToZ3 implements AutoCloseable {
 
     private Expr<?> getVariableTranslation(String name) throws LJError {
         if (!varTranslation.containsKey(name))
-            throw new NotFoundError(name, Keys.VARIABLE);
+            throw new NotFoundError(name, Kind.VARIABLE, varTranslation.keySet());
         Expr<?> e = varTranslation.get(name);
         if (e == null)
             e = varTranslation.get(String.format("this#%s", name));
         if (e == null)
-            throw new NotFoundError(name, Keys.VARIABLE);
+            throw new NotFoundError(name, Kind.VARIABLE, varTranslation.keySet());
         return e;
     }
 
@@ -213,7 +213,7 @@ public class TranslatorToZ3 implements AutoCloseable {
         if (candidate != null) {
             return candidate;
         }
-        throw new NotFoundError(name, Keys.GHOST);
+        throw new NotFoundError(name, Kind.GHOST, funcTranslation.keySet());
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })

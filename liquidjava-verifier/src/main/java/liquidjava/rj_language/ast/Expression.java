@@ -8,6 +8,7 @@ import java.util.Optional;
 import liquidjava.diagnostics.errors.ArgumentMismatchError;
 import liquidjava.diagnostics.errors.LJError;
 import liquidjava.diagnostics.errors.NotFoundError;
+import liquidjava.diagnostics.errors.NotFoundError.Kind;
 import liquidjava.processor.context.Context;
 import liquidjava.processor.context.GhostFunction;
 import liquidjava.processor.facade.AliasDTO;
@@ -15,7 +16,6 @@ import liquidjava.rj_language.ast.formatter.ExpressionFormatter;
 import liquidjava.rj_language.ast.typing.TypeInfer;
 import liquidjava.rj_language.visitors.ExpressionVisitor;
 import liquidjava.utils.Utils;
-import liquidjava.utils.constants.Keys;
 import spoon.reflect.factory.Factory;
 import spoon.reflect.reference.CtTypeReference;
 
@@ -199,34 +199,33 @@ public abstract class Expression {
     public Expression changeAlias(Map<String, AliasDTO> alias, Context ctx, Factory f) throws LJError {
         Expression e = clone();
         if (this instanceof AliasInvocation ai) {
-            if (alias.containsKey(ai.name)) { // object state
-                AliasDTO dto = alias.get(ai.name);
-                // check argument count
-                if (children.size() != dto.getVarNames().size()) {
+            if (!alias.containsKey(ai.name))
+                throw new NotFoundError(ai.getName(), Kind.ALIAS, alias.keySet());
+            AliasDTO dto = alias.get(ai.name);
+            // check argument count
+            if (children.size() != dto.getVarNames().size()) {
+                String msg = String.format("Wrong number of arguments in alias invocation '%s': expected %d, got %d",
+                        ai.name, dto.getVarNames().size(), children.size());
+                throw new ArgumentMismatchError(msg);
+            }
+            Expression sub = dto.getExpression().clone();
+            for (int i = 0; i < children.size(); i++) {
+                Expression varExp = new Var(dto.getVarNames().get(i));
+                String varType = dto.getVarTypes().get(i);
+                Expression aliasExp = children.get(i);
+
+                // check argument types
+                boolean compatible = TypeInfer.checkCompatibleType(varType, aliasExp, ctx, f);
+                if (!compatible) {
                     String msg = String.format(
-                            "Wrong number of arguments in alias invocation '%s': expected %d, got %d", ai.name,
-                            dto.getVarNames().size(), children.size());
+                            "Argument '%s' and parameter '%s' of alias '%s' types are incompatible: expected %s, got %s",
+                            aliasExp, dto.getVarNames().get(i), ai.name, varType,
+                            TypeInfer.getType(ctx, f, aliasExp).get().getQualifiedName());
                     throw new ArgumentMismatchError(msg);
                 }
-                Expression sub = dto.getExpression().clone();
-                for (int i = 0; i < children.size(); i++) {
-                    Expression varExp = new Var(dto.getVarNames().get(i));
-                    String varType = dto.getVarTypes().get(i);
-                    Expression aliasExp = children.get(i);
-
-                    // check argument types
-                    boolean compatible = TypeInfer.checkCompatibleType(varType, aliasExp, ctx, f);
-                    if (!compatible) {
-                        String msg = String.format(
-                                "Argument '%s' and parameter '%s' of alias '%s' types are incompatible: expected %s, got %s",
-                                aliasExp, dto.getVarNames().get(i), ai.name, varType,
-                                TypeInfer.getType(ctx, f, aliasExp).get().getQualifiedName());
-                        throw new ArgumentMismatchError(msg);
-                    }
-                    sub = sub.substitute(varExp, aliasExp);
-                }
-                e = sub;
+                sub = sub.substitute(varExp, aliasExp);
             }
+            e = sub;
         }
         e.auxChangeAlias(alias, ctx, f);
         return e;
@@ -237,7 +236,7 @@ public abstract class Expression {
             for (int i = 0; i < children.size(); i++) {
                 if (children.get(i)instanceof AliasInvocation ai) {
                     if (!alias.containsKey(ai.name))
-                        throw new NotFoundError(ai.getName(), Keys.ALIAS);
+                        throw new NotFoundError(ai.getName(), Kind.ALIAS, alias.keySet());
                     AliasDTO dto = alias.get(ai.name);
                     // check argument count
                     if (ai.children.size() != dto.getVarNames().size()) {

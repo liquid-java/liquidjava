@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.errors.LJError;
 import liquidjava.diagnostics.errors.NotFoundError;
+import liquidjava.diagnostics.errors.NotFoundError.Kind;
 import liquidjava.processor.context.AliasWrapper;
 import liquidjava.processor.context.Context;
 import liquidjava.processor.context.GhostFunction;
@@ -100,7 +101,7 @@ public class Predicate {
             String hint = suggested != null ? "Add: import " + suggested + ";"
                     : "Add an import for '" + en.getTypeName() + "' if it is a Java class with a static final field";
             String name = en.getTypeName() + "." + en.getConstName();
-            NotFoundError error = new NotFoundError(pos, name, "Constant");
+            NotFoundError error = new NotFoundError(pos, name, Kind.CONSTANT, List.of());
             error.setHint(hint);
             throw error;
         }
