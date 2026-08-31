@@ -2,7 +2,9 @@ package liquidjava.processor.context;
 
 import java.util.*;
 import liquidjava.rj_language.Predicate;
+import liquidjava.utils.constants.Formats;
 import spoon.reflect.declaration.CtElement;
+import spoon.reflect.declaration.CtMethod;
 import spoon.reflect.reference.CtTypeReference;
 
 public class Context {
@@ -18,6 +20,8 @@ public class Context {
     private int counter;
     private static Context instance;
 
+    private Map<Integer, Map<String, Integer>> lineVariables;
+
     private Context() {
         ctxVars = new Stack<>();
         ctxVars.add(new ArrayList<>());
@@ -29,6 +33,7 @@ public class Context {
         ghosts = new ArrayList<>();
         classStates = new HashMap<>();
         counter = 0;
+        lineVariables = new HashMap<>();
     }
 
     public static Context getInstance() {
@@ -62,6 +67,7 @@ public class Context {
         ghosts = new ArrayList<>();
         classStates = new HashMap<>();
         counter = 0;
+        lineVariables = new HashMap<>();
     }
 
     public void enterContext() {
@@ -373,6 +379,31 @@ public class Context {
 
     public List<AliasWrapper> getAliases() {
         return aliases;
+    }
+
+    // ---------------------- Variable Name ----------------------
+    public String getVariableName(String varName, CtElement element) {
+        boolean isValidPosition = element.getPosition().isValidPosition();
+        int line = isValidPosition ? element.getPosition().getLine() : getCounter();
+        CtMethod<?> method = element.getParent(CtMethod.class);
+
+        if (!isValidPosition) {
+            return String.format(Formats.INSTANCE, method != null ? method.getSimpleName() + "_" + varName : varName,
+                    line);
+        }
+
+        Map<String, Integer> variables = lineVariables.getOrDefault(line, new HashMap<>());
+
+        String key = method != null ? method.getSimpleName() + varName + line : varName + line;
+
+        int count = variables.getOrDefault(varName, 0);
+        variables.put(key, count + 1);
+
+        return count == 0
+                ? String.format(Formats.INSTANCE, method != null ? method.getSimpleName() + "_" + varName : varName,
+                        line)
+                : String.format(Formats.INSTANCE + "_%d",
+                        method != null ? method.getSimpleName() + "_" + varName : varName, line, count);
     }
 
     @Override
