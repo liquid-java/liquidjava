@@ -7,14 +7,18 @@ import java.util.Map;
 import java.util.Optional;
 
 import liquidjava.diagnostics.errors.LJError;
-import liquidjava.processor.context.*;
+import liquidjava.processor.context.Refined;
+import liquidjava.processor.context.RefinedFunction;
+import liquidjava.processor.context.RefinedVariable;
+import liquidjava.processor.context.Variable;
+import liquidjava.processor.context.VariableInstance;
 import liquidjava.processor.refinement_checker.TypeChecker;
-import liquidjava.utils.constants.Formats;
-import liquidjava.utils.constants.Keys;
 import liquidjava.processor.refinement_checker.object_checkers.AuxHierarchyRefinementsPassage;
 import liquidjava.processor.refinement_checker.object_checkers.AuxStateHandler;
 import liquidjava.rj_language.Predicate;
 import liquidjava.utils.Utils;
+import liquidjava.utils.constants.Formats;
+import liquidjava.utils.constants.Keys;
 import spoon.reflect.code.CtConstructorCall;
 import spoon.reflect.code.CtExpression;
 import spoon.reflect.code.CtFieldRead;
@@ -120,12 +124,12 @@ public class MethodsFunctionsChecker {
         f.setName(name.replaceAll("\\p{C}", "")); // remove any empty chars from string
         f.setType(method.getType());
         f.setRefReturn(new Predicate());
-        f.setPlacementInCode(method);
         if (className != null)
             f.setClass(className);
         f.setSignature(signature);
         rtc.getContext().addFunctionToContext(f);
         auxGetMethodRefinements(method, f);
+        f.setPlacementInCode(method);
         return f;
     }
 
@@ -220,7 +224,7 @@ public class MethodsFunctionsChecker {
                 .substituteVariable(Keys.THIS, returnVarName);
 
         rtc.getContext().addVarToContext(returnVarName, method.getType(), cretRef, ret);
-        rtc.checkSMT(cexpectedType, ret, fi.getPlacementInCode().getPosition(), fi.getMessage());
+        rtc.checkSMT(cexpectedType, ret, fi.getPlacementInCode().getAnnotationPosition(), fi.getMessage());
         rtc.getContext().newRefinementToVariableInContext(returnVarName, cexpectedType);
 
     }
@@ -426,7 +430,7 @@ public class MethodsFunctionsChecker {
                 VariableInstance vi = (VariableInstance) invocation.getMetadata(Keys.TARGET);
                 c = c.substituteVariable(Keys.THIS, vi.getName());
             }
-            rtc.checkSMT(c, invocation, fArg.getPlacementInCode().getPosition(), fArg.getMessage());
+            rtc.checkSMT(c, invocation, fArg.getPlacementInCode().getAnnotationPosition(), fArg.getMessage());
         }
     }
 
