@@ -52,7 +52,7 @@ Additionally, you'll need the following dependency, which includes the LiquidJav
 <dependency>
     <groupId>io.github.liquid-java</groupId>
     <artifactId>liquidjava-api</artifactId>
-    <version>0.0.5</version>
+    <version>0.0.7</version>
 </dependency>
 ```
 
@@ -63,7 +63,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'io.github.liquid-java:liquidjava-api:0.0.5'
+    implementation 'io.github.liquid-java:liquidjava-api:0.0.7'
 }
 ```
 

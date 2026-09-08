@@ -31,6 +31,10 @@ public class Context {
         counter = 0;
     }
 
+    public static Context create() {
+        return new Context();
+    }
+
     public static Context getInstance() {
         if (instance == null)
             instance = new Context();

@@ -5,7 +5,7 @@
 
 	<groupId>io.github.liquid-java</groupId>
 	<artifactId>liquidjava-verifier</artifactId>
-	<version>0.0.32</version>
+	<version>0.0.33</version>
 	<name>liquidjava-verifier</name>
 	<description>LiquidJava Verifier</description>
 	<url>https://github.com/liquid-java/liquidjava</url>
@@ -344,7 +344,7 @@
 		<dependency>
 			<groupId>io.github.liquid-java</groupId>
 			<artifactId>liquidjava-api</artifactId>
-			<version>0.0.5</version>
+			<version>0.0.7</version>
 		</dependency>
 
 		<dependency>
