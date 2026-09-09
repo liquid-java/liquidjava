@@ -16,6 +16,7 @@ public class LJDiagnostic extends RuntimeException {
     private String file;
     private SourcePosition position;
     private String hint;
+    private String counterexample;
     private static final String PIPE = " | ";
 
     public LJDiagnostic(String title, String message, SourcePosition pos, String accentColor, String customMessage) {
@@ -41,6 +42,10 @@ public class LJDiagnostic extends RuntimeException {
 
     public String getHint() {
         return hint;
+    }
+
+    public String getCounterexampleStr() {
+        return counterexample;
     }
 
     public SourcePosition getPosition() {
@@ -70,6 +75,10 @@ public class LJDiagnostic extends RuntimeException {
         this.hint = hint;
     }
 
+    public void setCounterexampleStr(String counterexample) {
+        this.counterexample = counterexample;
+    }
+
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
@@ -82,6 +91,12 @@ public class LJDiagnostic extends RuntimeException {
         String snippet = getSnippet();
         if (snippet != null) {
             sb.append(snippet);
+        }
+
+        // counterexample
+        String counterexample = getCounterexampleStr();
+        if (counterexample != null && !counterexample.isBlank()) {
+            sb.append(" --> ").append(String.join("\n     ", counterexample.split("\n"))).append("\n");
         }
 
         // hint

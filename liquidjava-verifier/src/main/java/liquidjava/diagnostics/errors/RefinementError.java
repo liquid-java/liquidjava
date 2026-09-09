@@ -13,6 +13,8 @@ import liquidjava.smt.Counterexample;
 import liquidjava.utils.Pair;
 import spoon.reflect.cu.SourcePosition;
 
+import static liquidjava.rj_language.opt.VCSimplificationUtils.isTrue;
+
 /**
  * Error indicating that a refinement constraint either was violated or cannot be proven
  * 
@@ -37,22 +39,19 @@ public class RefinementError extends LJError {
         this.found = found;
         this.counterexample = filterCounterexample(counterexample);
         this.declarationPosition = declarationPosition;
+        if (!this.counterexample.isEmpty()) {
+            String counterexampleString = this.counterexample.assignments().stream()
+                    .map(a -> VariableFormatter.format(a.first()) + " == " + a.second())
+                    .collect(Collectors.joining(" && "));
+            setCounterexampleStr("Counterexample: " + counterexampleString);
+        }
+        if (isTrue(found.getImplication().toPredicate().getExpression()))
+            setHint("Not enough information to prove the expected refinement. Add a refinement or condition to constrain it.");
     }
 
     @Override
     public SourcePosition getDeclarationPosition() {
         return declarationPosition;
-    }
-
-    @Override
-    public String getHint() {
-        if (counterexample.isEmpty())
-            return null;
-
-        String counterexampleString = counterexample.assignments().stream()
-                .map(a -> VariableFormatter.format(a.first()) + " == " + a.second())
-                .collect(Collectors.joining(" && "));
-        return "Counterexample: " + counterexampleString;
     }
 
     public Counterexample getCounterexample() {
