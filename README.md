@@ -115,6 +115,10 @@ Run `./mvnw test` to run all the tests in LiquidJava.
 
 The `TestExamples.java` test runs the Java files and test directories under the `testSuite` directory in `liquidjava-example`.
 
+Test inputs are discovered as follows:
+- Top-level Java files are treated as individual test inputs
+- Leaf directories are treated as a single test input
+
 Test results are determined by inline diagnostic expectations using comments:
 
 ```java

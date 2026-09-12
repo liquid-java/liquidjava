@@ -86,17 +86,18 @@ public class TestExamples {
      * Returns the test suite paths to verify
      */
     private static Stream<Path> sourcePaths() throws IOException {
-        return Files.find(Paths.get("../liquidjava-example/src/main/java/testSuite/"), Integer.MAX_VALUE,
-                (filePath, fileAttr) -> {
-                    String name = filePath.getFileName().toString();
-                    return (fileAttr.isRegularFile() || fileAttr.isDirectory()) && isTestPath(name);
-                });
+        Path testSuite = Paths.get("../liquidjava-example/src/main/java/testSuite/");
+        return Files.find(testSuite, Integer.MAX_VALUE,
+                (path, attributes) -> attributes.isDirectory() ? isLeafDirectory(path) : attributes.isRegularFile()
+                        && path.toString().endsWith(".java") && !isLeafDirectory(path.getParent()));
     }
 
-    private static boolean isTestPath(String path) {
-        String lowerCasePath = path.toLowerCase();
-        return lowerCasePath.contains("correct") || lowerCasePath.contains("error")
-                || lowerCasePath.contains("warning");
+    private static boolean isLeafDirectory(Path path) {
+        try (Stream<Path> children = Files.list(path)) {
+            return children.noneMatch(Files::isDirectory);
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     /**
