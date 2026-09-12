@@ -38,6 +38,15 @@ public class TestUtils {
     }
 
     /**
+     * Determines if the given path indicates that the test should report warnings
+     *
+     * @param path
+     */
+    public static boolean shouldWarn(String path) {
+        return path.toLowerCase().contains("warning");
+    }
+
+    /**
      * Reads the expected error messages from the given file by looking for a comment containing the expected error
      * message.
      * 
@@ -66,6 +75,34 @@ public class TestUtils {
     }
 
     /**
+     * Reads the expected warning messages from the given file by looking for a comment containing the expected warning
+     * message.
+     *
+     * @param filePath
+     *
+     * @return list of expected warning messages found in the file, or empty list if there was an error reading the file
+     *         or if there are no expected warning messages in the file
+     */
+    public static List<Pair<String, Integer>> getExpectedWarningsFromFile(Path filePath) {
+        List<Pair<String, Integer>> expectedWarnings = new ArrayList<>();
+        try (BufferedReader reader = Files.newBufferedReader(filePath)) {
+            String line;
+            int lineNumber = 0;
+            while ((line = reader.readLine()) != null) {
+                lineNumber++;
+                Pattern p = Pattern.compile("//\\s*(.*?\\bWarning\\b)", Pattern.CASE_INSENSITIVE);
+                Matcher m = p.matcher(line);
+                if (m.find()) {
+                    expectedWarnings.add(new Pair<>(m.group(1).trim(), lineNumber));
+                }
+            }
+        } catch (IOException e) {
+            return List.of();
+        }
+        return expectedWarnings;
+    }
+
+    /**
      * Reads the expected error messages from all files in the given directory and combines them into a single list
      * 
      * @param dirPath
@@ -84,6 +121,27 @@ public class TestUtils {
             return List.of();
         }
         return expectedErrors;
+    }
+
+    /**
+     * Reads the expected warning messages from all files in the given directory and combines them into a single list.
+     *
+     * @param dirPath
+     *
+     * @return list of expected warning messages from all files in the directory, or empty list if there was an error
+     *         reading the directory or if there are no files in the directory
+     */
+    public static List<Pair<String, Integer>> getExpectedWarningsFromDirectory(Path dirPath) {
+        List<Pair<String, Integer>> expectedWarnings = new ArrayList<>();
+        try {
+            List<Path> files = Files.list(dirPath).filter(Files::isRegularFile).toList();
+            for (Path file : files) {
+                expectedWarnings.addAll(getExpectedWarningsFromFile(file));
+            }
+        } catch (IOException e) {
+            return List.of();
+        }
+        return expectedWarnings;
     }
 
     /**

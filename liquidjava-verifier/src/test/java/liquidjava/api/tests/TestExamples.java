@@ -14,6 +14,7 @@ import java.util.stream.Stream;
 import liquidjava.api.CommandLineLauncher;
 import liquidjava.diagnostics.Diagnostics;
 import liquidjava.diagnostics.errors.LJError;
+import liquidjava.diagnostics.warnings.LJWarning;
 import liquidjava.utils.Pair;
 
 import org.junit.Test;
@@ -25,8 +26,8 @@ public class TestExamples {
     Diagnostics diagnostics = Diagnostics.getInstance();
 
     /**
-     * Test the file at the given path by launching the verifier and checking for errors. The file/directory is expected
-     * to be either correct or contain an error based on its name.
+     * Test the file at the given path by launching the verifier and checking for errors and warnings. The
+     * file/directory is expected to be either correct, contain an error, or report warnings based on its name.
      *
      * @param path
      *            path to the file to test
@@ -39,6 +40,26 @@ public class TestExamples {
 
         // run verification
         CommandLineLauncher.launch(path.toFile().toString());
+
+        List<Pair<String, Integer>> expectedWarnings = isDirectory ? getExpectedWarningsFromDirectory(path)
+                : getExpectedWarningsFromFile(path);
+
+        if (shouldWarn(pathName)) {
+            if (diagnostics.getWarnings().size() != expectedWarnings.size()) {
+                System.out.println("Warnings found in: " + pathName + " --- expected exactly " + expectedWarnings.size()
+                        + " warnings. \n" + diagnostics.getWarningOutput());
+                fail();
+            }
+            for (LJWarning warning : diagnostics.getWarnings()) {
+                int warningPosition = warning.getPosition().getLine();
+                boolean match = expectedWarnings.stream().anyMatch(expected -> expected.second() == warningPosition);
+                if (!match) {
+                    System.out.println("Warning in: " + pathName + " --- expected warnings: " + expectedWarnings
+                            + ", but found one at " + warningPosition + ". \n" + diagnostics.getWarningOutput());
+                    fail();
+                }
+            }
+        }
 
         // verification should pass, check if any errors were found
         if (shouldPass(pathName) && diagnostics.foundError()) {
@@ -98,13 +119,13 @@ public class TestExamples {
         return Files.find(Paths.get("../liquidjava-example/src/main/java/testSuite/"), Integer.MAX_VALUE,
                 (filePath, fileAttr) -> {
                     String name = filePath.getFileName().toString();
-                    // Files that start with "Correct" or "Error"
+                    // Files that start with "Correct", "Error" or "Warning"
                     boolean isFileStartingWithCorrectOrError = fileAttr.isRegularFile()
-                            && (shouldPass(name) || shouldFail(name));
+                            && (shouldPass(name) || shouldFail(name) || shouldWarn(name));
 
-                    // Directories that contain "correct" or "error"
+                    // Directories that contain "correct", "error" or "warning"
                     boolean isDirectoryWithCorrectOrError = fileAttr.isDirectory()
-                            && (shouldPass(name) || shouldFail(name));
+                            && (shouldPass(name) || shouldFail(name) || shouldWarn(name));
 
                     // Return true if either condition matches
                     return isFileStartingWithCorrectOrError || isDirectoryWithCorrectOrError;
