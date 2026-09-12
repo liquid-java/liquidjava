@@ -9,7 +9,7 @@ import liquidjava.specification.StateRefinement;
 public interface WarningExtRefWrongConstructor<E> {
 
     @StateRefinement(to = "size(this) == 0")
-    public void ArrayList(String wrongParameter);
+    public void ArrayList(String wrongParameter); // Warning
 
     @StateRefinement(to = "size(this) == (size(old(this)) + 1)")
     public boolean add(E e);

@@ -12,5 +12,5 @@ public interface WarningExtRefWrongRetType<E> {
     public void ArrayList();
 
     @StateRefinement(to = "size(this) == (size(old(this)) + 1)")
-    public int add(E e); // wrong return type
+    public int add(E e); // Warning
 }

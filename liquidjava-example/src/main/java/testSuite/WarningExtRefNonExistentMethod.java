@@ -12,5 +12,5 @@ public interface WarningExtRefNonExistentMethod<E> {
     public void ArrayList();
 
     @StateRefinement(to = "size(this) == (size(old(this)) + 1)")
-    public boolean adddd(E e);
+    public boolean adddd(E e); // Warning
 }
