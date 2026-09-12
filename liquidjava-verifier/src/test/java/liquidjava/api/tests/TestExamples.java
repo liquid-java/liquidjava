@@ -27,11 +27,7 @@ public class TestExamples {
     Diagnostics diagnostics = Diagnostics.getInstance();
 
     /**
-     * Test the file at the given path by launching the verifier and checking for errors and warnings. The
-     * file/directory is expected to be either correct, contain an error, or report warnings based on its name.
-     *
-     * @param path
-     *            path to the file to test
+     * Runs the verifier and checks the expected diagnostics
      */
     @ParameterizedTest
     @MethodSource("sourcePaths")
@@ -72,6 +68,9 @@ public class TestExamples {
         }
     }
 
+    /**
+     * Checks that the found diagnostics match the expected diagnostics
+     */
     private static void checkExpectedDiagnostics(String pathName, Collection<? extends LJDiagnostic> found,
             List<Pair<String, Integer>> expected, String output) {
         if (found.size() != expected.size()) {
@@ -102,13 +101,7 @@ public class TestExamples {
     }
 
     /**
-     * Returns a Stream of paths to test files in the testSuite directory. These include files with names starting with
-     * "Correct" or "Error", and directories containing "correct" or "error". §
-     * 
-     * @return Stream of paths to test files
-     *
-     * @throws IOException
-     *             if an I/O error occurs or the path does not exist
+     * Returns the test suite paths to verify
      */
     private static Stream<Path> sourcePaths() throws IOException {
         return Files.find(Paths.get("../liquidjava-example/src/main/java/testSuite/"), Integer.MAX_VALUE,
@@ -128,8 +121,7 @@ public class TestExamples {
     }
 
     /**
-     * Test multiple paths at once, including both files and directories. This test ensures that the verifier can handle
-     * multiple inputs correctly and that no errors are found in files/directories that are expected to be correct.
+     * Verifies that multiple correct inputs can be processed together
      */
     @Test
     public void testMultiplePaths() {

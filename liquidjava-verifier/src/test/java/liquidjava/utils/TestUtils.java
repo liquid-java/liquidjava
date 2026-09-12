@@ -16,47 +16,22 @@ import spoon.reflect.factory.Factory;
 
 public class TestUtils {
 
-    private static final Pattern EXPECTED_DIAGNOSTIC = Pattern.compile("//\\s*(.*?\\b(Error|Warning)\\b)",
-            Pattern.CASE_INSENSITIVE);
+    private static final Pattern EXPECTED_DIAGNOSTIC = Pattern.compile("//\\s*(.*?\\b(Error|Warning)\\b)", Pattern.CASE_INSENSITIVE);
     private final static Factory factory = new Launcher().getFactory();
     private final static Context context = Context.getInstance();
 
-    /**
-     * Determines if the given path indicates that the test should pass
-     * 
-     * @param path
-     */
     public static boolean shouldPass(String path) {
         return path.toLowerCase().contains("correct");
     }
 
-    /**
-     * Determines if the given path indicates that the test should fail
-     * 
-     * @param path
-     */
     public static boolean shouldFail(String path) {
         return path.toLowerCase().contains("error");
     }
 
-    /**
-     * Determines if the given path indicates that the test should report warnings
-     *
-     * @param path
-     */
     public static boolean shouldWarn(String path) {
         return path.toLowerCase().contains("warning");
     }
 
-    /**
-     * Reads the expected error messages from the given file by looking for a comment containing the expected error
-     * message.
-     * 
-     * @param filePath
-     * 
-     * @return list of expected error messages found in the file, or empty list if there was an error reading the file
-     *         or if there are no expected error messages in the file
-     */
     public static List<Pair<String, Integer>> getExpectedErrorsFromFile(Path filePath) {
         return getExpectedDiagnosticsFromFile(filePath, "error");
     }
@@ -79,39 +54,14 @@ public class TestUtils {
         return expectedDiagnostics;
     }
 
-    /**
-     * Reads the expected warning messages from the given file by looking for a comment containing the expected warning
-     * message.
-     *
-     * @param filePath
-     *
-     * @return list of expected warning messages found in the file, or empty list if there was an error reading the file
-     *         or if there are no expected warning messages in the file
-     */
     public static List<Pair<String, Integer>> getExpectedWarningsFromFile(Path filePath) {
         return getExpectedDiagnosticsFromFile(filePath, "warning");
     }
 
-    /**
-     * Reads the expected error messages from all files in the given directory and combines them into a single list
-     * 
-     * @param dirPath
-     * 
-     * @return list of expected error messages from all files in the directory, or empty list if there was an error
-     *         reading the directory or if there are no files in the directory
-     */
     public static List<Pair<String, Integer>> getExpectedErrorsFromDirectory(Path dirPath) {
         return getExpectedDiagnosticsFromDirectory(dirPath, "error");
     }
 
-    /**
-     * Reads the expected warning messages from all files in the given directory and combines them into a single list.
-     *
-     * @param dirPath
-     *
-     * @return list of expected warning messages from all files in the directory, or empty list if there was an error
-     *         reading the directory or if there are no files in the directory
-     */
     public static List<Pair<String, Integer>> getExpectedWarningsFromDirectory(Path dirPath) {
         return getExpectedDiagnosticsFromDirectory(dirPath, "warning");
     }
@@ -129,11 +79,7 @@ public class TestUtils {
         return expectedDiagnostics;
     }
 
-    /**
-     * Helper method to add an integer variable to the context
-     */
     public static void addIntVariableToContext(String name) {
-        context.addVarToContext(name, factory.Type().INTEGER_PRIMITIVE, new Predicate(),
-                factory.Code().createCodeSnippetStatement(""));
+        context.addVarToContext(name, factory.Type().INTEGER_PRIMITIVE, new Predicate(), factory.Code().createCodeSnippetStatement(""));
     }
 }
