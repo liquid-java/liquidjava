@@ -35,12 +35,11 @@ public class TestExamples {
     public void testPath(final Path path) {
         String pathName = path.getFileName().toString();
         boolean isDirectory = Files.isDirectory(path);
-
-        // run verification
         CommandLineLauncher.launch(path.toFile().toString());
 
         List<Pair<String, Integer>> expectedWarnings = isDirectory ? getExpectedWarningsFromDirectory(path)
                 : getExpectedWarningsFromFile(path);
+
         List<Pair<String, Integer>> expectedErrors = isDirectory ? getExpectedErrorsFromDirectory(path)
                 : getExpectedErrorsFromFile(path);
 
@@ -54,8 +53,8 @@ public class TestExamples {
     private static void checkExpectedDiagnostics(String pathName, Collection<? extends LJDiagnostic> found,
             List<Pair<String, Integer>> expected, String output) {
         if (found.size() != expected.size()) {
-            System.out.println("Unexpected number of diagnostics found in: " + pathName + " --- expected exactly "
-                    + expected.size() + ". \n" + output);
+            System.out.printf("Unexpected number of diagnostics found in: %s --- expected exactly %d.%n%s%n", pathName,
+                    expected.size(), output);
             fail();
         }
         List<Pair<String, Integer>> unmatched = new ArrayList<>(expected);
@@ -68,8 +67,7 @@ public class TestExamples {
                 }
             }
             if (match < 0) {
-                System.out.println(
-                        "Unexpected diagnostic in: " + pathName + " --- expected: " + expected + ". \n" + output);
+                System.out.printf("Unexpected diagnostic in: %s --- expected: %s.%n%s%n", pathName, expected, output);
                 fail();
             }
             unmatched.remove(match);
@@ -79,6 +77,7 @@ public class TestExamples {
     private static boolean matches(LJDiagnostic diagnostic, Pair<String, Integer> expected) {
         if (diagnostic.getPosition().getLine() != expected.second())
             return false;
+
         return !(diagnostic instanceof LJError) || diagnostic.getTitle().equals(expected.first());
     }
 
@@ -92,26 +91,17 @@ public class TestExamples {
                         && path.toString().endsWith(".java") && !isLeafDirectory(path.getParent()));
     }
 
-    private static boolean isLeafDirectory(Path path) {
-        try (Stream<Path> children = Files.list(path)) {
-            return children.noneMatch(Files::isDirectory);
-        } catch (IOException e) {
-            return false;
-        }
-    }
-
     /**
      * Verifies that multiple correct inputs can be processed together
      */
     @Test
     public void testMultiplePaths() {
         String[] paths = { "../liquidjava-example/src/main/java/testSuite/CorrectSimple.java",
-                "../liquidjava-example/src/main/java/testSuite/classes/arraylist_correct", };
+                "../liquidjava-example/src/main/java/testSuite/classes/arraylist_correct" };
         CommandLineLauncher.launch(paths);
-        // The inputs have no expected diagnostics.
         if (diagnostics.foundError() || !diagnostics.getWarnings().isEmpty()) {
-            System.out.println(
-                    "Unexpected diagnostic found. \n" + diagnostics.getErrorOutput() + diagnostics.getWarningOutput());
+            System.out.printf("Unexpected diagnostic found.%n%s%s%n", diagnostics.getErrorOutput(),
+                    diagnostics.getWarningOutput());
             fail();
         }
     }

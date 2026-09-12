@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import liquidjava.processor.context.Context;
 import liquidjava.rj_language.Predicate;
@@ -71,5 +72,13 @@ public class TestUtils {
     public static void addIntVariableToContext(String name) {
         context.addVarToContext(name, factory.Type().INTEGER_PRIMITIVE, new Predicate(),
                 factory.Code().createCodeSnippetStatement(""));
+    }
+
+    public static boolean isLeafDirectory(Path path) {
+        try (Stream<Path> children = Files.list(path)) {
+            return children.noneMatch(Files::isDirectory);
+        } catch (IOException e) {
+            return false;
+        }
     }
 }
