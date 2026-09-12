@@ -8,13 +8,14 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collection;
 import java.util.List;
 import java.util.stream.Stream;
 
 import liquidjava.api.CommandLineLauncher;
 import liquidjava.diagnostics.Diagnostics;
+import liquidjava.diagnostics.LJDiagnostic;
 import liquidjava.diagnostics.errors.LJError;
-import liquidjava.diagnostics.warnings.LJWarning;
 import liquidjava.utils.Pair;
 
 import org.junit.Test;
@@ -45,20 +46,8 @@ public class TestExamples {
                 : getExpectedWarningsFromFile(path);
 
         if (shouldWarn(pathName)) {
-            if (diagnostics.getWarnings().size() != expectedWarnings.size()) {
-                System.out.println("Warnings found in: " + pathName + " --- expected exactly " + expectedWarnings.size()
-                        + " warnings. \n" + diagnostics.getWarningOutput());
-                fail();
-            }
-            for (LJWarning warning : diagnostics.getWarnings()) {
-                int warningPosition = warning.getPosition().getLine();
-                boolean match = expectedWarnings.stream().anyMatch(expected -> expected.second() == warningPosition);
-                if (!match) {
-                    System.out.println("Warning in: " + pathName + " --- expected warnings: " + expectedWarnings
-                            + ", but found one at " + warningPosition + ". \n" + diagnostics.getWarningOutput());
-                    fail();
-                }
-            }
+            checkExpectedDiagnostics(pathName, diagnostics.getWarnings(), expectedWarnings,
+                    diagnostics.getWarningOutput());
         }
 
         // verification should pass, check if any errors were found
@@ -77,33 +66,39 @@ public class TestExamples {
                 // check if expected error was found
                 List<Pair<String, Integer>> expectedErrors = isDirectory ? getExpectedErrorsFromDirectory(path)
                         : getExpectedErrorsFromFile(path);
-                if (diagnostics.getErrors().size() != expectedErrors.size()) {
-                    System.out.println("Multiple errors found in: " + pathName + " --- expected exactly "
-                            + expectedErrors.size() + " errors. \n" + diagnostics.getErrorOutput());
-                    fail();
-                }
-                if (!expectedErrors.isEmpty()) {
-                    for (LJError e : diagnostics.getErrors()) {
-                        String foundError = e.getTitle();
-                        int errorPosition = e.getPosition().getLine();
-                        boolean match = expectedErrors.stream().anyMatch(
-                                expected -> expected.first().equals(foundError) && expected.second() == errorPosition);
-
-                        if (!match) {
-                            System.out.println("Error in: " + pathName + " --- expected errors: " + expectedErrors
-                                    + ", but found: " + foundError + " at " + errorPosition + ". \n"
-                                    + diagnostics.getErrorOutput());
-                            fail();
-                        }
-                    }
-                } else {
-                    System.out.println("No expected error messages found for: " + pathName);
-                    System.out.println(
-                            "Please specify each expected error in the test file as a comment on the line where the error should be reported.");
-                    fail();
-                }
+                checkExpectedDiagnostics(pathName, diagnostics.getErrors(), expectedErrors,
+                        diagnostics.getErrorOutput());
             }
         }
+    }
+
+    private static void checkExpectedDiagnostics(String pathName, Collection<? extends LJDiagnostic> found,
+            List<Pair<String, Integer>> expected, String output) {
+        if (found.size() != expected.size()) {
+            System.out.println("Unexpected number of diagnostics found in: " + pathName + " --- expected exactly "
+                    + expected.size() + ". \n" + output);
+            fail();
+        }
+        if (expected.isEmpty()) {
+            System.out.println("No expected diagnostic messages found for: " + pathName);
+            System.out.println(
+                    "Please specify each expected diagnostic in the test file as a comment on the line where it should be reported.");
+            fail();
+        }
+        for (LJDiagnostic diagnostic : found) {
+            boolean match = expected.stream().anyMatch(expectedDiagnostic -> matches(diagnostic, expectedDiagnostic));
+            if (!match) {
+                System.out.println(
+                        "Unexpected diagnostic in: " + pathName + " --- expected: " + expected + ". \n" + output);
+                fail();
+            }
+        }
+    }
+
+    private static boolean matches(LJDiagnostic diagnostic, Pair<String, Integer> expected) {
+        if (diagnostic.getPosition().getLine() != expected.second())
+            return false;
+        return !(diagnostic instanceof LJError) || diagnostic.getTitle().equals(expected.first());
     }
 
     /**

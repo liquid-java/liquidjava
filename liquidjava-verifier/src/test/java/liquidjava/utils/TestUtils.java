@@ -16,6 +16,8 @@ import spoon.reflect.factory.Factory;
 
 public class TestUtils {
 
+    private static final Pattern EXPECTED_DIAGNOSTIC = Pattern.compile("//\\s*(.*?\\b(Error|Warning)\\b)",
+            Pattern.CASE_INSENSITIVE);
     private final static Factory factory = new Launcher().getFactory();
     private final static Context context = Context.getInstance();
 
@@ -56,22 +58,25 @@ public class TestUtils {
      *         or if there are no expected error messages in the file
      */
     public static List<Pair<String, Integer>> getExpectedErrorsFromFile(Path filePath) {
-        List<Pair<String, Integer>> expectedErrors = new ArrayList<>();
+        return getExpectedDiagnosticsFromFile(filePath, "error");
+    }
+
+    private static List<Pair<String, Integer>> getExpectedDiagnosticsFromFile(Path filePath, String type) {
+        List<Pair<String, Integer>> expectedDiagnostics = new ArrayList<>();
         try (BufferedReader reader = Files.newBufferedReader(filePath)) {
             String line;
             int lineNumber = 0;
             while ((line = reader.readLine()) != null) {
                 lineNumber++;
-                Pattern p = Pattern.compile("//\\s*(.*?\\bError\\b)", Pattern.CASE_INSENSITIVE);
-                Matcher m = p.matcher(line);
-                if (m.find()) {
-                    expectedErrors.add(new Pair<>(m.group(1).trim(), lineNumber));
+                Matcher matcher = EXPECTED_DIAGNOSTIC.matcher(line);
+                if (matcher.find() && matcher.group(2).equalsIgnoreCase(type)) {
+                    expectedDiagnostics.add(new Pair<>(matcher.group(1).trim(), lineNumber));
                 }
             }
         } catch (IOException e) {
             return List.of();
         }
-        return expectedErrors;
+        return expectedDiagnostics;
     }
 
     /**
@@ -84,22 +89,7 @@ public class TestUtils {
      *         or if there are no expected warning messages in the file
      */
     public static List<Pair<String, Integer>> getExpectedWarningsFromFile(Path filePath) {
-        List<Pair<String, Integer>> expectedWarnings = new ArrayList<>();
-        try (BufferedReader reader = Files.newBufferedReader(filePath)) {
-            String line;
-            int lineNumber = 0;
-            while ((line = reader.readLine()) != null) {
-                lineNumber++;
-                Pattern p = Pattern.compile("//\\s*(.*?\\bWarning\\b)", Pattern.CASE_INSENSITIVE);
-                Matcher m = p.matcher(line);
-                if (m.find()) {
-                    expectedWarnings.add(new Pair<>(m.group(1).trim(), lineNumber));
-                }
-            }
-        } catch (IOException e) {
-            return List.of();
-        }
-        return expectedWarnings;
+        return getExpectedDiagnosticsFromFile(filePath, "warning");
     }
 
     /**
@@ -111,16 +101,7 @@ public class TestUtils {
      *         reading the directory or if there are no files in the directory
      */
     public static List<Pair<String, Integer>> getExpectedErrorsFromDirectory(Path dirPath) {
-        List<Pair<String, Integer>> expectedErrors = new ArrayList<>();
-        try {
-            List<Path> files = Files.list(dirPath).filter(Files::isRegularFile).toList();
-            for (Path file : files) {
-                expectedErrors.addAll(getExpectedErrorsFromFile(file));
-            }
-        } catch (IOException e) {
-            return List.of();
-        }
-        return expectedErrors;
+        return getExpectedDiagnosticsFromDirectory(dirPath, "error");
     }
 
     /**
@@ -132,16 +113,20 @@ public class TestUtils {
      *         reading the directory or if there are no files in the directory
      */
     public static List<Pair<String, Integer>> getExpectedWarningsFromDirectory(Path dirPath) {
-        List<Pair<String, Integer>> expectedWarnings = new ArrayList<>();
+        return getExpectedDiagnosticsFromDirectory(dirPath, "warning");
+    }
+
+    private static List<Pair<String, Integer>> getExpectedDiagnosticsFromDirectory(Path dirPath, String type) {
+        List<Pair<String, Integer>> expectedDiagnostics = new ArrayList<>();
         try {
             List<Path> files = Files.list(dirPath).filter(Files::isRegularFile).toList();
             for (Path file : files) {
-                expectedWarnings.addAll(getExpectedWarningsFromFile(file));
+                expectedDiagnostics.addAll(getExpectedDiagnosticsFromFile(file, type));
             }
         } catch (IOException e) {
             return List.of();
         }
-        return expectedWarnings;
+        return expectedDiagnostics;
     }
 
     /**
