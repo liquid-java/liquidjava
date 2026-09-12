@@ -10,6 +10,6 @@ class ErrorEnumNull {
 
 	public static void main(String[] args) {
 		@Refinement("c == Color.Red || c == Color.Green")
-		Color c = null; // Refinement Error
+		Color c = null; // Expect: Refinement Error
 	}
 }

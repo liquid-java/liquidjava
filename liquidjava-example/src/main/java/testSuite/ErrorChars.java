@@ -8,6 +8,6 @@ public class ErrorChars {
     }
 
     public static void main(String[] args) {
-        printLetter('$'); // Refinement Error
+        printLetter('$'); // Expect: Refinement Error
     }
 }

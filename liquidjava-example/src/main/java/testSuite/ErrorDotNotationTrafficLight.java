@@ -21,7 +21,7 @@ public class ErrorDotNotationTrafficLight {
     public static void main(String[] args) {
         ErrorDotNotationTrafficLight tl = new ErrorDotNotationTrafficLight();
         tl.transitionToAmber();
-        tl.transitionToGreen(); // State Refinement Error
+        tl.transitionToGreen(); // Expect: State Refinement Error
         tl.transitionToRed();
     }
 }

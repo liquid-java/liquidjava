@@ -8,10 +8,10 @@ public class ErrorRecursiveSiblingParameter {
         if (n == 1)
             return 1;
         else
-            return fibonacci(n - 1) + fibonacci(n - 2); // Refinement Error
+            return fibonacci(n - 1) + fibonacci(n - 2); // Expect: Refinement Error
     }
 
     int factorial(@Refinement("_ > 0") int n) {
-        return n * factorial(n - 1); // Refinement Error
+        return n * factorial(n - 1); // Expect: Refinement Error
     }
 }

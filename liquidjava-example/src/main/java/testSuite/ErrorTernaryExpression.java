@@ -11,6 +11,6 @@ public class ErrorTernaryExpression {
     public static void main(String[] args) {
         @Refinement("_ < 10")
         int a = 5;
-        a = (a == 2) ? 6 + three() : 4 * three(); // Refinement Error
+        a = (a == 2) ? 6 + three() : 4 * three(); // Expect: Refinement Error
     }
 }

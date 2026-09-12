@@ -16,7 +16,8 @@ import spoon.reflect.factory.Factory;
 
 public class TestUtils {
 
-    private static final Pattern EXPECTED_DIAGNOSTIC = Pattern.compile("//\\s*(.*?\\b(Error|Warning)\\b)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern EXPECTED_DIAGNOSTIC = Pattern.compile("//\\s*Expect:\\s*(.*?\\b(Error|Warning)\\b)",
+            Pattern.CASE_INSENSITIVE);
     private final static Factory factory = new Launcher().getFactory();
     private final static Context context = Context.getInstance();
 
