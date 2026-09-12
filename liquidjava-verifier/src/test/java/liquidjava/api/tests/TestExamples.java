@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Stream;
@@ -40,32 +41,11 @@ public class TestExamples {
 
         List<Pair<String, Integer>> expectedWarnings = isDirectory ? getExpectedWarningsFromDirectory(path)
                 : getExpectedWarningsFromFile(path);
+        List<Pair<String, Integer>> expectedErrors = isDirectory ? getExpectedErrorsFromDirectory(path)
+                : getExpectedErrorsFromFile(path);
 
-        if (shouldWarn(pathName)) {
-            checkExpectedDiagnostics(pathName, diagnostics.getWarnings(), expectedWarnings,
-                    diagnostics.getWarningOutput());
-        }
-
-        // verification should pass, check if any errors were found
-        if (shouldPass(pathName) && diagnostics.foundError()) {
-            System.out.println("Error in: " + pathName + " --- should pass but an error was found. \n"
-                    + diagnostics.getErrorOutput());
-            fail();
-        }
-        // verification should fail, check if it failed as expected (multiple errors can be found)
-        else if (shouldFail(pathName)) {
-            if (!diagnostics.foundError()) {
-                System.out.println("Error in: " + pathName + " --- should fail but no errors were found. \n"
-                        + diagnostics.getErrorOutput());
-                fail();
-            } else {
-                // check if expected error was found
-                List<Pair<String, Integer>> expectedErrors = isDirectory ? getExpectedErrorsFromDirectory(path)
-                        : getExpectedErrorsFromFile(path);
-                checkExpectedDiagnostics(pathName, diagnostics.getErrors(), expectedErrors,
-                        diagnostics.getErrorOutput());
-            }
-        }
+        checkExpectedDiagnostics(pathName, diagnostics.getErrors(), expectedErrors, diagnostics.getErrorOutput());
+        checkExpectedDiagnostics(pathName, diagnostics.getWarnings(), expectedWarnings, diagnostics.getWarningOutput());
     }
 
     /**
@@ -78,19 +58,21 @@ public class TestExamples {
                     + expected.size() + ". \n" + output);
             fail();
         }
-        if (expected.isEmpty()) {
-            System.out.println("No expected diagnostic messages found for: " + pathName);
-            System.out.println(
-                    "Please specify each expected diagnostic in the test file as a comment on the line where it should be reported.");
-            fail();
-        }
+        List<Pair<String, Integer>> unmatched = new ArrayList<>(expected);
         for (LJDiagnostic diagnostic : found) {
-            boolean match = expected.stream().anyMatch(expectedDiagnostic -> matches(diagnostic, expectedDiagnostic));
-            if (!match) {
+            int match = -1;
+            for (int i = 0; i < unmatched.size(); i++) {
+                if (matches(diagnostic, unmatched.get(i))) {
+                    match = i;
+                    break;
+                }
+            }
+            if (match < 0) {
                 System.out.println(
                         "Unexpected diagnostic in: " + pathName + " --- expected: " + expected + ". \n" + output);
                 fail();
             }
+            unmatched.remove(match);
         }
     }
 
@@ -107,17 +89,14 @@ public class TestExamples {
         return Files.find(Paths.get("../liquidjava-example/src/main/java/testSuite/"), Integer.MAX_VALUE,
                 (filePath, fileAttr) -> {
                     String name = filePath.getFileName().toString();
-                    // Files that start with "Correct", "Error" or "Warning"
-                    boolean isFileStartingWithCorrectOrError = fileAttr.isRegularFile()
-                            && (shouldPass(name) || shouldFail(name) || shouldWarn(name));
-
-                    // Directories that contain "correct", "error" or "warning"
-                    boolean isDirectoryWithCorrectOrError = fileAttr.isDirectory()
-                            && (shouldPass(name) || shouldFail(name) || shouldWarn(name));
-
-                    // Return true if either condition matches
-                    return isFileStartingWithCorrectOrError || isDirectoryWithCorrectOrError;
+                    return (fileAttr.isRegularFile() || fileAttr.isDirectory()) && isTestPath(name);
                 });
+    }
+
+    private static boolean isTestPath(String path) {
+        String lowerCasePath = path.toLowerCase();
+        return lowerCasePath.contains("correct") || lowerCasePath.contains("error")
+                || lowerCasePath.contains("warning");
     }
 
     /**
@@ -128,9 +107,10 @@ public class TestExamples {
         String[] paths = { "../liquidjava-example/src/main/java/testSuite/CorrectSimple.java",
                 "../liquidjava-example/src/main/java/testSuite/classes/arraylist_correct", };
         CommandLineLauncher.launch(paths);
-        // Check if any of the paths that should be correct found an error
-        if (diagnostics.foundError()) {
-            System.out.println("Error found in files that should be correct. \n" + diagnostics.getErrorOutput());
+        // The inputs have no expected diagnostics.
+        if (diagnostics.foundError() || !diagnostics.getWarnings().isEmpty()) {
+            System.out.println(
+                    "Unexpected diagnostic found. \n" + diagnostics.getErrorOutput() + diagnostics.getWarningOutput());
             fail();
         }
     }

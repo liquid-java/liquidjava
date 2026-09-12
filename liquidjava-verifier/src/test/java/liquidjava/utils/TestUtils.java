@@ -21,18 +21,6 @@ public class TestUtils {
     private final static Factory factory = new Launcher().getFactory();
     private final static Context context = Context.getInstance();
 
-    public static boolean shouldPass(String path) {
-        return path.toLowerCase().contains("correct");
-    }
-
-    public static boolean shouldFail(String path) {
-        return path.toLowerCase().contains("error");
-    }
-
-    public static boolean shouldWarn(String path) {
-        return path.toLowerCase().contains("warning");
-    }
-
     public static List<Pair<String, Integer>> getExpectedErrorsFromFile(Path filePath) {
         return getExpectedDiagnosticsFromFile(filePath, "error");
     }
@@ -81,6 +69,7 @@ public class TestUtils {
     }
 
     public static void addIntVariableToContext(String name) {
-        context.addVarToContext(name, factory.Type().INTEGER_PRIMITIVE, new Predicate(), factory.Code().createCodeSnippetStatement(""));
+        context.addVarToContext(name, factory.Type().INTEGER_PRIMITIVE, new Predicate(),
+                factory.Code().createCodeSnippetStatement(""));
     }
 }

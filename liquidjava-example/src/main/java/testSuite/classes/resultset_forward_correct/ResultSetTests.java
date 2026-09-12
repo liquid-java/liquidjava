@@ -24,7 +24,7 @@ public class ResultSetTests {
                 con.prepareStatement("select typeid from users where username=? and password=?", ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
         ResultSet rs = pstat.executeQuery();
 
-        rs.beforeFirst(); // Expect: State Refinement Error
+        rs.beforeFirst();
 
         return typeID;
     }
@@ -40,7 +40,7 @@ public class ResultSetTests {
         while (rs.next()) {
             rowCount++;
         }
-        rs.beforeFirst(); // Expect: State Refinement Error
+        rs.beforeFirst();
         if (rowCount >= 1) {
             while (rs.next()) {
                 typeID = rs.getInt(1);
