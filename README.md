@@ -111,19 +111,18 @@ This should output an error message describing the refinement violation.
 
 #### Testing
 
-Run `mvn test` to run all the tests in LiquidJava.
+Run `./mvnw test` to run all the tests in LiquidJava.
 
-The starter test file is `TestExamples.java`, which runs the test suite under the `testSuite` directory in `liquidjava-example`.
+The `TestExamples.java` test runs the Java files and test directories under the `testSuite` directory in `liquidjava-example`.
 
-The test suite considers test cases:
-1. Files that start with `Correct` or `Error` (e.g., `CorrectRecursion.java`)
-2. Directories that contain the word `correct` or `error` (e.g., `arraylist_correct`)
+Test results are determined by inline diagnostic expectations using comments:
 
-Therefore, the files and folders that do not follow this pattern are ignored.
+```java
+value = -1; // Expect: Refinement Error
+```
 
-For failing test cases, the expected error must be specified as follows:
-1. In singular test files, the expected error (title) should be written in the first line of the file as a comment
-2. In test directories, a `.expected` file should be included in that directory with the expected error (title)
+Each expected diagnostic must be reported, and every reported error or warning must have a corresponding expectation.
+Tests with no expectation must produce no diagnostics.
 
 ## Project Structure
 
