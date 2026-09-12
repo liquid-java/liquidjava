@@ -1,11 +1,14 @@
 package liquidjava.processor.context;
 
 import liquidjava.rj_language.Predicate;
+import spoon.reflect.cu.SourcePosition;
 
 public class ObjectState {
 
     Predicate from;
     Predicate to;
+    SourcePosition fromPosition;
+    SourcePosition toPosition;
     String message;
 
     public ObjectState() {
@@ -28,6 +31,22 @@ public class ObjectState {
 
     public void setTo(Predicate to) {
         this.to = to;
+    }
+
+    public SourcePosition getFromPosition() {
+        return fromPosition;
+    }
+
+    public void setFromPosition(SourcePosition fromPosition) {
+        this.fromPosition = fromPosition;
+    }
+
+    public SourcePosition getToPosition() {
+        return toPosition;
+    }
+
+    public void setToPosition(SourcePosition toPosition) {
+        this.toPosition = toPosition;
     }
 
     public boolean hasFrom() {
@@ -57,7 +76,10 @@ public class ObjectState {
     public ObjectState clone() {
         Predicate clonedFrom = from == null ? null : from.clone();
         Predicate clonedTo = to == null ? null : to.clone();
-        return new ObjectState(clonedFrom, clonedTo, message);
+        ObjectState clone = new ObjectState(clonedFrom, clonedTo, message);
+        clone.setFromPosition(fromPosition);
+        clone.setToPosition(toPosition);
+        return clone;
     }
 
     @Override

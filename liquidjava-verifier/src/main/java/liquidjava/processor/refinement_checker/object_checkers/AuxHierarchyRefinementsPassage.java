@@ -14,6 +14,7 @@ import liquidjava.rj_language.Predicate;
 import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Formats;
 import liquidjava.utils.constants.Keys;
+import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtMethod;
 import spoon.reflect.declaration.CtParameter;
@@ -83,8 +84,8 @@ public class AuxHierarchyRefinementsPassage {
             } else {
                 boolean ok = tc.checkStateSMT(superArgRef, argRef, params.get(i).getPosition());
                 if (!ok) {
-                    tc.throwRefinementError(method.getPosition(), function.getPlacementInCode().getPosition(), argRef,
-                            superArgRef, function.getMessage());
+                    tc.throwRefinementError(method.getPosition(), arg.getPlacementInCode().getAnnotationPosition(),
+                            argRef, superArgRef, function.getMessage());
                 }
             }
         }
@@ -108,7 +109,7 @@ public class AuxHierarchyRefinementsPassage {
             for (String m : super2function.keySet())
                 functionRef = functionRef.substituteVariable(m, super2function.get(m));
 
-            tc.checkStateSMT(functionRef, superRef, method, function.getPlacementInCode().getPosition(),
+            tc.checkStateSMT(functionRef, superRef, method, function.getPlacementInCode().getAnnotationPosition(),
                     "Return of subclass must be subtype of the return of the superclass");
         }
     }
@@ -144,13 +145,17 @@ public class AuxHierarchyRefinementsPassage {
                     Predicate subConst = matchVariableNames(thisName, superFunction, subFunction, subState.getFrom());
 
                     // fromSup <: fromSub <==> fromSup is sub type and fromSub is expectedType
-                    tc.checkStateSMT(superConst, subConst, method, subFunction.getPlacementInCode().getPosition(),
+                    SourcePosition subFromPosition = subState.getFromPosition() != null ? subState.getFromPosition()
+                            : subFunction.getPlacementInCode().getPosition();
+                    tc.checkStateSMT(superConst, subConst, method, subFromPosition,
                             "FROM State from Superclass must be subtype of FROM State from Subclass");
 
                     superConst = matchVariableNames(thisName, superState.getTo());
                     subConst = matchVariableNames(thisName, superFunction, subFunction, subState.getTo());
                     // toSub <: toSup <==> ToSub is sub type and toSup is expectedType
-                    tc.checkStateSMT(subConst, superConst, method, superFunction.getPlacementInCode().getPosition(),
+                    SourcePosition superToPosition = superState.getToPosition() != null ? superState.getToPosition()
+                            : superFunction.getPlacementInCode().getPosition();
+                    tc.checkStateSMT(subConst, superConst, method, superToPosition,
                             "TO State from Subclass must be subtype of TO State from Superclass");
 
                 }

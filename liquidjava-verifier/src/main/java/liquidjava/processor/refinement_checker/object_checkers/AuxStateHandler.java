@@ -74,6 +74,7 @@ public class AuxStateHandler {
                             "State refinement transition must be a boolean expression", to);
                 }
                 state.setTo(p);
+                state.setToPosition(Utils.getLJAnnotationPosition(element, to));
             }
             l.add(state);
         }
@@ -178,12 +179,16 @@ public class AuxStateHandler {
             state.setMessage(msg);
 
         // has from
-        if (from != null)
+        if (from != null) {
             state.setFrom(createStatePredicate(from, f.getTargetClass(), tc, e, false, prefix));
+            state.setFromPosition(Utils.getLJAnnotationPosition(e, from));
+        }
 
         // has to
-        if (to != null)
+        if (to != null) {
             state.setTo(createStatePredicate(to, f.getTargetClass(), tc, e, true, prefix));
+            state.setToPosition(Utils.getLJAnnotationPosition(e, to));
+        }
 
         // has to but not from, state enters with true
         if (from == null && to != null)
@@ -450,7 +455,7 @@ public class AuxStateHandler {
         // is a subtype of the variable's main refinement
         if (rv instanceof Variable) {
             Predicate superC = rv.getMainRefinement().substituteVariable(rv.getName(), vi2.getName());
-            tc.checkSMT(superC, fw, rv.getPlacementInCode().getPosition(), null);
+            tc.checkSMT(superC, fw, rv.getPlacementInCode().getAnnotationPosition(), null);
             tc.getContext().addRefinementInstanceToVariable(parentTargetName, newInstanceName);
         }
     }
@@ -520,8 +525,11 @@ public class AuxStateHandler {
             // combine messages of all state changes
             String message = stateChanges.stream().map(ObjectState::getMessage)
                     .filter(msg -> msg != null && !msg.isBlank()).distinct().collect(Collectors.joining("\n"));
-            tc.throwStateRefinementError(invocation.getPosition(), function.getPlacementInCode().getPosition(),
-                    prevState, expectedStatesDisjunction, message);
+            SourcePosition declarationPosition = stateChanges.stream().filter(ObjectState::hasFrom)
+                    .map(ObjectState::getFromPosition).filter(Objects::nonNull).findFirst()
+                    .orElse(function.getPlacementInCode().getPosition());
+            tc.throwStateRefinementError(invocation.getPosition(), declarationPosition, prevState,
+                    expectedStatesDisjunction, message);
         }
     }
 
@@ -576,7 +584,7 @@ public class AuxStateHandler {
             // is a subtype of the variable's main refinement
             if (rv instanceof Variable) {
                 Predicate superC = rv.getMainRefinement().substituteVariable(rv.getName(), vi2.getName());
-                tc.checkSMT(superC, invocation, rv.getPlacementInCode().getPosition(), null);
+                tc.checkSMT(superC, invocation, rv.getPlacementInCode().getAnnotationPosition(), null);
                 tc.getContext().addRefinementInstanceToVariable(superName, name2);
             }
         }
