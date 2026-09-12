@@ -14,6 +14,6 @@ public class ErrorAlias {
 
     public static void main(String[] args) {
         @Refinement("InRange( _, 10, 15)")
-        int j = getNum(); // Refinement Error
+        int j = getNum(); // Expect: Refinement Error
     }
 }

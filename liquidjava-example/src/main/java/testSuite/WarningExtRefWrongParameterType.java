@@ -12,5 +12,5 @@ public interface WarningExtRefWrongParameterType<E> {
     public void ArrayList();
 
     @StateRefinement(to = "size(this) == (size(old(this)) + 1)")
-    public boolean add(int wrongParameter); // Warning
+    public boolean add(int wrongParameter); // Expect: Warning
 }

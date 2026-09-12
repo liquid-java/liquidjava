@@ -12,6 +12,6 @@ public class ErrorBooleanLiteral {
         boolean k = (a < 11);
 
         @Refinement("_ == false")
-        boolean t = !(a == 12); // Refinement Error
+        boolean t = !(a == 12); // Expect: Refinement Error
     }
 }

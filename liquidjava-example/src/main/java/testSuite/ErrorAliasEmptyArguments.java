@@ -8,7 +8,7 @@ import liquidjava.specification.RefinementAlias;
 public class ErrorAliasEmptyArguments {
 
     public static void main(String[] args) {
-        @Refinement("InRange()") // Argument Mismatch Error
+        @Refinement("InRange()") // Expect: Argument Mismatch Error
         int j = 15;
     }
 }

@@ -30,7 +30,7 @@ public class ErrorFunctionInvocation {
 
     public static void invocation1() {
         @Refinement("_ > 10")
-        int p = 10; // Refinement Error
+        int p = 10; // Expect: Refinement Error
         p = posMult(10, 4);
     }
 
@@ -40,12 +40,12 @@ public class ErrorFunctionInvocation {
 
         @Refinement("_ > 0")
         int c = getOne();
-        c = getZero(); // Refinement Error
+        c = getZero(); // Expect: Refinement Error
     }
 
     public static void invocationWParams() {
         @Refinement("_ >= 0")
         int p = 10;
-        p = posMult(10, 12); // Refinement Error
+        p = posMult(10, 12); // Expect: Refinement Error
     }
 }

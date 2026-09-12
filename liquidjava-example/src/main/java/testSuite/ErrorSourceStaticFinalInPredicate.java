@@ -8,7 +8,7 @@ public class ErrorSourceStaticFinalInPredicate {
     }
 
     public static void main(String[] args) {
-        requireBelowLimit(15.0); // Refinement Error
+        requireBelowLimit(15.0); // Expect: Refinement Error
     }
 
     static class LIMITS {

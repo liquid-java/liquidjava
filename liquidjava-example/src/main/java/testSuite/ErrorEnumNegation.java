@@ -13,6 +13,6 @@ class ErrorEnumNegation {
     public static void main(String[] args) {
         ErrorEnumNegation e = new ErrorEnumNegation();
         e.process(Status.Active);
-        e.process(Status.Inactive); // Refinement Error
+        e.process(Status.Inactive); // Expect: Refinement Error
     }
 }

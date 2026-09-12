@@ -6,6 +6,6 @@ public class ErrorIntegerDivision {
 
     @Refinement("_ > 0")
     int half(@Refinement("_ > 0") int x) {
-        return x / 2; // Refinement Error
+        return x / 2; // Expect: Refinement Error
     }
 }
