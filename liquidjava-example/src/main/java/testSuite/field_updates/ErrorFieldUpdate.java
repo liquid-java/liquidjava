@@ -12,6 +12,6 @@ public class ErrorFieldUpdate {
 
         ErrorFieldUpdate t = new ErrorFieldUpdate();
         t.n = -1;
-        t.shouldFailIfFieldIsNegative(); // State Refinement Error
+        t.shouldFailIfFieldIsNegative(); // Expect: State Refinement Error
     }
 }

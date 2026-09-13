@@ -13,6 +13,6 @@ public class ErrorLenZeroIntArray {
 
     public static void main(String[] args) {
         int[] a = new int[0];
-        getIndexWithVal(a, 0, 6); // Refinement Error
+        getIndexWithVal(a, 0, 6); // Expect: Refinement Error
     }
 }

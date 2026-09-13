@@ -8,6 +8,6 @@ public class ErrorDependentUpperBound {
     int nextIndex(
             @Refinement("_ > 0") int len,
             @Refinement("0 <= _ && _ < len") int i) {
-        return i + 1; // Refinement Error
+        return i + 1; // Expect: Refinement Error
     }
 }

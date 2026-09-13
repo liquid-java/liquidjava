@@ -17,12 +17,12 @@ public class ByteBufTest {
         mDirectBuffer = ByteBuffer.allocateDirect(TEST_BUFFER_SIZE);
         // VIOLATION: a direct buffer is not array-backed -> array() throws
         // UnsupportedOperationException.
-        byte[] buf = mDirectBuffer.array(); // State Refinement Error
+        byte[] buf = mDirectBuffer.array(); // Expect: State Refinement Error
         buf[1] = 100;
     }
 
     public void test(ByteBuffer mDirectBuffer) {
-        printBuffer("nativeInitDirectBuffer", mDirectBuffer.array()); // State Refinement Error
+        printBuffer("nativeInitDirectBuffer", mDirectBuffer.array()); // Expect: State Refinement Error
     }
 
     private void printBuffer(String tag, byte[] buffer) {

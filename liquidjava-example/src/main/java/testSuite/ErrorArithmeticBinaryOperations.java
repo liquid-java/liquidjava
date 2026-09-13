@@ -8,6 +8,6 @@ public class ErrorArithmeticBinaryOperations {
         @Refinement("_ < 100")
         int y = 50;
         @Refinement("_ > 0")
-        int z = y - 51; // Refinement Error
+        int z = y - 51; // Expect: Refinement Error
     }
 }

@@ -5,6 +5,6 @@ public class SimpleTest {
         Downloader d = new Downloader();
         d.start();
         d.update(50);
-        d.update(40); // Refinement Error
+        d.update(40); // Expect: Refinement Error
     }
 }

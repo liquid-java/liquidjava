@@ -9,6 +9,6 @@ public class ErrorAliasSimple {
 
     public static void main(String[] args) {
         @Refinement("PtGrade(_)")
-        double positiveGrade2 = 20 * 0.5 + 20 * 0.6; // Refinement Error
+        double positiveGrade2 = 20 * 0.5 + 20 * 0.6; // Expect: Refinement Error
     }
 }

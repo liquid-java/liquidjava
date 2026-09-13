@@ -9,6 +9,6 @@ public class MathMax {
         int ab = Math.abs(-9);
 
         @Refinement("_ == 9")
-        int ab1 = Math.max(-9, -ab); // Refinement Error
+        int ab1 = Math.max(-9, -ab); // Expect: Refinement Error
     }
 }
