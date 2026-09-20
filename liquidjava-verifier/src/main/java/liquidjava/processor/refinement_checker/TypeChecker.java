@@ -97,12 +97,12 @@ public abstract class TypeChecker extends CtScanner {
             } else if (an.contentEquals("liquidjava.specification.RefinementPredicate")) {
                 CtExpression<String> rawValue = ann.getValue("value");
                 String value = getStringFromAnnotation(rawValue);
-                getGhostFunction(value, element, rawValue.getPosition());
+                getGhostFunction(value, element, Utils.getAnnotationValuePosition(rawValue));
 
             } else if (an.contentEquals("liquidjava.specification.RefinementAlias")) {
                 CtExpression<String> rawValue = ann.getValue("value");
                 String value = getStringFromAnnotation(rawValue);
-                handleAlias(value, element, rawValue.getPosition());
+                handleAlias(value, element, Utils.getAnnotationValuePosition(rawValue));
             }
         }
         if (ref.isPresent()) {
@@ -187,7 +187,7 @@ public abstract class TypeChecker extends CtScanner {
             }
             if (an.contentEquals("liquidjava.specification.Ghost")) {
                 CtLiteral<String> s = (CtLiteral<String>) ann.getAllValues().get("value");
-                createStateGhost(s.getValue(), element, s.getPosition());
+                createStateGhost(s.getValue(), element, Utils.getAnnotationValuePosition(s));
             }
         }
     }
@@ -201,7 +201,7 @@ public abstract class TypeChecker extends CtScanner {
                 CtLiteral<String> s = (CtLiteral<String>) ce;
                 String f = s.getValue();
                 if (Character.isUpperCase(f.charAt(0))) {
-                    throw new CustomError("State names must start with lowercase", s.getPosition());
+                    throw new CustomError("State names must start with lowercase", Utils.getAnnotationValuePosition(s));
                 }
             }
         }

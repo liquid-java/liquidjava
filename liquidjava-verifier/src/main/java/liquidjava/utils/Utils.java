@@ -63,20 +63,26 @@ public class Utils {
         String quotedValue = "\"" + value + "\"";
         return getLiquidJavaAnnotations(element).flatMap(annotation -> getLJAnnotationValues(annotation)
                 .filter(expr -> quotedValue.equals(expr.toString())).map(expr -> {
-                    SourcePosition position = expr.getPosition();
-                    return (SourcePosition) new SourcePositionImpl(position.getCompilationUnit(),
-                            position.getSourceStart() + 1, position.getSourceEnd() - 1,
-                            position.getCompilationUnit().getLineSeparatorPositions());
+                    return getAnnotationValuePosition(expr);
                 })).findFirst().orElse(element.getPosition());
     }
 
     // Get the position of the first value of the first LJ annotation on the element
     public static SourcePosition getFirstLJAnnotationValuePosition(CtElement element) {
         return getLiquidJavaAnnotations(element)
-                .map(annotation -> getLJAnnotationValues(annotation).map(CtElement::getPosition)
+                .map(annotation -> getLJAnnotationValues(annotation).map(Utils::getAnnotationValuePosition)
                         .filter(pos -> pos != null).findFirst()
                         .orElse(annotation.getPosition() != null ? annotation.getPosition() : element.getPosition()))
                 .findFirst().orElse(element.getPosition());
+    }
+
+    public static SourcePosition getAnnotationValuePosition(CtElement value) {
+        SourcePosition position = value.getPosition();
+        if (position == null || !position.isValidPosition())
+            return null;
+
+        return (SourcePosition) new SourcePositionImpl(position.getCompilationUnit(), position.getSourceStart() + 1,
+                position.getSourceEnd() - 1, position.getCompilationUnit().getLineSeparatorPositions());
     }
 
     private static Stream<CtAnnotation<?>> getLiquidJavaAnnotations(CtElement element) {

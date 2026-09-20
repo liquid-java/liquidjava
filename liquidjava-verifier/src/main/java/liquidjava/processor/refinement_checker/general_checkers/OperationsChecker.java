@@ -240,7 +240,7 @@ public class OperationsChecker {
                 return new Predicate();
             }
             if (l.getValue() == null)
-                throw new CustomError("Null literals are not supported");
+                throw new CustomError("Null literals are not supported", l.getPosition());
 
             return new Predicate(l.getValue().toString(), element);
 

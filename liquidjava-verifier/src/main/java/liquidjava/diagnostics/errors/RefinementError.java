@@ -68,6 +68,9 @@ public class RefinementError extends LJError {
 
     // Filters counterexample assignments only in found VC and sorts them in the order of its binders
     private Counterexample filterCounterexample(Counterexample counterexample) {
+        if (counterexample == null)
+            return new Counterexample(List.of());
+
         List<String> binderNames = getFound().getBinders();
         Set<String> knownAssignments = getFound().getImplication().toPredicate().getExpression().getConjuncts().stream()
                 .map(Expression::toString).collect(Collectors.toSet());

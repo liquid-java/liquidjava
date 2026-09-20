@@ -39,7 +39,7 @@ public class AuxStateHandler {
                 Map<String, CtExpression> m = a.getAllValues();
                 CtLiteral<String> from = (CtLiteral<String>) m.get("from");
                 if (from != null) {
-                    throw new IllegalConstructorTransitionError(from);
+                    throw new IllegalConstructorTransitionError(Utils.getAnnotationValuePosition(from));
                 }
             }
             setConstructorStates(f, an, c);
@@ -70,7 +70,7 @@ public class AuxStateHandler {
             if (to != null) {
                 Predicate p = new Predicate(to, element);
                 if (!p.getExpression().isBooleanExpression()) {
-                    throw new InvalidRefinementError(an.getPosition(),
+                    throw new InvalidRefinementError(Utils.getLJAnnotationPosition(element, to),
                             "State refinement transition must be a boolean expression", to);
                 }
                 state.setTo(p);

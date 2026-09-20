@@ -124,12 +124,12 @@ public class MethodsFunctionsChecker {
         f.setName(name.replaceAll("\\p{C}", "")); // remove any empty chars from string
         f.setType(method.getType());
         f.setRefReturn(new Predicate());
+        f.setPlacementInCode(method);
         if (className != null)
             f.setClass(className);
         f.setSignature(signature);
         rtc.getContext().addFunctionToContext(f);
         auxGetMethodRefinements(method, f);
-        f.setPlacementInCode(method);
         return f;
     }
 

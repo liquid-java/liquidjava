@@ -1,6 +1,6 @@
 package liquidjava.diagnostics.errors;
 
-import spoon.reflect.declaration.CtElement;
+import spoon.reflect.cu.SourcePosition;
 
 /**
  * Error indicating that a constructor contains a state refinement with a 'from' state, which is not allowed
@@ -9,9 +9,8 @@ import spoon.reflect.declaration.CtElement;
  */
 public class IllegalConstructorTransitionError extends LJError {
 
-    public IllegalConstructorTransitionError(CtElement element) {
+    public IllegalConstructorTransitionError(SourcePosition position) {
         super("Illegal Constructor Transition Error",
-                "Found constructor with 'from' state: constructors should only have a 'to' state",
-                element.getPosition(), null);
+                "Found constructor with 'from' state: constructors should only have a 'to' state", position, null);
     }
 }
