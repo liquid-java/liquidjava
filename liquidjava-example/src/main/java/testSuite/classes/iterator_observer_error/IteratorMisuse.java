@@ -6,21 +6,21 @@ public class IteratorMisuse {
 
     // No check at all: state of the parameter is unknown.
     public static void nextWithoutCheck(Scanner it) {
-        it.next(); // State Refinement Error
+        it.next(); // Expect: State Refinement Error
     }
 
     // Else branch of hasNext(): condition was false, so we know !hasMore.
     public static void nextInElseBranch(Scanner it) {
         if (it.hasNext()) {
         } else {
-            it.next(); // State Refinement Error
+            it.next(); // Expect: State Refinement Error
         }
     }
 
     // Negated check: !hasNext() true means hasNext returned false, so !hasMore.
     public static void nextNotInElse(Scanner it) {
         if (!it.hasNext()) {
-            it.next(); // State Refinement Error
+            it.next(); // Expect: State Refinement Error
         }
     }
 
@@ -29,7 +29,7 @@ public class IteratorMisuse {
     public static void doubleNextInThen(Scanner it) {
         if (it.hasNext()) {
             it.next();
-            it.next(); // State Refinement Error
+            it.next(); // Expect: State Refinement Error
         }
     }
 
@@ -38,7 +38,7 @@ public class IteratorMisuse {
     public static void nextAfterEmptyIf(Scanner it) {
         if (it.hasNext()) {
         }
-        it.next(); // State Refinement Error
+        it.next(); // Expect: State Refinement Error
     }
 
     // Sequential ifs: state is consumed by the first then-branch's next(), and the second if's
@@ -49,7 +49,7 @@ public class IteratorMisuse {
         }
         if (it.hasNext()) {
         }
-        it.next(); // State Refinement Error
+        it.next(); // Expect: State Refinement Error
     }
 
     // Empty if + empty else: neither branch establishes hasMore.
@@ -57,6 +57,6 @@ public class IteratorMisuse {
         if (it.hasNext()) {
         } else {
         }
-        it.next(); // State Refinement Error
+        it.next(); // Expect: State Refinement Error
     }
 }

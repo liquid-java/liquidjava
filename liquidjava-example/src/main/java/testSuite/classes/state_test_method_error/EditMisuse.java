@@ -7,19 +7,19 @@ public class EditMisuse {
     public static void undoInElseBranch(AbstractUndoableEdit edit) {
         if (edit.canUndo()) {
         } else {
-            edit.undo(); // State Refinement Error
+            edit.undo(); // Expect: State Refinement Error
         }
     }
 
     public static void undoNotInElse(AbstractUndoableEdit edit) {
         if (!edit.canUndo()) {
-            edit.undo(); // State Refinement Error
+            edit.undo(); // Expect: State Refinement Error
         }
     }
 
     public static void wrongTesterForRedo(AbstractUndoableEdit edit) {
         if (edit.canUndo()) {
-            edit.redo(); // State Refinement Error
+            edit.redo(); // Expect: State Refinement Error
         }
     }
 
@@ -29,7 +29,7 @@ public class EditMisuse {
         if (edit.canUndo()) {
             edit.undo();
         }
-        edit.undo(); // State Refinement Error
+        edit.undo(); // Expect: State Refinement Error
     }
 
     // Two undos in the same then-branch: condition forces aliveDone for the first, but the second
@@ -37,7 +37,7 @@ public class EditMisuse {
     public static void doubleUndoInThen(AbstractUndoableEdit edit) {
         if (edit.canUndo()) {
             edit.undo();
-            edit.undo(); // State Refinement Error
+            edit.undo(); // Expect: State Refinement Error
         }
     }
 
@@ -46,7 +46,7 @@ public class EditMisuse {
     public static void nestedIfRedoFromAliveDone(AbstractUndoableEdit edit) {
         if (edit.canUndo()) {
             if (edit.canUndo()) {
-                edit.redo(); // State Refinement Error
+                edit.redo(); // Expect: State Refinement Error
             }
         }
     }
@@ -62,13 +62,13 @@ public class EditMisuse {
         }
         if (edit.canUndo()) {
         }
-        edit.undo(); // State Refinement Error
+        edit.undo(); // Expect: State Refinement Error
     }
 
     // Wrong direction: canRedo() implies aliveNotDone, so calling undo() in that branch is illegal.
     public static void undoGuardedByCanRedo(AbstractUndoableEdit edit) {
         if (edit.canRedo()) {
-            edit.undo(); // State Refinement Error
+            edit.undo(); // Expect: State Refinement Error
         }
     }
 
@@ -78,7 +78,7 @@ public class EditMisuse {
         if (edit.canUndo()) {
             edit.undo();
             edit.redo();
-            edit.redo(); // State Refinement Error
+            edit.redo(); // Expect: State Refinement Error
         }
     }
 
@@ -90,6 +90,6 @@ public class EditMisuse {
         if (edit.canUndo()) {
         } else {
         }
-        edit.redo(); // State Refinement Error
+        edit.redo(); // Expect: State Refinement Error
     }
 }

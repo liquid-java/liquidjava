@@ -10,12 +10,12 @@ public class ErrorUnaryOperators {
         v--;
         @Refinement("_ >= 10")
         int s = 10;
-        s--; // Refinement Error
+        s--; // Expect: Refinement Error
     }
 
     public static void errorUnaryOperatorMinus() {
         @Refinement("b > 0")
         int b = 8;
-        b = -b; // Refinement Error
+        b = -b; // Expect: Refinement Error
     }
 }

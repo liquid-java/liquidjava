@@ -15,7 +15,7 @@ public class ErrorAfterIf {
                 pos = b;
         }
         @Refinement("_ == a || _ == b")
-        int r = pos; // Refinement Error
+        int r = pos; // Expect: Refinement Error
     }
 
     public void afterIf2() {
@@ -26,6 +26,6 @@ public class ErrorAfterIf {
         }
         k = 50;
         @Refinement("_ < 10")
-        int m = k; // Refinement Error
+        int m = k; // Expect: Refinement Error
     }
 }

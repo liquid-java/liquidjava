@@ -10,6 +10,6 @@ public class ErrorStaticFinalInPredicate {
 
     public static void main(String[] args) {
         // Byte.MAX_VALUE == 127, so 200 violates the bound.
-        belowMaxByte(200); // Refinement Error
+        belowMaxByte(200); // Expect: Refinement Error
     }
 }

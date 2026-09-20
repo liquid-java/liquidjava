@@ -7,6 +7,6 @@ import liquidjava.specification.RefinementPredicate;
 public class ErrorGhostNumberArgs {
     @Refinement("open(1,2) == true")
     public int one() {
-        return 1; // Argument Mismatch Error
+        return 1; // Expect: Argument Mismatch Error
     }
 }

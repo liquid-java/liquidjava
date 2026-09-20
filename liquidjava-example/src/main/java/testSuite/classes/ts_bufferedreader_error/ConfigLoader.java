@@ -27,7 +27,7 @@ class ConfigLoader {
         if (header.startsWith("#")) {
             // Header was a comment — the real value is on the next line.
             reader.close();
-            return reader.readLine(); // State Refinement Error
+            return reader.readLine(); // Expect: State Refinement Error
         }
 
         reader.close();
@@ -42,7 +42,7 @@ class ConfigLoader {
             reader.close();
             // no return here
         }
-        reader.close(); // State Refinement Error
+        reader.close(); // Expect: State Refinement Error
         return header;
     }
 }

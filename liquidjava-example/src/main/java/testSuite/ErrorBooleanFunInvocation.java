@@ -21,6 +21,6 @@ public class ErrorBooleanFunInvocation {
         boolean o = !(a == 12);
 
         @Refinement("_ == true")
-        boolean m = greaterThanTen(a); // Refinement Error
+        boolean m = greaterThanTen(a); // Expect: Refinement Error
     }
 }

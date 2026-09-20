@@ -30,7 +30,7 @@ public class ResultSetTests {
         //   con.prepareStatement(sql, ResultSet.TYPE_SCROLL_INSENSITIVE,
         //                             ResultSet.CONCUR_READ_ONLY);
         // or drop the rewind and read typeID inside the single forward pass.
-        rs.beforeFirst(); // State Refinement Error
+        rs.beforeFirst(); // Expect: State Refinement Error
 
         return typeID;
     }
@@ -48,7 +48,7 @@ public class ResultSetTests {
         }
         // VIOLATION: beforeFirst() scrolls backward, illegal on a TYPE_FORWARD_ONLY
         // result set -> SQLException: Result set type is TYPE_FORWARD_ONLY.
-        rs.beforeFirst(); // State Refinement Error
+        rs.beforeFirst(); // Expect: State Refinement Error
         if (rowCount >= 1) {
             while (rs.next()) {
                 typeID = rs.getInt(1);
@@ -64,7 +64,7 @@ public class ResultSetTests {
                 parentstmt.executeQuery("SELECT SUM(IMPORTANCE) AS IMPAVG FROM MAIL");
         // FIX (from accepted answer): parentMessage.next();
         // VIOLATION: cursor is before the first row; getFloat() with no next().
-        float avgsum = parentMessage.getFloat("IMPAVG"); // State Refinement Error
+        float avgsum = parentMessage.getFloat("IMPAVG"); // Expect: State Refinement Error
         return avgsum;
     }
 
@@ -75,7 +75,7 @@ public class ResultSetTests {
         Statement parentstmt = conn.createStatement();
         ResultSet parentMessage = parentstmt.executeQuery("SELECT SUM(IMPORTANCE) AS IMPAVG FROM MAIL");
         boolean b = parentMessage.next();
-        float avgsum = parentMessage.getFloat("IMPAVG"); // State Refinement Error
+        float avgsum = parentMessage.getFloat("IMPAVG"); // Expect: State Refinement Error
         return avgsum;
     }
 
@@ -88,7 +88,7 @@ public class ResultSetTests {
         if (b) {
             avgsum = parentMessage.getFloat("IMPAVG");
         } else {
-            avgsum = parentMessage.getFloat("IMPAVG"); // State Refinement Error
+            avgsum = parentMessage.getFloat("IMPAVG"); // Expect: State Refinement Error
         }
         return avgsum;
     }

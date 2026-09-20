@@ -9,6 +9,6 @@ public class MathAbs {
         int ab = Math.abs(-9);
 
         @Refinement("_ == 9")
-        int ab1 = -ab; // Refinement Error
+        int ab1 = -ab; // Expect: Refinement Error
     }
 }
