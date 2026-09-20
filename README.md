@@ -9,24 +9,84 @@
 
 LiquidJava is an additional type checker for Java, based on **liquid types** and **typestates**, which provides additional safety guarantees to Java programs through **refinements** at compile time.
 
-**Example:**
+### Refinements
+
+To refine a variable, field, parameter or return value, use the `@Refinement` annotation with a predicate as an argument. The predicate must be a boolean expression that uses the name of the variable being refined (or `_`) to refer to its value.
 
 ```java
 @Refinement("a > 0")
-int a = 3; // okay
-a = -8; // type error!
+int a = 3;
+a = -8; // Refinement Error
+
+
+@Refinement("_ >= low && _ <= high")
+public static int midpoint(
+    @Refinement("_ <= high") int low,
+    int high
+) {
+    return low + (high - low) / 2;
+}
+
+midpoint(5, 10);
+midpoint(10, 5); // Refinement Error
 ```
 
-This project contains the LiquidJava verifier and its API, as well as some examples for testing.
+### State Refinements
 
-You can find out more about LiquidJava in the following resources:
+LiquidJava also supports object state modeling via typestates, which allows enforcing protocols on objects using the `@StateSet` and `@StateRefinement` annotations. The `@StateSet` annotation defines the possible states of an object, while the `@StateRefinement` annotation specifies the allowed transitions between states for each method. The `@ExternalRefinementsFor` annotation is used to specify an external class for which the refinements are being defined.
 
-* [LiquidJava Website](https://liquid-java.github.io)
-* [VS Code Extension (Marketplace)](https://marketplace.visualstudio.com/items?itemName=AlcidesFonseca.liquid-java)
-* [VS Code Extension (Source Code)](https://github.com/liquid-java/vscode-liquidjava)
-* [LiquidJava Examples](https://github.com/liquid-java/liquidjava-examples)
-* [LiquidJava External Libraries Examples](https://github.com/liquid-java/liquid-java-external-libs)
-<!-- * [Formalization of LiquidJava](https://github.com/liquid-java/liquidjava-formalization) - not opensource yet -->
+```java
+@ExternalRefinementsFor("java.net.Socket")
+@StateSet({"unconnected", "bound", "connected", "closed"})
+public interface SocketRefinements {
+    @StateRefinement(to="unconnected(this)")
+    public void Socket();
+
+    @StateRefinement(from="unconnected(this)", to="bound(this)")
+    public void bind(SocketAddress add);
+
+    @StateRefinement(from="bound(this)", to="connected(this)")
+    public void connect(SocketAddress add);
+
+    @StateRefinement(from="connected(this)")
+    public void sendUrgentData(int n);
+
+    @StateRefinement(from="!closed(this)", to="closed(this)")
+    public void close();
+}
+
+Socket socket = new Socket();
+socket.bind(new InetSocketAddress("localhost", 8080));
+socket.sendUrgentData(1); // State Refinement Error
+socket.close();
+```
+
+### Ghosts
+
+Finally, LiquidJava also provides ghost variables that are used to track additional information about the program state with the `@Ghost` annotation. These are also updated through the `@StateRefinement` annotation.
+
+```java
+@ExternalRefinementsFor("java.util.Stack")
+@Ghost("int size")
+public interface StackRefinements<E> {
+    @StateRefinement(to="size(this) == 0")
+    public void Stack();
+
+    @StateRefinement(to="size(this) == size(old(this)) + 1")
+    public E push(E elem);
+
+    @StateRefinement(from="size(this) > 0", to="size(this) == size(old(this)) - 1")
+    public E pop();
+
+    @StateRefinement(from="size(this) > 0")
+    public E peek();
+}
+
+Stack<Integer> stack = new Stack<>();
+stack.push(1);
+stack.pop();
+stack.pop(); // State Refinement Error
+```
 
 ## Getting Started
 
@@ -131,11 +191,21 @@ For failing test cases, the expected error must be specified as follows:
 * **liquidjava-api**: Includes the annotations that can be introduced in the Java programs to add the refinements
 * **liquidjava-example**: Includes some examples and the test suite used for testing the verifier
 * **liquidjava-verifier**: Includes the implementation of the verifier. Its main packages are:
-  * `api`: Includes the `CommandLineLauncher` that runs the verification on a given class or in the `currentlyTesting` directory if no argument is given
-  * `ast`: Represents the Abstract Syntax Tree (AST) of the Refinements Language (RJ)
-  * `errors`: Package for reporting the errors
-  * `processor`: Package that handles the type checking
-  * `rj_language`: Handles the parsing of the refinement strings to an AST
-  * `smt`: Package that handles the translation to the SMT solver and the processing of the results the SMT solver produces
-  * `utils`: Includes useful methods for all the previous packages
-  * `test/java/liquidjava/api/tests`: Contains the `TestExamples` class used for running the test suite
+  * `api`: Includes the `CommandLineLauncher`, which verifies one or more specified files or directories
+  * `diagnostics`: Reports verification errors and warnings
+  * `processor`: Handles the type checking
+  * `rj_language`: Parses refinement strings and contains the Refinements Language (RJ) AST
+  * `smt`: Translates verification conditions to the SMT solver and processes its results
+  * `utils`: Provides shared utility classes
+
+## References
+
+You can find out more about LiquidJava in the following resources:
+
+* [LiquidJava Website](https://liquid-java.github.io)
+* [VS Code Extension (Marketplace)](https://marketplace.visualstudio.com/items?itemName=AlcidesFonseca.liquid-java)
+* [VS Code Extension (Source Code)](https://github.com/liquid-java/vscode-liquidjava)
+* [LiquidJava Examples](https://github.com/liquid-java/liquidjava-examples)
+* [LiquidJava External Libraries Examples](https://github.com/liquid-java/liquid-java-external-libs)
+* [LiquidJava MCP](https://github.com/liquid-java/liquidjava-mcp)
+<!-- * [Formalization of LiquidJava](https://github.com/liquid-java/liquidjava-formalization) - not opensource yet -->
