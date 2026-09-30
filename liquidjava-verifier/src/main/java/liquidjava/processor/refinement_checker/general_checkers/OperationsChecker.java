@@ -37,9 +37,9 @@ import spoon.reflect.code.CtVariableRead;
 import spoon.reflect.code.CtVariableWrite;
 import spoon.reflect.code.UnaryOperatorKind;
 import spoon.reflect.declaration.CtAnnotation;
-import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtExecutable;
+import spoon.reflect.declaration.CtType;
 import spoon.reflect.declaration.ParentNotInitializedException;
 import spoon.reflect.reference.CtVariableReference;
 import spoon.support.reflect.code.CtIfImpl;
@@ -251,7 +251,7 @@ public class OperationsChecker {
                 return getOperationRefinementFromExternalLib(inv);
 
             // Get function refinements with non_used variables
-            String met = ((CtClass<?>) method.getParent()).getQualifiedName(); // TODO check
+            String met = method.getParent(CtType.class).getQualifiedName(); // TODO check
             RefinedFunction fi = rtc.getContext().getFunction(method.getSimpleName(), met, inv.getArguments().size());
             if (fi == null)
                 return getUnconstrainedInvocationVariable(inv);
@@ -310,7 +310,7 @@ public class OperationsChecker {
             rtc.getContext().addVarToContext(newName, fi.getType(), innerRefs, inv);
             return new Predicate(newName, inv); // Return variable that represents the invocation
         }
-        return new Predicate();
+        return getUnconstrainedInvocationVariable(inv);
     }
 
     /**
