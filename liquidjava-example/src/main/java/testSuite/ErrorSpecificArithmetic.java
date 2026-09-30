@@ -12,6 +12,6 @@ public class ErrorSpecificArithmetic {
         a = 6;
         b = a * 2;
         @Refinement("_ > 20")
-        int c = b * -1; // Refinement Error
+        int c = b * -1; // Expect: Refinement Error
     }
 }

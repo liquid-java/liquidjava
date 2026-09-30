@@ -15,7 +15,7 @@ public class ErrorLongUsage {
 
         if (a > 5) {
             @Refinement("b < 50")
-            long b = a * 10; // Refinement Error
+            long b = a * 10; // Expect: Refinement Error
         }
     }
 
@@ -24,6 +24,6 @@ public class ErrorLongUsage {
         long a = 9L;
 
         @Refinement("c > 40")
-        long c = doubleBiggerThanTwenty(a * 2); // Refinement Error
+        long c = doubleBiggerThanTwenty(a * 2); // Expect: Refinement Error
     }
 }

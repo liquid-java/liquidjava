@@ -6,7 +6,7 @@ import liquidjava.specification.Refinement;
 public class ErrorExtraToken {
     
     void test() {
-        @Refinement("true false") // Syntax Error
+        @Refinement("true false") // Expect: Syntax Error
         int a = 1;
     }
 }

@@ -6,6 +6,6 @@ public class ErrorBoolean {
 
     @Refinement("_ == true")
     boolean mustBeTrue(boolean value) {
-        return value; // Refinement Error
+        return value; // Expect: Refinement Error
     }
 }

@@ -16,7 +16,7 @@ public class ErrorSpecificValuesIf {
             int c = d;
             d = 10;
             @Refinement("b > 10")
-            int b = d; // Refinement Error
+            int b = d; // Expect: Refinement Error
         }
     }
 
@@ -26,7 +26,7 @@ public class ErrorSpecificValuesIf {
         if (a > 14) {
             a = 12;
             @Refinement("_ < 11")
-            int c = a; // Refinement Error
+            int c = a; // Expect: Refinement Error
         }
     }
 }

@@ -6,16 +6,16 @@ import liquidjava.specification.Refinement;
 public class ErrorBoxedTypes {
     public static void errorBoxedBoolean() {
         @Refinement("_ == true")
-        Boolean b = false; // Refinement Error
+        Boolean b = false; // Expect: Refinement Error
     }
 
     public static void errorBoxedInteger() {
         @Refinement("_ > 0")
-        Integer j = -1; // Refinement Error
+        Integer j = -1; // Expect: Refinement Error
     }
 
     public static void errorBoxedDouble() {
         @Refinement("_ > 0")
-        Double d = -1.0; // Refinement Error
+        Double d = -1.0; // Expect: Refinement Error
     }
 }

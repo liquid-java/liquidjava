@@ -10,7 +10,7 @@ public class Test{
     void test4(){
         Throwable originT = new Throwable();
         Throwable t = new Throwable(originT); 
-        t.initCause(null); // State Refinement Error
+        t.initCause(null); // Expect: State Refinement Error
         t.getCause();
     }
 

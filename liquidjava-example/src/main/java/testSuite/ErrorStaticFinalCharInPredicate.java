@@ -8,6 +8,6 @@ public class ErrorStaticFinalCharInPredicate {
     }
 
     public static void main(String[] args) {
-        requireMaxChar('\''); // Refinement Error
+        requireMaxChar('\''); // Expect: Refinement Error
     }
 }

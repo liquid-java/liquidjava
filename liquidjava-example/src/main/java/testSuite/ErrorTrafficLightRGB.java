@@ -48,6 +48,6 @@ public class ErrorTrafficLightRGB {
         ErrorTrafficLightRGB tl = new ErrorTrafficLightRGB();
         tl.transitionToAmber();
         tl.transitionToRed();
-        tl.transitionToAmber(); // State Refinement Error
+        tl.transitionToAmber(); // Expect: State Refinement Error
     }
 }

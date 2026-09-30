@@ -6,6 +6,6 @@ public class ErrorIdentity {
 
     @Refinement("_ > 0")
     int positiveIdentity(int x) {
-        return x; // Refinement Error
+        return x; // Expect: Refinement Error
     }
 }

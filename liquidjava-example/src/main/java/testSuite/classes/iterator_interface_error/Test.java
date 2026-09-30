@@ -9,6 +9,6 @@ public class Test {
         ArrayList<Object> list = new ArrayList<>();
         list.add(new Object());
         Iterator<Object> it = list.iterator();
-        it.remove(); // State Refinement Error
+        it.remove(); // Expect: State Refinement Error
     }
 }

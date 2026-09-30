@@ -18,6 +18,6 @@ class ErrorEnumFunctionRefinement {
 	public static void main(String[] args) {
 		ErrorEnumFunctionRefinement e = new ErrorEnumFunctionRefinement();
 		e.changeColor(Color.Red);
-		e.changeColor(Color.Blue); // Refinement Error
+		e.changeColor(Color.Blue); // Expect: Refinement Error
 	}
 }

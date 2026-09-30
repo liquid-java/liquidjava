@@ -6,6 +6,6 @@ public class ErrorAssignmentBeforeReturn {
     @Refinement("_ > 0")
     static int example(int x) {
         x = x + 1;
-        return x; // Refinement Error
+        return x; // Expect: Refinement Error
     }
 }

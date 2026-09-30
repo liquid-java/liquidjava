@@ -6,6 +6,6 @@ import liquidjava.specification.Refinement;
 public class ErrorSimpleAssignment {
     public static void main(String[] args) {
         @Refinement("c > 2")
-        int c = 2; // Refinement Error
+        int c = 2; // Expect: Refinement Error
     }
 }

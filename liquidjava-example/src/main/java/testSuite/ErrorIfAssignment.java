@@ -12,7 +12,7 @@ public class ErrorIfAssignment {
             @Refinement("b > 0")
             int b = a;
             b++;
-            a = 10; // Refinement Error
+            a = 10; // Expect: Refinement Error
         }
     }
 
@@ -20,6 +20,6 @@ public class ErrorIfAssignment {
         @Refinement("_ < 10")
         int a = 5;
         if (a < 0)
-            a = 100; // Refinement Error
+            a = 100; // Expect: Refinement Error
     }
 }

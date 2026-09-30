@@ -12,7 +12,7 @@ public class ErrorDotNotationMultiple {
     }
 
     public static void main(String[] args) {
-        @Refinement("_ == this.not.size()") // Syntax Error
+        @Refinement("_ == this.not.size()") // Expect: Syntax Error
         int x = 0;
     }
 }

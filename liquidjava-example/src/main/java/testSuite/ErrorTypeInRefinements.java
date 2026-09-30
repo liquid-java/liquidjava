@@ -8,7 +8,7 @@ public class ErrorTypeInRefinements {
     public static void main(String[] args) {
         int a = 10;
 
-        @Refinement("(b == 6)") // Error
+        @Refinement("(b == 6)") // Expect: Error
         boolean b = true;
     }
 }

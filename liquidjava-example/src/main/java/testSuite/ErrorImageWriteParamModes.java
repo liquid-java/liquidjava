@@ -12,6 +12,6 @@ public class ErrorImageWriteParamModes {
 
     public static void main(String[] args) {
         // MODE_DEFAULT is 1, not 2 (MODE_EXPLICIT).
-        requireExplicit(ImageWriteParam.MODE_DEFAULT); // Refinement Error
+        requireExplicit(ImageWriteParam.MODE_DEFAULT); // Expect: Refinement Error
     }
 }

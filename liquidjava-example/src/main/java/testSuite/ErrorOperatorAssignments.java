@@ -20,41 +20,41 @@ public class ErrorOperatorAssignments {
     int plusInvocation(@Refinement("_ >= 0") int x) {
         int y = 10;
         y += remainder(x);
-        return y; // Refinement Error
+        return y; // Expect: Refinement Error
     }
 
     @Refinement("_ == 10")
     int plusUnaryInvocation() {
         int y = 10;
         y += -one();
-        return y; // Refinement Error
+        return y; // Expect: Refinement Error
     }
 
     @Refinement("_ == 12")
     int plusConditional(@Refinement("_ >= 0") int x) {
         int y = 10;
         y += x >= 0 ? one() : 2;
-        return y; // Refinement Error
+        return y; // Expect: Refinement Error
     }
 
     @Refinement("_ == 14")
     int plusBinaryExpression() {
         int y = 10;
         y += one() + 2;
-        return y; // Refinement Error
+        return y; // Expect: Refinement Error
     }
 
     @Refinement("_ == 10")
     int plusArrayRead(int[] values) {
         int y = 10;
         y += values[0];
-        return y; // Refinement Error
+        return y; // Expect: Refinement Error
     }
 
     @Refinement("_ == 12")
     int plusCast() {
         int y = 10;
         y += (int) one();
-        return y; // Refinement Error
+        return y; // Expect: Refinement Error
     }
 }

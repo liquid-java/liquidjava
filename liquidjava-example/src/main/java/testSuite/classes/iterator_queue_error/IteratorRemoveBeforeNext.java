@@ -37,7 +37,7 @@ public class IteratorRemoveBeforeNext {
             // VIOLATION: remove() before next() -> IllegalStateException
             // (NOT UnsupportedOperationException, so this catch does not fire).
             Iterator<Object> it = qev1.iterator();
-            it.remove(); // State Refinement Error
+            it.remove(); // Expect: State Refinement Error
         } catch (UnsupportedOperationException e) {
             System.out.println("Calling Iterator.remove() and throwing exception.");
         }

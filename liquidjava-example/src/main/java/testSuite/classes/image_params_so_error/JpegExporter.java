@@ -20,7 +20,7 @@ class JpegExporter {
         ImageWriteParam param = new ImageWriteParam(Locale.getDefault());
         if (param.canWriteCompressed()) {
             param.setCompressionMode(ImageWriteParam.MODE_DEFAULT);
-            param.setCompressionQuality(0.85f); // State Refinement Error
+            param.setCompressionQuality(0.85f); // Expect: State Refinement Error
         }
         return param;
     }
@@ -37,7 +37,7 @@ class JpegExporter {
         writer.setOutput(ios);
 
         ImageWriteParam param = writer.getDefaultWriteParam();
-        param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT); // State Refinement Error
+        param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT); // Expect: State Refinement Error
         param.setCompressionQuality(0.5f);
         
         writer.write(null, new IIOImage(image, null, null), param);

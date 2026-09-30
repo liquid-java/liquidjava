@@ -10,7 +10,7 @@ public class ErrorInstanceVarInRefinement {
         if (a > 0) {
             a = -2;
             @Refinement("b < a")
-            int b = -3; // Refinement Error
+            int b = -3; // Expect: Refinement Error
         }
     }
 
@@ -19,6 +19,6 @@ public class ErrorInstanceVarInRefinement {
         int a = 6;
 
         @Refinement("_ > a")
-        int b = 9; // Refinement Error
+        int b = 9; // Expect: Refinement Error
     }
 }

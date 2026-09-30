@@ -6,14 +6,14 @@ import liquidjava.specification.Refinement;
 public class ErrorInvalidRefinement {
 
     void invalidRefinement() {
-        @Refinement("x") // Invalid Refinement Error
+        @Refinement("x") // Expect: Invalid Refinement Error
         int x = 0;
     }
 
-    void invalidRefinementParameter(@Refinement("y + 1") int y) { // Invalid Refinement Error
+    void invalidRefinementParameter(@Refinement("y + 1") int y) { // Expect: Invalid Refinement Error
     }
 
-    @Refinement("_ * 2") // Invalid Refinement Error
+    @Refinement("_ * 2") // Expect: Invalid Refinement Error
     void invalidRefinementReturn() {
     }
 }

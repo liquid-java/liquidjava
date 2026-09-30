@@ -16,11 +16,11 @@ public class ErrorSearchValueIntArray {
 
     public static void searchValue1() {
         int[] arr = new int[10];
-        getIndexWithValue(arr, arr.length, 1000); // Refinement Error
+        getIndexWithValue(arr, arr.length, 1000); // Expect: Refinement Error
     }
 
     public static void searchValue2(String[] args) {
         int[] arr = new int[0];
-        getIndexWithValue(arr, 0, 1000); // Refinement Error
+        getIndexWithValue(arr, 0, 1000); // Expect: Refinement Error
     }
 }

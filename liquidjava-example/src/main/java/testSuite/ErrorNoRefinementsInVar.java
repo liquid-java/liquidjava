@@ -7,6 +7,6 @@ public class ErrorNoRefinementsInVar {
     public static void main(String[] args) {
         int a = 11;
         @Refinement("b < 10")
-        int b = a; // Refinement Error
+        int b = a; // Expect: Refinement Error
     }
 }

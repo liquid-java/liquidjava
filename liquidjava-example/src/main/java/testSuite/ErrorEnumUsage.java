@@ -28,6 +28,6 @@ class ErrorEnumUsage {
 		// Correct
 		ErrorEnumUsage st = new ErrorEnumUsage();
 		st.setMode(Mode.Video);
-		st.takePhoto(); // State Refinement Error
+		st.takePhoto(); // Expect: State Refinement Error
 	}
 }

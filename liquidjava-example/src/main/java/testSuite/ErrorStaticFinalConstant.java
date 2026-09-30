@@ -9,6 +9,6 @@ public class ErrorStaticFinalConstant {
     }
 
     public static void main(String[] args) {
-        requirePositive(Integer.MIN_VALUE); // Refinement Error
+        requirePositive(Integer.MIN_VALUE); // Expect: Refinement Error
     }
 }

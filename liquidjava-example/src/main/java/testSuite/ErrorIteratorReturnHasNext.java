@@ -30,13 +30,13 @@ public class ErrorIteratorReturnHasNext {
         if(it.hasNext()){
             it.next();
         } else {
-            it.next(); // State Refinement Error
+            it.next(); // Expect: State Refinement Error
         }
     }
 
     void main2() {
         ErrorIteratorReturnHasNext it = new ErrorIteratorReturnHasNext(5);
-        it.next(); // State Refinement Error
+        it.next(); // Expect: State Refinement Error
     }
 
     int main3() {
@@ -44,7 +44,7 @@ public class ErrorIteratorReturnHasNext {
         int sum = 0;
         while (true){
             if(!it.hasNext()){
-                sum += it.next(); // State Refinement Error
+                sum += it.next(); // Expect: State Refinement Error
             } else {
                 break;
             }

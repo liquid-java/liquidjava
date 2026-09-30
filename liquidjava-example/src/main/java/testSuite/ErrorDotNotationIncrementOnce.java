@@ -15,6 +15,6 @@ public class ErrorDotNotationIncrementOnce {
     public static void main(String[] args) {
         ErrorDotNotationIncrementOnce t = new ErrorDotNotationIncrementOnce();
         t.incrementOnce();
-        t.incrementOnce(); // State Refinement Error
+        t.incrementOnce(); // Expect: State Refinement Error
     }
 }

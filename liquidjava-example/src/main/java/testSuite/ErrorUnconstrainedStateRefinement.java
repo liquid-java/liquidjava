@@ -10,6 +10,6 @@ public class ErrorUnconstrainedStateRefinement {
     public void run() {}
 
     public static void check(ErrorUnconstrainedStateRefinement value) {
-        value.run(); // State Refinement Error
+        value.run(); // Expect: State Refinement Error
     }
 }

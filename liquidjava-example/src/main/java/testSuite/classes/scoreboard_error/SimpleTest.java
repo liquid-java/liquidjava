@@ -5,7 +5,7 @@ public class SimpleTest {
 		Scoreboard sb = new Scoreboard();
 		sb.inc();
 		sb.dec();
-		sb.dec(); // State Refinement Error
+		sb.dec(); // Expect: State Refinement Error
 		sb.finish();
 	}
 }
