@@ -93,8 +93,17 @@ if git diff --quiet -- "$POM"; then
     exit 1
 fi
 
+RELEASE_FILES=("$POM")
+
+# keep in-repo modules on the api version being released
+if [ "$MODULE" = "api" ]; then
+    DEPENDENT_POMS=(liquidjava-verifier/pom.xml liquidjava-example/pom.xml)
+    perl -0pi -e "s#(<artifactId>liquidjava-api</artifactId>\\s*<version>)[^<]+(</version>)#\${1}$VERSION\${2}#" "${DEPENDENT_POMS[@]}"
+    RELEASE_FILES+=("${DEPENDENT_POMS[@]}")
+fi
+
 # publish release tag
-git add "$POM"
+git add "${RELEASE_FILES[@]}"
 git commit -m "Release $MODULE_DIR $VERSION"
 git tag "$TAG"
 
