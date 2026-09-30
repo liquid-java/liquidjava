@@ -1,0 +1,16 @@
+# Opens a PR whenever a new LiquidJava artifact is published to Maven Central,
+# so downstream repos pick up new versions without manual bumps.
+version: 2
+updates:
+  - package-ecosystem: maven
+    directory: "/"
+    schedule:
+      interval: daily
+    allow:
+      - dependency-name: "io.github.liquid-java:*"
+    groups:
+      liquidjava:
+        patterns:
+          - "io.github.liquid-java:*"
+    commit-message:
+      prefix: "Bump"
