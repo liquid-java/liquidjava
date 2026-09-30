@@ -80,7 +80,7 @@ public class OperationsChecker {
             oper = getOperationRefinements(operator, parentVar, operator);
 
         } else if (hasNullOperand(operator)) {
-            oper = new Predicate(); // comparisons with null are not supported yet, carry no information
+            oper = createFreshValue(operator, new Predicate()); // null comparisons are not supported yet: unknown value
         } else {
             Predicate varLeft = getOperationRefinements(operator, left);
             Predicate varRight = getOperationRefinements(operator, right);
@@ -225,8 +225,8 @@ public class OperationsChecker {
             rtc.getContext().addVarToContext(elemName, elemVar.getType(), e, elemVar);
             return Predicate.createVar(returnName);
         } else if (element instanceof CtBinaryOperator<?> binop) {
-            if (hasNullOperand(binop))
-                return new Predicate();
+            if (hasNullOperand(binop)) // null comparisons are not supported yet: unknown boolean value
+                return createFreshValue(binop, new Predicate());
             Predicate right = getOperationRefinements(operator, parentVar, binop.getRightHandOperand());
             Predicate left = getOperationRefinements(operator, parentVar, binop.getLeftHandOperand());
             return Predicate.createOperation(left, getOperatorFromKind(binop.getKind()), right);

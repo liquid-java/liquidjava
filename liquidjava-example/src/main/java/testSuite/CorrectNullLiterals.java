@@ -38,4 +38,17 @@ public class CorrectNullLiterals {
             int y = x + 1;
         }
     }
+
+    // facts next to a null comparison are kept
+    static void conjunction(String s, int y) {
+        if (s == null && y > 0) {
+            @Refinement("_ > 0")
+            int z = y;
+        }
+    }
+
+    static void ternary(Object o) {
+        @Refinement("_ == -1 || _ == 1")
+        int x = (o == null) ? -1 : 1;
+    }
 }
