@@ -253,6 +253,8 @@ public class OperationsChecker {
             // Get function refinements with non_used variables
             String met = ((CtClass<?>) method.getParent()).getQualifiedName(); // TODO check
             RefinedFunction fi = rtc.getContext().getFunction(method.getSimpleName(), met, inv.getArguments().size());
+            if (fi == null)
+                return getUnconstrainedInvocationVariable(inv);
             Predicate innerRefs = fi.getRenamedRefinements(rtc.getContext(), inv); // TODO REVIEW!!
 
             // Substitute _ by the variable that we send
@@ -263,6 +265,16 @@ public class OperationsChecker {
         }
         return rtc.getRefinement(element);
         // TODO Maybe add cases
+    }
+
+    /**
+     * Creates a fresh variable with no information (refinement true) to represent the result of an invocation of a
+     * method without refinements
+     */
+    private Predicate getUnconstrainedInvocationVariable(CtInvocation<?> inv) {
+        String newName = String.format(Formats.FRESH, rtc.getContext().getCounter());
+        rtc.getContext().addVarToContext(newName, inv.getType(), new Predicate(), inv);
+        return new Predicate(newName, inv);
     }
 
     private Predicate getOperationRefinementFromExternalLib(CtInvocation<?> inv) throws LJError {
@@ -279,6 +291,8 @@ public class OperationsChecker {
             String methodInClassName = typeNotParametrized + "." + simpleName;
             RefinedFunction fi = rtc.getContext().getFunction(methodInClassName, typeNotParametrized,
                     inv.getArguments().size());
+            if (fi == null)
+                return getUnconstrainedInvocationVariable(inv);
             Predicate innerRefs = fi.getRenamedRefinements(rtc.getContext(), inv); // TODO REVIEW!!
 
             // Substitute _ by the variable that we send
