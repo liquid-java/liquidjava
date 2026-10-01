@@ -344,8 +344,13 @@ public abstract class TypeChecker extends CtScanner {
                 ? p : variable.getPosition();
         Predicate cEt;
         RefinedVariable mainRV = null;
-        if (context.hasVariable(simpleName))
+        if (context.hasVariable(simpleName)) {
             mainRV = context.getVariableByName(simpleName);
+        } else {
+            // A field declaration may occur after its first write in the source.
+            // Register its declared contract before attaching the assigned instance.
+            mainRV = context.addVarToContext(simpleName, type, expectedType.orElseGet(Predicate::new), variable);
+        }
 
         if (context.hasVariable(simpleName) && !context.getVariableByName(simpleName).getRefinement().isBooleanTrue()) {
             cEt = mainRV.getMainRefinement();
