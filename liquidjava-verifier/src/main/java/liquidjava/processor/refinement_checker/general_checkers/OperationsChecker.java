@@ -207,6 +207,11 @@ public class OperationsChecker {
                 elemName = String.format(Formats.THIS, elemName);
             Predicate elemRef = rtc.getContext().getVariableRefinements(elemName);
 
+            // Not a field of this class (e.g. an enum constant or a static constant): use the value given by the
+            // field read refinement (e.g. Format.JPG), or an unconstrained fresh value when there is none
+            if (elemRef == null && elemVar instanceof CtFieldRead)
+                return valueFromRefinement(elemVar, rtc.getRefinement(elemVar));
+
             String returnName = elemName;
 
             CtElement parent = operator.getParent();
