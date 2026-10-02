@@ -26,7 +26,8 @@ public class FieldGhostsGeneration extends CtScanner {
 
     @Override
     public <T> void visitCtClass(CtClass<T> ctClass) {
-        ctClass.getDeclaredFields().stream().filter(fld -> fld.getType().getQualifiedName().equals("int"))
+        ctClass.getDeclaredFields().stream()
+                .filter(fld -> !(fld.isStatic() && fld.isFinal()) && fld.getType().getQualifiedName().equals("int"))
                 .forEach(fld -> {
                     CtTypeReference<?> fldType = fld.getType();
                     CtAnnotation<?> genAnn = factory.createAnnotation(factory.createCtTypeReference(Ghost.class));
