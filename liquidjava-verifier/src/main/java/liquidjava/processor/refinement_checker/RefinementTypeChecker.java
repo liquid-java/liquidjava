@@ -2,8 +2,10 @@ package liquidjava.processor.refinement_checker;
 
 import java.lang.annotation.Annotation;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import liquidjava.diagnostics.Diagnostics;
 import liquidjava.diagnostics.errors.LJError;
@@ -28,14 +30,18 @@ import spoon.reflect.code.CtBlock;
 import spoon.reflect.code.CtBreak;
 import spoon.reflect.code.CtConditional;
 import spoon.reflect.code.CtContinue;
+import spoon.reflect.code.CtDo;
 import spoon.reflect.code.CtConstructorCall;
 import spoon.reflect.code.CtExpression;
 import spoon.reflect.code.CtFieldRead;
 import spoon.reflect.code.CtFieldWrite;
+import spoon.reflect.code.CtFor;
+import spoon.reflect.code.CtForEach;
 import spoon.reflect.code.CtIf;
 import spoon.reflect.code.CtInvocation;
 import spoon.reflect.code.CtLiteral;
 import spoon.reflect.code.CtLocalVariable;
+import spoon.reflect.code.CtLoop;
 import spoon.reflect.code.CtNewArray;
 import spoon.reflect.code.CtNewClass;
 import spoon.reflect.code.CtOperatorAssignment;
@@ -46,11 +52,14 @@ import spoon.reflect.code.CtThrow;
 import spoon.reflect.code.CtUnaryOperator;
 import spoon.reflect.code.CtVariableAccess;
 import spoon.reflect.code.CtVariableRead;
+import spoon.reflect.code.CtVariableWrite;
+import spoon.reflect.code.CtWhile;
 import spoon.reflect.declaration.*;
 import spoon.reflect.factory.Factory;
 import spoon.reflect.reference.CtFieldReference;
 import spoon.reflect.reference.CtTypeReference;
 import spoon.reflect.reference.CtVariableReference;
+import spoon.reflect.visitor.filter.TypeFilter;
 import spoon.support.reflect.code.CtVariableWriteImpl;
 
 public class RefinementTypeChecker extends TypeChecker {
@@ -499,6 +508,95 @@ public class RefinementTypeChecker extends TypeChecker {
     }
 
     @Override
+    public void visitCtWhile(CtWhile whileLoop) {
+        visitLoop(whileLoop, () -> {
+            scan(whileLoop.getLoopingExpression());
+            assumeLoopCondition(whileLoop.getLoopingExpression());
+            scan(whileLoop.getBody());
+        });
+    }
+
+    @Override
+    public void visitCtFor(CtFor forLoop) {
+        scan(forLoop.getForInit());
+        visitLoop(forLoop, () -> {
+            scan(forLoop.getExpression());
+            assumeLoopCondition(forLoop.getExpression());
+            scan(forLoop.getBody());
+            // the update runs after the body, so the body sees the values the condition was checked on
+            scan(forLoop.getForUpdate());
+        });
+    }
+
+    @Override
+    public void visitCtDo(CtDo doLoop) {
+        // the condition is not checked before the first iteration, so it is not assumed in the body
+        visitLoop(doLoop, () -> super.visitCtDo(doLoop));
+    }
+
+    @Override
+    public void visitCtForEach(CtForEach forEach) {
+        visitLoop(forEach, () -> super.visitCtForEach(forEach));
+    }
+
+    /**
+     * Checks one arbitrary iteration of a loop: the variables the loop writes are havocked (keep only their declared
+     * refinements, which every assignment re-checks) before it and again after it, since the loop may run any number of
+     * times. Path conditions added inside the loop (e.g. the loop condition, or an {@code if (...) break;}) are dropped
+     * after it.
+     */
+    private void visitLoop(CtLoop loop, Runnable iteration) {
+        List<RefinedVariable> pathVariables = vcChecker.getPathVariables();
+        havocVariablesWrittenIn(loop);
+        iteration.run();
+        vcChecker.restorePathVariables(pathVariables);
+        havocVariablesWrittenIn(loop);
+    }
+
+    private void havocVariablesWrittenIn(CtLoop loop) {
+        Set<String> names = new LinkedHashSet<>();
+        for (CtVariableWrite<?> write : loop.getElements(new TypeFilter<CtVariableWrite<?>>(CtVariableWrite.class))) {
+            CtVariable<?> declaration = write.getVariable().getDeclaration();
+            if (declaration != null && declaration.hasParent(loop.getBody()))
+                continue; // declared in the body: a new variable on each iteration
+            String name = write.getVariable().getSimpleName();
+            names.add(write instanceof CtFieldWrite<?> ? String.format(Formats.THIS, name) : name);
+        }
+        for (String name : names) {
+            if (!(context.getVariableByName(name)instanceof Variable variable))
+                continue;
+            removePathConditionsOn(name);
+            String instanceName = String.format(Formats.INSTANCE, name, context.getCounter());
+            Predicate declared = variable.getMainRefinement().substituteVariable(name, instanceName);
+            context.addInstanceToContext(instanceName, variable.getType(), declared, loop);
+            context.addRefinementInstanceToVariable(name, instanceName);
+        }
+    }
+
+    /**
+     * Assumes the loop condition in the body, as a path condition on the values it was evaluated on (same encoding as
+     * the condition of an if, see visitCtIf). Re-assigning a variable in the body drops the conditions on it.
+     */
+    private void assumeLoopCondition(CtExpression<Boolean> condition) {
+        // conditions with side effects (e.g. (n = read()) > 0) are not encoded, so they assume nothing
+        if (condition == null || !condition.getElements(new TypeFilter<>(CtVariableWrite.class)).isEmpty())
+            return;
+        Predicate refs = getRefinement(condition);
+        if (isUninformativeCondition(refs, condition) || refs.getVariableNames().contains("null"))
+            return;
+        String pathVarName = String.format(Formats.FRESH, context.getCounter());
+        boolean valueIsCondition = refs.getVariableNames().contains(Keys.WILDCARD);
+        refs = refs.substituteVariable(Keys.WILDCARD, pathVarName);
+        refs = Predicate.createConjunction(refs, substituteAllVariablesForLastInstance(refs));
+        if (valueIsCondition) {
+            refs = Predicate.createConjunction(refs, Predicate.createEquals(Predicate.createVar(pathVarName),
+                    Predicate.createLit("true", Types.BOOLEAN)));
+        }
+        vcChecker.addPathVariable(
+                context.addInstanceToContext(pathVarName, factory.Type().BOOLEAN_PRIMITIVE, refs, condition));
+    }
+
+    @Override
     public <T> void visitCtArrayWrite(CtArrayWrite<T> arrayWrite) {
         super.visitCtArrayWrite(arrayWrite);
         CtExpression<?> index = arrayWrite.getIndexExpression();
@@ -541,11 +639,7 @@ public class RefinementTypeChecker extends TypeChecker {
                 refinementFound = new Predicate();
             }
         }
-        Optional<VariableInstance> r = context.getLastVariableInstance(name);
-        // AQUI!!
-        r.ifPresent(variableInstance -> vcChecker.removePathVariableThatIncludes(variableInstance.getName()));
-
-        vcChecker.removePathVariableThatIncludes(name); // AQUI!!
+        removePathConditionsOn(name);
         checkVariableRefinements(refinementFound, name, type, parentElem, varDecl);
     }
 
