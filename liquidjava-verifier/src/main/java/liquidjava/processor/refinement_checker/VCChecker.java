@@ -352,6 +352,15 @@ public class VCChecker {
         pathVariables.clear();
     }
 
+    List<RefinedVariable> getPathVariables() {
+        return new ArrayList<>(pathVariables);
+    }
+
+    /** Drops the path variables added since {@code saved} was taken, keeping any removed meanwhile removed */
+    void restorePathVariables(List<RefinedVariable> saved) {
+        pathVariables.retainAll(saved);
+    }
+
     void removePathVariableThatIncludes(String otherVar) {
         pathVariables.stream().filter(rv -> rv.getRefinement().getVariableNames().contains(otherVar)).toList()
                 .forEach(pathVariables::remove);
