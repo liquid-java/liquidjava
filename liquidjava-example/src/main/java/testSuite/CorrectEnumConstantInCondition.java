@@ -13,7 +13,7 @@ class CorrectEnumConstantInCondition {
     }
 
     static class Limits {
-        static final int max = 10; // lowercase: int fields get a generated @Ghost, which must be lowercase
+        static final int max = 10; // lowercase until #307 is fixed
         static int counter = 0; // not final: no known value
     }
 
@@ -22,6 +22,8 @@ class CorrectEnumConstantInCondition {
     static void notJpg(@Refinement("f != Format.JPG") Format f) {}
 
     static void notGif(@Refinement("f != Format.GIF") Format f) {}
+
+    static void onlyGif(@Refinement("f == Format.GIF") Format f) {}
 
     static String extension(Format format) {
         if (format == Format.JPG) {
@@ -75,6 +77,23 @@ class CorrectEnumConstantInCondition {
     static void staticFinalOfUserClass(int n) {
         if (n == Limits.max) {
             @Refinement("_ == 10")
+            int m = n;
+        }
+    }
+
+    static void elseIfChain(Format format) {
+        if (format == Format.JPG) {
+            onlyJpg(format);
+        } else if (format == Format.PNG) {
+            notJpg(format);
+        } else {
+            onlyGif(format);
+        }
+    }
+
+    static void arithmetic(int n) {
+        if (n + Limits.max > 15) {
+            @Refinement("_ > 5")
             int m = n;
         }
     }
