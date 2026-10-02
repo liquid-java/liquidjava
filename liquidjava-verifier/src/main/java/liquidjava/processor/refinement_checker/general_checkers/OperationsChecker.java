@@ -4,7 +4,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-import liquidjava.diagnostics.errors.CustomError;
 import liquidjava.diagnostics.errors.LJError;
 import liquidjava.processor.context.RefinedFunction;
 import liquidjava.processor.context.RefinedVariable;
@@ -80,6 +79,8 @@ public class OperationsChecker {
                 && ((CtAssignment<?, ?>) parent).getAssigned()instanceof CtVariableWrite<?> parentVar) {
             oper = getOperationRefinements(operator, parentVar, operator);
 
+        } else if (hasNullOperand(operator)) {
+            oper = createFreshValue(operator, new Predicate()); // null comparisons are not supported yet: unknown value
         } else {
             Predicate varLeft = getOperationRefinements(operator, left);
             Predicate varRight = getOperationRefinements(operator, right);
@@ -224,6 +225,8 @@ public class OperationsChecker {
             rtc.getContext().addVarToContext(elemName, elemVar.getType(), e, elemVar);
             return Predicate.createVar(returnName);
         } else if (element instanceof CtBinaryOperator<?> binop) {
+            if (hasNullOperand(binop)) // null comparisons are not supported yet: unknown boolean value
+                return createFreshValue(binop, new Predicate());
             Predicate right = getOperationRefinements(operator, parentVar, binop.getRightHandOperand());
             Predicate left = getOperationRefinements(operator, parentVar, binop.getLeftHandOperand());
             return Predicate.createOperation(left, getOperatorFromKind(binop.getKind()), right);
@@ -235,12 +238,10 @@ public class OperationsChecker {
             return new Predicate(String.format("(%s)", s), element);
 
         } else if (element instanceof CtLiteral<?> l) {
-            if (l.getType().getQualifiedName().equals("java.lang.String")) {
-                // skip strings
+            if (l.getType().getQualifiedName().equals("java.lang.String") || l.getValue() == null) {
+                // skip strings and null literals (not supported yet, carry no information)
                 return new Predicate();
             }
-            if (l.getValue() == null)
-                throw new CustomError("Null literals are not supported", l.getPosition());
 
             return new Predicate(l.getValue().toString(), element);
 
@@ -299,6 +300,14 @@ public class OperationsChecker {
         return new Predicate();
     }
 
+    private static boolean hasNullOperand(CtBinaryOperator<?> binop) {
+        return isNullLiteral(binop.getLeftHandOperand()) || isNullLiteral(binop.getRightHandOperand());
+    }
+
+    private static boolean isNullLiteral(CtExpression<?> e) {
+        return e instanceof CtLiteral<?> l && l.getValue() == null;
+    }
+
     /**
      * Returns the latest symbolic value for a variable
      */
@@ -327,7 +336,7 @@ public class OperationsChecker {
             return Predicate.createITE(condition, thenExpression, elseExpression);
         } else if (element instanceof CtLiteral<?> literal) {
             if (literal.getValue() == null)
-                throw new CustomError("Null literals are not supported", literal.getPosition());
+                return new Predicate(); // null literals are not supported yet, carry no information
             return new Predicate(literal.getValue().toString(), element);
         } else if (element instanceof CtInvocation<?>) {
             VariableInstance invocationValue = (VariableInstance) element.getMetadata(Keys.TARGET);
