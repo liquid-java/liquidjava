@@ -371,16 +371,6 @@ public abstract class TypeChecker extends CtScanner {
         context.addRefinementToVariableInContext(simpleName, type, cet, usage);
     }
 
-    /**
-     * Drops the path conditions that mention {@code name}, which is about to be re-assigned, so facts about its old
-     * value do not apply to the new one
-     */
-    public void removePathConditionsOn(String name) {
-        context.getLastVariableInstance(name)
-                .ifPresent(instance -> vcChecker.removePathVariableThatIncludes(instance.getName()));
-        vcChecker.removePathVariableThatIncludes(name);
-    }
-
     public void checkSMT(Predicate expectedType, CtElement element, SourcePosition declarationPosition,
             String customMessage) throws LJError {
         vcChecker.processSubtyping(expectedType, context.getGhostStates(), element, factory, declarationPosition,

@@ -1,9 +1,32 @@
 package testSuite;
 
 import liquidjava.specification.Refinement;
+import liquidjava.specification.StateRefinement;
+import liquidjava.specification.StateSet;
 
 @SuppressWarnings("unused")
+@StateSet({"open", "closed"})
 public class CorrectLoopCondition {
+
+    int field;
+
+    @StateRefinement(to = "open(this)")
+    CorrectLoopCondition() {}
+
+    @StateRefinement(from = "open(this)", to = "closed(this)")
+    void close() {}
+
+    @StateRefinement(from = "open(this)")
+    void use() {}
+
+    @StateRefinement(to = "return ? open(this) : closed(this)")
+    boolean isOpen() {
+        return true;
+    }
+
+    void setFieldNegative() {
+        field = -1;
+    }
 
     @Refinement("_ >= -1")
     static int read() {
@@ -71,6 +94,52 @@ public class CorrectLoopCondition {
                 break;
             }
             write(n);
+        }
+    }
+
+    // the declared refinement of a variable assigned in the loop holds after it
+    static void valueAfterLoop(boolean c) {
+        @Refinement("_ > 0") int n = 1;
+        while (c) {
+            n = 2;
+        }
+        write(n);
+    }
+
+    // a continue in the body, with an update that needs no fact from the body
+    static void continueInFor(int p) {
+        int n = p;
+        for (int i = 0; i < 10; i++) {
+            if (n <= 0) {
+                continue;
+            }
+            write(n);
+        }
+    }
+
+    // the condition on a field holds in the body
+    void fieldCondition() {
+        while (field > 0) {
+            write(field);
+            field = field - 1;
+        }
+    }
+
+    // methods that keep the state of r can be called in the loop
+    static void stateKeptInLoop(int k) {
+        CorrectLoopCondition r = new CorrectLoopCondition();
+        while (k > 0) {
+            r.use();
+            k = k - 1;
+        }
+        r.close();
+    }
+
+    // the condition checks the state of r on every iteration
+    static void stateCheckedByCondition(CorrectLoopCondition r) {
+        while (r.isOpen()) {
+            r.use();
+            r.close();
         }
     }
 }

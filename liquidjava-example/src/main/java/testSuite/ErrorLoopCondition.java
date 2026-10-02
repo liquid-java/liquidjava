@@ -1,9 +1,32 @@
 package testSuite;
 
 import liquidjava.specification.Refinement;
+import liquidjava.specification.StateRefinement;
+import liquidjava.specification.StateSet;
 
 @SuppressWarnings("unused")
+@StateSet({"open", "closed"})
 public class ErrorLoopCondition {
+
+    int field;
+
+    @StateRefinement(to = "open(this)")
+    ErrorLoopCondition() {}
+
+    @StateRefinement(from = "open(this)", to = "closed(this)")
+    void close() {}
+
+    @StateRefinement(from = "open(this)")
+    void use() {}
+
+    @StateRefinement(to = "return ? open(this) : closed(this)")
+    boolean isOpen() {
+        return true;
+    }
+
+    void setFieldNegative() {
+        field = -1;
+    }
 
     @Refinement("_ >= -1")
     static int read() {
@@ -76,5 +99,55 @@ public class ErrorLoopCondition {
             }
         }
         write(n); // Expect: Refinement Error
+    }
+
+    // the loop may run zero times: a value assigned in it is not the value after it
+    static void valueAfterLoop(boolean c) {
+        int n = -1;
+        while (c) {
+            n = 1;
+        }
+        write(n); // Expect: Refinement Error
+    }
+
+    // a continue skips the rest of the body, so the update cannot rely on its facts
+    static void continueBeforeUpdate(int p) {
+        int n = p;
+        for (int i = 0; i < 10; write(n)) { // Expect: Refinement Error
+            if (n <= 0) {
+                continue;
+            }
+            i++;
+        }
+    }
+
+    // a call in the body writes the field, which later iterations use
+    void fieldWrittenByCall(int p) {
+        field = p;
+        int k = p;
+        while (k > 0) {
+            write(field); // Expect: Refinement Error
+            setFieldNegative();
+        }
+    }
+
+    // the loop changes the state of r: the second iteration uses it closed
+    static void stateChangedInLoop(ErrorLoopCondition r) {
+        boolean open = r.isOpen();
+        while (open) {
+            r.use(); // Expect: State Refinement Error
+            r.close();
+        }
+    }
+
+    // the inner loop also runs in later iterations of the do-while, after n = 5
+    static void innerLoopInDoWhile(boolean c) {
+        int n = 0;
+        do {
+            while (n > 0) {
+                write(n - 10); // Expect: Refinement Error
+            }
+            n = 5;
+        } while (c);
     }
 }

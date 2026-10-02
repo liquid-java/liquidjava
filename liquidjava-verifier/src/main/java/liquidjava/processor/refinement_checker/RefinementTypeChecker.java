@@ -1,6 +1,7 @@
 package liquidjava.processor.refinement_checker;
 
 import java.lang.annotation.Annotation;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -23,6 +24,7 @@ import liquidjava.utils.constants.Types;
 
 import org.apache.commons.lang3.NotImplementedException;
 import spoon.reflect.code.CtArrayRead;
+import spoon.reflect.code.CtAbstractInvocation;
 import spoon.reflect.code.CtArrayWrite;
 import spoon.reflect.code.CtAssignment;
 import spoon.reflect.code.CtBinaryOperator;
@@ -33,6 +35,7 @@ import spoon.reflect.code.CtContinue;
 import spoon.reflect.code.CtDo;
 import spoon.reflect.code.CtConstructorCall;
 import spoon.reflect.code.CtExpression;
+import spoon.reflect.code.CtFieldAccess;
 import spoon.reflect.code.CtFieldRead;
 import spoon.reflect.code.CtFieldWrite;
 import spoon.reflect.code.CtFor;
@@ -522,7 +525,13 @@ public class RefinementTypeChecker extends TypeChecker {
         visitLoop(forLoop, () -> {
             scan(forLoop.getExpression());
             assumeLoopCondition(forLoop.getExpression());
+            List<RefinedVariable> pathVariables = vcChecker.getPathVariables();
             scan(forLoop.getBody());
+            if (!forLoop.getBody().getElements(new TypeFilter<>(CtContinue.class)).isEmpty()) {
+                // a continue reaches the update from any point of the body, skipping its facts and assignments
+                vcChecker.restorePathVariables(pathVariables);
+                havocChangedIn(forLoop);
+            }
             // the update runs after the body, so the body sees the values the condition was checked on
             scan(forLoop.getForUpdate());
         });
@@ -540,32 +549,49 @@ public class RefinementTypeChecker extends TypeChecker {
     }
 
     /**
-     * Checks one arbitrary iteration of a loop: the variables the loop writes are havocked (keep only their declared
-     * refinements, which every assignment re-checks) before it and again after it, since the loop may run any number of
+     * Checks one arbitrary iteration of a loop: what the loop may change is havocked (keeps only its declared
+     * refinement, which every assignment re-checks) before it and again after it, since the loop may run any number of
      * times. Path conditions added inside the loop (e.g. the loop condition, or an {@code if (...) break;}) are dropped
      * after it.
      */
     private void visitLoop(CtLoop loop, Runnable iteration) {
         List<RefinedVariable> pathVariables = vcChecker.getPathVariables();
-        havocVariablesWrittenIn(loop);
+        havocChangedIn(loop);
         iteration.run();
         vcChecker.restorePathVariables(pathVariables);
-        havocVariablesWrittenIn(loop);
+        havocChangedIn(loop);
     }
 
-    private void havocVariablesWrittenIn(CtLoop loop) {
+    /**
+     * Havocs what the loop may change: the variables it writes, the objects it calls state-changing methods on, and the
+     * fields if it calls any method or constructor (which may write them)
+     */
+    private void havocChangedIn(CtLoop loop) {
+        List<CtVariableAccess<?>> changed = new ArrayList<>(
+                loop.getElements(new TypeFilter<CtVariableWrite<?>>(CtVariableWrite.class)));
+        List<CtAbstractInvocation<?>> calls = loop
+                .getElements(new TypeFilter<CtAbstractInvocation<?>>(CtAbstractInvocation.class));
+        for (CtAbstractInvocation<?> call : calls) {
+            if (call instanceof CtInvocation<?> inv && inv.getTarget()instanceof CtVariableAccess<?> target
+                    && context.getAllMethodsWithNameSize(inv.getExecutable().getSimpleName(), inv.getArguments().size())
+                            .stream().anyMatch(f -> f.getAllStates().stream().anyMatch(ObjectState::hasTo)))
+                changed.add(target);
+        }
         Set<String> names = new LinkedHashSet<>();
-        for (CtVariableWrite<?> write : loop.getElements(new TypeFilter<CtVariableWrite<?>>(CtVariableWrite.class))) {
-            CtVariable<?> declaration = write.getVariable().getDeclaration();
+        for (CtVariableAccess<?> access : changed) {
+            CtVariable<?> declaration = access.getVariable().getDeclaration();
             if (declaration != null && declaration.hasParent(loop.getBody()))
                 continue; // declared in the body: a new variable on each iteration
-            String name = write.getVariable().getSimpleName();
-            names.add(write instanceof CtFieldWrite<?> ? String.format(Formats.THIS, name) : name);
+            String name = access.getVariable().getSimpleName();
+            names.add(access instanceof CtFieldAccess<?> ? String.format(Formats.THIS, name) : name);
         }
+        if (!calls.isEmpty())
+            context.getCtxVars().stream().map(RefinedVariable::getName)
+                    .filter(n -> n.startsWith(String.format(Formats.THIS, ""))).forEach(names::add);
         for (String name : names) {
             if (!(context.getVariableByName(name)instanceof Variable variable))
                 continue;
-            removePathConditionsOn(name);
+            vcChecker.removePathVariableThatIncludes(name);
             String instanceName = String.format(Formats.INSTANCE, name, context.getCounter());
             Predicate declared = variable.getMainRefinement().substituteVariable(name, instanceName);
             context.addInstanceToContext(instanceName, variable.getType(), declared, loop);
@@ -582,7 +608,7 @@ public class RefinementTypeChecker extends TypeChecker {
         if (condition == null || !condition.getElements(new TypeFilter<>(CtVariableWrite.class)).isEmpty())
             return;
         Predicate refs = getRefinement(condition);
-        if (isUninformativeCondition(refs, condition) || refs.getVariableNames().contains("null"))
+        if (isUninformativeCondition(refs, condition))
             return;
         String pathVarName = String.format(Formats.FRESH, context.getCounter());
         boolean valueIsCondition = refs.getVariableNames().contains(Keys.WILDCARD);
@@ -639,7 +665,11 @@ public class RefinementTypeChecker extends TypeChecker {
                 refinementFound = new Predicate();
             }
         }
-        removePathConditionsOn(name);
+        Optional<VariableInstance> r = context.getLastVariableInstance(name);
+        // AQUI!!
+        r.ifPresent(variableInstance -> vcChecker.removePathVariableThatIncludes(variableInstance.getName()));
+
+        vcChecker.removePathVariableThatIncludes(name); // AQUI!!
         checkVariableRefinements(refinementFound, name, type, parentElem, varDecl);
     }
 

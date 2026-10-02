@@ -127,7 +127,6 @@ public class OperationsChecker {
             name = w.getVariable().getSimpleName();
             if (w instanceof CtFieldWrite<?>)
                 name = String.format(Formats.THIS, name);
-            rtc.removePathConditionsOn(name);
             all = getRefinementUnaryVariableWrite(ex, operator, w, name);
             rtc.checkVariableRefinements(all, name, w.getType(), operator, w.getVariable().getDeclaration());
             return;
