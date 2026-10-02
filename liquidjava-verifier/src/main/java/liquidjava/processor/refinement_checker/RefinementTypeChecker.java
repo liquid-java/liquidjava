@@ -15,6 +15,7 @@ import liquidjava.rj_language.BuiltinFunctionPredicate;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.Enum;
 import liquidjava.utils.StaticConstants;
+import liquidjava.utils.FieldNames;
 import liquidjava.utils.constants.Formats;
 import liquidjava.utils.constants.Keys;
 import liquidjava.utils.constants.Types;
@@ -220,7 +221,7 @@ public class RefinementTypeChecker extends TypeChecker {
         } else if (ex instanceof CtFieldWrite<?> fw) {
             CtFieldReference<?> cr = fw.getVariable();
             CtField<?> f = fw.getVariable().getDeclaration();
-            String updatedVarName = String.format(Formats.THIS, cr.getSimpleName());
+            String updatedVarName = FieldNames.of(cr);
             checkAssignment(updatedVarName, cr.getType(), ex, assignment.getAssignment(), assignment, f);
 
             // corresponding ghost function update
@@ -261,7 +262,7 @@ public class RefinementTypeChecker extends TypeChecker {
     public <T> void visitCtField(CtField<T> f) {
         super.visitCtField(f);
         Optional<Predicate> c = getRefinementFromAnnotation(f);
-        String name = String.format(Formats.THIS, f.getSimpleName());
+        String name = FieldNames.of(f.getReference());
         Predicate ret = new Predicate();
         if (c.isPresent()) {
             ret = c.get().substituteVariable(Keys.WILDCARD, name).substituteVariable(f.getSimpleName(), name);
@@ -291,8 +292,8 @@ public class RefinementTypeChecker extends TypeChecker {
                         Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), Predicate.createVar(fieldName)));
             }
 
-        } else if (context.hasVariable(String.format(Formats.THIS, fieldName))) {
-            String thisName = String.format(Formats.THIS, fieldName);
+        } else if (context.hasVariable(FieldNames.of(fieldRead.getVariable()))) {
+            String thisName = FieldNames.of(fieldRead.getVariable());
             fieldRead.putMetadata(Keys.REFINEMENT,
                     Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), Predicate.createVar(thisName)));
 

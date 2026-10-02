@@ -11,6 +11,7 @@ import liquidjava.processor.context.*;
 import liquidjava.processor.refinement_checker.TypeChecker;
 import liquidjava.processor.refinement_checker.TypeCheckingUtils;
 import liquidjava.rj_language.Predicate;
+import liquidjava.utils.FieldNames;
 import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Formats;
 import liquidjava.utils.constants.Keys;
@@ -392,7 +393,7 @@ public class AuxStateHandler {
      */
     public static void updateGhostField(CtFieldWrite<?> fw, TypeChecker tc) throws LJError {
         CtField<?> field = fw.getVariable().getDeclaration();
-        String updatedVarName = String.format(Formats.THIS, fw.getVariable().getSimpleName());
+        String updatedVarName = FieldNames.of(fw.getVariable());
         String targetClass = field.getDeclaringType().getQualifiedName();
 
         // state transition annotation construction
@@ -604,7 +605,7 @@ public class AuxStateHandler {
             // means invocation is in a form of `t.method(args)`
             String name = v.getVariable().getSimpleName();
             if (target2 instanceof CtFieldRead<?> fieldRead && fieldRead.getTarget() instanceof CtThisAccess<?>) {
-                String fieldName = String.format(Formats.THIS, name);
+                String fieldName = FieldNames.of(fieldRead.getVariable());
                 if (tc.getContext().hasVariable(fieldName))
                     name = fieldName;
             }

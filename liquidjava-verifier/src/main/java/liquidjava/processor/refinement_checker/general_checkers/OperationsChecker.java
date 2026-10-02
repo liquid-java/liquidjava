@@ -10,6 +10,7 @@ import liquidjava.processor.context.RefinedVariable;
 import liquidjava.processor.context.Variable;
 import liquidjava.processor.context.VariableInstance;
 import liquidjava.processor.refinement_checker.TypeChecker;
+import liquidjava.utils.FieldNames;
 import liquidjava.utils.constants.Formats;
 import liquidjava.utils.constants.Keys;
 import liquidjava.utils.constants.Ops;
@@ -125,8 +126,8 @@ public class OperationsChecker {
         Predicate all;
         if (ex instanceof CtVariableWrite<T> w) {
             name = w.getVariable().getSimpleName();
-            if (w instanceof CtFieldWrite<?>)
-                name = String.format(Formats.THIS, name);
+            if (w instanceof CtFieldWrite<?> fieldWrite)
+                name = FieldNames.of(fieldWrite.getVariable());
             all = getRefinementUnaryVariableWrite(ex, operator, w, name);
             rtc.checkVariableRefinements(all, name, w.getType(), operator, w.getVariable().getDeclaration());
             return;
@@ -203,8 +204,8 @@ public class OperationsChecker {
 
         if (element instanceof CtVariableRead<?> elemVar) {
             String elemName = elemVar.getVariable().getSimpleName();
-            if (elemVar instanceof CtFieldRead)
-                elemName = String.format(Formats.THIS, elemName);
+            if (elemVar instanceof CtFieldRead<?> fieldRead)
+                elemName = FieldNames.of(fieldRead.getVariable());
             Predicate elemRef = rtc.getContext().getVariableRefinements(elemName);
 
             String returnName = elemName;
@@ -336,8 +337,8 @@ public class OperationsChecker {
     private Predicate getOperatorAssignmentRefinement(CtExpression<?> element) throws LJError {
         if (element instanceof CtVariableRead<?> variableRead) {
             String name = variableRead.getVariable().getSimpleName();
-            if (variableRead instanceof CtFieldRead<?>)
-                name = String.format(Formats.THIS, name);
+            if (variableRead instanceof CtFieldRead<?> fieldRead)
+                name = FieldNames.of(fieldRead.getVariable());
             return getCurrentVariableValue(name);
         } else if (element instanceof CtBinaryOperator<?> binaryOperator) {
             Predicate left = getOperatorAssignmentRefinement(binaryOperator.getLeftHandOperand());
