@@ -76,7 +76,7 @@ public class VCChecker {
         }
         DebugLog.smtResult(result);
         if (result.isError()) {
-            throw new RefinementError(element.getPosition(), declarationPosition, expectedType,
+            throw new RefinementError(element.getPosition(), declarationPosition, expectedType, expected,
                     implBeforeChange.simplify(), map, result.getCounterexample(), customMessage);
         }
     }
@@ -96,8 +96,8 @@ public class VCChecker {
             SourcePosition declarationPosition, Factory f) throws LJError {
         SMTResult result = verifySMTSubtypeStates(type, expectedType, list, element.getPosition(), f);
         if (result.isError())
-            throwRefinementError(element.getPosition(), declarationPosition, expectedType, type,
-                    result.getCounterexample(), null);
+            throwRefinementError(element.getPosition(), declarationPosition, expectedType, result.getFinalExpected(),
+                    type, result.getCounterexample(), null);
     }
 
     /**
@@ -183,7 +183,7 @@ public class VCChecker {
         if (!silent) {
             DebugLog.smtResult(result);
         }
-        return result;
+        return result.withFinalExpected(expected);
     }
 
     /**
@@ -404,10 +404,16 @@ public class VCChecker {
 
     protected void throwRefinementError(SourcePosition position, SourcePosition declarationPosition, Predicate expected,
             Predicate found, Counterexample counterexample, String customMessage) throws RefinementError {
+        throwRefinementError(position, declarationPosition, expected, null, found, counterexample, customMessage);
+    }
+
+    protected void throwRefinementError(SourcePosition position, SourcePosition declarationPosition, Predicate expected,
+            Predicate finalExpected, Predicate found, Counterexample counterexample, String customMessage)
+            throws RefinementError {
         TranslationTable map = new TranslationTable();
         VCImplication premises = buildPremiseChain(map, expected, found);
-        throw new RefinementError(position, declarationPosition, expected, premises.simplify(), map, counterexample,
-                customMessage);
+        throw new RefinementError(position, declarationPosition, expected, finalExpected, premises.simplify(), map,
+                counterexample, customMessage);
     }
 
     protected void throwStateRefinementError(SourcePosition position, SourcePosition declarationPosition,
