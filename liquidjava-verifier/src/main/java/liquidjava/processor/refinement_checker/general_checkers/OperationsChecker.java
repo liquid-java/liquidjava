@@ -36,9 +36,9 @@ import spoon.reflect.code.CtVariableRead;
 import spoon.reflect.code.CtVariableWrite;
 import spoon.reflect.code.UnaryOperatorKind;
 import spoon.reflect.declaration.CtAnnotation;
-import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtExecutable;
+import spoon.reflect.declaration.CtType;
 import spoon.reflect.declaration.ParentNotInitializedException;
 import spoon.reflect.reference.CtVariableReference;
 import spoon.support.reflect.code.CtIfImpl;
@@ -252,8 +252,10 @@ public class OperationsChecker {
                 return getOperationRefinementFromExternalLib(inv);
 
             // Get function refinements with non_used variables
-            String met = ((CtClass<?>) method.getParent()).getQualifiedName(); // TODO check
+            String met = method.getParent(CtType.class).getQualifiedName(); // TODO check
             RefinedFunction fi = rtc.getContext().getFunction(method.getSimpleName(), met, inv.getArguments().size());
+            if (fi == null)
+                return getUnconstrainedInvocationVariable(inv);
             Predicate innerRefs = fi.getRenamedRefinements(rtc.getContext(), inv); // TODO REVIEW!!
 
             // Substitute _ by the variable that we send
@@ -264,6 +266,16 @@ public class OperationsChecker {
         }
         return rtc.getRefinement(element);
         // TODO Maybe add cases
+    }
+
+    /**
+     * Creates a fresh variable with no information (refinement true) to represent the result of an invocation of a
+     * method without refinements
+     */
+    private Predicate getUnconstrainedInvocationVariable(CtInvocation<?> inv) {
+        String newName = String.format(Formats.FRESH, rtc.getContext().getCounter());
+        rtc.getContext().addVarToContext(newName, inv.getType(), new Predicate(), inv);
+        return new Predicate(newName, inv);
     }
 
     private Predicate getOperationRefinementFromExternalLib(CtInvocation<?> inv) throws LJError {
@@ -280,6 +292,8 @@ public class OperationsChecker {
             String methodInClassName = typeNotParametrized + "." + simpleName;
             RefinedFunction fi = rtc.getContext().getFunction(methodInClassName, typeNotParametrized,
                     inv.getArguments().size());
+            if (fi == null)
+                return getUnconstrainedInvocationVariable(inv);
             Predicate innerRefs = fi.getRenamedRefinements(rtc.getContext(), inv); // TODO REVIEW!!
 
             // Substitute _ by the variable that we send
@@ -297,7 +311,7 @@ public class OperationsChecker {
             rtc.getContext().addVarToContext(newName, fi.getType(), innerRefs, inv);
             return new Predicate(newName, inv); // Return variable that represents the invocation
         }
-        return new Predicate();
+        return getUnconstrainedInvocationVariable(inv);
     }
 
     private static boolean hasNullOperand(CtBinaryOperator<?> binop) {
