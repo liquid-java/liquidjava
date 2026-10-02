@@ -47,6 +47,27 @@ public class Context {
         clearInstanceVariables();
     }
 
+    public ClassScope enterClassScope() {
+        ClassScope scope = new ClassScope(ctxVars, ctxInstanceVars);
+        reinitializeContext();
+        return scope;
+    }
+
+    public void exitClassScope(ClassScope scope) {
+        ctxVars = scope.variables;
+        ctxInstanceVars = scope.instances;
+    }
+
+    public static class ClassScope {
+        private final Stack<List<RefinedVariable>> variables;
+        private final List<RefinedVariable> instances;
+
+        private ClassScope(Stack<List<RefinedVariable>> variables, List<RefinedVariable> instances) {
+            this.variables = variables;
+            this.instances = instances;
+        }
+    }
+
     public void clearInstanceVariables() {
         ctxInstanceVars = new ArrayList<>();
     }
