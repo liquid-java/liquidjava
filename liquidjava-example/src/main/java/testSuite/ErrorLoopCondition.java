@@ -90,6 +90,16 @@ public class ErrorLoopCondition {
         }
     }
 
+    // x starts at 3, but on its third iteration x is 1 and y becomes 0.
+    // Checking only the first iteration accepts the false refinement on y.
+    static void laterIterationFromKnownStart() {
+        int x = 3;
+        while (x > 0) {
+            @Refinement("_ > 0") int y = x - 1; // Expect: Refinement Error
+            x--;
+        }
+    }
+
     // the loop may run zero times or exit through the break: facts from its body do not hold after it
     static void factsAfterLoop(int p, boolean c) {
         int n = p;
