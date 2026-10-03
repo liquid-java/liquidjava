@@ -30,8 +30,8 @@ public final class StaticConstants {
      *
      * <p>
      * Tries the source AST first ({@link CtLiteral} initializer in Spoon's model), then reflection via
-     * {@link CtFieldReference#getActualField()} + {@link #readStaticFinal}. Returns {@code null} if the field isn't
-     * static-final, has a non-literal initializer, or any lookup step fails.
+     * {@link Class#getField(String)} + {@link #readStaticFinal} so inherited public constants are included. Returns
+     * {@code null} if the field isn't static-final, has a non-literal initializer, or any lookup step fails.
      *
      * @see #resolve(String, String, CtElement) sibling for refinement-string {@code Type.CONST} references
      */
@@ -43,8 +43,8 @@ public final class StaticConstants {
         if (v != null)
             return v;
         try {
-            return ref.getActualField()instanceof Field jf ? readStaticFinal(jf) : null;
-        } catch (RuntimeException | LinkageError ignored) {
+            return readStaticFinal(ref.getDeclaringType().getActualClass().getField(ref.getSimpleName()));
+        } catch (NoSuchFieldException | RuntimeException | LinkageError ignored) {
             // Spoon throws SpoonClassNotFoundException; reflection can throw LinkageError. Fall through.
             return null;
         }
