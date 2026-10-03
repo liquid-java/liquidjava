@@ -18,6 +18,7 @@ import liquidjava.utils.constants.Types;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
+import liquidjava.rj_language.ast.UnaryExpression;
 import org.apache.commons.lang3.NotImplementedException;
 import spoon.reflect.code.BinaryOperatorKind;
 import spoon.reflect.code.CtAssignment;
@@ -122,6 +123,13 @@ public class OperationsChecker {
     @SuppressWarnings({ "unchecked" })
     public <T> void getUnaryOpRefinements(CtUnaryOperator<T> operator) throws LJError {
         CtExpression<T> ex = (CtExpression<T>) operator.getOperand();
+        if (operator.getKind() == UnaryOperatorKind.NEG && ex instanceof CtLiteral<?> literal
+                && literal.getValue() instanceof Number) {
+            Predicate operand = Predicate.createLit(literal.getValue().toString(), ex.getType().getQualifiedName());
+            Predicate value = new Predicate(new UnaryExpression("-", operand.getExpression()));
+            operator.putMetadata(Keys.REFINEMENT, Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), value));
+            return;
+        }
         String name = Formats.FRESH;
         Predicate all;
         if (ex instanceof CtVariableWrite<T> w) {
