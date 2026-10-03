@@ -19,6 +19,7 @@ import spoon.reflect.declaration.CtConstructor;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtMethod;
 import spoon.reflect.factory.Factory;
+import spoon.reflect.reference.CtFieldReference;
 import spoon.reflect.reference.CtTypeReference;
 import spoon.support.reflect.cu.position.SourcePositionImpl;
 
@@ -48,6 +49,10 @@ public class Utils {
         if (DEFAULT_NAMES.contains(name) || prefix.isEmpty())
             return name; // dont qualify
         return String.format("%s.%s", prefix, name);
+    }
+
+    public static String qualifyFieldName(CtFieldReference<?> field) {
+        return "this#" + field.getDeclaringType().getQualifiedName() + "." + field.getSimpleName();
     }
 
     public static String getFile(CtElement element) {

@@ -180,13 +180,13 @@ public class AuxStateHandler {
 
         // has from
         if (from != null) {
-            state.setFrom(createStatePredicate(from, f.getTargetClass(), tc, e, false, prefix));
+            state.setFrom(createStatePredicate(new Predicate(from, e, prefix), from, f.getTargetClass(), tc, e, false));
             state.setFromPosition(Utils.getLJAnnotationPosition(e, from));
         }
 
         // has to
         if (to != null) {
-            state.setTo(createStatePredicate(to, f.getTargetClass(), tc, e, true, prefix));
+            state.setTo(createStatePredicate(new Predicate(to, e, prefix), to, f.getTargetClass(), tc, e, true));
             state.setToPosition(Utils.getLJAnnotationPosition(e, to));
         }
 
@@ -209,10 +209,9 @@ public class AuxStateHandler {
      * 
      * @return the created predicate
      */
-    private static Predicate createStatePredicate(String value, String targetClass, TypeChecker tc, CtElement e,
-            boolean isTo, String prefix) throws LJError {
+    private static Predicate createStatePredicate(Predicate p, String value, String targetClass, TypeChecker tc,
+            CtElement e, boolean isTo) throws LJError {
         SourcePosition position = Utils.getLJAnnotationPosition(e, value);
-        Predicate p = new Predicate(value, e, prefix);
         if (!p.getExpression().isBooleanExpression()) {
             throw new InvalidRefinementError(position, "State refinement transition must be a boolean expression",
                     value);
@@ -392,7 +391,7 @@ public class AuxStateHandler {
      */
     public static void updateGhostField(CtFieldWrite<?> fw, TypeChecker tc) throws LJError {
         CtField<?> field = fw.getVariable().getDeclaration();
-        String updatedVarName = String.format(Formats.THIS, fw.getVariable().getSimpleName());
+        String updatedVarName = Utils.qualifyFieldName(fw.getVariable());
         String targetClass = field.getDeclaringType().getQualifiedName();
 
         // state transition annotation construction
@@ -421,8 +420,12 @@ public class AuxStateHandler {
 
         ObjectState stateChange = new ObjectState();
         String prefix = field.getDeclaringType().getQualifiedName();
-        Predicate fromPredicate = createStatePredicate(stateChangeRefinementFrom, targetClass, tc, fw, false, prefix);
-        Predicate toPredicate = createStatePredicate(stateChangeRefinementTo, targetClass, tc, fw, true, prefix);
+        Predicate fromPredicate = createStatePredicate(new Predicate(), stateChangeRefinementFrom, targetClass, tc, fw,
+                false);
+        Predicate toPredicate = Predicate.createEquals(Predicate
+                .createInvocation(Utils.qualifyName(prefix, field.getSimpleName()), Predicate.createVar(Keys.THIS)),
+                Predicate.createVar(updatedVarName));
+        toPredicate = createStatePredicate(toPredicate, stateChangeRefinementTo, targetClass, tc, fw, true);
         stateChange.setFrom(fromPredicate);
         stateChange.setTo(toPredicate);
 
@@ -604,7 +607,7 @@ public class AuxStateHandler {
             // means invocation is in a form of `t.method(args)`
             String name = v.getVariable().getSimpleName();
             if (target2 instanceof CtFieldRead<?> fieldRead && fieldRead.getTarget() instanceof CtThisAccess<?>) {
-                String fieldName = String.format(Formats.THIS, name);
+                String fieldName = Utils.qualifyFieldName(fieldRead.getVariable());
                 if (tc.getContext().hasVariable(fieldName))
                     name = fieldName;
             }
