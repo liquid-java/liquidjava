@@ -10,7 +10,7 @@ import liquidjava.processor.context.RefinedVariable;
 import liquidjava.processor.context.Variable;
 import liquidjava.processor.context.VariableInstance;
 import liquidjava.processor.refinement_checker.TypeChecker;
-import liquidjava.utils.FieldNames;
+import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Formats;
 import liquidjava.utils.constants.Keys;
 import liquidjava.utils.constants.Ops;
@@ -127,7 +127,7 @@ public class OperationsChecker {
         if (ex instanceof CtVariableWrite<T> w) {
             name = w.getVariable().getSimpleName();
             if (w instanceof CtFieldWrite<?> fieldWrite)
-                name = FieldNames.of(fieldWrite.getVariable());
+                name = Utils.qualifyFieldName(fieldWrite.getVariable());
             all = getRefinementUnaryVariableWrite(ex, operator, w, name);
             rtc.checkVariableRefinements(all, name, w.getType(), operator, w.getVariable().getDeclaration());
             return;
@@ -205,7 +205,7 @@ public class OperationsChecker {
         if (element instanceof CtVariableRead<?> elemVar) {
             String elemName = elemVar.getVariable().getSimpleName();
             if (elemVar instanceof CtFieldRead<?> fieldRead)
-                elemName = FieldNames.of(fieldRead.getVariable());
+                elemName = Utils.qualifyFieldName(fieldRead.getVariable());
             Predicate elemRef = rtc.getContext().getVariableRefinements(elemName);
 
             String returnName = elemName;
@@ -338,7 +338,7 @@ public class OperationsChecker {
         if (element instanceof CtVariableRead<?> variableRead) {
             String name = variableRead.getVariable().getSimpleName();
             if (variableRead instanceof CtFieldRead<?> fieldRead)
-                name = FieldNames.of(fieldRead.getVariable());
+                name = Utils.qualifyFieldName(fieldRead.getVariable());
             return getCurrentVariableValue(name);
         } else if (element instanceof CtBinaryOperator<?> binaryOperator) {
             Predicate left = getOperatorAssignmentRefinement(binaryOperator.getLeftHandOperand());
