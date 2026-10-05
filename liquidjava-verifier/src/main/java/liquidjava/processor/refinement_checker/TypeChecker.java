@@ -92,7 +92,6 @@ public abstract class TypeChecker extends CtScanner {
             if (an.contentEquals("liquidjava.specification.Refinement")) {
                 String value = getStringFromAnnotation(ann.getValue("value"));
                 ref = Optional.of(value);
-                element.putMetadata(Keys.REFINEMENT_POSITION, Utils.getLJAnnotationPosition(element, value));
 
             } else if (an.contentEquals("liquidjava.specification.RefinementPredicate")) {
                 CtExpression<String> rawValue = ann.getValue("value");
@@ -340,8 +339,7 @@ public abstract class TypeChecker extends CtScanner {
     public void checkVariableRefinements(Predicate refinementFound, String simpleName, CtTypeReference<?> type,
             CtElement usage, CtElement variable) throws LJError {
         Optional<Predicate> expectedType = getRefinementFromAnnotation(variable);
-        SourcePosition declarationPosition = variable.getMetadata(Keys.REFINEMENT_POSITION)instanceof SourcePosition p
-                ? p : variable.getPosition();
+        SourcePosition declarationPosition = Utils.getRefinementPosition(variable);
         Predicate cEt;
         RefinedVariable mainRV = null;
         if (context.hasVariable(simpleName)) {
