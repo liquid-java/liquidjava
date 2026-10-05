@@ -8,6 +8,7 @@ import com.microsoft.z3.Status;
 import com.microsoft.z3.Z3Exception;
 
 import liquidjava.diagnostics.DebugLog;
+import liquidjava.diagnostics.errors.SMTUnknownError;
 import liquidjava.processor.context.Context;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.Expression;
@@ -51,12 +52,15 @@ public class SMTEvaluator {
                     }
                     return SMTResult.error(counterexample);
                 }
-                if (!silent) {
-                    if (result.equals(Status.UNKNOWN)) {
-                        DebugLog.smtUnknown();
-                    } else {
-                        DebugLog.smtUnsat();
+                if (result.equals(Status.UNKNOWN)) {
+                    SMTUnknownError error = new SMTUnknownError(solver.getReasonUnknown());
+                    if (!silent) {
+                        DebugLog.smtError(error.getMessage());
                     }
+                    throw error;
+                }
+                if (!silent) {
+                    DebugLog.smtUnsat();
                 }
             }
         } catch (SyntaxException e) {
