@@ -70,6 +70,10 @@ public class VCChecker {
         SMTResult result;
         try {
             result = dischargeToSMT(expected, premises, annotationValuePos, true);
+        } catch (SMTUnknownError error) {
+            error.setDeclarationPosition(declarationPosition);
+            DebugLog.smtError(error.getMessage());
+            throw error;
         } catch (RuntimeException ex) {
             DebugLog.smtError(ex.getMessage());
             throw ex;
@@ -94,7 +98,13 @@ public class VCChecker {
      */
     public void processSubtyping(Predicate type, Predicate expectedType, List<GhostState> list, CtElement element,
             SourcePosition declarationPosition, Factory f) throws LJError {
-        SMTResult result = verifySMTSubtypeStates(type, expectedType, list, element.getPosition(), f);
+        SMTResult result;
+        try {
+            result = verifySMTSubtypeStates(type, expectedType, list, element.getPosition(), f);
+        } catch (SMTUnknownError error) {
+            error.setDeclarationPosition(declarationPosition);
+            throw error;
+        }
         if (result.isError())
             throwRefinementError(element.getPosition(), declarationPosition, expectedType, type,
                     result.getCounterexample(), null);

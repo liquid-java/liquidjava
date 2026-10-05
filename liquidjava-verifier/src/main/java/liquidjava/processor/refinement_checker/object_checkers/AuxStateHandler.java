@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 import liquidjava.diagnostics.errors.IllegalConstructorTransitionError;
 import liquidjava.diagnostics.errors.InvalidRefinementError;
 import liquidjava.diagnostics.errors.LJError;
+import liquidjava.diagnostics.errors.SMTUnknownError;
 import liquidjava.processor.context.*;
 import liquidjava.processor.refinement_checker.TypeChecker;
 import liquidjava.processor.refinement_checker.TypeCheckingUtils;
@@ -433,7 +434,14 @@ public class AuxStateHandler {
         Predicate expectState = stateChange.getFrom().substituteVariable(Keys.THIS, instanceName)
                 .changeOldMentions(vi.getName(), instanceName);
 
-        if (!tc.checkStateSMT(prevState, expectState, fw.getPosition())) { // Invalid field transition
+        boolean validTransition;
+        try {
+            validTransition = tc.checkStateSMT(prevState, expectState, fw.getPosition());
+        } catch (SMTUnknownError error) {
+            error.setDeclarationPosition(field.getDeclaringType().getPosition());
+            throw error;
+        }
+        if (!validTransition) { // Invalid field transition
             tc.throwStateRefinementError(fw.getPosition(), field.getDeclaringType().getPosition(), prevState,
                     expectState, stateChange.getMessage());
             return;
@@ -499,7 +507,12 @@ public class AuxStateHandler {
             }
             expectState = expectState.changeOldMentions(vi.getName(), instanceName);
 
-            found = tc.checkStateSMT(prevCheck, expectState, invocation.getPosition());
+            try {
+                found = tc.checkStateSMT(prevCheck, expectState, invocation.getPosition());
+            } catch (SMTUnknownError error) {
+                error.setDeclarationPosition(stateChange.getFromPosition());
+                throw error;
+            }
             if (found && stateChange.hasTo()) {
                 String newInstanceName = String.format(Formats.INSTANCE, name, tc.getContext().getCounter());
                 // Non-void: `_` is the return value; void: legacy alias for the new instance.
