@@ -10,6 +10,7 @@ import liquidjava.processor.context.RefinedVariable;
 import liquidjava.processor.context.Variable;
 import liquidjava.processor.context.VariableInstance;
 import liquidjava.processor.refinement_checker.TypeChecker;
+import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Formats;
 import liquidjava.utils.constants.Keys;
 import liquidjava.utils.constants.Ops;
@@ -17,6 +18,7 @@ import liquidjava.utils.constants.Types;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
+import liquidjava.rj_language.ast.UnaryExpression;
 import org.apache.commons.lang3.NotImplementedException;
 import spoon.reflect.code.BinaryOperatorKind;
 import spoon.reflect.code.CtAssignment;
@@ -121,12 +123,19 @@ public class OperationsChecker {
     @SuppressWarnings({ "unchecked" })
     public <T> void getUnaryOpRefinements(CtUnaryOperator<T> operator) throws LJError {
         CtExpression<T> ex = (CtExpression<T>) operator.getOperand();
+        if (operator.getKind() == UnaryOperatorKind.NEG && ex instanceof CtLiteral<?> literal
+                && literal.getValue() instanceof Number) {
+            Predicate operand = Predicate.createLit(literal.getValue().toString(), ex.getType().getQualifiedName());
+            Predicate value = new Predicate(new UnaryExpression("-", operand.getExpression()));
+            operator.putMetadata(Keys.REFINEMENT, Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), value));
+            return;
+        }
         String name = Formats.FRESH;
         Predicate all;
         if (ex instanceof CtVariableWrite<T> w) {
             name = w.getVariable().getSimpleName();
-            if (w instanceof CtFieldWrite<?>)
-                name = String.format(Formats.THIS, name);
+            if (w instanceof CtFieldWrite<?> fieldWrite)
+                name = Utils.qualifyFieldName(fieldWrite.getVariable());
             all = getRefinementUnaryVariableWrite(ex, operator, w, name);
             rtc.checkVariableRefinements(all, name, w.getType(), operator, w.getVariable().getDeclaration());
             return;
@@ -203,8 +212,8 @@ public class OperationsChecker {
 
         if (element instanceof CtVariableRead<?> elemVar) {
             String elemName = elemVar.getVariable().getSimpleName();
-            if (elemVar instanceof CtFieldRead)
-                elemName = String.format(Formats.THIS, elemName);
+            if (elemVar instanceof CtFieldRead<?> fieldRead)
+                elemName = Utils.qualifyFieldName(fieldRead.getVariable());
             Predicate elemRef = rtc.getContext().getVariableRefinements(elemName);
 
             // Not a field of this class (e.g. an enum constant or a static constant): use the value given by the
@@ -341,8 +350,8 @@ public class OperationsChecker {
     private Predicate getOperatorAssignmentRefinement(CtExpression<?> element) throws LJError {
         if (element instanceof CtVariableRead<?> variableRead) {
             String name = variableRead.getVariable().getSimpleName();
-            if (variableRead instanceof CtFieldRead<?>)
-                name = String.format(Formats.THIS, name);
+            if (variableRead instanceof CtFieldRead<?> fieldRead)
+                name = Utils.qualifyFieldName(fieldRead.getVariable());
             return getCurrentVariableValue(name);
         } else if (element instanceof CtBinaryOperator<?> binaryOperator) {
             Predicate left = getOperatorAssignmentRefinement(binaryOperator.getLeftHandOperand());
