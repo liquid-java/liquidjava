@@ -32,41 +32,45 @@ public class MethodsFirstChecker extends TypeChecker {
 
     @Override
     public <T> void visitCtClass(CtClass<T> ctClass) {
-        context.reinitializeContext();
         if (visitedClasses.contains(ctClass.getQualifiedName()))
             return;
         else
             visitedClasses.add(ctClass.getQualifiedName());
-        // visitInterfaces
-        if (!ctClass.getSuperInterfaces().isEmpty())
-            for (CtTypeReference<?> t : ctClass.getSuperInterfaces()) {
-                if (t.isInterface()) {
-                    CtType<?> ct = t.getDeclaration();
-                    if (ct instanceof CtInterface)
-                        visitCtInterface((CtInterface<?>) ct);
+        Context.ClassScope scope = context.enterClassScope();
+        try {
+            // visitInterfaces
+            if (!ctClass.getSuperInterfaces().isEmpty())
+                for (CtTypeReference<?> t : ctClass.getSuperInterfaces()) {
+                    if (t.isInterface()) {
+                        CtType<?> ct = t.getDeclaration();
+                        if (ct instanceof CtInterface)
+                            visitCtInterface((CtInterface<?>) ct);
+                    }
                 }
+            // visitSubclasses
+            CtTypeReference<?> sup = ctClass.getSuperclass();
+            if (sup != null && sup.isClass()) {
+                CtType<?> ct = sup.getDeclaration();
+                if (ct instanceof CtClass)
+                    visitCtClass((CtClass<?>) ct);
             }
-        // visitSubclasses
-        CtTypeReference<?> sup = ctClass.getSuperclass();
-        if (sup != null && sup.isClass()) {
-            CtType<?> ct = sup.getDeclaration();
-            if (ct instanceof CtClass)
-                visitCtClass((CtClass<?>) ct);
-        }
-        // first try-catch: process class-level annotations)
-        // errors here should not prevent visiting methods, constructors or fields of the class
-        try {
-            getRefinementFromAnnotation(ctClass);
-            handleStateSetsFromAnnotation(ctClass);
-        } catch (LJError e) {
-            diagnostics.add(e);
-        }
-        // second try-catch: visit class children (methods, constructors, fields)
-        // errors from one child should not prevent visiting sibling elements
-        try {
-            super.visitCtClass(ctClass);
-        } catch (LJError e) {
-            diagnostics.add(e);
+            // first try-catch: process class-level annotations)
+            // errors here should not prevent visiting methods, constructors or fields of the class
+            try {
+                getRefinementFromAnnotation(ctClass);
+                handleStateSetsFromAnnotation(ctClass);
+            } catch (LJError e) {
+                diagnostics.add(e);
+            }
+            // second try-catch: visit class children (methods, constructors, fields)
+            // errors from one child should not prevent visiting sibling elements
+            try {
+                super.visitCtClass(ctClass);
+            } catch (LJError e) {
+                diagnostics.add(e);
+            }
+        } finally {
+            context.exitClassScope(scope);
         }
     }
 

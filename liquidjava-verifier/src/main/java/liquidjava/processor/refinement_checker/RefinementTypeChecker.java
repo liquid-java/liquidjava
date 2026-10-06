@@ -86,15 +86,14 @@ public class RefinementTypeChecker extends TypeChecker {
 
     @Override
     public <T> void visitCtClass(CtClass<T> ctClass) {
-        // System.out.println("CTCLASS:"+ctClass.getSimpleName());
-        context.reinitializeContext();
-
+        Context.ClassScope scope = context.enterClassScope();
         try {
             super.visitCtClass(ctClass);
         } catch (LJError e) {
             diagnostics.add(e);
+        } finally {
+            context.exitClassScope(scope);
         }
-
     }
 
     @Override
