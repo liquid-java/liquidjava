@@ -70,7 +70,7 @@ public class CommandLineLauncher {
         env.setSourceClasspath(
                 new String[] { new File(Refinement.class.getProtectionDomain().getCodeSource().getLocation().getFile())
                         .getAbsolutePath() });
-        env.setComplianceLevel(8);
+        env.setComplianceLevel(17);
 
         boolean buildSuccess = launcher.getModelBuilder().build();
         if (!buildSuccess && (env.getErrorCount() > 0 || env.getWarningCount() > 0)) {
