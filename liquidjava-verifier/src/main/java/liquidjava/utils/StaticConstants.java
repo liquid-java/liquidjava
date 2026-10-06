@@ -7,7 +7,11 @@ import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.LiteralChar;
 import liquidjava.rj_language.ast.LiteralString;
 import liquidjava.utils.constants.Types;
+import spoon.reflect.code.CtBinaryOperator;
+import spoon.reflect.code.CtExpression;
+import spoon.reflect.code.CtFieldRead;
 import spoon.reflect.code.CtLiteral;
+import spoon.reflect.code.CtUnaryOperator;
 import spoon.reflect.declaration.CtCompilationUnit;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtField;
@@ -157,6 +161,78 @@ public final class StaticConstants {
         if (type == null || type.getPackage() == null)
             return "";
         return type.getPackage().getQualifiedName();
+    }
+
+    /**
+     * Evaluate an integral compile-time constant expression: integer literals, {@code static final} constants (see
+     * {@link #resolve(CtFieldReference)}) and the arithmetic, bitwise and shift operators over them, e.g.
+     * {@code ZipFile.OPEN_READ | ZipFile.OPEN_DELETE}. The result has Java's own semantics for the expression's type
+     * ({@code int} wraps and masks shift distances to 5 bits, {@code long} to 6). Returns {@code null} when any part is
+     * not a constant, or on division by zero.
+     */
+    public static Number foldIntegral(CtExpression<?> e) {
+        if (e instanceof CtLiteral<?> lit)
+            return integral(lit.getValue());
+        if (e instanceof CtFieldRead<?> fr)
+            return integral(resolve(fr.getVariable()));
+        boolean isLong = e.getType() != null && "long".equals(e.getType().unbox().getSimpleName());
+        if (e instanceof CtUnaryOperator<?> un) {
+            Number v = foldIntegral(un.getOperand());
+            if (v == null)
+                return null;
+            return switch (un.getKind()) {
+            case NEG -> isLong ? (Number) (-v.longValue()) : (Number) (-v.intValue());
+            case COMPL -> isLong ? (Number) (~v.longValue()) : (Number) (~v.intValue());
+            case POS -> v;
+            default -> null;
+            };
+        }
+        if (e instanceof CtBinaryOperator<?> bin) {
+            Number l = foldIntegral(bin.getLeftHandOperand()), r = foldIntegral(bin.getRightHandOperand());
+            if (l == null || r == null)
+                return null;
+            if (isLong) {
+                long a = l.longValue(), b = r.longValue();
+                return switch (bin.getKind()) {
+                case BITOR -> a | b;
+                case BITAND -> a & b;
+                case BITXOR -> a ^ b;
+                case SL -> a << b;
+                case SR -> a >> b;
+                case USR -> a >>> b;
+                case PLUS -> a + b;
+                case MINUS -> a - b;
+                case MUL -> a * b;
+                case DIV -> b == 0 ? null : a / b;
+                case MOD -> b == 0 ? null : a % b;
+                default -> null;
+                };
+            }
+            int a = l.intValue(), b = r.intValue();
+            return switch (bin.getKind()) {
+            case BITOR -> a | b;
+            case BITAND -> a & b;
+            case BITXOR -> a ^ b;
+            case SL -> a << b;
+            case SR -> a >> b;
+            case USR -> a >>> b;
+            case PLUS -> a + b;
+            case MINUS -> a - b;
+            case MUL -> a * b;
+            case DIV -> b == 0 ? null : a / b;
+            case MOD -> b == 0 ? null : a % b;
+            default -> null;
+            };
+        }
+        return null;
+    }
+
+    private static Number integral(Object v) {
+        if (v instanceof Integer || v instanceof Long || v instanceof Short || v instanceof Byte)
+            return (Number) v;
+        if (v instanceof Character c)
+            return (int) c;
+        return null;
     }
 
     /** Wrap a resolved value as an RJ literal predicate, or {@code null} if its type is not modeled. */

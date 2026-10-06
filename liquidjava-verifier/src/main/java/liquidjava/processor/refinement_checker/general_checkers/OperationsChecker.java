@@ -10,6 +10,7 @@ import liquidjava.processor.context.RefinedVariable;
 import liquidjava.processor.context.Variable;
 import liquidjava.processor.context.VariableInstance;
 import liquidjava.processor.refinement_checker.TypeChecker;
+import liquidjava.utils.StaticConstants;
 import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Formats;
 import liquidjava.utils.constants.Keys;
@@ -83,10 +84,12 @@ public class OperationsChecker {
 
         } else if (hasNullOperand(operator)) {
             oper = createFreshValue(operator, new Predicate()); // null comparisons are not supported yet: unknown value
+        } else if (operatorFor(operator) == null) {
+            oper = untranslatableOperation(operator);
         } else {
             Predicate varLeft = getOperationRefinements(operator, left);
             Predicate varRight = getOperationRefinements(operator, right);
-            oper = Predicate.createOperation(varLeft, getOperatorFromKind(operator.getKind()), varRight);
+            oper = Predicate.createOperation(varLeft, operatorFor(operator), varRight);
         }
         List<String> types = Arrays.asList(Types.IMPLEMENTED);
         if (type.contentEquals("boolean")) {
@@ -108,9 +111,12 @@ public class OperationsChecker {
      */
     public Predicate getOperatorAssignmentRefinement(String assignedName, CtOperatorAssignment<?, ?> assignment)
             throws LJError {
+        String op = getOperatorFromKind(assignment.getKind());
+        if (op == null) // x |= y, x <<= n, ...: no counterpart in the integer logic, so the new value is unknown
+            return new Predicate();
         Predicate left = getCurrentVariableValue(assignedName);
         Predicate right = getOperatorAssignmentRefinement(assignment.getAssignment());
-        Predicate operation = Predicate.createOperation(left, getOperatorFromKind(assignment.getKind()), right);
+        Predicate operation = Predicate.createOperation(left, op, right);
         return Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), operation);
     }
 
@@ -241,9 +247,11 @@ public class OperationsChecker {
         } else if (element instanceof CtBinaryOperator<?> binop) {
             if (hasNullOperand(binop)) // null comparisons are not supported yet: unknown boolean value
                 return createFreshValue(binop, new Predicate());
+            if (operatorFor(binop) == null)
+                return untranslatableOperation(binop);
             Predicate right = getOperationRefinements(operator, parentVar, binop.getRightHandOperand());
             Predicate left = getOperationRefinements(operator, parentVar, binop.getLeftHandOperand());
-            return Predicate.createOperation(left, getOperatorFromKind(binop.getKind()), right);
+            return Predicate.createOperation(left, operatorFor(binop), right);
         } else if (element instanceof CtUnaryOperator<?>) {
             Predicate a = (Predicate) element.getMetadata(Keys.REFINEMENT);
             a = a.substituteVariable(Keys.WILDCARD, "");
@@ -354,9 +362,11 @@ public class OperationsChecker {
                 name = Utils.qualifyFieldName(fieldRead.getVariable());
             return getCurrentVariableValue(name);
         } else if (element instanceof CtBinaryOperator<?> binaryOperator) {
+            if (operatorFor(binaryOperator) == null)
+                return untranslatableOperation(binaryOperator);
             Predicate left = getOperatorAssignmentRefinement(binaryOperator.getLeftHandOperand());
             Predicate right = getOperatorAssignmentRefinement(binaryOperator.getRightHandOperand());
-            return Predicate.createOperation(left, getOperatorFromKind(binaryOperator.getKind()), right);
+            return Predicate.createOperation(left, operatorFor(binaryOperator), right);
         } else if (element instanceof CtConditional<?> conditional) {
             Predicate condition = getConditionRefinement(conditional.getCondition());
             Predicate thenExpression = getOperatorAssignmentRefinement(conditional.getThenExpression());
@@ -442,6 +452,33 @@ public class OperationsChecker {
 
     // ############################### Operations Auxiliaries
     // ##########################################
+
+    /**
+     * The logic's operator for a binary operation, or {@code null} when it has none. On booleans the non-short-circuit
+     * {@code &}, {@code |} and {@code ^} are exactly and, or and not-equal; on integers the bitwise and shift operators
+     * have no counterpart in the linear integer logic.
+     */
+    private String operatorFor(CtBinaryOperator<?> op) {
+        String o = getOperatorFromKind(op.getKind());
+        if (o != null || op.getType() == null || !"boolean".equals(op.getType().unbox().getSimpleName()))
+            return o;
+        return switch (op.getKind()) {
+        case BITAND -> Ops.AND;
+        case BITOR -> Ops.OR;
+        case BITXOR -> Ops.NEQ;
+        default -> null;
+        };
+    }
+
+    /**
+     * A bitwise or shift operation on integers: a compile-time constant expression (e.g.
+     * {@code ZipFile.OPEN_READ | ZipFile.OPEN_DELETE}) is folded to its value; anything else is an unconstrained value
+     * of its type, so a refinement that depends on it is reported as not provable instead of crashing (#350).
+     */
+    private Predicate untranslatableOperation(CtBinaryOperator<?> op) {
+        Predicate literal = StaticConstants.asLiteralPredicate(StaticConstants.foldIntegral(op));
+        return literal != null ? literal : createFreshValue(op, new Predicate());
+    }
 
     /**
      * Get the String value of the operator from the enum
