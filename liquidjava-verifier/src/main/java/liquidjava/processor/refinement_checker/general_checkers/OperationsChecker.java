@@ -82,8 +82,8 @@ public class OperationsChecker {
                 && ((CtAssignment<?, ?>) parent).getAssigned()instanceof CtVariableWrite<?> parentVar) {
             oper = getOperationRefinements(operator, parentVar, operator);
 
-        } else if (hasNullOperand(operator)) {
-            oper = createFreshValue(operator, new Predicate()); // null comparisons are not supported yet: unknown value
+        } else if (isUntranslatable(operator)) {
+            oper = createFreshValue(operator, new Predicate()); // null comparisons and instanceof: unknown value
         } else if (operatorFor(operator) == null) {
             oper = untranslatableOperation(operator);
         } else {
@@ -245,7 +245,7 @@ public class OperationsChecker {
             rtc.getContext().addVarToContext(elemName, elemVar.getType(), e, elemVar);
             return Predicate.createVar(returnName);
         } else if (element instanceof CtBinaryOperator<?> binop) {
-            if (hasNullOperand(binop)) // null comparisons are not supported yet: unknown boolean value
+            if (isUntranslatable(binop)) // null comparisons and instanceof: unknown boolean value
                 return createFreshValue(binop, new Predicate());
             if (operatorFor(binop) == null)
                 return untranslatableOperation(binop);
@@ -334,6 +334,11 @@ public class OperationsChecker {
             return new Predicate(newName, inv); // Return variable that represents the invocation
         }
         return getUnconstrainedInvocationVariable(inv);
+    }
+
+    /** Null comparisons are not supported yet, and the logic has no types to test {@code instanceof} against. */
+    private static boolean isUntranslatable(CtBinaryOperator<?> binop) {
+        return binop.getKind() == BinaryOperatorKind.INSTANCEOF || hasNullOperand(binop);
     }
 
     private static boolean hasNullOperand(CtBinaryOperator<?> binop) {
