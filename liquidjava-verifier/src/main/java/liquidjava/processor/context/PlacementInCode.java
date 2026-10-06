@@ -2,7 +2,7 @@ package liquidjava.processor.context;
 
 import java.lang.annotation.Annotation;
 
-import liquidjava.utils.constants.Keys;
+import liquidjava.utils.Utils;
 import spoon.reflect.code.CtComment;
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.CtAnnotation;
@@ -46,8 +46,7 @@ public class PlacementInCode {
             }
         }
         String elemText = elemCopy.toString();
-        SourcePosition annotationPosition = elem.getMetadata(Keys.REFINEMENT_POSITION)instanceof SourcePosition p ? p
-                : elem.getPosition();
+        SourcePosition annotationPosition = Utils.getRefinementPosition(elem);
         return new PlacementInCode(elemText, elem.getPosition(), annotationPosition);
     }
 

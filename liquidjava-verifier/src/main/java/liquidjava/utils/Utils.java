@@ -2,6 +2,7 @@ package liquidjava.utils;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Scanner;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -61,6 +62,14 @@ public class Utils {
             return null;
 
         return pos.getFile().getAbsolutePath();
+    }
+
+    public static SourcePosition getRefinementPosition(CtElement element) {
+        return getLiquidJavaAnnotations(element)
+                .filter(annotation -> annotation.getAnnotationType().getQualifiedName()
+                        .equals("liquidjava.specification.Refinement"))
+                .map(annotation -> getAnnotationValuePosition(annotation.getValue("value"))).filter(Objects::nonNull)
+                .findFirst().orElse(null);
     }
 
     // Get the position of the annotation with the given value
