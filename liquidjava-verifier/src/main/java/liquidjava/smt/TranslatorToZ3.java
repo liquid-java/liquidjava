@@ -39,6 +39,7 @@ public class TranslatorToZ3 implements AutoCloseable {
     private final Map<String, List<Expr<?>>> varSuperTypes = new HashMap<>();
     private final Map<String, AliasWrapper> aliasTranslation = new HashMap<>(); // this is not being used
     private final Map<String, FuncDecl<?>> funcTranslation = new HashMap<>();
+    private final Map<Sort, FuncDecl<?>> lengthBySort = new HashMap<>();
     private final Map<String, Expr<?>> funcAppTranslation = new HashMap<>();
     private final Map<Expr<?>, String> exprToNameTranslation = new HashMap<>();
     /**
@@ -163,6 +164,8 @@ public class TranslatorToZ3 implements AutoCloseable {
             return makeStore(params);
         if (name.equals("getFromIndex"))
             return makeSelect(params);
+        if (name.equals("length") && params.length == 1)
+            return makeLength(params[0]);
         FuncDecl<?> fd = funcTranslation.get(name);
         if (fd == null)
             fd = resolveFunctionDecl(name, params);
@@ -182,6 +185,20 @@ public class TranslatorToZ3 implements AutoCloseable {
         String label = buildFunctionLabel(name, params);
         Expr<?> app = z3.mkApp(fd, params);
         funcAppTranslation.put(label, app);
+        return app;
+    }
+
+    /**
+     * Applies {@code length} to an array of any element type: the builtin declaration covers {@code int[]} only, so
+     * other array sorts get their own overload, declared on first use.
+     */
+    private Expr<?> makeLength(Expr<?> array) {
+        Sort sort = array.getSort();
+        FuncDecl<?> fd = funcTranslation.get("length");
+        if (!fd.getDomain()[0].equals(sort))
+            fd = lengthBySort.computeIfAbsent(sort, s -> z3.mkFuncDecl("length", s, z3.getIntSort()));
+        Expr<?> app = z3.mkApp(fd, array);
+        funcAppTranslation.put(buildFunctionLabel("length", new Expr<?>[] { array }), app);
         return app;
     }
 
