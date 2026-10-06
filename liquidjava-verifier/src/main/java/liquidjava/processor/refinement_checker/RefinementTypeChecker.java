@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import liquidjava.diagnostics.DebugLog;
 import liquidjava.diagnostics.Diagnostics;
 import liquidjava.diagnostics.errors.LJError;
 import liquidjava.processor.context.*;
@@ -59,6 +60,7 @@ import spoon.reflect.code.CtVariableWrite;
 import spoon.reflect.code.CtWhile;
 import spoon.reflect.declaration.*;
 import spoon.reflect.factory.Factory;
+import spoon.reflect.path.CtRole;
 import spoon.reflect.reference.CtFieldReference;
 import spoon.reflect.reference.CtTypeReference;
 import spoon.reflect.reference.CtVariableReference;
@@ -83,6 +85,21 @@ public class RefinementTypeChecker extends TypeChecker {
     }
 
     // --------------------- Visitors -----------------------------------
+
+    /**
+     * Under {@code -a} / {@code --all}, dump the context after every top-level statement. {@code super.scan} runs the
+     * full {@code visitCtXxx} override first, so the statement's refinement effect is already applied to the context by
+     * the time we save it. The {@code STATEMENT} role filter keeps this to actual statements (direct block / case
+     * children), skipping sub-expressions like the {@code g(x)} in {@code f(g(x))}.
+     */
+    @Override
+    public void scan(CtElement element) {
+        super.scan(element);
+        if (DebugLog.contextEnabled() && element instanceof CtStatement
+                && element.getRoleInParent() == CtRole.STATEMENT) {
+            contextHistory.saveContext(element, context);
+        }
+    }
 
     @Override
     public <T> void visitCtClass(CtClass<T> ctClass) {
