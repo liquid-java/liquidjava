@@ -21,7 +21,7 @@ import spoon.reflect.reference.CtTypeReference;
  * <ul>
  * <li>{@link #info} — verification context (caller-level predicates, source position).</li>
  * <li>{@link #smtStart} — premises and conclusion as fed to Z3.</li>
- * <li>{@link #smtUnsat} / {@link #smtSat} / {@link #smtUnknown} — solver outcome.</li>
+ * <li>{@link #smtUnsat} / {@link #smtSat} / {@link #smtError} — solver outcome.</li>
  * </ul>
  */
 public final class DebugLog {
@@ -400,16 +400,9 @@ public final class DebugLog {
         return sb.toString();
     }
 
-    public static void smtUnknown() {
-        if (!enabled()) {
-            return;
-        }
-        System.out.println(SMT_TAG + " Result: " + Colors.YELLOW + "UNKNOWN (treated as OK)" + Colors.RESET);
-    }
-
     /**
      * Print the result of an SMT check whose {@code smtStart} was emitted by the caller (e.g. VCChecker's structured
-     * print). {@link liquidjava.smt.SMTResult} doesn't preserve UNKNOWN, so this maps OK → UNSAT and ERROR → SAT.
+     * print). This maps OK → UNSAT and ERROR → SAT; UNKNOWN raises an error instead of returning a result.
      */
     public static void smtResult(liquidjava.smt.SMTResult result) {
         if (!enabled()) {

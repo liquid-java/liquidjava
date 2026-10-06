@@ -3,25 +3,25 @@ package testSuite;
 import liquidjava.specification.Refinement;
 
 @SuppressWarnings("unused")
-public class CorrectPrimitiveNumbersTypes {
+public class ErrorPrimitiveNumbersTypes {
     @Refinement("_ < i && _ > 0")
     private static double fromType(@Refinement("_ > 0") int i) {
-        return i * 0.1;
+        return i * 0.1; // Expect: SMT Unknown Error
     }
 
     @Refinement(" _ < i && _ > 0")
     private static double fromType(@Refinement("_ > 0") long i) {
-        return i * 0.1;
+        return i * 0.1; // Expect: SMT Unknown Error
     }
 
     @Refinement(" _ < i && _ > 0")
     private static double fromType(@Refinement("_ > 0") short i) {
-        return i * 0.1;
+        return i * 0.1; // Expect: SMT Unknown Error
     }
 
     @Refinement("_ > i")
     private static float twice(@Refinement("i > 0") short i) {
-        return i * 2f;
+        return i * 2f; // Expect: SMT Unknown Error
     }
 
     public static void main(String[] args) {
