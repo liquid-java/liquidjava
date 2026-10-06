@@ -1,6 +1,8 @@
 package liquidjava.processor.context;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.Set;
 import liquidjava.rj_language.Predicate;
@@ -27,12 +29,34 @@ public abstract class RefinedVariable extends Refined {
         return supertypes;
     }
 
+    /**
+     * Records the given superclass and interfaces and, transitively, all of theirs: a spec written for an indirect
+     * supertype must also apply to this variable (e.g. the {@code Throwable} spec on an {@code IOException}, whose
+     * direct superclass is {@code Exception}).
+     */
     public void addSuperTypes(CtTypeReference<?> ts, Set<CtTypeReference<?>> sts) {
-        if (ts != null && !supertypes.contains(ts))
-            supertypes.add(ts);
+        Deque<CtTypeReference<?>> todo = new ArrayDeque<>();
+        if (ts != null)
+            todo.add(ts);
         for (CtTypeReference<?> ct : sts)
-            if (ct != null && !supertypes.contains(ct))
-                supertypes.add(ct);
+            if (ct != null)
+                todo.add(ct);
+        while (!todo.isEmpty()) {
+            CtTypeReference<?> t = todo.poll();
+            if (supertypes.contains(t))
+                continue;
+            supertypes.add(t);
+            try {
+                CtTypeReference<?> sup = t.getSuperclass();
+                if (sup != null)
+                    todo.add(sup);
+                for (CtTypeReference<?> i : t.getSuperInterfaces())
+                    if (i != null)
+                        todo.add(i);
+            } catch (RuntimeException | LinkageError ignored) {
+                // a supertype that cannot be resolved (no source, not on the classpath) ends the walk on that branch
+            }
+        }
     }
 
     public void setPlacementInCode(CtElement element) {

@@ -44,9 +44,85 @@ public class AuxStateHandler {
                 }
             }
             setConstructorStates(f, an, c);
-        } else {
+        } else if (!inheritSuperConstructorState(c, f, tc)) {
             setDefaultState(f, tc);
         }
+    }
+
+    /**
+     * An unannotated constructor whose body starts with {@code super(...)} leaves the object in the state that the
+     * called superclass constructor's specification gives it (e.g. {@code MyException(String m, Throwable c) { super(m,
+     * c); }} with the {@code Throwable(String, Throwable)} spec: {@code withThrowable(this)}). The super constructor's
+     * parameters are renamed to the arguments passed, which must be parameters of this constructor or literals.
+     *
+     * @return whether a state was inherited (otherwise the caller falls back to the default state)
+     */
+    /**
+     * JDK classes whose constructors all pass their arguments unchanged to the superclass constructor with the same
+     * parameter types (documented in their Javadoc), so a spec on that superclass constructor describes them too. Only
+     * these are walked through: other binary classes may not (e.g. {@code ClassNotFoundException(String)} sets a null
+     * cause), and assuming they did would hide real errors.
+     */
+    private static final Set<String> DELEGATING_JDK_CLASSES = Set.of("java.lang.Exception",
+            "java.lang.RuntimeException", "java.lang.Error");
+
+    /** The specified constructor that {@code name(params)} of {@code type} ends up running, if one is known. */
+    private static RefinedFunction specifiedConstructor(TypeChecker tc, String name, CtTypeReference<?> type,
+            List<CtTypeReference<?>> params) {
+        for (CtTypeReference<?> t = type; t != null;) {
+            RefinedFunction f = tc.getContext().getFunction(name, t.getQualifiedName(), params);
+            if (f != null || !DELEGATING_JDK_CLASSES.contains(t.getQualifiedName()))
+                return f;
+            try {
+                t = t.getSuperclass();
+            } catch (RuntimeException | LinkageError e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private static boolean inheritSuperConstructorState(CtConstructor<?> c, RefinedFunction f, TypeChecker tc) {
+        if (c.getBody() == null || c.getBody().getStatements().isEmpty()
+                || !(c.getBody().getStatement(0)instanceof CtInvocation<?> call))
+            return false;
+        var exe = call.getExecutable();
+        if (exe == null || !exe.isConstructor() || exe.getDeclaringType() == null || c.getDeclaringType() == null
+                || exe.getDeclaringType().equals(c.getDeclaringType().getReference()))
+            return false; // not a super(...) call (this(...) delegates within the class)
+        RefinedFunction superF = specifiedConstructor(tc, exe.getSimpleName(), exe.getDeclaringType(),
+                exe.getParameters());
+        if (superF == null || superF.getToStates().isEmpty()
+                || superF.getArguments().size() != call.getArguments().size())
+            return false;
+        Map<String, String> rename = new HashMap<>();
+        for (int i = 0; i < call.getArguments().size(); i++) {
+            CtExpression<?> arg = call.getArguments().get(i);
+            String param = superF.getArguments().get(i).getName();
+            if (arg instanceof CtVariableRead<?> vr
+                    && vr.getVariable() instanceof spoon.reflect.reference.CtParameterReference<?>)
+                rename.put(param, vr.getVariable().getSimpleName());
+            else if (arg instanceof CtLiteral<?> lit && lit.getValue() != null && !(lit.getValue() instanceof String))
+                rename.put(param, lit.getValue().toString());
+            else
+                rename.put(param, null); // an argument we cannot name: usable only if the state ignores it
+        }
+        List<ObjectState> states = new ArrayList<>();
+        for (Predicate to : superF.getToStates()) {
+            for (Map.Entry<String, String> r : rename.entrySet()) {
+                if (r.getValue() == null) {
+                    if (to.getVariableNames().contains(r.getKey()))
+                        return false;
+                } else {
+                    to = to.substituteVariable(r.getKey(), r.getValue());
+                }
+            }
+            ObjectState os = new ObjectState();
+            os.setTo(to);
+            states.add(os);
+        }
+        f.setAllStates(states);
+        return true;
     }
 
     /**
