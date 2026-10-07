@@ -3,6 +3,7 @@ package liquidjava.api;
 import java.io.File;
 import java.util.Arrays;
 
+import liquidjava.diagnostics.DebugLog;
 import liquidjava.diagnostics.Diagnostics;
 import liquidjava.diagnostics.errors.CustomError;
 import liquidjava.diagnostics.warnings.CustomWarning;
@@ -70,7 +71,10 @@ public class CommandLineLauncher {
         env.setSourceClasspath(
                 new String[] { new File(Refinement.class.getProtectionDomain().getCodeSource().getLocation().getFile())
                         .getAbsolutePath() });
-        env.setComplianceLevel(8);
+        int complianceLevel = ComplianceLevel.resolve(paths);
+        if (DebugLog.enabled())
+            System.out.println("Java compliance level: " + complianceLevel);
+        env.setComplianceLevel(complianceLevel);
 
         boolean buildSuccess = launcher.getModelBuilder().build();
         if (!buildSuccess && (env.getErrorCount() > 0 || env.getWarningCount() > 0)) {
