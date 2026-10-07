@@ -50,14 +50,6 @@ public class AuxStateHandler {
     }
 
     /**
-     * An unannotated constructor whose body starts with {@code super(...)} leaves the object in the state that the
-     * called superclass constructor's specification gives it (e.g. {@code MyException(String m, Throwable c) { super(m,
-     * c); }} with the {@code Throwable(String, Throwable)} spec: {@code withThrowable(this)}). The super constructor's
-     * parameters are renamed to the arguments passed, which must be parameters of this constructor or literals.
-     *
-     * @return whether a state was inherited (otherwise the caller falls back to the default state)
-     */
-    /**
      * JDK classes whose constructors all pass their arguments unchanged to the superclass constructor with the same
      * parameter types (documented in their Javadoc), so a spec on that superclass constructor describes them too. Only
      * these are walked through: other binary classes may not (e.g. {@code ClassNotFoundException(String)} sets a null
@@ -65,6 +57,43 @@ public class AuxStateHandler {
      */
     private static final Set<String> DELEGATING_JDK_CLASSES = Set.of("java.lang.Exception",
             "java.lang.RuntimeException", "java.lang.Error");
+
+    /**
+     * An unannotated constructor whose body starts with {@code super(...)} leaves the object in the state that the
+     * called superclass constructor's specification gives it (e.g. {@code MyException(String m, Throwable c) { super(m,
+     * c); }} with the {@code Throwable(String, Throwable)} spec: {@code withThrowable(this)}). The super constructor's
+     * parameters are renamed to the arguments passed, which must be parameters of this constructor or literals.
+     *
+     * @return whether a state was inherited (otherwise the caller falls back to the default state)
+     */
+    private static boolean inheritSuperConstructorState(CtConstructor<?> c, RefinedFunction f, TypeChecker tc) {
+        CtInvocation<?> call = superConstructorCall(c);
+        if (call == null)
+            return false;
+        var exe = call.getExecutable();
+        RefinedFunction superF = specifiedConstructor(tc, exe.getSimpleName(), exe.getDeclaringType(),
+                exe.getParameters());
+        if (superF == null || superF.getToStates().isEmpty()
+                || superF.getArguments().size() != call.getArguments().size())
+            return false;
+        List<ObjectState> states = renameStates(superF.getToStates(), superParamsToArguments(superF, call));
+        if (states == null)
+            return false;
+        f.setAllStates(states);
+        return true;
+    }
+
+    /** The {@code super(...)} call that starts the body of {@code c}, or null if it does not start with one. */
+    private static CtInvocation<?> superConstructorCall(CtConstructor<?> c) {
+        if (c.getBody() == null || c.getBody().getStatements().isEmpty()
+                || !(c.getBody().getStatement(0)instanceof CtInvocation<?> call))
+            return null;
+        var exe = call.getExecutable();
+        if (exe == null || !exe.isConstructor() || exe.getDeclaringType() == null || c.getDeclaringType() == null
+                || exe.getDeclaringType().equals(c.getDeclaringType().getReference()))
+            return null; // not a super(...) call (this(...) delegates within the class)
+        return call;
+    }
 
     /** The specified constructor that {@code name(params)} of {@code type} ends up running, if one is known. */
     private static RefinedFunction specifiedConstructor(TypeChecker tc, String name, CtTypeReference<?> type,
@@ -82,19 +111,11 @@ public class AuxStateHandler {
         return null;
     }
 
-    private static boolean inheritSuperConstructorState(CtConstructor<?> c, RefinedFunction f, TypeChecker tc) {
-        if (c.getBody() == null || c.getBody().getStatements().isEmpty()
-                || !(c.getBody().getStatement(0)instanceof CtInvocation<?> call))
-            return false;
-        var exe = call.getExecutable();
-        if (exe == null || !exe.isConstructor() || exe.getDeclaringType() == null || c.getDeclaringType() == null
-                || exe.getDeclaringType().equals(c.getDeclaringType().getReference()))
-            return false; // not a super(...) call (this(...) delegates within the class)
-        RefinedFunction superF = specifiedConstructor(tc, exe.getSimpleName(), exe.getDeclaringType(),
-                exe.getParameters());
-        if (superF == null || superF.getToStates().isEmpty()
-                || superF.getArguments().size() != call.getArguments().size())
-            return false;
+    /**
+     * Maps each parameter of the super constructor to the name of the argument {@code call} passes for it: a parameter
+     * of the calling constructor or a non-string literal, or null for any other expression.
+     */
+    private static Map<String, String> superParamsToArguments(RefinedFunction superF, CtInvocation<?> call) {
         Map<String, String> rename = new HashMap<>();
         for (int i = 0; i < call.getArguments().size(); i++) {
             CtExpression<?> arg = call.getArguments().get(i);
@@ -107,12 +128,20 @@ public class AuxStateHandler {
             else
                 rename.put(param, null); // an argument we cannot name: usable only if the state ignores it
         }
+        return rename;
+    }
+
+    /**
+     * The given states with the super constructor's parameters renamed, or null if one of them mentions a parameter
+     * whose argument has no name.
+     */
+    private static List<ObjectState> renameStates(List<Predicate> toStates, Map<String, String> rename) {
         List<ObjectState> states = new ArrayList<>();
-        for (Predicate to : superF.getToStates()) {
+        for (Predicate to : toStates) {
             for (Map.Entry<String, String> r : rename.entrySet()) {
                 if (r.getValue() == null) {
                     if (to.getVariableNames().contains(r.getKey()))
-                        return false;
+                        return null;
                 } else {
                     to = to.substituteVariable(r.getKey(), r.getValue());
                 }
@@ -121,8 +150,7 @@ public class AuxStateHandler {
             os.setTo(to);
             states.add(os);
         }
-        f.setAllStates(states);
-        return true;
+        return states;
     }
 
     /**

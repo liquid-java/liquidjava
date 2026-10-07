@@ -1,10 +1,11 @@
 package liquidjava.processor.context;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
+import liquidjava.diagnostics.DebugLog;
 import liquidjava.rj_language.Predicate;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.reference.CtTypeReference;
@@ -35,26 +36,21 @@ public abstract class RefinedVariable extends Refined {
      * direct superclass is {@code Exception}).
      */
     public void addSuperTypes(CtTypeReference<?> ts, Set<CtTypeReference<?>> sts) {
-        Deque<CtTypeReference<?>> todo = new ArrayDeque<>();
-        if (ts != null)
-            todo.add(ts);
-        for (CtTypeReference<?> ct : sts)
-            if (ct != null)
-                todo.add(ct);
+        // LinkedList, unlike ArrayDeque, accepts the nulls of a missing superclass, skipped when polled
+        Deque<CtTypeReference<?>> todo = new LinkedList<>(sts);
+        todo.addFirst(ts);
         while (!todo.isEmpty()) {
             CtTypeReference<?> t = todo.poll();
-            if (supertypes.contains(t))
+            if (t == null || supertypes.contains(t))
                 continue;
             supertypes.add(t);
             try {
-                CtTypeReference<?> sup = t.getSuperclass();
-                if (sup != null)
-                    todo.add(sup);
-                for (CtTypeReference<?> i : t.getSuperInterfaces())
-                    if (i != null)
-                        todo.add(i);
-            } catch (RuntimeException | LinkageError ignored) {
+                todo.add(t.getSuperclass());
+                todo.addAll(t.getSuperInterfaces());
+            } catch (RuntimeException | LinkageError e) {
                 // a supertype that cannot be resolved (no source, not on the classpath) ends the walk on that branch
+                DebugLog.warn("Could not resolve the supertypes of " + t.getQualifiedName()
+                        + "; specs declared above it will not apply to " + getName() + " (" + e + ")");
             }
         }
     }
