@@ -149,6 +149,11 @@ public class Context {
         return vi;
     }
 
+    public void removeVarFromContext(String name) {
+        for (List<RefinedVariable> l : ctxVars)
+            l.removeIf(var -> var.getName().equals(name));
+    }
+
     public RefinedVariable addInstanceToContext(String simpleName, CtTypeReference<?> type, Predicate c,
             CtElement element) {
         RefinedVariable vi = new VariableInstance(simpleName, type, c);
