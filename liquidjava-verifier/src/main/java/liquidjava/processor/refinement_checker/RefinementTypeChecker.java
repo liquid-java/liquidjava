@@ -34,6 +34,7 @@ import spoon.reflect.code.CtAssignment;
 import spoon.reflect.code.CtBinaryOperator;
 import spoon.reflect.code.CtBlock;
 import spoon.reflect.code.CtBreak;
+import spoon.reflect.code.CtCatchVariable;
 import spoon.reflect.code.CtConditional;
 import spoon.reflect.code.CtContinue;
 import spoon.reflect.code.CtDo;
@@ -177,6 +178,15 @@ public class RefinementTypeChecker extends TypeChecker {
             checkVariableRefinements(refinementFound, varName, localVariable.getType(), localVariable, localVariable);
             AuxStateHandler.addStateRefinements(this, varName, e);
         }
+    }
+
+    @Override
+    public <T> void visitCtCatchVariable(CtCatchVariable<T> catchVariable) {
+        super.visitCtCatchVariable(catchVariable);
+        // like a method parameter, the caught object is a new variable with unknown state; Java forbids it to share a
+        // name with a local in scope, so a variable with the same name in the context is an out-of-scope local
+        context.removeVarFromContext(catchVariable.getSimpleName());
+        context.addVarToContext(catchVariable.getSimpleName(), catchVariable.getType(), new Predicate(), catchVariable);
     }
 
     @Override
