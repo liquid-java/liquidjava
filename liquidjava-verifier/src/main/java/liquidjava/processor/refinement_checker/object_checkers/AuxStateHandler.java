@@ -19,6 +19,7 @@ import liquidjava.utils.constants.Types;
 import spoon.reflect.code.*;
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.*;
+import spoon.reflect.reference.CtExecutableReference;
 import spoon.reflect.reference.CtTypeReference;
 
 public class AuxStateHandler {
@@ -50,15 +51,6 @@ public class AuxStateHandler {
     }
 
     /**
-     * JDK classes whose constructors all pass their arguments unchanged to the superclass constructor with the same
-     * parameter types (documented in their Javadoc), so a spec on that superclass constructor describes them too. Only
-     * these are walked through: other binary classes may not (e.g. {@code ClassNotFoundException(String)} sets a null
-     * cause), and assuming they did would hide real errors.
-     */
-    private static final Set<String> DELEGATING_JDK_CLASSES = Set.of("java.lang.Exception",
-            "java.lang.RuntimeException", "java.lang.Error");
-
-    /**
      * An unannotated constructor whose body starts with {@code super(...)} leaves the object in the state that the
      * called superclass constructor's specification gives it (e.g. {@code MyException(String m, Throwable c) { super(m,
      * c); }} with the {@code Throwable(String, Throwable)} spec: {@code withThrowable(this)}). The super constructor's
@@ -67,39 +59,57 @@ public class AuxStateHandler {
      * @return whether a state was inherited (otherwise the caller falls back to the default state)
      */
     private static boolean inheritSuperConstructorState(CtConstructor<?> c, RefinedFunction f, TypeChecker tc) {
-        CtInvocation<?> call = superConstructorCall(c);
-        if (call == null)
+        CtStatement first = c.getBody() == null || c.getBody().getStatements().isEmpty() ? null
+                : c.getBody().getStatement(0);
+        if (!(first instanceof CtInvocation<?> call) || !call.getExecutable().isConstructor()
+                || c.getDeclaringType() == null
+                || c.getDeclaringType().getReference().equals(call.getExecutable().getDeclaringType()))
+            return false; // not a super(...) call (this(...) delegates within the class)
+        RefinedFunction superF = specifiedConstructor(tc, call.getExecutable());
+        List<CtExpression<?>> args = call.getArguments();
+        if (superF == null || superF.getToStates().isEmpty() || superF.getArguments().size() != args.size())
             return false;
-        var exe = call.getExecutable();
-        RefinedFunction superF = specifiedConstructor(tc, exe.getSimpleName(), exe.getDeclaringType(),
-                exe.getParameters());
-        if (superF == null || superF.getToStates().isEmpty()
-                || superF.getArguments().size() != call.getArguments().size())
+
+        // rename each super parameter to the argument passed for it; a state may not mention an unnamed one
+        Map<String, String> rename = new HashMap<>();
+        Set<String> unnamed = new HashSet<>();
+        for (int i = 0; i < args.size(); i++) {
+            String param = superF.getArguments().get(i).getName();
+            argumentName(args.get(i)).ifPresentOrElse(a -> rename.put(param, a), () -> unnamed.add(param));
+        }
+        if (superF.getToStates().stream().anyMatch(to -> to.getVariableNames().stream().anyMatch(unnamed::contains)))
             return false;
-        List<ObjectState> states = renameStates(superF.getToStates(), superParamsToArguments(superF, call));
-        if (states == null)
-            return false;
-        f.setAllStates(states);
+        f.setAllStates(superF.getToStates().stream()
+                .map(to -> new ObjectState(null, rename.entrySet().stream().reduce(to,
+                        (p, r) -> p.substituteVariable(r.getKey(), r.getValue()), (p, q) -> p)))
+                .collect(Collectors.toList()));
         return true;
     }
 
-    /** The {@code super(...)} call that starts the body of {@code c}, or null if it does not start with one. */
-    private static CtInvocation<?> superConstructorCall(CtConstructor<?> c) {
-        if (c.getBody() == null || c.getBody().getStatements().isEmpty()
-                || !(c.getBody().getStatement(0)instanceof CtInvocation<?> call))
-            return null;
-        var exe = call.getExecutable();
-        if (exe == null || !exe.isConstructor() || exe.getDeclaringType() == null || c.getDeclaringType() == null
-                || exe.getDeclaringType().equals(c.getDeclaringType().getReference()))
-            return null; // not a super(...) call (this(...) delegates within the class)
-        return call;
+    /** How a state can refer to {@code arg}: by the caller's parameter name or a non-string literal's value. */
+    private static Optional<String> argumentName(CtExpression<?> arg) {
+        if (arg instanceof CtVariableRead<?> vr
+                && vr.getVariable() instanceof spoon.reflect.reference.CtParameterReference<?>)
+            return Optional.of(vr.getVariable().getSimpleName());
+        if (arg instanceof CtLiteral<?> lit && lit.getValue() != null && !(lit.getValue() instanceof String))
+            return Optional.of(lit.getValue().toString());
+        return Optional.empty();
     }
 
-    /** The specified constructor that {@code name(params)} of {@code type} ends up running, if one is known. */
-    private static RefinedFunction specifiedConstructor(TypeChecker tc, String name, CtTypeReference<?> type,
-            List<CtTypeReference<?>> params) {
-        for (CtTypeReference<?> t = type; t != null;) {
-            RefinedFunction f = tc.getContext().getFunction(name, t.getQualifiedName(), params);
+    /**
+     * JDK classes whose constructors all pass their arguments unchanged to the superclass constructor with the same
+     * parameter types (documented in their Javadoc), so a spec on that superclass constructor describes them too. Only
+     * these are walked through: other binary classes may not (e.g. {@code ClassNotFoundException(String)} sets a null
+     * cause), and assuming they did would hide real errors.
+     */
+    private static final Set<String> DELEGATING_JDK_CLASSES = Set.of("java.lang.Exception",
+            "java.lang.RuntimeException", "java.lang.Error");
+
+    /** The specified constructor that {@code exe} ends up running, if one is known. */
+    private static RefinedFunction specifiedConstructor(TypeChecker tc, CtExecutableReference<?> exe) {
+        for (CtTypeReference<?> t = exe.getDeclaringType(); t != null;) {
+            RefinedFunction f = tc.getContext().getFunction(exe.getSimpleName(), t.getQualifiedName(),
+                    exe.getParameters());
             if (f != null || !DELEGATING_JDK_CLASSES.contains(t.getQualifiedName()))
                 return f;
             try {
@@ -109,48 +119,6 @@ public class AuxStateHandler {
             }
         }
         return null;
-    }
-
-    /**
-     * Maps each parameter of the super constructor to the name of the argument {@code call} passes for it: a parameter
-     * of the calling constructor or a non-string literal, or null for any other expression.
-     */
-    private static Map<String, String> superParamsToArguments(RefinedFunction superF, CtInvocation<?> call) {
-        Map<String, String> rename = new HashMap<>();
-        for (int i = 0; i < call.getArguments().size(); i++) {
-            CtExpression<?> arg = call.getArguments().get(i);
-            String param = superF.getArguments().get(i).getName();
-            if (arg instanceof CtVariableRead<?> vr
-                    && vr.getVariable() instanceof spoon.reflect.reference.CtParameterReference<?>)
-                rename.put(param, vr.getVariable().getSimpleName());
-            else if (arg instanceof CtLiteral<?> lit && lit.getValue() != null && !(lit.getValue() instanceof String))
-                rename.put(param, lit.getValue().toString());
-            else
-                rename.put(param, null); // an argument we cannot name: usable only if the state ignores it
-        }
-        return rename;
-    }
-
-    /**
-     * The given states with the super constructor's parameters renamed, or null if one of them mentions a parameter
-     * whose argument has no name.
-     */
-    private static List<ObjectState> renameStates(List<Predicate> toStates, Map<String, String> rename) {
-        List<ObjectState> states = new ArrayList<>();
-        for (Predicate to : toStates) {
-            for (Map.Entry<String, String> r : rename.entrySet()) {
-                if (r.getValue() == null) {
-                    if (to.getVariableNames().contains(r.getKey()))
-                        return null;
-                } else {
-                    to = to.substituteVariable(r.getKey(), r.getValue());
-                }
-            }
-            ObjectState os = new ObjectState();
-            os.setTo(to);
-            states.add(os);
-        }
-        return states;
     }
 
     /**
