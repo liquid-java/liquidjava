@@ -16,6 +16,8 @@ public class Context {
     private List<AliasWrapper> aliases;
 
     private int counter;
+    // instances given to each variable while visiting the try statements being visited, innermost last
+    private final Deque<Map<Variable, List<VariableInstance>>> instanceRecorders = new ArrayDeque<>();
     private static Context instance;
 
     private Context() {
@@ -236,6 +238,19 @@ public class Context {
         ((Variable) vi1).addInstance((VariableInstance) vi2);
         ((VariableInstance) vi2).setParent((Variable) vi1);
         addInstanceVariable(vi2);
+        for (Map<Variable, List<VariableInstance>> recorder : instanceRecorders)
+            recorder.computeIfAbsent((Variable) vi1, v -> new ArrayList<>()).add((VariableInstance) vi2);
+    }
+
+    /**
+     * Starts recording the instances given to each variable, until the matching {@link #stopRecordingInstances()}
+     */
+    public void startRecordingInstances() {
+        instanceRecorders.push(new IdentityHashMap<>());
+    }
+
+    public Map<Variable, List<VariableInstance>> stopRecordingInstances() {
+        return instanceRecorders.pop();
     }
 
     public Optional<VariableInstance> getLastVariableInstance(String name) {
