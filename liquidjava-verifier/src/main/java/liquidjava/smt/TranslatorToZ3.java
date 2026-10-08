@@ -17,8 +17,10 @@ import com.microsoft.z3.Model;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.errors.LJError;
@@ -53,6 +55,8 @@ public class TranslatorToZ3 implements AutoCloseable {
      * appears symbolically in counterexample models.
      */
     private final List<BoolExpr> staticConstantAxioms = new ArrayList<>();
+    private final List<BoolExpr> referenceIdentityAxioms = new ArrayList<>();
+    private final Set<Set<String>> referenceIdentityPairs = new HashSet<>();
 
     public TranslatorToZ3(liquidjava.processor.context.Context context) {
         TranslatorContextToZ3.translateVariables(z3, context.getContext(), varTranslation);
@@ -66,6 +70,8 @@ public class TranslatorToZ3 implements AutoCloseable {
     public Solver makeSolverForExpression(Expr<?> e) {
         Solver solver = z3.mkSolver();
         for (BoolExpr axiom : staticConstantAxioms)
+            solver.add(axiom);
+        for (BoolExpr axiom : referenceIdentityAxioms)
             solver.add(axiom);
         solver.add((BoolExpr) e);
         return solver;
@@ -253,7 +259,66 @@ public class TranslatorToZ3 implements AutoCloseable {
             return z3.mkFPEq(toFP(e1), toFP(e2));
         if (e1 instanceof RealExpr || e2 instanceof RealExpr)
             return z3.mkEq(toReal(e1), toReal(e2));
+        if (isReference(e1) && isReference(e2))
+            addReferenceIdentityAxioms(e1, e2);
+        if (!e1.getSort().equals(e2.getSort()) && isReference(e1) && isReference(e2)) {
+            Expr<?> view = supertypeView(e2, e1.getSort());
+            if (view != null)
+                e2 = view;
+            else {
+                view = supertypeView(e1, e2.getSort());
+                if (view != null)
+                    e1 = view;
+            }
+        }
         return z3.mkEq(e1, e2);
+    }
+
+    private static boolean isReference(Expr<?> expression) {
+        return expression.getSort().getSortKind() == Z3_sort_kind.Z3_UNINTERPRETED_SORT;
+    }
+
+    private Expr<?> supertypeView(Expr<?> expression, Sort sort) {
+        String name = exprToNameTranslation.get(expression);
+        if (name == null)
+            return null;
+        for (Expr<?> view : varSuperTypes.getOrDefault(name, List.of()))
+            if (view.getSort().equals(sort))
+                return view;
+        return null;
+    }
+
+    /**
+     * Each reference has separate constants for its Java type views. Identity must agree across every shared view,
+     * including under negation: changing the view of an alias cannot change equality or inequality.
+     */
+    private void addReferenceIdentityAxioms(Expr<?> e1, Expr<?> e2) {
+        String name1 = exprToNameTranslation.get(e1);
+        String name2 = exprToNameTranslation.get(e2);
+        if (name1 == null || name2 == null || name1.equals(name2) || !referenceIdentityPairs.add(Set.of(name1, name2)))
+            return;
+        Map<Sort, Expr<?>> left = referenceViews(name1, e1);
+        Map<Sort, Expr<?>> right = referenceViews(name2, e2);
+        BoolExpr identity = null;
+        for (Map.Entry<Sort, Expr<?>> view : left.entrySet()) {
+            Expr<?> other = right.get(view.getKey());
+            if (other == null)
+                continue;
+            BoolExpr equality = z3.mkEq(view.getValue(), other);
+            if (identity == null)
+                identity = equality;
+            else
+                referenceIdentityAxioms.add(z3.mkEq(identity, equality));
+        }
+    }
+
+    private Map<Sort, Expr<?>> referenceViews(String name, Expr<?> nativeView) {
+        Map<Sort, Expr<?>> views = new HashMap<>();
+        views.put(nativeView.getSort(), nativeView);
+        for (Expr<?> view : varSuperTypes.getOrDefault(name, List.of()))
+            if (isReference(view))
+                views.put(view.getSort(), view);
+        return views;
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
