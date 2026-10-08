@@ -233,6 +233,8 @@ public class MethodsFunctionsChecker {
     // ################################
 
     public <R> void getInvocationRefinements(CtInvocation<R> invocation) throws LJError {
+        if (tryReceiverRefinements(invocation))
+            return;
         CtExecutable<?> method = invocation.getExecutable().getDeclaration();
         if (method == null) {
 
@@ -250,6 +252,23 @@ public class MethodsFunctionsChecker {
                         method.getSimpleName(), ctype, paramTypes);
             }
         }
+    }
+
+    private boolean tryReceiverRefinements(CtInvocation<?> invocation) throws LJError {
+        CtExpression<?> receiver = invocation.getTarget();
+        if (receiver == null || receiver.getType() == null)
+            return false;
+        String receiverType = receiver.getType().getQualifiedName();
+        CtExecutableReference<?> executable = invocation.getExecutable();
+        for (String key : List.of(Utils.qualifyName(receiverType, executable.getSignature()), executable.getSignature(),
+                executable.getSimpleName(), Utils.qualifyName(receiverType, executable.getSimpleName()))) {
+            if (rtc.getContext().getFunctionExact(key, receiverType, executable.getParameters()) != null) {
+                checkInvocationRefinements(invocation, invocation.getArguments(), receiver, key, receiverType,
+                        executable.getParameters());
+                return true;
+            }
+        }
+        return false;
     }
 
     private void searchMethodInLibrary(CtExecutableReference<?> ctr, CtInvocation<?> invocation) throws LJError {
