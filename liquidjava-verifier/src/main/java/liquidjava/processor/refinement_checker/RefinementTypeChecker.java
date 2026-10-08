@@ -50,11 +50,11 @@ import spoon.reflect.code.CtLoop;
 import spoon.reflect.code.CtNewArray;
 import spoon.reflect.code.CtNewClass;
 import spoon.reflect.code.CtOperatorAssignment;
-import spoon.reflect.code.CtResource;
 import spoon.reflect.code.CtReturn;
 import spoon.reflect.code.CtStatement;
 import spoon.reflect.code.CtThisAccess;
 import spoon.reflect.code.CtThrow;
+import spoon.reflect.code.CtTry;
 import spoon.reflect.code.CtTryWithResource;
 import spoon.reflect.code.CtUnaryOperator;
 import spoon.reflect.code.CtVariableAccess;
@@ -63,7 +63,6 @@ import spoon.reflect.code.CtVariableWrite;
 import spoon.reflect.code.CtWhile;
 import spoon.reflect.declaration.*;
 import spoon.reflect.factory.Factory;
-import spoon.reflect.reference.CtExecutableReference;
 import spoon.reflect.reference.CtFieldReference;
 import spoon.reflect.reference.CtTypeReference;
 import spoon.reflect.reference.CtVariableReference;
@@ -78,6 +77,7 @@ public class RefinementTypeChecker extends TypeChecker {
     // Auxiliary TypeCheckers
     OperationsChecker otc;
     MethodsFunctionsChecker mfc;
+    TryChecker tryChecker;
     Diagnostics diagnostics = Diagnostics.getInstance();
     ContextHistory contextHistory = ContextHistory.getInstance();
 
@@ -85,6 +85,7 @@ public class RefinementTypeChecker extends TypeChecker {
         super(context, factory);
         otc = new OperationsChecker(this);
         mfc = new MethodsFunctionsChecker(this);
+        tryChecker = new TryChecker(this, context, vcChecker, factory);
     }
 
     // --------------------- Visitors -----------------------------------
@@ -182,6 +183,10 @@ public class RefinementTypeChecker extends TypeChecker {
         // name with a local in scope, so a variable with the same name in the context is an out-of-scope local
         context.removeVarFromContext(catchVariable.getSimpleName());
         context.addVarToContext(catchVariable.getSimpleName(), catchVariable.getType(), new Predicate(), catchVariable);
+        // an instance lets refinements that refer to it outlive the catch block
+        String instanceName = String.format(Formats.INSTANCE, catchVariable.getSimpleName(), context.getCounter());
+        context.addInstanceToContext(instanceName, catchVariable.getType(), new Predicate(), catchVariable);
+        context.addRefinementInstanceToVariable(catchVariable.getSimpleName(), instanceName);
     }
 
     @Override
@@ -508,7 +513,7 @@ public class RefinementTypeChecker extends TypeChecker {
      * labeled {@code break}/{@code continue} targets, {@code try}/{@code catch}/{@code finally} flow, and infinite
      * loops such as {@code while (true)}. Extending this list only tightens precision.
      */
-    private boolean canCompleteNormally(CtStatement statement) {
+    boolean canCompleteNormally(CtStatement statement) {
         if (statement == null)
             return true;
         if (statement instanceof CtReturn<?> || statement instanceof CtThrow || statement instanceof CtBreak
@@ -529,34 +534,13 @@ public class RefinementTypeChecker extends TypeChecker {
     }
 
     @Override
-    public void visitCtTryWithResource(CtTryWithResource tryWithResource) {
-        // a resource is either a declaration (`try (R r = ...)`) or a reference to an existing variable (Java 9 `try
-        // (r)`)
-        List<CtResource<?>> resources = tryWithResource.getResources();
-        scan(resources);
-        scan(tryWithResource.getBody());
-
-        // the resources are closed when the body ends, in reverse order, before any catch or finally block runs
-        for (int i = resources.size() - 1; i >= 0; i--)
-            scan(createImplicitClose(resources.get(i), tryWithResource));
-        scan(tryWithResource.getCatchers());
-        scan(tryWithResource.getFinalizer());
+    public void visitCtTry(CtTry tryBlock) {
+        tryChecker.visitTry(tryBlock);
     }
 
-    /** Builds the {@code resource.close()} that Java inserts at the end of a try-with-resources block */
-    private CtInvocation<?> createImplicitClose(CtResource<?> resource, CtTryWithResource tryWithResource) {
-        CtExpression<?> target = resource instanceof CtLocalVariable<?> variable
-                ? factory.Code().createVariableRead(variable.getReference(), false)
-                : ((CtVariableRead<?>) resource).clone();
-        CtTypeReference<?> type = target.getType();
-        CtExecutableReference<?> close = type.getAllExecutables().stream()
-                .filter(e -> e.getSimpleName().equals("close") && e.getParameters().isEmpty()).findFirst()
-                .orElseGet(() -> factory.Executable().createReference(type, factory.Type().VOID_PRIMITIVE, "close"));
-        CtInvocation<?> invocation = factory.Code().createInvocation(target, close);
-        invocation.setParent(tryWithResource);
-        invocation.setPosition(resource.getPosition());
-        target.setPosition(resource.getPosition());
-        return invocation;
+    @Override
+    public void visitCtTryWithResource(CtTryWithResource tryWithResource) {
+        tryChecker.visitTry(tryWithResource);
     }
 
     @Override
