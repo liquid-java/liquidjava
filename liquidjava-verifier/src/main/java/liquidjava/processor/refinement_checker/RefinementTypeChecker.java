@@ -437,10 +437,9 @@ public class RefinementTypeChecker extends TypeChecker {
             if (access instanceof CtFieldAccess<?> || access.getType() == null || !access.getType().isPrimitive()
                     || declaration == null || declaration.hasParent(lambda))
                 continue;
-            CtExecutable<?> executable = declaration instanceof CtParameter<?> parameter
-                    ? parameter.getParent(CtExecutable.class) : declaration.getParent(CtExecutable.class);
-            if (executable == null || executable.getElements(new TypeFilter<>(CtVariableWrite.class)).stream()
-                    .anyMatch(write -> write.getVariable().getDeclaration() == declaration))
+            // Java requires captured locals and parameters to be final or effectively final, including blank
+            // locals assigned before capture. Their primitive values cannot change before invocation.
+            if (!(declaration instanceof CtLocalVariable<?> || declaration instanceof CtParameter<?>))
                 continue;
             names.add(access.getVariable().getSimpleName());
         }

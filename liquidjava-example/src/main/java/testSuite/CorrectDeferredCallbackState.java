@@ -89,4 +89,15 @@ class CorrectDeferredCallbackState {
         }
     }
 
+    void blankPrimitiveCaptureGuard(int input) {
+        int n;
+        n = input;
+        if (n > 0) {
+            Runnable later = () -> {
+                @Refinement("_ > 0") int positive = n;
+            };
+            @Refinement("_ > 0") int stillPositive = n;
+        }
+    }
+
 }
