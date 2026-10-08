@@ -2,6 +2,7 @@ package liquidjava.processor.refinement_checker;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import liquidjava.diagnostics.Diagnostics;
 import liquidjava.diagnostics.errors.LJError;
@@ -140,9 +141,34 @@ public class ExternalRefinementTypeChecker extends TypeChecker {
 
     private boolean methodExists(CtType<?> targetType, CtMethod<?> method) {
         // find method with matching signature
-        return targetType.getMethods().stream().filter(m -> m.getSimpleName().equals(method.getSimpleName()))
+        return inheritedMethods(targetType).filter(m -> m.getSimpleName().equals(method.getSimpleName()))
                 .anyMatch(m -> parametersMatch(m.getParameters(), method.getParameters())
                         && typesMatch(m.getType(), method.getType()));
+    }
+
+    /** Includes only methods that are declared on, or inherited by, the external target. */
+    private Stream<CtMethod<?>> inheritedMethods(CtType<?> targetType) {
+        return targetType.getAllMethods().stream().filter(method -> {
+            CtType<?> owner = method.getDeclaringType();
+            if (owner == null)
+                return false;
+            if (owner.getQualifiedName().equals(targetType.getQualifiedName()))
+                return true;
+            if (method.isPrivate() || owner instanceof CtInterface<?> && method.isStatic())
+                return false;
+            if (method.isPublic() || method.isProtected())
+                return true;
+            // A package-private method stops being inherited when a superclass crosses package boundaries.
+            CtType<?> current = targetType;
+            while (current != null && !current.getQualifiedName().equals(owner.getQualifiedName())) {
+                if (current.getPackage() == null || owner.getPackage() == null
+                        || !current.getPackage().getQualifiedName().equals(owner.getPackage().getQualifiedName()))
+                    return false;
+                CtTypeReference<?> parent = current.getSuperclass();
+                current = parent == null ? null : parent.getTypeDeclaration();
+            }
+            return current != null;
+        });
     }
 
     private boolean constructorExists(CtType<?> targetType, CtMethod<?> method) {
@@ -188,7 +214,7 @@ public class ExternalRefinementTypeChecker extends TypeChecker {
     }
 
     private String[] getOverloads(CtType<?> targetType, CtMethod<?> method) {
-        return targetType.getMethods().stream().filter(m -> m.getSimpleName().equals(method.getSimpleName()))
+        return inheritedMethods(targetType).filter(m -> m.getSimpleName().equals(method.getSimpleName()))
                 .map(m -> String.format("%s %s", m.getType().getSimpleName(), m.getSignature())).toArray(String[]::new);
     }
 }

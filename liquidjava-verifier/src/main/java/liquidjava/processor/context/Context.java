@@ -344,12 +344,18 @@ public class Context {
     }
 
     public RefinedFunction getFunction(String name, String target, List<CtTypeReference<?>> paramTypes) {
+        RefinedFunction exact = getFunctionExact(name, target, paramTypes);
+        return exact != null ? exact : getFunction(name, target, paramTypes.size());
+    }
+
+    /** Looks up a receiver-specific contract without selecting a different overload by arity. */
+    public RefinedFunction getFunctionExact(String name, String target, List<CtTypeReference<?>> paramTypes) {
         for (RefinedFunction fi : ctxFunctions) {
             if (fi.getTargetClass() != null && fi.getName().equals(name) && fi.getTargetClass().equals(target)
                     && argumentTypesMatch(fi.getArguments(), paramTypes))
                 return fi;
         }
-        return getFunction(name, target, paramTypes.size());
+        return null;
     }
 
     private boolean argumentTypesMatch(List<Variable> args, List<CtTypeReference<?>> paramTypes) {
