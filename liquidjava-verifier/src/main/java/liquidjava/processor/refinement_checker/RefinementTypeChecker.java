@@ -3,11 +3,8 @@ package liquidjava.processor.refinement_checker;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -64,8 +61,6 @@ import spoon.reflect.code.CtVariableAccess;
 import spoon.reflect.code.CtVariableRead;
 import spoon.reflect.code.CtVariableWrite;
 import spoon.reflect.code.CtWhile;
-import spoon.reflect.cu.CompilationUnit;
-import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.*;
 import spoon.reflect.factory.Factory;
 import spoon.reflect.reference.CtExecutableReference;
@@ -535,51 +530,32 @@ public class RefinementTypeChecker extends TypeChecker {
 
     @Override
     public void visitCtTryWithResource(CtTryWithResource tryWithResource) {
-        // A resource reference (Java 9 `try (r)`) is modelled by Spoon as an implicit copy of r's declaration,
-        // initializer included, and repeated once per earlier local with the same name, so it is not scanned (that
-        // would re-run the initializer) and is only closed once
-        Map<String, CtResource<?>> resources = new LinkedHashMap<>();
-        for (CtResource<?> resource : tryWithResource.getResources()) {
-            if (!resource.isImplicit())
-                scan(resource);
-            resources.put(resource.getSimpleName(), resource);
-        }
+        // a resource is either a declaration (`try (R r = ...)`) or a reference to an existing variable (Java 9 `try
+        // (r)`)
+        List<CtResource<?>> resources = tryWithResource.getResources();
+        scan(resources);
         scan(tryWithResource.getBody());
 
         // the resources are closed when the body ends, in reverse order, before any catch or finally block runs
-        List<CtResource<?>> toClose = new ArrayList<>(resources.values());
-        Collections.reverse(toClose);
-        for (CtResource<?> resource : toClose) {
-            SourcePosition position = resource.isImplicit() ? getHeaderPosition(tryWithResource)
-                    : resource.getPosition();
-            scan(createImplicitClose(resource, tryWithResource, position));
-        }
+        for (int i = resources.size() - 1; i >= 0; i--)
+            scan(createImplicitClose(resources.get(i), tryWithResource));
         scan(tryWithResource.getCatchers());
         scan(tryWithResource.getFinalizer());
     }
 
-    /** Position of {@code try (...)}, without the blocks */
-    private SourcePosition getHeaderPosition(CtTryWithResource tryWithResource) {
-        SourcePosition position = tryWithResource.getPosition();
-        CompilationUnit cu = position.getCompilationUnit();
-        int end = cu.getOriginalSourceCode().lastIndexOf(')', tryWithResource.getBody().getPosition().getSourceStart());
-        if (end < position.getSourceStart())
-            return position;
-        return factory.Core().createSourcePosition(cu, position.getSourceStart(), end, cu.getLineSeparatorPositions());
-    }
-
     /** Builds the {@code resource.close()} that Java inserts at the end of a try-with-resources block */
-    private CtInvocation<?> createImplicitClose(CtResource<?> resource, CtTryWithResource tryWithResource,
-            SourcePosition position) {
-        CtTypeReference<?> type = resource.getType();
+    private CtInvocation<?> createImplicitClose(CtResource<?> resource, CtTryWithResource tryWithResource) {
+        CtExpression<?> target = resource instanceof CtLocalVariable<?> variable
+                ? factory.Code().createVariableRead(variable.getReference(), false)
+                : ((CtVariableRead<?>) resource).clone();
+        CtTypeReference<?> type = target.getType();
         CtExecutableReference<?> close = type.getAllExecutables().stream()
                 .filter(e -> e.getSimpleName().equals("close") && e.getParameters().isEmpty()).findFirst()
                 .orElseGet(() -> factory.Executable().createReference(type, factory.Type().VOID_PRIMITIVE, "close"));
-        CtExpression<?> target = factory.Code().createVariableRead(resource.getReference(), false);
         CtInvocation<?> invocation = factory.Code().createInvocation(target, close);
         invocation.setParent(tryWithResource);
-        invocation.setPosition(position);
-        target.setPosition(position);
+        invocation.setPosition(resource.getPosition());
+        target.setPosition(resource.getPosition());
         return invocation;
     }
 
