@@ -19,6 +19,7 @@ import liquidjava.utils.constants.Types;
 import spoon.reflect.code.*;
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.*;
+import spoon.reflect.reference.CtExecutableReference;
 import spoon.reflect.reference.CtTypeReference;
 
 public class AuxStateHandler {
@@ -44,9 +45,80 @@ public class AuxStateHandler {
                 }
             }
             setConstructorStates(f, an, c);
-        } else {
+        } else if (!inheritSuperConstructorState(c, f, tc)) {
             setDefaultState(f, tc);
         }
+    }
+
+    /**
+     * An unannotated constructor whose body starts with {@code super(...)} leaves the object in the state that the
+     * called superclass constructor's specification gives it (e.g. {@code MyException(String m, Throwable c) { super(m,
+     * c); }} with the {@code Throwable(String, Throwable)} spec: {@code withThrowable(this)}). The super constructor's
+     * parameters are renamed to the arguments passed, which must be parameters of this constructor or literals.
+     *
+     * @return whether a state was inherited (otherwise the caller falls back to the default state)
+     */
+    private static boolean inheritSuperConstructorState(CtConstructor<?> c, RefinedFunction f, TypeChecker tc) {
+        CtStatement first = c.getBody() == null || c.getBody().getStatements().isEmpty() ? null
+                : c.getBody().getStatement(0);
+        if (!(first instanceof CtInvocation<?> call) || !call.getExecutable().isConstructor()
+                || c.getDeclaringType() == null
+                || c.getDeclaringType().getReference().equals(call.getExecutable().getDeclaringType()))
+            return false; // not a super(...) call (this(...) delegates within the class)
+        RefinedFunction superF = specifiedConstructor(tc, call.getExecutable());
+        List<CtExpression<?>> args = call.getArguments();
+        if (superF == null || superF.getToStates().isEmpty() || superF.getArguments().size() != args.size())
+            return false;
+
+        // rename each super parameter to the argument passed for it; a state may not mention an unnamed one
+        Map<String, String> rename = new HashMap<>();
+        Set<String> unnamed = new HashSet<>();
+        for (int i = 0; i < args.size(); i++) {
+            String param = superF.getArguments().get(i).getName();
+            argumentName(args.get(i)).ifPresentOrElse(a -> rename.put(param, a), () -> unnamed.add(param));
+        }
+        if (superF.getToStates().stream().anyMatch(to -> to.getVariableNames().stream().anyMatch(unnamed::contains)))
+            return false;
+        f.setAllStates(superF.getToStates().stream()
+                .map(to -> new ObjectState(null, rename.entrySet().stream().reduce(to,
+                        (p, r) -> p.substituteVariable(r.getKey(), r.getValue()), (p, q) -> p)))
+                .collect(Collectors.toList()));
+        return true;
+    }
+
+    /** How a state can refer to {@code arg}: by the caller's parameter name or a non-string literal's value. */
+    private static Optional<String> argumentName(CtExpression<?> arg) {
+        if (arg instanceof CtVariableRead<?> vr
+                && vr.getVariable() instanceof spoon.reflect.reference.CtParameterReference<?>)
+            return Optional.of(vr.getVariable().getSimpleName());
+        if (arg instanceof CtLiteral<?> lit && lit.getValue() != null && !(lit.getValue() instanceof String))
+            return Optional.of(lit.getValue().toString());
+        return Optional.empty();
+    }
+
+    /**
+     * JDK classes whose constructors all pass their arguments unchanged to the superclass constructor with the same
+     * parameter types (documented in their Javadoc), so a spec on that superclass constructor describes them too. Only
+     * these are walked through: other binary classes may not (e.g. {@code ClassNotFoundException(String)} sets a null
+     * cause), and assuming they did would hide real errors.
+     */
+    private static final Set<String> DELEGATING_JDK_CLASSES = Set.of("java.lang.Exception",
+            "java.lang.RuntimeException", "java.lang.Error");
+
+    /** The specified constructor that {@code exe} ends up running, if one is known. */
+    private static RefinedFunction specifiedConstructor(TypeChecker tc, CtExecutableReference<?> exe) {
+        for (CtTypeReference<?> t = exe.getDeclaringType(); t != null;) {
+            RefinedFunction f = tc.getContext().getFunction(exe.getSimpleName(), t.getQualifiedName(),
+                    exe.getParameters());
+            if (f != null || !DELEGATING_JDK_CLASSES.contains(t.getQualifiedName()))
+                return f;
+            try {
+                t = t.getSuperclass();
+            } catch (RuntimeException | LinkageError e) {
+                return null;
+            }
+        }
+        return null;
     }
 
     /**

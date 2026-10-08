@@ -37,12 +37,14 @@ public class RefinementProcessor extends AbstractProcessor<CtPackage> {
 
     private void processPackage(CtPackage pkg, Context c) {
         try {
-            // first pass: gather refinements
-            pkg.getTypes().forEach(type -> {
-                type.accept(new FieldGhostsGeneration(c, factory));
-                type.accept(new ExternalRefinementTypeChecker(c, factory));
-                type.accept(new MethodsFirstChecker(c, factory));
-            });
+            // first pass: gather refinements. External specifications are registered for every type before any class's
+            // own methods and constructors, which may rely on them (an unannotated constructor inherits the state of
+            // the
+            // specified super constructor it calls; an override is checked against its supertype's spec), whatever the
+            // order of the types in the package.
+            pkg.getTypes().forEach(type -> type.accept(new FieldGhostsGeneration(c, factory)));
+            pkg.getTypes().forEach(type -> type.accept(new ExternalRefinementTypeChecker(c, factory)));
+            pkg.getTypes().forEach(type -> type.accept(new MethodsFirstChecker(c, factory)));
 
             // second pass: check refinements
             pkg.getTypes().forEach(type -> {

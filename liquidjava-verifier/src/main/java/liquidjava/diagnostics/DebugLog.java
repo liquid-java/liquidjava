@@ -29,12 +29,24 @@ public final class DebugLog {
     private static final String SMT_TAG = Colors.BLUE + "[SMT]" + Colors.RESET;
     private static final String SMT_CHECK = Colors.SALMON + "[SMT CHECK]" + Colors.RESET;
     private static final String SMP_TAG = Colors.YELLOW + "[SMP]" + Colors.RESET;
+    private static final String WARN_TAG = Colors.SALMON + "[WARN]" + Colors.RESET;
 
     private DebugLog() {
     }
 
     public static boolean enabled() {
         return CommandLineLauncher.cmdArgs.debugMode;
+    }
+
+    /**
+     * A non-fatal problem the verifier worked around (e.g. a supertype it could not resolve), which may explain a
+     * missing or unexpected result.
+     */
+    public static void warn(String message) {
+        if (!enabled()) {
+            return;
+        }
+        System.out.println(WARN_TAG + " " + message);
     }
 
     /**

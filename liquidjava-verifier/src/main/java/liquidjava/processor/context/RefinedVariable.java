@@ -1,8 +1,11 @@
 package liquidjava.processor.context;
 
 import java.util.ArrayList;
+import java.util.Deque;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
+import liquidjava.diagnostics.DebugLog;
 import liquidjava.rj_language.Predicate;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.reference.CtTypeReference;
@@ -27,12 +30,29 @@ public abstract class RefinedVariable extends Refined {
         return supertypes;
     }
 
+    /**
+     * Records the given superclass and interfaces and, transitively, all of theirs: a spec written for an indirect
+     * supertype must also apply to this variable (e.g. the {@code Throwable} spec on an {@code IOException}, whose
+     * direct superclass is {@code Exception}).
+     */
     public void addSuperTypes(CtTypeReference<?> ts, Set<CtTypeReference<?>> sts) {
-        if (ts != null && !supertypes.contains(ts))
-            supertypes.add(ts);
-        for (CtTypeReference<?> ct : sts)
-            if (ct != null && !supertypes.contains(ct))
-                supertypes.add(ct);
+        // LinkedList, unlike ArrayDeque, accepts the nulls of a missing superclass, skipped when polled
+        Deque<CtTypeReference<?>> todo = new LinkedList<>(sts);
+        todo.addFirst(ts);
+        while (!todo.isEmpty()) {
+            CtTypeReference<?> t = todo.poll();
+            if (t == null || supertypes.contains(t))
+                continue;
+            supertypes.add(t);
+            try {
+                todo.add(t.getSuperclass());
+                todo.addAll(t.getSuperInterfaces());
+            } catch (RuntimeException | LinkageError e) {
+                // a supertype that cannot be resolved (no source, not on the classpath) ends the walk on that branch
+                DebugLog.warn("Could not resolve the supertypes of " + t.getQualifiedName()
+                        + "; specs declared above it will not apply to " + getName() + " (" + e + ")");
+            }
+        }
     }
 
     public void setPlacementInCode(CtElement element) {
