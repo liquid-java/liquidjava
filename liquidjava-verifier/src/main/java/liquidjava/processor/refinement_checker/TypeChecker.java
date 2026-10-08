@@ -71,7 +71,9 @@ public abstract class TypeChecker extends CtScanner {
             throw e;
         } catch (RuntimeException e) {
             SourcePosition position = element.getPosition();
-            String location = position.getFile().getAbsolutePath() + ":" + position.getLine();
+            String location = position.isValidPosition() && position.getFile() != null
+                    ? position.getFile().getAbsolutePath() + ":" + position.getLine()
+                    : "(no source position: " + element.getClass().getSimpleName() + ")";
             String expression = Utils.getExpressionFromPosition(position);
             String msg = String.format("\nError while checking %s\n  on %s \n  at %s\n  with %s",
                     element.getClass().getSimpleName(), expression, location, e.getMessage());

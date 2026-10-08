@@ -17,6 +17,7 @@ import spoon.reflect.code.CtLiteral;
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.CtAnnotation;
 import spoon.reflect.declaration.CtClass;
+import spoon.reflect.declaration.CtRecord;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtField;
 import spoon.reflect.declaration.CtInterface;
@@ -37,6 +38,11 @@ public class ExternalRefinementTypeChecker extends TypeChecker {
 
     @Override
     public <T> void visitCtClass(CtClass<T> ctClass) {
+    }
+
+    @Override
+    public void visitCtRecord(CtRecord ctRecord) {
+        // records are user code, like classes: external specs are only read from interfaces
     }
 
     @Override
