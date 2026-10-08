@@ -406,46 +406,27 @@ public class RefinementTypeChecker extends TypeChecker {
         Predicate expRefs = getExpressionRefinements(exp);
 
         String pathVarName = String.format(Formats.FRESH, context.getCounter());
-        RefinedVariable freshRV;
+        // A value refinement constrains the result of evaluating the expression; it is not
+        // itself the truth value selecting the branch. Calls without a wildcard likewise
+        // provide no information about their boolean result.
+        boolean valueIsCondition = expRefs.getVariableNames().contains(Keys.WILDCARD) || exp instanceof CtInvocation<?>
+                || isUninformativeCondition(expRefs, exp);
+        expRefs = expRefs.substituteVariable(Keys.WILDCARD, pathVarName);
+        Predicate lastExpRefs = substituteAllVariablesForLastInstance(expRefs);
+        expRefs = Predicate.createConjunction(expRefs, lastExpRefs);
 
-        // When the condition's predicate uses Keys.WILDCARD as a stand-in for its boolean value (e.g. _ == true -->
-        // state(this) or _ == k), the fresh path variable IS that value — assert it true in the then branch and false
-        // in the else, since negating the whole predicate is unsound for implications and equality forms.
-        boolean valueIsCondition = false;
-        Predicate thenRefs;
-        Predicate elseRefs;
-        if (isUninformativeCondition(expRefs, exp)) {
-            // No refinement means the condition is unknown, not true: model it as a fresh
-            // boolean so the SMT solver may pick either truth value for each branch.
-            expRefs = Predicate.createVar(pathVarName);
-            thenRefs = expRefs;
-            elseRefs = expRefs.negate();
-            freshRV = context.addInstanceToContext(pathVarName, factory.Type().BOOLEAN_PRIMITIVE, new Predicate(), exp);
-        } else {
-            valueIsCondition = expRefs.getVariableNames().contains(Keys.WILDCARD);
-            expRefs = expRefs.substituteVariable(Keys.WILDCARD, pathVarName);
-            Predicate lastExpRefs = substituteAllVariablesForLastInstance(expRefs);
-            expRefs = Predicate.createConjunction(expRefs, lastExpRefs);
-
-            // TODO Change in future
-            if (expRefs.getVariableNames().contains("null")) {
-                expRefs = new Predicate();
-                valueIsCondition = false;
-            }
-
-            thenRefs = expRefs;
-            elseRefs = expRefs.negate();
-            if (valueIsCondition) {
-                Predicate freshIsTrue = Predicate.createEquals(Predicate.createVar(pathVarName),
-                        Predicate.createLit("true", Types.BOOLEAN));
-                Predicate freshIsFalse = Predicate.createEquals(Predicate.createVar(pathVarName),
-                        Predicate.createLit("false", Types.BOOLEAN));
-                thenRefs = Predicate.createConjunction(expRefs, freshIsTrue);
-                elseRefs = Predicate.createConjunction(expRefs, freshIsFalse);
-            }
-
-            freshRV = context.addInstanceToContext(pathVarName, factory.Type().BOOLEAN_PRIMITIVE, thenRefs, exp);
+        // TODO Change in future
+        if (expRefs.getVariableNames().contains("null")) {
+            expRefs = new Predicate();
+            valueIsCondition = true;
         }
+
+        Predicate branchGuard = valueIsCondition ? Predicate.createVar(pathVarName) : expRefs;
+        Predicate thenRefs = valueIsCondition ? Predicate.createConjunction(expRefs, branchGuard) : branchGuard;
+        Predicate elseRefs = valueIsCondition ? Predicate.createConjunction(expRefs, branchGuard.negate())
+                : branchGuard.negate();
+        RefinedVariable freshRV = context.addInstanceToContext(pathVarName, factory.Type().BOOLEAN_PRIMITIVE, thenRefs,
+                exp);
         vcChecker.addPathVariable(freshRV);
 
         context.variablesNewIfCombination();
@@ -488,7 +469,7 @@ public class RefinementTypeChecker extends TypeChecker {
             context.newRefinementToVariableInContext(pathVarName, thenCompletes ? thenRefs : elseRefs);
         }
         context.exitContext();
-        context.variablesCombineFromIf(expRefs);
+        context.variablesCombineFromIf(branchGuard);
         context.variablesFinishIfCombination();
     }
 
