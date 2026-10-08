@@ -214,7 +214,9 @@ public class RefinementTypeChecker extends TypeChecker {
     @Override
     public <T> void visitCtThisAccess(CtThisAccess<T> thisAccess) {
         super.visitCtThisAccess(thisAccess);
-        CtClass<?> c = thisAccess.getParent(CtClass.class);
+        CtType<?> c = thisAccess.getParent(CtType.class);
+        if (c == null)
+            return;
         String s = c.getSimpleName();
         if (thisAccess.getParent() instanceof CtReturn) {
             String thisName = String.format(Formats.THIS, s);
