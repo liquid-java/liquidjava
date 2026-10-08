@@ -32,6 +32,7 @@ import spoon.reflect.declaration.CtExecutable;
 import spoon.reflect.declaration.CtInterface;
 import spoon.reflect.declaration.CtMethod;
 import spoon.reflect.declaration.CtParameter;
+import spoon.reflect.declaration.CtType;
 import spoon.reflect.reference.CtExecutableReference;
 import spoon.reflect.reference.CtTypeReference;
 
@@ -188,23 +189,31 @@ public class MethodsFunctionsChecker {
     }
 
     public <R> void getReturnRefinements(CtReturn<R> ret) throws LJError {
-        CtClass<?> c = ret.getParent(CtClass.class);
-        String className = c.getSimpleName();
         if (ret.getReturnedExpression() == null) {
             return;
         }
 
+        // A return in a lambda belongs to that lambda, even when it is nested in a method.
+        // Looking for any enclosing CtMethod would check it against the outer method's contract.
+        CtExecutable<?> executable = ret.getParent(CtExecutable.class);
+        if (!(executable instanceof CtMethod<?> method))
+            return;
+        CtType<?> owner = method.getDeclaringType();
+        if (owner == null)
+            return;
+
         // check if there are refinements
         if (rtc.getRefinement(ret.getReturnedExpression()) == null)
             ret.getReturnedExpression().putMetadata(Keys.REFINEMENT, new Predicate());
-        CtMethod<?> method = ret.getParent(CtMethod.class);
-
         // check if method has refinements
-        if (rtc.getRefinement(method) == null || !(method.getParent() instanceof CtClass))
+        if (rtc.getRefinement(method) == null)
             return;
 
-        RefinedFunction fi = rtc.getContext().getFunction(method.getSimpleName(),
-                ((CtClass<?>) method.getParent()).getQualifiedName(), method.getParameters().size());
+        List<CtTypeReference<?>> parameterTypes = new ArrayList<>();
+        for (CtParameter<?> parameter : method.getParameters())
+            parameterTypes.add(parameter.getType());
+        RefinedFunction fi = rtc.getContext().getFunction(method.getSimpleName(), owner.getQualifiedName(),
+                parameterTypes);
         if (fi == null)
             return;
 
@@ -214,8 +223,8 @@ public class MethodsFunctionsChecker {
         }
 
         // Both return and the method have metadata
-        String thisName = String.format(Formats.THIS, className);
-        rtc.getContext().addInstanceToContext(thisName, c.getReference(), new Predicate(), ret);
+        String thisName = String.format(Formats.THIS, owner.getSimpleName());
+        rtc.getContext().addInstanceToContext(thisName, owner.getReference(), new Predicate(), ret);
 
         String returnVarName = String.format(Formats.RET, rtc.getContext().getCounter());
         Predicate cretRef = rtc.getRefinement(ret.getReturnedExpression())
@@ -241,8 +250,8 @@ public class MethodsFunctionsChecker {
             if (cte != null)
                 searchMethodInLibrary(cte, invocation);
 
-        } else if (method.getParent() instanceof CtClass) {
-            String ctype = ((CtClass<?>) method.getParent()).getQualifiedName();
+        } else if (method.getParent()instanceof CtType<?> owner) {
+            String ctype = owner.getQualifiedName();
             List<CtTypeReference<?>> paramTypes = invocation.getExecutable().getParameters();
             RefinedFunction f = rtc.getContext().getFunction(method.getSimpleName(), ctype, paramTypes);
             if (f != null) { // inside rtc.context
