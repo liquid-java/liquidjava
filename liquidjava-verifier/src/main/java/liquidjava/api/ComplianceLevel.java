@@ -14,12 +14,15 @@ import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
  */
 public final class ComplianceLevel {
 
-    /** Highest level accepted by Spoon 10.4.2 (JDT 3.33), also used when no pom declares one */
-    public static final int MAX_SUPPORTED = 19;
+    /** Highest level accepted by Spoon 11.5.0 (JDT 3.46) */
+    public static final int MAX_SUPPORTED = 26;
+
+    /** Level used when no pom declares one */
+    public static final int DEFAULT = 21;
 
     public static int resolve(String... paths) {
         return Arrays.stream(paths).map(path -> fromPom(new File(path).getAbsoluteFile())).flatMap(Optional::stream)
-                .max(Integer::compare).map(level -> Math.min(level, MAX_SUPPORTED)).orElse(MAX_SUPPORTED);
+                .max(Integer::compare).map(level -> Math.min(level, MAX_SUPPORTED)).orElse(DEFAULT);
     }
 
     private static Optional<Integer> fromPom(File path) {
