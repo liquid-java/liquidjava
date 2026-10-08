@@ -168,4 +168,22 @@ public class Test {
         @Refinement("_ > 0")
         int z = x; // Expect: Refinement Error
     }
+
+    static void drop(int i) throws StoreException {
+        throw new StoreException("cannot drop " + i, new RuntimeException());
+    }
+
+    // a caught exception may already carry its cause (Apache Derby, DERBY-2472, fixed in 1870e8fa:
+    // chaining with initCause threw "Can't overwrite cause")
+    static void chainCaughtExceptions() throws StoreException {
+        StoreException top = null;
+        for (int i = 0; i < 2; i++) {
+            try {
+                drop(i);
+            } catch (StoreException e) {
+                e.initCause(top); // Expect: State Refinement Error
+                top = e;
+            }
+        }
+    }
 }
