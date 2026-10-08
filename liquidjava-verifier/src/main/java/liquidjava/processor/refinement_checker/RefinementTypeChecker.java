@@ -604,13 +604,17 @@ public class RefinementTypeChecker extends TypeChecker {
                 loop.getElements(new TypeFilter<CtVariableWrite<?>>(CtVariableWrite.class)));
         List<CtAbstractInvocation<?>> calls = loop
                 .getElements(new TypeFilter<CtAbstractInvocation<?>>(CtAbstractInvocation.class));
-        for (CtAbstractInvocation<?> call : calls) {
-            if (call instanceof CtInvocation<?> inv && inv.getTarget()instanceof CtVariableAccess<?> target
-                    && context.getAllMethodsWithNameSize(inv.getExecutable().getSimpleName(), inv.getArguments().size())
-                            .stream().anyMatch(f -> f.getAllStates().stream().anyMatch(ObjectState::hasTo)))
-                changed.add(target);
-        }
         Set<String> names = new LinkedHashSet<>();
+        for (CtAbstractInvocation<?> call : calls) {
+            if (call instanceof CtInvocation<?> inv
+                    && context.getAllMethodsWithNameSize(inv.getExecutable().getSimpleName(), inv.getArguments().size())
+                            .stream().anyMatch(f -> f.getAllStates().stream().anyMatch(ObjectState::hasTo))) {
+                if (inv.getTarget()instanceof CtVariableAccess<?> target)
+                    changed.add(target);
+                else if (inv.getTarget() != null && AuxStateHandler.isCurrentReceiver(inv.getTarget()))
+                    names.add(Keys.THIS);
+            }
+        }
         for (CtVariableAccess<?> access : changed) {
             CtVariable<?> declaration = access.getVariable().getDeclaration();
             if (declaration != null && declaration.hasParent(loop.getBody()))
