@@ -19,6 +19,7 @@ import liquidjava.rj_language.Predicate;
 import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Formats;
 import liquidjava.utils.constants.Keys;
+import liquidjava.utils.constants.Types;
 import spoon.reflect.code.CtConstructorCall;
 import spoon.reflect.code.CtExpression;
 import spoon.reflect.code.CtFieldRead;
@@ -445,6 +446,19 @@ public class MethodsFunctionsChecker {
                 List<Variable> lv = fi.getArguments();
                 for (Variable v : lv)
                     rtc.getContext().addVarToContext(v);
+            }
+            if (method instanceof CtMethod<?> instanceMethod && !instanceMethod.isStatic()) {
+                // The contract describes the entry state, not an invariant of every intermediate receiver state.
+                Predicate entry = fi == null || fi.getAllStates().isEmpty() ? new Predicate() : fi.getFromStates()
+                        .stream().reduce(Predicate.createLit("false", Types.BOOLEAN), Predicate::createDisjunction);
+                CtTypeReference<?> receiverType = rtc.getFactory().Type().createReference(className);
+                RefinedVariable receiver = rtc.getContext().addVarToContext(Keys.THIS, receiverType, new Predicate(),
+                        method);
+                receiver.addSuperTypes(receiverType.getSuperclass(), receiverType.getSuperInterfaces());
+                String instanceName = String.format(Formats.INSTANCE, Keys.THIS, rtc.getContext().getCounter());
+                rtc.getContext().addInstanceToContext(instanceName, receiverType,
+                        entry.substituteVariable(Keys.THIS, instanceName), method);
+                rtc.getContext().addRefinementInstanceToVariable(Keys.THIS, instanceName);
             }
         }
     }

@@ -564,8 +564,28 @@ public class AuxStateHandler {
                 .substituteVariable(name, instanceName);
 
         boolean found = false;
+        boolean preservesState = stateChanges.stream().noneMatch(ObjectState::hasTo);
+        if (preservesState) {
+            // A state-preserving call accepts any of its entry states, including a disjunction of them.
+            Predicate expected = stateChanges.stream().filter(ObjectState::hasFrom).map(ObjectState::getFrom)
+                    .reduce(Predicate.createLit("false", Types.BOOLEAN), Predicate::createDisjunction)
+                    .substituteVariable(Keys.THIS, instanceName);
+            Predicate previous = prevState;
+            for (String parameter : map.keySet()) {
+                previous = previous.substituteVariable(parameter, map.get(parameter));
+                expected = expected.substituteVariable(parameter, map.get(parameter));
+            }
+            expected = expected.changeOldMentions(vi.getName(), instanceName);
+            try {
+                found = tc.checkStateSMT(previous, expected, invocation.getPosition());
+            } catch (SMTUnknownError error) {
+                error.setDeclarationPosition(stateChanges.stream().map(ObjectState::getFromPosition)
+                        .filter(Objects::nonNull).findFirst().orElse(function.getPlacementInCode().getPosition()));
+                throw error;
+            }
+        }
         for (ObjectState stateChange : stateChanges) { // TODO: only working for 1 state annotation
-            if (found)
+            if (found || preservesState)
                 break;
             if (!stateChange.hasFrom())
                 continue;
@@ -679,6 +699,18 @@ public class AuxStateHandler {
         invocation.putMetadata(Keys.TARGET, vi2);
     }
 
+    /** Whether the access denotes the receiver of the enclosing type, including unqualified super. */
+    public static boolean isCurrentReceiver(CtElement target) {
+        CtType<?> owner = target.getParent(CtType.class);
+        if (owner == null)
+            return false;
+        if (target instanceof CtThisAccess<?> self)
+            return self.getType() != null && self.getType().getQualifiedName().equals(owner.getQualifiedName());
+        if (target instanceof CtSuperAccess<?> parent)
+            return parent.getTarget() == null || parent.getTarget().isImplicit();
+        return false;
+    }
+
     /**
      * Gets the name of the parent target and adds the closest target to the elem TARGET metadata
      *
@@ -687,10 +719,10 @@ public class AuxStateHandler {
      * @return the name of the parent target
      */
     public static String prepareInvocationTarget(TypeChecker tc, CtElement target2, CtElement invocation) {
-        if (target2 instanceof CtVariableRead<?> v) {
+        if (target2 instanceof CtVariableRead<?> || isCurrentReceiver(target2)) {
             // v--------- field read
             // means invocation is in a form of `t.method(args)`
-            String name = v.getVariable().getSimpleName();
+            String name = target2 instanceof CtVariableRead<?> v ? v.getVariable().getSimpleName() : Keys.THIS;
             if (target2 instanceof CtFieldRead<?> fieldRead && fieldRead.getTarget() instanceof CtThisAccess<?>) {
                 String fieldName = Utils.qualifyFieldName(fieldRead.getVariable());
                 if (tc.getContext().hasVariable(fieldName))
