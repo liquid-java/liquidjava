@@ -17,7 +17,7 @@ public class Context {
 
     private int counter;
     // instances given to each variable while visiting the try statements being visited, innermost last
-    private final Deque<Map<Variable, List<VariableInstance>>> instanceRecorders = new ArrayDeque<>();
+    private Deque<Map<Variable, List<VariableInstance>>> instanceRecorders = new ArrayDeque<>();
     private static Context instance;
 
     private Context() {
@@ -58,6 +58,50 @@ public class Context {
     public void exitClassScope(ClassScope scope) {
         ctxVars = scope.variables;
         ctxInstanceVars = scope.instances;
+    }
+
+    /** Keeps captures visible without applying a deferred body's assignments to its enclosing execution. */
+    public DeferredScope enterDeferredScope() {
+        DeferredScope scope = new DeferredScope(ctxVars, ctxInstanceVars, instanceRecorders);
+        ctxVars = new Stack<>();
+        for (List<RefinedVariable> variables : scope.variables) {
+            ctxVars.add(new ArrayList<>(variables));
+            for (RefinedVariable variable : variables) {
+                scope.refinements.putIfAbsent(variable, variable.getMainRefinement());
+                if (variable instanceof Variable v)
+                    scope.variableScopes.computeIfAbsent(v, Variable::enterDeferredScope);
+            }
+        }
+        for (RefinedVariable instance : scope.instances)
+            scope.refinements.putIfAbsent(instance, instance.getMainRefinement());
+        ctxInstanceVars = new ArrayList<>(scope.instances);
+        // Try statements inside the body still record locally; enclosing tries must not see deferred transitions.
+        instanceRecorders = new ArrayDeque<>();
+        enterContext();
+        return scope;
+    }
+
+    public void exitDeferredScope(DeferredScope scope) {
+        scope.variableScopes.forEach(Variable::exitDeferredScope);
+        scope.refinements.forEach(RefinedVariable::setRefinement);
+        ctxVars = scope.variables;
+        ctxInstanceVars = scope.instances;
+        instanceRecorders = scope.recorders;
+    }
+
+    public static class DeferredScope {
+        private final Stack<List<RefinedVariable>> variables;
+        private final List<RefinedVariable> instances;
+        private final Deque<Map<Variable, List<VariableInstance>>> recorders;
+        private final Map<Variable, Variable.DeferredScope> variableScopes = new IdentityHashMap<>();
+        private final Map<RefinedVariable, Predicate> refinements = new IdentityHashMap<>();
+
+        private DeferredScope(Stack<List<RefinedVariable>> variables, List<RefinedVariable> instances,
+                Deque<Map<Variable, List<VariableInstance>>> recorders) {
+            this.variables = variables;
+            this.instances = instances;
+            this.recorders = recorders;
+        }
     }
 
     public static class ClassScope {
