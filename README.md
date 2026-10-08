@@ -61,6 +61,12 @@ socket.sendUrgentData(1); // State Refinement Error
 socket.close();
 ```
 
+Lambda bodies are checked separately from the code that creates them. Creating a lambda does not apply its state
+transitions to captured objects. While checking the body, LiquidJava keeps declared refinements but forgets the current
+state of mutable captures, since that state may change before invocation. Callback execution summaries are not supported:
+a call such as `listener.run()` does not apply the lambda body's effects to its captures. Explicit return statements in
+lambdas and state checks on captured `this`/`super` receivers also have incomplete contract handling.
+
 ### Ghosts
 
 Finally, LiquidJava also provides ghost variables that are used to track additional information about the program state with the `@Ghost` annotation. These are also updated through the `@StateRefinement` annotation.

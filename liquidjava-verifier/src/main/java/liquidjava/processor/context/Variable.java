@@ -69,6 +69,30 @@ public class Variable extends RefinedVariable {
         instances.pop();
     }
 
+    /** Isolates assignments and branch joins while a deferred body is checked. */
+    DeferredScope enterDeferredScope() {
+        DeferredScope scope = new DeferredScope(instances, ifCombiner);
+        instances = new Stack<>();
+        instances.addAll(scope.instances);
+        ifCombiner = new Stack<>();
+        return scope;
+    }
+
+    void exitDeferredScope(DeferredScope scope) {
+        instances = scope.instances;
+        ifCombiner = scope.ifCombiner;
+    }
+
+    static class DeferredScope {
+        private final Stack<List<VariableInstance>> instances;
+        private final Stack<Object[]> ifCombiner;
+
+        private DeferredScope(Stack<List<VariableInstance>> instances, Stack<Object[]> ifCombiner) {
+            this.instances = instances;
+            this.ifCombiner = ifCombiner;
+        }
+    }
+
     public void addInstance(VariableInstance vi) {
         instances.peek().add(vi);
     }

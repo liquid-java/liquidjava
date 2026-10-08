@@ -371,6 +371,12 @@ public class VCChecker {
         pathVariables.retainAll(saved);
     }
 
+    /** Restores an enclosing execution after checking a deferred body, including facts removed by that body. */
+    void replacePathVariables(List<RefinedVariable> saved) {
+        pathVariables.clear();
+        pathVariables.addAll(saved);
+    }
+
     void removePathVariableThatIncludes(String otherVar) {
         pathVariables.stream().filter(rv -> rv.getRefinement().getVariableNames().contains(otherVar)).toList()
                 .forEach(pathVariables::remove);

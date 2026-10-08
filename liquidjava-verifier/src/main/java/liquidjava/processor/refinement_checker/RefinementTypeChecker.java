@@ -44,6 +44,7 @@ import spoon.reflect.code.CtFor;
 import spoon.reflect.code.CtForEach;
 import spoon.reflect.code.CtIf;
 import spoon.reflect.code.CtInvocation;
+import spoon.reflect.code.CtLambda;
 import spoon.reflect.code.CtLiteral;
 import spoon.reflect.code.CtLocalVariable;
 import spoon.reflect.code.CtLoop;
@@ -52,6 +53,7 @@ import spoon.reflect.code.CtNewClass;
 import spoon.reflect.code.CtOperatorAssignment;
 import spoon.reflect.code.CtReturn;
 import spoon.reflect.code.CtStatement;
+import spoon.reflect.code.CtSuperAccess;
 import spoon.reflect.code.CtThisAccess;
 import spoon.reflect.code.CtThrow;
 import spoon.reflect.code.CtTry;
@@ -398,6 +400,87 @@ public class RefinementTypeChecker extends TypeChecker {
     public <R> void visitCtReturn(CtReturn<R> ret) {
         super.visitCtReturn(ret);
         mfc.getReturnRefinements(ret);
+    }
+
+    @Override
+    public <T> void visitCtLambda(CtLambda<T> lambda) {
+        Context.DeferredScope scope = context.enterDeferredScope();
+        List<RefinedVariable> pathVariables = vcChecker.getPathVariables();
+        try {
+            // Only facts about immutable primitive captures survive until an unknown later invocation.
+            Set<String> immutableNames = immutableLambdaCaptureNames(lambda);
+            vcChecker
+                    .replacePathVariables(pathVariables.stream()
+                            .filter(path -> path.getRefinement().getVariableNames().stream()
+                                    .allMatch(name -> name.equals(path.getName()) || immutableNames.contains(name)))
+                            .toList());
+            havocLambdaCaptures(lambda);
+            for (CtParameter<?> parameter : lambda.getParameters()) {
+                Predicate declared = getRefinementFromAnnotation(parameter).orElseGet(Predicate::new)
+                        .substituteVariable(Keys.WILDCARD, parameter.getSimpleName());
+                context.addVarToContext(parameter.getSimpleName(), parameter.getType(), declared, parameter);
+            }
+            super.visitCtLambda(lambda);
+        } catch (LJError e) {
+            diagnostics.add(e);
+        } finally {
+            context.exitDeferredScope(scope);
+            vcChecker.replacePathVariables(pathVariables);
+        }
+    }
+
+    private Set<String> immutableLambdaCaptureNames(CtLambda<?> lambda) {
+        Set<String> names = new LinkedHashSet<>();
+        for (CtVariableAccess<?> access : lambda
+                .getElements(new TypeFilter<CtVariableAccess<?>>(CtVariableAccess.class))) {
+            CtVariable<?> declaration = access.getVariable().getDeclaration();
+            if (access instanceof CtFieldAccess<?> || access.getType() == null || !access.getType().isPrimitive()
+                    || declaration == null || declaration.hasParent(lambda))
+                continue;
+            CtExecutable<?> executable = declaration instanceof CtParameter<?> parameter
+                    ? parameter.getParent(CtExecutable.class) : declaration.getParent(CtExecutable.class);
+            if (executable == null || executable.getElements(new TypeFilter<>(CtVariableWrite.class)).stream()
+                    .anyMatch(write -> write.getVariable().getDeclaration() == declaration))
+                continue;
+            names.add(access.getVariable().getSimpleName());
+        }
+        for (RefinedVariable rv : context.getCtxInstanceVars())
+            if (rv instanceof VariableInstance instance
+                    && instance.getParent().map(parent -> names.contains(parent.getName())).orElse(false))
+                names.add(instance.getName());
+        return names;
+    }
+
+    private void havocLambdaCaptures(CtLambda<?> lambda) {
+        Set<String> names = new LinkedHashSet<>();
+        for (CtVariableAccess<?> access : lambda
+                .getElements(new TypeFilter<CtVariableAccess<?>>(CtVariableAccess.class))) {
+            CtVariable<?> declaration = access.getVariable().getDeclaration();
+            if (declaration != null && declaration.hasParent(lambda))
+                continue;
+            if (access instanceof CtFieldAccess<?> field) {
+                names.add(Utils.qualifyFieldName(field.getVariable()));
+            } else if (access instanceof CtSuperAccess<?> parent) {
+                if (parent.getTarget() == null || parent.getTarget().isImplicit())
+                    names.add(Keys.THIS);
+            } else if (access.getType() != null && !access.getType().isPrimitive()) {
+                names.add(access.getVariable().getSimpleName());
+            }
+        }
+        for (CtThisAccess<?> self : lambda.getElements(new TypeFilter<CtThisAccess<?>>(CtThisAccess.class))) {
+            CtType<?> owner = self.getParent(CtType.class);
+            if (owner != null && self.getType() != null
+                    && self.getType().getQualifiedName().equals(owner.getQualifiedName()))
+                names.add(Keys.THIS);
+        }
+        for (String name : names) {
+            if (!(context.getVariableByName(name)instanceof Variable variable))
+                continue;
+            String instanceName = String.format(Formats.INSTANCE, name, context.getCounter());
+            Predicate declared = variable.getMainRefinement().substituteVariable(name, instanceName);
+            context.addInstanceToContext(instanceName, variable.getType(), declared, lambda);
+            context.addRefinementInstanceToVariable(name, instanceName);
+        }
     }
 
     @Override
