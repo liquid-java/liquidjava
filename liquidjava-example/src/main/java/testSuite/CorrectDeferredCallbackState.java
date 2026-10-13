@@ -20,7 +20,8 @@ class CorrectDeferredCallbackState {
     UndoManager manager = new UndoManager();
     Runnable listener = () -> { manager.addEdit(null); };
 
-    void fieldCallbackMayNeverRun() {
+    CorrectDeferredCallbackState() {
+        // the field callback may never run: the initializer state still holds in the constructor
         manager.discardAllEdits();
     }
 

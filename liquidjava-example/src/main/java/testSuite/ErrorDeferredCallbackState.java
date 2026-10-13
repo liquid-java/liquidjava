@@ -23,9 +23,6 @@ class ErrorAnonymousCallbackState {
         Runnable listener = new Runnable() {
             public void run() { manager.addEdit(null); }
         };
-    }
-
-    void undo() {
         manager.undo(); // Expect: State Refinement Error
     }
 }
@@ -42,7 +39,7 @@ class ErrorFieldLambdaCallbackState {
     UndoManager manager = new UndoManager();
     Runnable listener = () -> { manager.addEdit(null); };
 
-    void undo() {
+    ErrorFieldLambdaCallbackState() {
         manager.undo(); // Expect: State Refinement Error
     }
 }

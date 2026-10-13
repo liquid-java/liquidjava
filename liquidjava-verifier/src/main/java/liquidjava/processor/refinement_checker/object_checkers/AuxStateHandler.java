@@ -618,6 +618,7 @@ public class AuxStateHandler {
                 transitionedState = checkOldMentions(transitionedState, instanceName, newInstanceName);
                 // update of state of new instance of this#n#(whatever it was + 1)
                 addInstanceWithState(tc, name, newInstanceName, vi, transitionedState, invocation);
+                updateAliases(tc, name, vi, newInstanceName, invocation);
             }
         }
         if (!found) { // Reaches the end of stateChange no matching states
@@ -697,6 +698,54 @@ public class AuxStateHandler {
             }
         }
         invocation.putMetadata(Keys.TARGET, vi2);
+    }
+
+    /**
+     * A state change made through one reference changes the state of the object, so every other variable that must
+     * refer to the same object (e.g. {@code b} after {@code Res b = a;}) gets a new instance equal to the transitioned
+     * one. Variables that may, but need not, alias the target keep their state.
+     *
+     * @param tc
+     * @param name
+     *            the variable the state change was made through
+     * @param previous
+     *            the target instance before the state change
+     * @param transitioned
+     *            the name of the target instance after the state change
+     * @param invocation
+     */
+    private static void updateAliases(TypeChecker tc, String name, VariableInstance previous, String transitioned,
+            CtElement invocation) {
+        Context ctx = tc.getContext();
+        for (RefinedVariable rv : ctx.getCtxVars()) {
+            if (!(rv instanceof Variable alias) || alias.getName().equals(name) || !relatedTypes(alias, previous))
+                continue;
+            String current = alias.getLastInstance().map(Refined::getName).orElse(alias.getName());
+            Predicate identity = Predicate.createEquals(Predicate.createVar(current),
+                    Predicate.createVar(previous.getName()));
+            try {
+                if (!tc.checkStateSMT(new Predicate(), identity, invocation.getPosition(), true))
+                    continue;
+            } catch (LJError e) {
+                continue; // identity not provable: not a must-alias
+            }
+            String aliasInstanceName = String.format(Formats.INSTANCE, alias.getName(), ctx.getCounter());
+            RefinedVariable aliasInstance = ctx.addInstanceToContext(aliasInstanceName, alias.getType(),
+                    Predicate.createEquals(Predicate.createVar(aliasInstanceName), Predicate.createVar(transitioned)),
+                    invocation);
+            alias.getSuperTypes().forEach(aliasInstance::addSuperType);
+            ctx.addRefinementInstanceToVariable(alias.getName(), aliasInstanceName);
+        }
+    }
+
+    /** Whether one variable's type is the other's type or one of its recorded supertypes. */
+    private static boolean relatedTypes(RefinedVariable v1, RefinedVariable v2) {
+        if (v1.getType() == null || v2.getType() == null || v1.getType().isPrimitive() || v2.getType().isPrimitive())
+            return false;
+        String t1 = v1.getType().getQualifiedName();
+        String t2 = v2.getType().getQualifiedName();
+        return t1.equals(t2) || v1.getSuperTypes().stream().anyMatch(t -> t.getQualifiedName().equals(t2))
+                || v2.getSuperTypes().stream().anyMatch(t -> t.getQualifiedName().equals(t1));
     }
 
     /** Whether the access denotes the receiver of the enclosing type, including unqualified super. */

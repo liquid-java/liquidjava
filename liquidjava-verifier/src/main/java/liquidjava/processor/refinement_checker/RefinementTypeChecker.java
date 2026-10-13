@@ -142,6 +142,7 @@ public class RefinementTypeChecker extends TypeChecker {
         context.clearInstanceVariables();
         context.enterContext();
         context.restoreInstanceVariables();
+        forgetMutableFieldValues(method.getDeclaringType());
         if (!method.getSignature().equals("main(java.lang.String[])")) {
             mfc.loadFunctionInfo(method);
         }
@@ -153,6 +154,25 @@ public class RefinementTypeChecker extends TypeChecker {
         contextHistory.saveContext(method, context);
         context.exitContext();
         vcChecker.clearPathVariables();
+    }
+
+    /**
+     * Any method may have reassigned a non-final field before this one runs, so inside a method a non-final field
+     * carries only its declared refinement, not the value of its initializer. Final fields keep their value.
+     */
+    private void forgetMutableFieldValues(CtType<?> type) {
+        if (type == null)
+            return;
+        for (CtField<?> f : type.getFields()) {
+            String name = Utils.qualifyFieldName(f.getReference());
+            if (f.isFinal() || !(context.getVariableByName(name)instanceof Variable field)
+                    || field.getLastInstance().isEmpty())
+                continue;
+            String instanceName = String.format(Formats.INSTANCE, name, context.getCounter());
+            context.addInstanceToContext(instanceName, field.getType(),
+                    field.getMainRefinement().substituteVariable(name, instanceName), f);
+            context.addRefinementInstanceToVariable(name, instanceName);
+        }
     }
 
     @Override
