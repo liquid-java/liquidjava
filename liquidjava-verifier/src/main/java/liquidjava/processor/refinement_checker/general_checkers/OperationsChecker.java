@@ -43,6 +43,7 @@ import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtExecutable;
 import spoon.reflect.declaration.CtType;
 import spoon.reflect.declaration.ParentNotInitializedException;
+import spoon.reflect.reference.CtTypeReference;
 import spoon.reflect.reference.CtVariableReference;
 import spoon.support.reflect.code.CtIfImpl;
 
@@ -74,6 +75,16 @@ public class OperationsChecker {
         if (parent instanceof CtAnnotation)
             return; // Operations in annotations are not handled here
 
+        if (hasUnresolvedType(operator)) {
+            // an operand's type could not be resolved (e.g. its class is not on the classpath): the value of a
+            // comparison or logical operation is an unknown boolean, and any other operation is left unrefined
+            if (!isBooleanOperator(operator.getKind()))
+                return;
+            CtTypeReference<?> booleanType = operator.getFactory().Type().booleanPrimitiveType();
+            putBooleanRefinement(operator, parent, createFreshValue(operator, booleanType, new Predicate()));
+            return;
+        }
+
         String type = operator.getType().getQualifiedName();
         if (type.equals("java.lang.String"))
             return;
@@ -93,16 +104,41 @@ public class OperationsChecker {
         }
         List<String> types = Arrays.asList(Types.IMPLEMENTED);
         if (type.contentEquals("boolean")) {
-            operator.putMetadata(Keys.REFINEMENT, oper);
-            if (parent instanceof CtLocalVariable<?> || parent instanceof CtUnaryOperator<?>
-                    || parent instanceof CtReturn<?>)
-                operator.putMetadata(Keys.REFINEMENT, Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), oper));
+            putBooleanRefinement(operator, parent, oper);
         } else if (types.contains(type)) {
             operator.putMetadata(Keys.REFINEMENT, Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), oper));
         } else {
             throw new NotImplementedException("Literal type not implemented");
         }
         // TODO ADD TYPES
+    }
+
+    private static void putBooleanRefinement(CtBinaryOperator<?> operator, CtElement parent, Predicate oper) {
+        operator.putMetadata(Keys.REFINEMENT, oper);
+        if (parent instanceof CtLocalVariable<?> || parent instanceof CtUnaryOperator<?>
+                || parent instanceof CtReturn<?>)
+            operator.putMetadata(Keys.REFINEMENT, Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), oper));
+    }
+
+    /**
+     * Whether the type of the operation, or of one of its operands (looking inside nested operations), could not be
+     * resolved, in which case Spoon leaves it unset
+     */
+    private static boolean hasUnresolvedType(CtExpression<?> e) {
+        if (e.getType() == null)
+            return true;
+        if (e instanceof CtBinaryOperator<?> binop)
+            return hasUnresolvedType(binop.getLeftHandOperand()) || hasUnresolvedType(binop.getRightHandOperand());
+        if (e instanceof CtUnaryOperator<?> unop)
+            return hasUnresolvedType(unop.getOperand());
+        return false;
+    }
+
+    private static boolean isBooleanOperator(BinaryOperatorKind kind) {
+        return switch (kind) {
+        case EQ, NE, LT, LE, GT, GE, AND, OR, INSTANCEOF -> true;
+        default -> false;
+        };
     }
 
     /**
@@ -113,6 +149,8 @@ public class OperationsChecker {
             throws LJError {
         String op = getOperatorFromKind(assignment.getKind());
         if (op == null) // x |= y, x <<= n, ...: no counterpart in the integer logic, so the new value is unknown
+            return new Predicate();
+        if (hasUnresolvedType(assignment.getAssignment())) // the right-hand side has an unknown type
             return new Predicate();
         Predicate left = getCurrentVariableValue(assignedName);
         Predicate right = getOperatorAssignmentRefinement(assignment.getAssignment());
@@ -165,6 +203,13 @@ public class OperationsChecker {
             }
         }
 
+        CtTypeReference<?> type = ex.getType();
+        if (type == null) {
+            // the operand's type could not be resolved: a negation is still boolean, anything else is unrefined
+            if (operator.getKind() != UnaryOperatorKind.NOT)
+                return;
+            type = operator.getFactory().Type().booleanPrimitiveType();
+        }
         Predicate metadata = rtc.getRefinement(ex);
         String newName = !name.equals(Formats.FRESH)
                 ? String.format(Formats.INSTANCE, name, rtc.getContext().getCounter())
@@ -176,7 +221,7 @@ public class OperationsChecker {
         Predicate opS = unOp.substituteVariable(Keys.WILDCARD, newName);
         all = p instanceof CtIf ? opS : Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), opS);
         // TODO SEE IF () IN OPS IS NEEDED
-        rtc.getContext().addInstanceToContext(newName, ex.getType(), newMeta, operator);
+        rtc.getContext().addInstanceToContext(newName, type, newMeta, operator);
         operator.putMetadata(Keys.REFINEMENT, all);
     }
 
@@ -424,9 +469,13 @@ public class OperationsChecker {
     }
 
     private Predicate createFreshValue(CtExpression<?> element, Predicate refinement) {
+        return createFreshValue(element, element.getType(), refinement);
+    }
+
+    private Predicate createFreshValue(CtExpression<?> element, CtTypeReference<?> type, Predicate refinement) {
         String newName = String.format(Formats.FRESH, rtc.getContext().getCounter());
         Predicate freshRefinement = refinement.substituteVariable(Keys.WILDCARD, newName);
-        rtc.getContext().addVarToContext(newName, element.getType(), freshRefinement, element);
+        rtc.getContext().addVarToContext(newName, type, freshRefinement, element);
         return Predicate.createVar(newName);
     }
 

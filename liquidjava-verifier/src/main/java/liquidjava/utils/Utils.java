@@ -53,6 +53,8 @@ public class Utils {
     }
 
     public static String qualifyFieldName(CtFieldReference<?> field) {
+        if (field.getDeclaringType() == null) // declaring class not resolved: matches no known field
+            return "this#" + field.getSimpleName();
         return "this#" + field.getDeclaringType().getQualifiedName() + "." + field.getSimpleName();
     }
 

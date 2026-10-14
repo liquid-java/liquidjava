@@ -335,7 +335,8 @@ public class RefinementTypeChecker extends TypeChecker {
             String targetName = fieldRead.getTarget().toString();
             fieldRead.putMetadata(Keys.REFINEMENT, Predicate.createEquals(Predicate.createVar(Keys.WILDCARD),
                     BuiltinFunctionPredicate.length(targetName, fieldRead)));
-        } else if (fieldRead.getVariable().getDeclaringType().getDeclaration() instanceof CtEnum) {
+        } else if (fieldRead.getVariable().getDeclaringType() != null
+                && fieldRead.getVariable().getDeclaringType().getDeclaration() instanceof CtEnum) {
             // only enums declared in the analyzed sources can be translated to SMT
             String target = fieldRead.getVariable().getDeclaringType().getSimpleName();
             String enumLiteral = String.format(Formats.ENUM, target, fieldName);

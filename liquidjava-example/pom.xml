@@ -18,6 +18,10 @@
 				<configuration>
 					<source>20</source>
 					<target>20</target>
+					<excludes>
+						<!-- test cases that use classes missing from the classpath on purpose -->
+						<exclude>testSuite/**/*Unresolved*.java</exclude>
+					</excludes>
 				</configuration>
 			</plugin>
 		</plugins>
