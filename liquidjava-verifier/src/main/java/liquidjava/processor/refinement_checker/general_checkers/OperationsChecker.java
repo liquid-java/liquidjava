@@ -222,9 +222,10 @@ public class OperationsChecker {
                 elemName = Utils.qualifyFieldName(fieldRead.getVariable());
             Predicate elemRef = rtc.getContext().getVariableRefinements(elemName);
 
-            // Not a field of this class (e.g. an enum constant or a static constant): use the value given by the
-            // field read refinement (e.g. Format.JPG), or an unconstrained fresh value when there is none
-            if (elemRef == null && elemVar instanceof CtFieldRead)
+            // Not a field of this class or of this object (e.g. an enum constant, a static constant or other.f): use
+            // the value given by the field read refinement (e.g. Format.JPG), or an unconstrained fresh value
+            if (elemVar instanceof CtFieldRead<?> fieldRead
+                    && (elemRef == null || !Utils.accessesTrackedField(fieldRead)))
                 return valueFromRefinement(elemVar, rtc.getRefinement(elemVar));
 
             String returnName = elemName;
@@ -361,7 +362,9 @@ public class OperationsChecker {
      * Converts a operator assignment into an arithmetic predicate operand
      */
     private Predicate getOperatorAssignmentRefinement(CtExpression<?> element) throws LJError {
-        if (element instanceof CtVariableRead<?> variableRead) {
+        if (element instanceof CtFieldRead<?> fieldRead && !Utils.accessesTrackedField(fieldRead)) {
+            return valueFromRefinement(element, rtc.getRefinement(element)); // a field of another object
+        } else if (element instanceof CtVariableRead<?> variableRead) {
             String name = variableRead.getVariable().getSimpleName();
             if (variableRead instanceof CtFieldRead<?> fieldRead)
                 name = Utils.qualifyFieldName(fieldRead.getVariable());

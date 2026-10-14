@@ -9,9 +9,12 @@ import java.util.stream.Stream;
 
 import liquidjava.utils.constants.Types;
 import spoon.reflect.code.CtBlock;
+import spoon.reflect.code.CtFieldAccess;
 import spoon.reflect.code.CtFor;
 import spoon.reflect.code.CtForEach;
 import spoon.reflect.code.CtIf;
+import spoon.reflect.code.CtSuperAccess;
+import spoon.reflect.code.CtThisAccess;
 import spoon.reflect.code.CtTry;
 import spoon.reflect.code.CtWhile;
 import spoon.reflect.cu.SourcePosition;
@@ -143,5 +146,15 @@ public class Utils {
             // ignore
         }
         return null;
+    }
+
+    /**
+     * Whether the context variable {@link #qualifyFieldName} names the field accessed here: a static field, or a field
+     * of the current object ({@code f}, {@code this.f}, {@code super.f}, {@code Outer.this.f}). A field of another
+     * object ({@code other.f}) has its own value, which is not tracked in the context.
+     */
+    public static boolean accessesTrackedField(CtFieldAccess<?> access) {
+        return access.getVariable().isStatic() || access.getTarget() == null
+                || access.getTarget() instanceof CtThisAccess<?> || access.getTarget() instanceof CtSuperAccess<?>;
     }
 }

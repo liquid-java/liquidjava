@@ -316,17 +316,10 @@ public class RefinementTypeChecker extends TypeChecker {
     @Override
     public <T> void visitCtFieldRead(CtFieldRead<T> fieldRead) {
         String fieldName = fieldRead.getVariable().getSimpleName();
-        if (context.hasVariable(fieldName)) {
-            RefinedVariable rv = context.getVariableByName(fieldName);
-            if (rv instanceof Variable && ((Variable) rv).getLocation().isPresent()
-                    && ((Variable) rv).getLocation().get().equals(fieldRead.getTarget().toString())) {
-                fieldRead.putMetadata(Keys.REFINEMENT, context.getVariableRefinements(fieldName));
-            } else {
-                fieldRead.putMetadata(Keys.REFINEMENT,
-                        Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), Predicate.createVar(fieldName)));
-            }
-
-        } else if (context.hasVariable(Utils.qualifyFieldName(fieldRead.getVariable()))) {
+        // fields live in the context under their qualified name only: a variable with the field's simple name is an
+        // unrelated local, the tracked value is that of this object, not of another one
+        if (Utils.accessesTrackedField(fieldRead)
+                && context.hasVariable(Utils.qualifyFieldName(fieldRead.getVariable()))) {
             String thisName = Utils.qualifyFieldName(fieldRead.getVariable());
             fieldRead.putMetadata(Keys.REFINEMENT,
                     Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), Predicate.createVar(thisName)));
