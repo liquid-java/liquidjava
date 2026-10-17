@@ -744,6 +744,23 @@ public class AuxStateHandler {
             }
 
             return name;
+        } else if (target2 instanceof CtConstructorCall<?> newCall
+                && newCall.getMetadata(Keys.RECEIVER)instanceof RefinedVariable receiver) {
+            invocation.putMetadata(Keys.TARGET, receiver);
+            return receiver.getName();
+        } else if (target2 instanceof CtConstructorCall<?> newCall
+                && newCall.getMetadata(Keys.REFINEMENT)instanceof Predicate state) {
+            // `new T(args).method()`: the receiver is a fresh object in the state the constructor gives. Checked
+            // before the TARGET metadata, which a constructor with refined parameters sets to its (void) return value
+            String name = String.format(Formats.FRESH, tc.getContext().getCounter());
+            CtTypeReference<?> type = newCall.getType();
+            RefinedVariable receiver = tc.getContext().addInstanceToContext(name, type,
+                    state.substituteVariable(Keys.THIS, name).substituteVariable(Keys.WILDCARD, name), newCall);
+            receiver.addSuperTypes(type.getSuperclass(), type.getSuperInterfaces());
+            newCall.putMetadata(Keys.TARGET, receiver);
+            newCall.putMetadata(Keys.RECEIVER, receiver);
+            invocation.putMetadata(Keys.TARGET, receiver);
+            return name;
         } else if (target2.getMetadata(Keys.TARGET) != null) {
             // invocation is in
             // who did put the metadata here then?
@@ -751,17 +768,6 @@ public class AuxStateHandler {
             Optional<Variable> v = target2Vi.getParent();
             invocation.putMetadata(Keys.TARGET, target2Vi);
             return v.map(Refined::getName).orElse(target2Vi.getName());
-        } else if (target2 instanceof CtConstructorCall<?> newCall
-                && newCall.getMetadata(Keys.REFINEMENT)instanceof Predicate state) {
-            // `new T(args).method()`: the receiver is a fresh object in the state the constructor gives
-            String name = String.format(Formats.FRESH, tc.getContext().getCounter());
-            CtTypeReference<?> type = newCall.getType();
-            RefinedVariable receiver = tc.getContext().addInstanceToContext(name, type,
-                    state.substituteVariable(Keys.THIS, name).substituteVariable(Keys.WILDCARD, name), newCall);
-            receiver.addSuperTypes(type.getSuperclass(), type.getSuperInterfaces());
-            newCall.putMetadata(Keys.TARGET, receiver);
-            invocation.putMetadata(Keys.TARGET, receiver);
-            return name;
         }
         return null;
     }

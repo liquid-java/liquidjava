@@ -4,6 +4,7 @@ public final class Keys {
     public static final String REFINEMENT = "refinement";
     public static final String REFINEMENT_SAT_CHECK = "refinement_sat_check";
     public static final String TARGET = "target";
+    public static final String RECEIVER = "receiver";
     public static final String RETURN_VAR_NAME = "return_var_name";
     public static final String THIS = "this";
     public static final String WILDCARD = "_";
