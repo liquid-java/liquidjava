@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import liquidjava.diagnostics.categories.ErrorCategory;
 import liquidjava.diagnostics.hints.Hint.Kind;
 import liquidjava.processor.context.RefinedFunction;
 import liquidjava.processor.context.Variable;
@@ -20,8 +21,9 @@ import liquidjava.utils.Utils;
 import spoon.reflect.reference.CtTypeReference;
 
 /**
- * Hints for a call made in a state that does not allow it, read from the class's {@link StateMachine}. Each hint only
- * states what the machine proves, so a suggested sequence of calls always makes the failing call verify.
+ * Hints for a call made in a state that does not allow it, read from the class's {@link StateMachine}. The error's
+ * category decides which kinds of hints are given, and each hint only states what the machine proves, so a suggested
+ * sequence of calls always makes the failing call verify.
  */
 public final class StateHints {
 
@@ -44,8 +46,11 @@ public final class StateHints {
      *            the states the receiver can be in before the call
      * @param receiver
      *            the receiver as written in the code
+     * @param category
+     *            the error's category, or {@code null} if it has none
      */
-    public static List<Hint> forCall(StateMachine machine, RefinedFunction call, Set<State> current, String receiver) {
+    public static List<Hint> forCall(StateMachine machine, RefinedFunction call, Set<State> current, String receiver,
+            ErrorCategory category) {
         if (!machine.models(call) || current.isEmpty() || machine.allows(current, call))
             return List.of(); // the machine cannot explain why the call failed
         Set<State> goal = machine.statesAllowing(call);
@@ -53,10 +58,11 @@ public final class StateHints {
             return List.of();
 
         StateHints hints = new StateHints(machine, receiver);
-        if (hints.isUnknown(current))
+        if (category == ErrorCategory.UNPROVABLE)
             return hints.reachingCalls(call, goal);
-        return Stream.concat(hints.howToReach(current, call, goal).stream(), hints.allowedCalls(current).stream())
-                .toList();
+        boolean pathDependent = category == ErrorCategory.PATH_DEPENDENT_STATE;
+        return Stream.concat(hints.howToReach(current, call, goal, pathDependent).stream(),
+                hints.allowedCalls(current).stream()).toList();
     }
 
     /** Nothing is known about the receiver's state: list what leads to a state where {@code call} is allowed */
@@ -74,13 +80,13 @@ public final class StateHints {
                 "The state of %s is unknown here. To get it to %s, use: %s", receiver, names(goal), list(ways))));
     }
 
-    private List<Hint> howToReach(Set<State> current, RefinedFunction call, Set<State> goal) {
+    private List<Hint> howToReach(Set<State> current, RefinedFunction call, Set<State> goal, boolean pathDependent) {
         Optional<List<List<RefinedFunction>>> search = machine.shortestPaths(current, call, MAX_SEQUENCES);
         if (search.isEmpty())
             return List.of();
         List<List<RefinedFunction>> sequences = search.get();
         if (sequences.isEmpty())
-            return machine.complete() ? List.of(unreachable(current, call, goal)) : List.of();
+            return machine.complete() ? List.of(unreachable(current, call, goal, pathDependent)) : List.of();
         if (sequences.get(0).size() > MAX_SEQUENCE_LENGTH)
             return List.of();
         return sequences.stream().map(sequence -> callSequence(current, sequence)).toList();
@@ -95,8 +101,8 @@ public final class StateHints {
                 receiver, names(current), names(reached)));
     }
 
-    private Hint unreachable(Set<State> current, RefinedFunction call, Set<State> goal) {
-        if (current.size() > 1)
+    private Hint unreachable(Set<State> current, RefinedFunction call, Set<State> goal, boolean pathDependent) {
+        if (pathDependent)
             return new Hint(Kind.PATH_DEPENDENT_STATE, String.format(
                     "%s can be in %s here, depending on the path taken, and no sequence of calls moves all of them to %s. "
                             + "Make %s reach this line in the same state on every path",
@@ -123,11 +129,6 @@ public final class StateHints {
                     String.format("%s is in state %s, where none of its methods with state refinements can be called",
                             receiver, names(current))));
         return List.of();
-    }
-
-    /** Whether nothing is known about the state of the receiver */
-    private boolean isUnknown(Set<State> current) {
-        return current.size() == machine.states().size();
     }
 
     private String call(RefinedFunction method) {

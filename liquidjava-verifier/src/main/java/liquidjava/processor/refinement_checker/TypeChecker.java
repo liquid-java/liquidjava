@@ -9,6 +9,7 @@ import java.util.Optional;
 
 import liquidjava.diagnostics.Diagnostics;
 import liquidjava.diagnostics.errors.*;
+import liquidjava.diagnostics.categories.ErrorCategory;
 import liquidjava.diagnostics.hints.Hint;
 import liquidjava.diagnostics.warnings.UnsatisfiableRefinementWarning;
 import liquidjava.processor.context.AliasWrapper;
@@ -425,12 +426,13 @@ public abstract class TypeChecker extends CtScanner {
 
     public void throwStateRefinementError(SourcePosition position, SourcePosition declarationPosition, Predicate found,
             Predicate expected, String customMessage) throws LJError {
-        throwStateRefinementError(position, declarationPosition, found, expected, customMessage, List.of());
+        throwStateRefinementError(position, declarationPosition, found, expected, customMessage, List.of(), null);
     }
 
     public void throwStateRefinementError(SourcePosition position, SourcePosition declarationPosition, Predicate found,
-            Predicate expected, String customMessage, List<Hint> hints) throws LJError {
-        vcChecker.throwStateRefinementError(position, declarationPosition, found, expected, customMessage, hints);
+            Predicate expected, String customMessage, List<Hint> hints, ErrorCategory category) throws LJError {
+        vcChecker.throwStateRefinementError(position, declarationPosition, found, expected, customMessage, hints,
+                category);
     }
 
     public void throwStateConflictError(SourcePosition position, Predicate expectedType) throws LJError {

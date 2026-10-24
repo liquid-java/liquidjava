@@ -24,4 +24,12 @@ class LJDiagnosticTest {
         assertEquals(List.of(Hint.general("first"), Hint.general("second")), error.getHints());
         assertEquals("first\nsecond", error.getHint());
     }
+
+    @Test
+    void hintsArePrintedInTheirOwnSection() {
+        CustomError error = new CustomError("message", null);
+        error.addHint(Hint.general("first"));
+        error.addHint(Hint.general("second"));
+        assertTrue(error.toString().endsWith("\nHints:\n  - first\n  - second\n"));
+    }
 }

@@ -5,6 +5,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.TranslationTable;
+import liquidjava.diagnostics.categories.ErrorCategory;
 import liquidjava.diagnostics.hints.Hint;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.Expression;
@@ -46,9 +47,17 @@ public class RefinementError extends LJError {
                     .collect(Collectors.joining(" && "));
             setCounterexampleStr("Counterexample: " + counterexampleString);
         }
+        setCategory(categoryOf(expected, found));
         if (isTrue(found.getImplication().toPredicate().getExpression()))
             addHint(Hint.general(
                     "Not enough information to prove the expected refinement. Add a refinement or condition to constrain it."));
+    }
+
+    /** Unprovable when what was found says nothing about the values the expected refinement constrains */
+    private static ErrorCategory categoryOf(Predicate expected, VCSimplificationResult found) {
+        List<String> foundVariables = found.getImplication().toPredicate().getVariableNames();
+        boolean constrained = expected.getVariableNames().stream().anyMatch(foundVariables::contains);
+        return constrained ? ErrorCategory.OUT_OF_DOMAIN : ErrorCategory.UNPROVABLE;
     }
 
     @Override

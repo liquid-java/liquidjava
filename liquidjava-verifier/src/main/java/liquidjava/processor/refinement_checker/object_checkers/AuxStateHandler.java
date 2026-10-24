@@ -5,6 +5,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.DebugLog;
+import liquidjava.diagnostics.categories.ErrorCategory;
 import liquidjava.diagnostics.errors.IllegalConstructorTransitionError;
 import liquidjava.diagnostics.errors.InvalidRefinementError;
 import liquidjava.diagnostics.errors.LJError;
@@ -15,6 +16,7 @@ import liquidjava.processor.context.*;
 import liquidjava.processor.refinement_checker.TypeChecker;
 import liquidjava.processor.refinement_checker.TypeCheckingUtils;
 import liquidjava.processor.state_machine.State;
+import liquidjava.processor.state_machine.StateErrorCategories;
 import liquidjava.processor.state_machine.StateMachine;
 import liquidjava.processor.state_machine.StateMachineBuilder;
 import liquidjava.processor.state_machine.StateSolver;
@@ -643,33 +645,46 @@ public class AuxStateHandler {
             SourcePosition declarationPosition = stateChanges.stream().filter(ObjectState::hasFrom)
                     .map(ObjectState::getFromPosition).filter(Objects::nonNull).findFirst()
                     .orElse(function.getPlacementInCode().getPosition());
-            List<Hint> hints = stateHints(tc, function, instanceName, prevState, invocation);
+            Optional<ReceiverStates> states = receiverStates(tc, function, instanceName, prevState, invocation);
+            ErrorCategory category = states.flatMap(r -> StateErrorCategories.categorize(r.machine(), r.current(),
+                    prevState, getGhostStatesFor(function.getTargetClass(), tc))).orElse(null);
+            List<Hint> hints = states.map(r -> stateHints(r, function, category, invocation)).orElse(List.of());
             tc.throwStateRefinementError(invocation.getPosition(), declarationPosition, prevState,
-                    expectedStatesDisjunction, message, hints);
+                    expectedStatesDisjunction, message, hints, category);
         }
     }
 
+    /** The state machine of the receiver's class and the states the receiver can be in before a call */
+    private record ReceiverStates(StateMachine machine, Set<State> current) {
+    }
+
     /**
-     * Hints on how to fix a call to {@code function} made in a state that does not allow it. They are best effort: if
-     * they cannot be computed, the error is reported without them
+     * The receiver's states before a call to {@code function} that its state does not allow. Best effort: if they
+     * cannot be computed, the error is reported without hints or category
      */
-    private static List<Hint> stateHints(TypeChecker tc, RefinedFunction function, String instanceName, Predicate state,
+    private static Optional<ReceiverStates> receiverStates(TypeChecker tc, RefinedFunction function,
+            String instanceName, Predicate state, CtElement invocation) {
+        try {
+            Optional<StateMachine> machine = tc.getStateMachine(function.getTargetClass(), invocation);
+            if (machine.isEmpty())
+                return Optional.empty();
+            Set<State> current = new StateSolver(tc, invocation.getPosition()).possibleStates(machine.get().states(),
+                    state, instanceName);
+            return Optional.of(new ReceiverStates(machine.get(), current));
+        } catch (RuntimeException e) {
+            // a failure to analyse the states must not replace the error being reported
+            DebugLog.warn("Could not compute the receiver's states: " + e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    /** Hints on how to fix a call to {@code function} made in a state that does not allow it */
+    private static List<Hint> stateHints(ReceiverStates states, RefinedFunction function, ErrorCategory category,
             CtElement invocation) {
         Optional<String> receiver = receiverOf(invocation);
         if (receiver.isEmpty() || !StateMachineBuilder.canModel(function))
             return List.of();
-        try {
-            Optional<StateMachine> machine = tc.getStateMachine(function.getTargetClass(), invocation);
-            if (machine.isEmpty())
-                return List.of();
-            Set<State> current = new StateSolver(tc, invocation.getPosition()).possibleStates(machine.get().states(),
-                    state, instanceName);
-            return StateHints.forCall(machine.get(), function, current, receiver.get());
-        } catch (RuntimeException e) {
-            // a failure to compute hints must not replace the error being reported
-            DebugLog.warn("Could not compute state hints: " + e.getMessage());
-            return List.of();
-        }
+        return StateHints.forCall(states.machine(), function, states.current(), receiver.get(), category);
     }
 
     /**

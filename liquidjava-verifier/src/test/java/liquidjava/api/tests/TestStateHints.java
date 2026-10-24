@@ -66,6 +66,13 @@ class TestStateHints {
     }
 
     @Test
+    void stateDependingOnThePathInEveryStateIsNotReportedAsUnknown() {
+        assertHints("ErrorStateHintJoinOfAllStates.java", new Hint(Kind.PATH_DEPENDENT_STATE,
+                "f can be in created or open here, depending on the path taken, and no sequence of calls moves all of them to open. "
+                        + "Make f reach this line in the same state on every path"));
+    }
+
+    @Test
     void callAllowedByDifferentRefinementsInEachStateIsNotSuggested() {
         assertHints("ErrorStateHintSeveralRefinements.java", new Hint(Kind.PATH_DEPENDENT_STATE,
                 "f can be in created or open here, depending on the path taken, and no sequence of calls moves all of them to open. "
