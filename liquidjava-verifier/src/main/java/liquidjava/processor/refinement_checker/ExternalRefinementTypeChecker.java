@@ -21,6 +21,7 @@ import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtRecord;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtField;
+import spoon.reflect.declaration.CtEnum;
 import spoon.reflect.declaration.CtInterface;
 import spoon.reflect.declaration.CtMethod;
 import spoon.reflect.declaration.CtParameter;
@@ -44,6 +45,11 @@ public class ExternalRefinementTypeChecker extends TypeChecker {
     @Override
     public void visitCtRecord(CtRecord ctRecord) {
         // records are user code, like classes: external specs are only read from interfaces
+    }
+
+    @Override
+    public <T extends Enum<?>> void visitCtEnum(CtEnum<T> ctEnum) {
+        // enums are user code too; their methods have no external target
     }
 
     @Override
