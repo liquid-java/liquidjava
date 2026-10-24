@@ -14,10 +14,12 @@ import liquidjava.diagnostics.categories.ErrorCategory;
 import liquidjava.diagnostics.hints.Hint.Kind;
 import liquidjava.processor.context.RefinedFunction;
 import liquidjava.processor.context.Variable;
+import liquidjava.processor.state_machine.DecidingArgument;
 import liquidjava.processor.state_machine.State;
 import liquidjava.processor.state_machine.StateMachine;
 import liquidjava.processor.state_machine.Transition;
 import liquidjava.utils.Utils;
+import spoon.reflect.reference.CtExecutableReference;
 import spoon.reflect.reference.CtTypeReference;
 
 /**
@@ -63,6 +65,18 @@ public final class StateHints {
         boolean pathDependent = category == ErrorCategory.PATH_DEPENDENT_STATE;
         return Stream.concat(hints.howToReach(current, call, goal, pathDependent).stream(),
                 hints.allowedCalls(current).stream()).toList();
+    }
+
+    /** The earlier call whose arguments decided the receiver's state, and values that would allow the call */
+    public static Hint decidingArgument(DecidingArgument deciding, String receiver) {
+        RefinedFunction function = deciding.call().function();
+        String call = CtExecutableReference.CONSTRUCTOR_NAME.equals(function.getName()) ? constructor(function)
+                : receiver + "." + signature(function);
+        String values = deciding.values().isEmpty() ? "other arguments" : deciding.values().entrySet().stream()
+                .map(e -> e.getKey() + " == " + e.getValue()).collect(Collectors.joining(" and "));
+        return new Hint(Kind.DECIDING_ARGUMENT,
+                String.format("%s on line %d decides the state of %s: with %s, this call would be allowed", call,
+                        deciding.call().position().getLine(), receiver, values));
     }
 
     /** Nothing is known about the receiver's state: list what leads to a state where {@code call} is allowed */

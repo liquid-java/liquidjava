@@ -8,6 +8,7 @@ public enum ErrorCategory {
 
     OUT_OF_ORDER("A1", "Out of order: the operation is legal for this object, but not right now"),
     OUT_OF_DOMAIN("A2", "Out of domain: the value is outside what is accepted"),
+    ARGUMENT_PICKS_THE_STATE("C3.1", "Argument picks the state: the value passed decides where the object lands"),
     PATH_DEPENDENT_STATE("C4.1", "Path-dependent state: the state differs depending on which branch ran"),
     UNPROVABLE("C4.2", "Unprovable: nothing is known that could prove the requirement");
 

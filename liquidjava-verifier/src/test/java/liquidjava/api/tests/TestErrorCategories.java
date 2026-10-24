@@ -27,6 +27,18 @@ class TestErrorCategories {
     }
 
     @Test
+    void stateDecidedByAnArgumentIsArgumentPicksTheState() {
+        assertCategory("ErrorArgumentPicksTheState.java", ErrorCategory.ARGUMENT_PICKS_THE_STATE);
+        assertCategory("ErrorConstructorArgumentPicksTheState.java", ErrorCategory.ARGUMENT_PICKS_THE_STATE);
+        assertCategory("ErrorArgumentPicksTheStateEarlier.java", ErrorCategory.ARGUMENT_PICKS_THE_STATE);
+    }
+
+    @Test
+    void argumentThatCannotAllowTheCallIsOutOfOrder() {
+        assertCategory("ErrorArgumentCannotPickTheState.java", ErrorCategory.OUT_OF_ORDER);
+    }
+
+    @Test
     void stateDependingOnTheBranchIsPathDependent() {
         assertCategory("ErrorStateHintPathDependent.java", ErrorCategory.PATH_DEPENDENT_STATE);
         assertCategory("ErrorStateHintJoinOfAllStates.java", ErrorCategory.PATH_DEPENDENT_STATE);

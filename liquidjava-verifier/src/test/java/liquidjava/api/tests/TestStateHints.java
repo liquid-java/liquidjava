@@ -91,6 +91,18 @@ class TestStateHints {
     }
 
     @Test
+    void argumentThatDecidedTheStateIsShownWithAValueThatWouldWork() {
+        assertHints("ErrorArgumentPicksTheState.java", new Hint(Kind.DECIDING_ARGUMENT,
+                "buffer.reset(boolean) on line 20 decides the state of buffer: with keep == true, this call would be allowed"));
+    }
+
+    @Test
+    void deciderIsTheLastCallThatChangedTheCheckedStateSet() {
+        assertHints("ErrorArgumentPicksTheStateEarlier.java", new Hint(Kind.DECIDING_ARGUMENT,
+                "param.setTilingMode(int) on line 25 decides the state of param: with mode == 2, this call would be allowed"));
+    }
+
+    @Test
     void classWithoutStateSetKeepsTheGeneralHint() {
         assertHints("ErrorUnconstrainedStateRefinement.java", Hint.general(
                 "No state information is known for this object. Make sure its state is initialized and available at this point."));

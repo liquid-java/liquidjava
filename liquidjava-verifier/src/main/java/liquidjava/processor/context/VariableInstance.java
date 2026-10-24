@@ -7,6 +7,7 @@ import spoon.reflect.reference.CtTypeReference;
 public class VariableInstance extends RefinedVariable {
 
     private Variable parent;
+    private StateChange stateChange;
 
     public VariableInstance(String name, CtTypeReference<?> type, Predicate c) {
         super(name, type, c);
@@ -31,6 +32,15 @@ public class VariableInstance extends RefinedVariable {
 
     public void setParent(Variable p) {
         parent = p;
+    }
+
+    /** The last call that changed the state of this object, if it is known */
+    public Optional<StateChange> getStateChange() {
+        return Optional.ofNullable(stateChange);
+    }
+
+    public void setStateChange(StateChange stateChange) {
+        this.stateChange = stateChange;
     }
 
     public Optional<Variable> getParent() {

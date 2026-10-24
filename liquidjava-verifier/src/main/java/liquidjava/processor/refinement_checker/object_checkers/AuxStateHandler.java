@@ -15,6 +15,7 @@ import liquidjava.diagnostics.hints.StateHints;
 import liquidjava.processor.context.*;
 import liquidjava.processor.refinement_checker.TypeChecker;
 import liquidjava.processor.refinement_checker.TypeCheckingUtils;
+import liquidjava.processor.state_machine.DecidingArgument;
 import liquidjava.processor.state_machine.State;
 import liquidjava.processor.state_machine.StateErrorCategories;
 import liquidjava.processor.state_machine.StateMachine;
@@ -420,6 +421,8 @@ public class AuxStateHandler {
                 c = c.substituteVariable(k, map.get(k));
             }
             ctConstructorCall.putMetadata(refKey, c);
+            ctConstructorCall.putMetadata(Keys.STATE_CHANGE,
+                    new StateChange(f, f.getAllStates().get(0), null, ctConstructorCall.getPosition()));
             // add mapping to oc.get(0)-HERE
         }
     }
@@ -439,6 +442,8 @@ public class AuxStateHandler {
             Predicate c = (Predicate) e.getMetadata(Keys.REFINEMENT);
             c = c.substituteVariable(Keys.THIS, vi.getName()).substituteVariable(Keys.WILDCARD, vi.getName());
             vi.setRefinement(c);
+            if (e.getMetadata(Keys.STATE_CHANGE)instanceof StateChange change)
+                vi.setStateChange(change);
         }
     }
 
@@ -626,7 +631,8 @@ public class AuxStateHandler {
                 }
                 transitionedState = checkOldMentions(transitionedState, instanceName, newInstanceName);
                 // update of state of new instance of this#n#(whatever it was + 1)
-                addInstanceWithState(tc, name, newInstanceName, vi, transitionedState, invocation);
+                addInstanceWithState(tc, name, newInstanceName, vi, transitionedState, invocation)
+                        .setStateChange(new StateChange(function, stateChange, vi, invocation.getPosition()));
             }
         }
         if (!found) { // Reaches the end of stateChange no matching states
@@ -645,10 +651,16 @@ public class AuxStateHandler {
             SourcePosition declarationPosition = stateChanges.stream().filter(ObjectState::hasFrom)
                     .map(ObjectState::getFromPosition).filter(Objects::nonNull).findFirst()
                     .orElse(function.getPlacementInCode().getPosition());
+            List<GhostState> ghostStates = getGhostStatesFor(function.getTargetClass(), tc);
+            Optional<DecidingArgument> deciding = decidingArgument(tc, vi, function, ghostStates, invocation);
             Optional<ReceiverStates> states = receiverStates(tc, function, instanceName, prevState, invocation);
-            ErrorCategory category = states.flatMap(r -> StateErrorCategories.categorize(r.machine(), r.current(),
-                    prevState, getGhostStatesFor(function.getTargetClass(), tc))).orElse(null);
-            List<Hint> hints = states.map(r -> stateHints(r, function, category, invocation)).orElse(List.of());
+            ErrorCategory category = deciding.isPresent() ? ErrorCategory.ARGUMENT_PICKS_THE_STATE
+                    : states.flatMap(
+                            r -> StateErrorCategories.categorize(r.machine(), r.current(), prevState, ghostStates))
+                            .orElse(null);
+            List<Hint> hints = deciding.isPresent()
+                    ? receiverOf(invocation).map(r -> StateHints.decidingArgument(deciding.get(), r)).stream().toList()
+                    : states.map(r -> stateHints(r, function, category, invocation)).orElse(List.of());
             tc.throwStateRefinementError(invocation.getPosition(), declarationPosition, prevState,
                     expectedStatesDisjunction, message, hints, category);
         }
@@ -674,6 +686,17 @@ public class AuxStateHandler {
         } catch (RuntimeException e) {
             // a failure to analyse the states must not replace the error being reported
             DebugLog.warn("Could not compute the receiver's states: " + e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    /** Best effort, like {@link #receiverStates} */
+    private static Optional<DecidingArgument> decidingArgument(TypeChecker tc, VariableInstance receiver,
+            RefinedFunction function, List<GhostState> ghostStates, CtElement invocation) {
+        try {
+            return DecidingArgument.find(tc, receiver, function, ghostStates, invocation);
+        } catch (RuntimeException e) {
+            DebugLog.warn("Could not find the argument that decided the receiver's state: " + e.getMessage());
             return Optional.empty();
         }
     }
@@ -722,7 +745,8 @@ public class AuxStateHandler {
             Predicate c = variableInstance.getRefinement().substituteVariable(Keys.WILDCARD, newInstanceName)
                     .substituteVariable(variableInstance.getName(), newInstanceName);
 
-            addInstanceWithState(tc, name, newInstanceName, variableInstance, c, invocation);
+            addInstanceWithState(tc, name, newInstanceName, variableInstance, c, invocation)
+                    .setStateChange(variableInstance.getStateChange().orElse(null));
         }
     }
 
@@ -736,7 +760,7 @@ public class AuxStateHandler {
      * @param transitionedState
      * @param invocation
      */
-    private static void addInstanceWithState(TypeChecker tc, String superName, String name2,
+    private static VariableInstance addInstanceWithState(TypeChecker tc, String superName, String name2,
             VariableInstance prevInstance, Predicate transitionedState, CtElement invocation) throws LJError {
         VariableInstance vi2 = (VariableInstance) tc.getContext().addInstanceToContext(name2, prevInstance.getType(),
                 prevInstance.getRefinement(), invocation);
@@ -758,6 +782,7 @@ public class AuxStateHandler {
             }
         }
         invocation.putMetadata(Keys.TARGET, vi2);
+        return vi2;
     }
 
     /** Whether the access denotes the receiver of the enclosing type, including unqualified super. */

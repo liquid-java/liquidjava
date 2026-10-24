@@ -6,6 +6,7 @@ public final class Keys {
     public static final String TARGET = "target";
     public static final String RECEIVER = "receiver";
     public static final String RETURN_VAR_NAME = "return_var_name";
+    public static final String STATE_CHANGE = "state_change";
     public static final String THIS = "this";
     public static final String WILDCARD = "_";
     public static final String OLD = "old";

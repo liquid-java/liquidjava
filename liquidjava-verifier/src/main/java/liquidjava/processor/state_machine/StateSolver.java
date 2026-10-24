@@ -2,11 +2,14 @@ package liquidjava.processor.state_machine;
 
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import liquidjava.diagnostics.errors.LJError;
 import liquidjava.processor.refinement_checker.TypeChecker;
 import liquidjava.rj_language.Predicate;
+import liquidjava.smt.Counterexample;
+import liquidjava.smt.SMTResult;
 import liquidjava.utils.constants.Keys;
 import spoon.reflect.cu.SourcePosition;
 
@@ -30,6 +33,12 @@ public class StateSolver {
     /** Whether {@code conclusion} holds whenever {@code premise} holds */
     public boolean implies(Predicate premise, Predicate conclusion) throws LJError {
         return tc.checkStateSMT(premise, conclusion, position, true);
+    }
+
+    /** Values for which {@code first} and {@code second} hold at the same time, if there are any */
+    public Optional<Counterexample> witness(Predicate first, Predicate second) throws LJError {
+        SMTResult result = tc.verifyStateSMT(first, second.negate(), position, true);
+        return result.isOk() ? Optional.empty() : Optional.of(result.getCounterexample());
     }
 
     /** Whether {@code first} and {@code second} can hold at the same time */
