@@ -419,7 +419,7 @@ public class MethodsFunctionsChecker {
     private Map<String, String> mapInvocation(List<CtExpression<?>> arguments, RefinedFunction f) {
         Map<String, String> mapInvocation = new HashMap<>();
         List<Variable> functionParams = f.getArguments();
-        for (int i = 0; i < arguments.size(); i++) {
+        for (int i = 0; i < matchedArguments(arguments, functionParams); i++) {
             Variable fArg = functionParams.get(i);
             CtExpression<?> iArg = arguments.get(i);
             String invStr;
@@ -437,6 +437,16 @@ public class MethodsFunctionsChecker {
         return mapInvocation;
     }
 
+    /**
+     * The number of arguments bound one to one to parameters. A varargs call can pass more (or fewer) arguments than
+     * there are parameters; the ones collected into the varargs array are left out.
+     */
+    private static int matchedArguments(List<CtExpression<?>> arguments, List<Variable> params) {
+        if (arguments.size() == params.size())
+            return arguments.size();
+        return Math.min(arguments.size(), Math.max(params.size() - 1, 0));
+    }
+
     private String createVariableRepresentingArgument(CtExpression<?> iArg, Variable fArg) {
         Predicate met = (Predicate) iArg.getMetadata(Keys.REFINEMENT);
         if (met == null)
@@ -451,7 +461,7 @@ public class MethodsFunctionsChecker {
     private void checkParameters(CtElement invocation, List<CtExpression<?>> arguments, RefinedFunction f,
             Map<String, String> map) throws LJError {
         List<Variable> functionParams = f.getArguments();
-        for (int i = 0; i < arguments.size(); i++) {
+        for (int i = 0; i < matchedArguments(arguments, functionParams); i++) {
             Variable fArg = functionParams.get(i);
             Predicate c = fArg.getMainRefinement();
             c = c.substituteVariable(fArg.getName(), map.get(fArg.getName()));
