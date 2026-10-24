@@ -848,6 +848,21 @@ public class AuxStateHandler {
             newCall.putMetadata(Keys.RECEIVER, receiver);
             invocation.putMetadata(Keys.TARGET, receiver);
             return name;
+        } else if (target2 instanceof CtInvocation<?> call
+                && call.getMetadata(Keys.RECEIVER)instanceof RefinedVariable receiver) {
+            invocation.putMetadata(Keys.TARGET, receiver);
+            return receiver.getName();
+        } else if (target2 instanceof CtInvocation<?> call && call.getMetadata(Keys.TARGET) != null
+                && !isReturnValue(call)) {
+            // `a.get().method()` where get() has no return refinement: the call's TARGET is its own receiver (a), not
+            // the value it returns, so the receiver is a fresh value of the call's type, in a state not known here
+            String name = String.format(Formats.FRESH, tc.getContext().getCounter());
+            CtTypeReference<?> type = call.getType();
+            RefinedVariable receiver = tc.getContext().addInstanceToContext(name, type, new Predicate(), call);
+            receiver.addSuperTypes(type.getSuperclass(), type.getSuperInterfaces());
+            call.putMetadata(Keys.RECEIVER, receiver);
+            invocation.putMetadata(Keys.TARGET, receiver);
+            return name;
         } else if (target2.getMetadata(Keys.TARGET) != null) {
             VariableInstance target2Vi = (VariableInstance) target2.getMetadata(Keys.TARGET);
             Optional<Variable> v = target2Vi.getParent();
@@ -855,6 +870,12 @@ public class AuxStateHandler {
             return v.map(Refined::getName).orElse(target2Vi.getName());
         }
         return null;
+    }
+
+    /** Whether a call's TARGET metadata is the value it returns (set when its return refinement is applied). */
+    private static boolean isReturnValue(CtInvocation<?> call) {
+        return call.getMetadata(Keys.TARGET)instanceof VariableInstance vi
+                && vi.getName().equals(call.getMetadata(Keys.RETURN_VAR_NAME));
     }
 
     static VariableInstance getTarget(CtElement invocation) {
