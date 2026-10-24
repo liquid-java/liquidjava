@@ -149,7 +149,8 @@ public final class StateHints {
         return receiver + "." + signature(method);
     }
 
-    private static String signature(RefinedFunction method) {
+    /** A method as shown in hints, e.g. {@code open(int)} */
+    public static String signature(RefinedFunction method) {
         return Utils.getSimpleName(method.getName()) + parameters(method);
     }
 

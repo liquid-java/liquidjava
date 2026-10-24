@@ -90,16 +90,17 @@ public class StateMachineBuilder {
         if (stateSets.isEmpty())
             return List.of();
 
-        List<State> combinations = List.of(new State("", new Predicate()));
+        List<State> combinations = List.of(new State(List.of(), new Predicate()));
         for (List<GhostState> stateSet : stateSets.values())
             combinations = combinations.stream().flatMap(s -> stateSet.stream().map(g -> combine(s, g))).toList();
         return combinations;
     }
 
     private static State combine(State state, GhostState ghostState) {
-        String name = state.name().isEmpty() ? ghostState.getName() : state.name() + " and " + ghostState.getName();
+        List<String> names = new ArrayList<>(state.names());
+        names.add(ghostState.getName());
         Predicate holds = Predicate.createInvocation(ghostState.getQualifiedName(), Predicate.createVar(Keys.THIS));
-        return new State(name, Predicate.createConjunction(state.predicate(), holds));
+        return new State(names, Predicate.createConjunction(state.predicate(), holds));
     }
 
     private StateMachine build(String className, CtTypeReference<?> type) throws LJError {

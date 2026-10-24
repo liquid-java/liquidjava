@@ -22,10 +22,11 @@ public class StateRefinementError extends LJError {
     private final Predicate expected;
     private final VCSimplificationResult found;
     private final SourcePosition declarationPosition;
+    private final StateErrorContext context;
 
     public StateRefinementError(SourcePosition position, SourcePosition declarationPosition, Predicate expected,
             VCSimplificationResult found, TranslationTable translationTable, String customMessage, List<Hint> hints,
-            ErrorCategory category) {
+            ErrorCategory category, StateErrorContext context) {
         super("State Refinement Error",
                 String.format("found %s but expected %s",
                         found.getImplication().toPredicate().getExpression().toDisplayString(),
@@ -34,6 +35,7 @@ public class StateRefinementError extends LJError {
         this.declarationPosition = declarationPosition;
         this.expected = expected;
         this.found = found;
+        this.context = context;
         hints.forEach(this::addHint);
         setCategory(category);
         if (hints.isEmpty() && isTrue(found.getImplication().toPredicate().getExpression()))
@@ -56,5 +58,10 @@ public class StateRefinementError extends LJError {
 
     public VCSimplificationResult getFoundSimplification() {
         return found;
+    }
+
+    /** What is known about the receiver's states, or null if they could not be computed */
+    public StateErrorContext getContext() {
+        return context;
     }
 }

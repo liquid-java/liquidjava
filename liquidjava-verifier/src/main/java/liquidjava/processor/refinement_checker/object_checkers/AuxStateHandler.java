@@ -10,6 +10,7 @@ import liquidjava.diagnostics.errors.IllegalConstructorTransitionError;
 import liquidjava.diagnostics.errors.InvalidRefinementError;
 import liquidjava.diagnostics.errors.LJError;
 import liquidjava.diagnostics.errors.SMTUnknownError;
+import liquidjava.diagnostics.errors.StateErrorContext;
 import liquidjava.diagnostics.hints.Hint;
 import liquidjava.diagnostics.hints.StateHints;
 import liquidjava.processor.context.*;
@@ -661,8 +662,11 @@ public class AuxStateHandler {
             List<Hint> hints = deciding.isPresent()
                     ? receiverOf(invocation).map(r -> StateHints.decidingArgument(deciding.get(), r)).stream().toList()
                     : states.map(r -> stateHints(r, function, category, invocation)).orElse(List.of());
+            StateErrorContext context = states
+                    .map(r -> StateErrorContext.of(r.machine(), function, r.current(), writtenReceiver(invocation)))
+                    .orElse(null);
             tc.throwStateRefinementError(invocation.getPosition(), declarationPosition, prevState,
-                    expectedStatesDisjunction, message, hints, category);
+                    expectedStatesDisjunction, message, hints, category, context);
         }
     }
 
@@ -718,11 +722,16 @@ public class AuxStateHandler {
         if (!(invocation instanceof CtInvocation<?> call))
             return Optional.empty();
         CtExpression<?> target = call.getTarget();
-        if (target == null || target.isImplicit())
-            return Optional.of(Keys.THIS);
-        if (target instanceof CtVariableRead<?> || target instanceof CtThisAccess<?>)
-            return Optional.of(target.toString());
+        if (target == null || target.isImplicit() || target instanceof CtVariableRead<?>
+                || target instanceof CtThisAccess<?>)
+            return Optional.of(writtenReceiver(invocation));
         return Optional.empty();
+    }
+
+    /** The receiver of {@code invocation} as written in the code, {@code this} if it is implicit */
+    private static String writtenReceiver(CtElement invocation) {
+        CtExpression<?> target = invocation instanceof CtInvocation<?> call ? call.getTarget() : null;
+        return target == null || target.isImplicit() ? Keys.THIS : target.toString();
     }
 
     private static Predicate checkOldMentions(Predicate transitionedState, String instanceName,

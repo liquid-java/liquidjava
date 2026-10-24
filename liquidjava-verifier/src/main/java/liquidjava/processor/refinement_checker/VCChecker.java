@@ -438,12 +438,12 @@ public class VCChecker {
     }
 
     protected void throwStateRefinementError(SourcePosition position, SourcePosition declarationPosition,
-            Predicate found, Predicate expected, String customMessage, List<Hint> hints, ErrorCategory category)
-            throws StateRefinementError {
+            Predicate found, Predicate expected, String customMessage, List<Hint> hints, ErrorCategory category,
+            StateErrorContext context) throws StateRefinementError {
         TranslationTable map = new TranslationTable();
         VCImplication foundState = buildPremiseChain(map, expected, found);
         throw new StateRefinementError(position, declarationPosition, expected, foundState.simplify(), map,
-                customMessage, hints, category);
+                customMessage, hints, category, context);
     }
 
     protected void throwStateConflictError(SourcePosition position, Predicate expected) throws StateConflictError {

@@ -430,13 +430,14 @@ public abstract class TypeChecker extends CtScanner {
 
     public void throwStateRefinementError(SourcePosition position, SourcePosition declarationPosition, Predicate found,
             Predicate expected, String customMessage) throws LJError {
-        throwStateRefinementError(position, declarationPosition, found, expected, customMessage, List.of(), null);
+        throwStateRefinementError(position, declarationPosition, found, expected, customMessage, List.of(), null, null);
     }
 
     public void throwStateRefinementError(SourcePosition position, SourcePosition declarationPosition, Predicate found,
-            Predicate expected, String customMessage, List<Hint> hints, ErrorCategory category) throws LJError {
+            Predicate expected, String customMessage, List<Hint> hints, ErrorCategory category,
+            StateErrorContext context) throws LJError {
         vcChecker.throwStateRefinementError(position, declarationPosition, found, expected, customMessage, hints,
-                category);
+                category, context);
     }
 
     public void throwStateConflictError(SourcePosition position, Predicate expectedType) throws LJError {
