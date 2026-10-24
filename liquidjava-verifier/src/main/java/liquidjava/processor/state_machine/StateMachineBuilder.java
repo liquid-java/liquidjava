@@ -145,7 +145,9 @@ public class StateMachineBuilder {
             for (ObjectState change : method.getAllStates()) {
                 if (!change.hasFrom())
                     continue;
-                Predicate from = change.getFrom().substituteVariable(Keys.THIS, BEFORE);
+                // like the verifier, old(this) in a precondition is the state before the call
+                Predicate from = change.getFrom().substituteVariable(Keys.THIS, BEFORE).changeOldMentions(BEFORE,
+                        BEFORE);
                 if (solver.implies(current, from)) {
                     // like the verifier, the first state change whose precondition holds is the one applied
                     Set<State> next = statesAfter(change, state, current);
