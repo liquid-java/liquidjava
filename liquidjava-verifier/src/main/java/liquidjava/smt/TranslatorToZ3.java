@@ -8,6 +8,7 @@ import com.microsoft.z3.FPExpr;
 import com.microsoft.z3.FuncDecl;
 import com.microsoft.z3.IntExpr;
 import com.microsoft.z3.IntNum;
+import com.microsoft.z3.Params;
 import com.microsoft.z3.RealExpr;
 import com.microsoft.z3.Solver;
 import com.microsoft.z3.Sort;
@@ -35,6 +36,12 @@ import com.microsoft.z3.enumerations.Z3_sort_kind;
 import org.apache.commons.lang3.NotImplementedException;
 
 public class TranslatorToZ3 implements AutoCloseable {
+
+    /**
+     * Deterministic work budget of the simple solver. Queries it decides use at most about a thousand units; ones it
+     * cannot decide can take millions, and minutes, before it gives up
+     */
+    private static final int SIMPLE_SOLVER_RLIMIT = 100_000;
 
     private final com.microsoft.z3.Context z3 = new com.microsoft.z3.Context();
     private final Map<String, Expr<?>> varTranslation = new HashMap<>();
@@ -66,9 +73,26 @@ public class TranslatorToZ3 implements AutoCloseable {
         TranslatorContextToZ3.addGhostStates(z3, context.getGhostStates(), funcTranslation);
     }
 
-    @SuppressWarnings("unchecked")
     public Solver makeSolverForExpression(Expr<?> e) {
-        Solver solver = z3.mkSolver();
+        return addToSolver(z3.mkSolver(), e);
+    }
+
+    /**
+     * A solver for {@code e} without the preprocessing tactics of the default solver, which take most of the time of
+     * the small queries the verifier asks. It decides fewer queries and can get stuck on the ones it cannot decide, so
+     * it gives up after {@link #SIMPLE_SOLVER_RLIMIT} and an unknown result should be retried with
+     * {@link #makeSolverForExpression}
+     */
+    public Solver makeSimpleSolverForExpression(Expr<?> e) {
+        Solver solver = z3.mkSimpleSolver();
+        Params params = z3.mkParams();
+        params.add("rlimit", SIMPLE_SOLVER_RLIMIT);
+        solver.setParameters(params);
+        return addToSolver(solver, e);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Solver addToSolver(Solver solver, Expr<?> e) {
         for (BoolExpr axiom : staticConstantAxioms)
             solver.add(axiom);
         for (BoolExpr axiom : referenceIdentityAxioms)

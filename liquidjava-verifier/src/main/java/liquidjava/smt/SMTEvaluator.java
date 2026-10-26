@@ -40,8 +40,12 @@ public class SMTEvaluator {
             try (TranslatorToZ3 tz3 = new TranslatorToZ3(context)) {
                 ExpressionToZ3Visitor visitor = new ExpressionToZ3Visitor(tz3);
                 Expr<?> e = exp.accept(visitor);
-                Solver solver = tz3.makeSolverForExpression(e);
+                Solver solver = tz3.makeSimpleSolverForExpression(e);
                 Status result = solver.check();
+                if (result.equals(Status.UNKNOWN)) {
+                    solver = tz3.makeSolverForExpression(e);
+                    result = solver.check();
+                }
 
                 // subRef is not a subtype of supRef
                 if (result.equals(Status.SATISFIABLE)) {
@@ -78,8 +82,10 @@ public class SMTEvaluator {
             try (TranslatorToZ3 tz3 = new TranslatorToZ3(context)) {
                 ExpressionToZ3Visitor visitor = new ExpressionToZ3Visitor(tz3);
                 Expr<?> e = exp.accept(visitor);
-                Solver solver = tz3.makeSolverForExpression(e);
-                return solver.check().equals(Status.UNSATISFIABLE);
+                Status result = tz3.makeSimpleSolverForExpression(e).check();
+                if (result.equals(Status.UNKNOWN))
+                    result = tz3.makeSolverForExpression(e).check();
+                return result.equals(Status.UNSATISFIABLE);
             }
         } catch (Z3Exception e) {
             throw new Z3Exception(e.getLocalizedMessage());
