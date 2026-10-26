@@ -333,6 +333,7 @@ public abstract class TypeChecker extends CtScanner {
             }
             if (klass != null && path != null) {
                 a.parse(path);
+                a.resolveStaticFinalConstants(element, position);
                 if (a.getExpression() != null && !a.getExpression().isBooleanExpression()) {
                     throw new InvalidRefinementError(position, "Refinement alias must return a boolean expression",
                             ref);

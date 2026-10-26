@@ -4,8 +4,11 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.errors.LJError;
+import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.parsing.RefinementsParser;
+import spoon.reflect.cu.SourcePosition;
+import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtTypeInformation;
 import spoon.reflect.reference.CtTypeReference;
 
@@ -37,6 +40,13 @@ public class AliasDTO {
     public void parse(String prefix) throws LJError {
         if (ref != null) {
             this.expression = RefinementsParser.createAST(ref, prefix);
+        }
+    }
+
+    // Resolve Type.CONST references to static final constants, using the imports of the class declaring the alias
+    public void resolveStaticFinalConstants(CtElement context, SourcePosition position) throws LJError {
+        if (expression != null) {
+            this.expression = Predicate.resolveStaticFinalConstants(expression, context, position);
         }
     }
 

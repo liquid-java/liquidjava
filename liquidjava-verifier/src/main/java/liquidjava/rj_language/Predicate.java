@@ -85,6 +85,16 @@ public class Predicate {
      * untouched (the SMT side handles them as user enum constants).
      */
     private static Expression resolveStaticFinalConstants(Expression root, CtElement context) throws LJError {
+        return resolveStaticFinalConstants(root, context, null);
+    }
+
+    /**
+     * Same as {@link #resolveStaticFinalConstants(Expression, CtElement)}, but unresolvable references are reported at
+     * {@code errorPosition} when it is non-null (e.g. for refinement aliases, whose annotation value is the whole alias
+     * definition rather than the {@code Type.CONST} reference).
+     */
+    public static Expression resolveStaticFinalConstants(Expression root, CtElement context,
+            SourcePosition errorPosition) throws LJError {
         List<Enum> enums = new ArrayList<>();
         collectEnums(root, enums);
         for (Enum en : enums) {
@@ -97,7 +107,8 @@ public class Predicate {
             if (StaticConstants.userTypeExists(en.getTypeName(), context))
                 continue; // likely a user-defined enum/class — let SMT translation handle it
             // unresolvable reference — throw an error with a helpful message and import suggestion if possible
-            SourcePosition pos = context == null ? null : Utils.getLJAnnotationPosition(context, en.toString());
+            SourcePosition pos = errorPosition != null ? errorPosition
+                    : context == null ? null : Utils.getLJAnnotationPosition(context, en.toString());
             String suggested = StaticConstants.findImportCandidate(en.getTypeName(), en.getConstName(), context);
             String hint = suggested != null ? "Add: import " + suggested + ";"
                     : "Add an import for '" + en.getTypeName() + "' if it is a Java class with a static final field";
