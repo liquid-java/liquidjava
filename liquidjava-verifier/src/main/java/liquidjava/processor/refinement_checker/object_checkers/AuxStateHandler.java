@@ -76,25 +76,55 @@ public class AuxStateHandler {
                 || c.getDeclaringType() == null
                 || c.getDeclaringType().getReference().equals(call.getExecutable().getDeclaringType()))
             return false; // not a super(...) call (this(...) delegates within the class)
-        RefinedFunction superF = specifiedConstructor(tc, call.getExecutable());
-        List<CtExpression<?>> args = call.getArguments();
-        if (superF == null || superF.getToStates().isEmpty() || superF.getArguments().size() != args.size())
-            return false;
+        List<Optional<String>> names = call.getArguments().stream().map(AuxStateHandler::argumentName).toList();
+        Optional<List<Predicate>> states = specifiedStates(tc, call.getExecutable(), names);
+        states.ifPresent(
+                to -> f.setAllStates(to.stream().map(p -> new ObjectState(null, p)).collect(Collectors.toList())));
+        return states.isPresent();
+    }
 
-        // rename each super parameter to the argument passed for it; a state may not mention an unnamed one
+    /**
+     * The state that {@code new C(...)} gives when {@code C}'s constructor has no specification of its own but is a
+     * binary constructor that delegates to a specified one of an ancestor (e.g. {@code new RuntimeException(m)} runs
+     * {@code Throwable(String)}), with the arguments renamed as in {@link #inheritSuperConstructorState}.
+     */
+    public static Optional<Predicate> delegatedConstructorState(TypeChecker tc, CtConstructorCall<?> call) {
+        List<Optional<String>> names = call.getArguments().stream().map(a -> callArgumentName(tc, a)).toList();
+        return specifiedStates(tc, call.getExecutable(), names).filter(to -> !to.isEmpty()).map(to -> to.get(0));
+    }
+
+    /**
+     * The to-states of the specified constructor that {@code exe} ends up running, with each of its parameters renamed
+     * to how a state can refer to the value passed for it. Empty if no specified constructor is known, or if a state
+     * mentions a parameter whose value cannot be named.
+     *
+     * @param argumentNames
+     *            how a state can refer to each argument of the call to {@code exe}
+     */
+    private static Optional<List<Predicate>> specifiedStates(TypeChecker tc, CtExecutableReference<?> exe,
+            List<Optional<String>> argumentNames) {
+        if (exe.getDeclaringType() == null || argumentNames.size() != exe.getParameters().size())
+            return Optional.empty(); // e.g. a varargs call
+        Optional<SpecifiedConstructor> spec = specifiedConstructor(tc, exe);
+        if (spec.isEmpty() || spec.get().function().getToStates().isEmpty())
+            return Optional.empty();
+
+        // rename each spec parameter to the value passed for it; a state may not mention an unnamed one
         Map<String, String> rename = new HashMap<>();
         Set<String> unnamed = new HashSet<>();
-        for (int i = 0; i < args.size(); i++) {
-            String param = superF.getArguments().get(i).getName();
-            argumentName(args.get(i)).ifPresentOrElse(a -> rename.put(param, a), () -> unnamed.add(param));
+        List<Variable> params = spec.get().function().getArguments();
+        for (int i = 0; i < params.size(); i++) {
+            String param = params.get(i).getName();
+            ConstructorDelegation.Argument passed = spec.get().arguments().get(i);
+            Optional<String> name = passed instanceof ConstructorDelegation.Parameter p ? argumentNames.get(p.index())
+                    : ((ConstructorDelegation.Constant) passed).value();
+            name.ifPresentOrElse(n -> rename.put(param, n), () -> unnamed.add(param));
         }
-        if (superF.getToStates().stream().anyMatch(to -> to.getVariableNames().stream().anyMatch(unnamed::contains)))
-            return false;
-        f.setAllStates(superF.getToStates().stream()
-                .map(to -> new ObjectState(null, rename.entrySet().stream().reduce(to,
-                        (p, r) -> p.substituteVariable(r.getKey(), r.getValue()), (p, q) -> p)))
-                .collect(Collectors.toList()));
-        return true;
+        List<Predicate> states = spec.get().function().getToStates();
+        if (states.stream().anyMatch(to -> to.getVariableNames().stream().anyMatch(unnamed::contains)))
+            return Optional.empty();
+        return Optional.of(states.stream().map(to -> rename.entrySet().stream().reduce(to,
+                (p, r) -> p.substituteVariable(r.getKey(), r.getValue()), (p, q) -> p)).toList());
     }
 
     /** How a state can refer to {@code arg}: by the caller's parameter name or a non-string literal's value. */
@@ -102,34 +132,81 @@ public class AuxStateHandler {
         if (arg instanceof CtVariableRead<?> vr
                 && vr.getVariable() instanceof spoon.reflect.reference.CtParameterReference<?>)
             return Optional.of(vr.getVariable().getSimpleName());
+        return literalName(arg);
+    }
+
+    /** How a state can refer to {@code arg} at a call: by the local variable's current instance or a literal. */
+    private static Optional<String> callArgumentName(TypeChecker tc, CtExpression<?> arg) {
+        if (arg instanceof CtVariableRead<?> vr && !(arg instanceof CtFieldRead<?>))
+            return tc.getContext().getLastVariableInstance(vr.getVariable().getSimpleName()).map(Refined::getName);
+        return literalName(arg);
+    }
+
+    private static Optional<String> literalName(CtExpression<?> arg) {
         if (arg instanceof CtLiteral<?> lit && lit.getValue() != null && !(lit.getValue() instanceof String))
             return Optional.of(lit.getValue().toString());
         return Optional.empty();
     }
 
     /**
-     * JDK classes whose constructors all pass their arguments unchanged to the superclass constructor with the same
-     * parameter types (documented in their Javadoc), so a spec on that superclass constructor describes them too. Only
-     * these are walked through: other binary classes may not (e.g. {@code ClassNotFoundException(String)} sets a null
-     * cause), and assuming they did would hide real errors.
+     * A constructor specification, and what a call passes for each of its parameters.
+     *
+     * @param arguments
+     *            for each parameter of {@code function}: an index into the call's arguments, or a constant
      */
-    private static final Set<String> DELEGATING_JDK_CLASSES = Set.of("java.lang.Exception",
-            "java.lang.RuntimeException", "java.lang.Error");
+    private record SpecifiedConstructor(RefinedFunction function, List<ConstructorDelegation.Argument> arguments) {
+    }
 
-    /** The specified constructor that {@code exe} ends up running, if one is known. */
-    private static RefinedFunction specifiedConstructor(TypeChecker tc, CtExecutableReference<?> exe) {
-        for (CtTypeReference<?> t = exe.getDeclaringType(); t != null;) {
-            RefinedFunction f = tc.getContext().getFunction(exe.getSimpleName(), t.getQualifiedName(),
-                    exe.getParameters());
-            if (f != null || !DELEGATING_JDK_CLASSES.contains(t.getQualifiedName()))
-                return f;
-            try {
-                t = t.getSuperclass();
-            } catch (RuntimeException | LinkageError e) {
-                return null;
-            }
+    /**
+     * The specified constructor that {@code exe} ends up running, if one is known. A binary constructor without a
+     * specification is walked through only when its bytecode just passes values on to a superclass constructor (e.g.
+     * {@code RuntimeException(String)} to {@code Exception(String)} to {@code Throwable(String)}); assuming any other
+     * constructor did so would hide real errors (e.g. {@code ClassNotFoundException(String)} also sets a null cause).
+     */
+    private static Optional<SpecifiedConstructor> specifiedConstructor(TypeChecker tc, CtExecutableReference<?> exe) {
+        List<ConstructorDelegation.Argument> arguments = new ArrayList<>();
+        for (int i = 0; i < exe.getParameters().size(); i++)
+            arguments.add(new ConstructorDelegation.Parameter(i));
+        String klass = exe.getDeclaringType().getQualifiedName();
+        RefinedFunction f = tc.getContext().getFunction(exe.getSimpleName(), klass, exe.getParameters());
+        Optional<List<String>> types = erasedNames(exe.getParameters());
+        while (f == null && types.isPresent()) {
+            Optional<ConstructorDelegation> delegation = ConstructorDelegation.of(klass, types.get());
+            if (delegation.isEmpty())
+                return Optional.empty();
+            arguments = passedOn(arguments, delegation.get().arguments());
+            klass = delegation.get().superclass();
+            types = Optional.of(delegation.get().superParameterTypes());
+            // exact types: the arity fallback of getFunction could pick another overload's spec
+            f = tc.getContext().getFunctionExact(exe.getSimpleName(), klass, typeReferences(tc, types.get()));
         }
-        return null;
+        return f == null ? Optional.empty() : Optional.of(new SpecifiedConstructor(f, arguments));
+    }
+
+    /**
+     * What reaches the superclass constructor, in terms of the original call: a parameter passed on refers back to the
+     * value the call gave for it.
+     */
+    private static List<ConstructorDelegation.Argument> passedOn(List<ConstructorDelegation.Argument> callArguments,
+            List<ConstructorDelegation.Argument> delegated) {
+        return delegated.stream()
+                .map(a -> a instanceof ConstructorDelegation.Parameter p ? callArguments.get(p.index()) : a).toList();
+    }
+
+    /** The erased qualified names of {@code types}, as in bytecode descriptors, if they can be resolved. */
+    private static Optional<List<String>> erasedNames(List<CtTypeReference<?>> types) {
+        try {
+            return Optional.of(types.stream().map(t -> t.getTypeErasure().getQualifiedName()).toList());
+        } catch (RuntimeException e) {
+            return Optional.empty();
+        }
+    }
+
+    private static List<CtTypeReference<?>> typeReferences(TypeChecker tc, List<String> names) {
+        List<CtTypeReference<?>> refs = new ArrayList<>();
+        for (String name : names)
+            refs.add(tc.getFactory().Type().createReference(name));
+        return refs;
     }
 
     /**
