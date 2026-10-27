@@ -678,8 +678,9 @@ public class RefinementTypeChecker extends TypeChecker {
             scan(forLoop.getExpression());
             assumeLoopCondition(forLoop.getExpression());
             List<RefinedVariable> pathVariables = vcChecker.getPathVariables();
-            scan(forLoop.getBody());
-            if (!forLoop.getBody().getElements(new TypeFilter<>(CtContinue.class)).isEmpty()) {
+            CtStatement body = forLoop.getBody(); // null for an empty statement body, as in for (...);
+            scan(body);
+            if (body != null && !body.getElements(new TypeFilter<>(CtContinue.class)).isEmpty()) {
                 // a continue reaches the update from any point of the body, skipping its facts and assignments
                 vcChecker.restorePathVariables(pathVariables);
                 havocChangedIn(forLoop);
