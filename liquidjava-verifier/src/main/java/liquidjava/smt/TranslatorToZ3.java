@@ -41,7 +41,7 @@ public class TranslatorToZ3 implements AutoCloseable {
      * Deterministic work budget of the simple solver. Queries it decides use at most about a thousand units; ones it
      * cannot decide can take millions, and minutes, before it gives up
      */
-    private static final int SIMPLE_SOLVER_RLIMIT = 100_000;
+    static final int SIMPLE_SOLVER_RLIMIT = 100_000;
 
     private final com.microsoft.z3.Context z3 = new com.microsoft.z3.Context();
     private final Map<String, Expr<?>> varTranslation = new HashMap<>();

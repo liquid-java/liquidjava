@@ -89,6 +89,10 @@
 				<version>3.2.1</version>
 				<configuration>
 					<trimStackTrace>true</trimStackTrace>
+					<systemPropertyVariables>
+						<!-- recompute every result found in a cache and fail if it differs -->
+						<liquidjava.caches>check</liquidjava.caches>
+					</systemPropertyVariables>
 				</configuration>
 			</plugin>
 

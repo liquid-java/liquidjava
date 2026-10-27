@@ -415,7 +415,9 @@ public abstract class TypeChecker extends CtScanner {
 
     public boolean checkStateSMT(Predicate prevState, Predicate expectedState, SourcePosition p, boolean silent)
             throws LJError {
-        return verifyStateSMT(prevState, expectedState, p, silent).isOk();
+        return vcChecker
+                .verifySMTSubtypeStates(prevState, expectedState, context.getGhostStates(), p, factory, silent, false)
+                .isOk();
     }
 
     /** Checks that {@code prevState} implies {@code expectedState}, with a counterexample when it does not */
