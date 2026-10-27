@@ -368,6 +368,12 @@
 			<artifactId>picocli</artifactId>
 			<version>4.7.7</version>
 		</dependency>
+
+		<dependency>
+			<groupId>org.ow2.asm</groupId>
+			<artifactId>asm</artifactId>
+			<version>9.11</version>
+		</dependency>
 	</dependencies>
 	<dependencyManagement>
 		<dependencies>
