@@ -741,12 +741,8 @@ public class AuxStateHandler {
             Predicate expected = stateChanges.stream().filter(ObjectState::hasFrom).map(ObjectState::getFrom)
                     .reduce(Predicate.createLit("false", Types.BOOLEAN), Predicate::createDisjunction)
                     .substituteVariable(Keys.THIS, instanceName);
-            Predicate previous = prevState;
-            for (String parameter : map.keySet()) {
-                previous = previous.substituteVariable(parameter, map.get(parameter));
-                expected = expected.substituteVariable(parameter, map.get(parameter));
-            }
-            expected = expected.changeOldMentions(vi.getName(), instanceName);
+            Predicate previous = substituteArguments(prevState, map);
+            expected = substituteArguments(expected, map).changeOldMentions(vi.getName(), instanceName);
             try {
                 found = tc.checkStateSMT(previous, expected, invocation.getPosition());
             } catch (SMTUnknownError error) {
@@ -761,14 +757,8 @@ public class AuxStateHandler {
             if (!stateChange.hasFrom())
                 continue;
 
-            // replace "state(this)" to "state(whatever method is called from) and so on"
-            Predicate expectState = stateChange.getFrom().substituteVariable(Keys.THIS, instanceName);
-            Predicate prevCheck = prevState;
-            for (String s : map.keySet()) { // substituting function variables into annotation if there are any
-                prevCheck = prevCheck.substituteVariable(s, map.get(s));
-                expectState = expectState.substituteVariable(s, map.get(s));
-            }
-            expectState = expectState.changeOldMentions(vi.getName(), instanceName);
+            Predicate expectState = entryState(stateChange, instanceName, map);
+            Predicate prevCheck = substituteArguments(prevState, map);
 
             try {
                 found = tc.checkStateSMT(prevCheck, expectState, invocation.getPosition());
@@ -791,11 +781,9 @@ public class AuxStateHandler {
             Predicate expectedStatesDisjunction = stateChanges.stream().filter(ObjectState::hasFrom)
                     .map(ObjectState::getFrom)
                     .reduce(Predicate.createLit("false", Types.BOOLEAN), Predicate::createDisjunction);
-            expectedStatesDisjunction = expectedStatesDisjunction.substituteVariable(Keys.THIS, instanceName);
-            for (String s : map.keySet()) {
-                expectedStatesDisjunction = expectedStatesDisjunction.substituteVariable(s, map.get(s));
-            }
-            expectedStatesDisjunction = expectedStatesDisjunction.changeOldMentions(vi.getName(), instanceName);
+            expectedStatesDisjunction = substituteArguments(
+                    expectedStatesDisjunction.substituteVariable(Keys.THIS, instanceName), map)
+                            .changeOldMentions(vi.getName(), instanceName);
 
             // combine messages of all state changes
             String message = stateChanges.stream().map(ObjectState::getMessage)
@@ -893,10 +881,7 @@ public class AuxStateHandler {
         String wildcardTarget = returnViName != null ? returnViName : newInstanceName;
         Predicate transitionedState = stateChange.getTo().substituteVariable(Keys.WILDCARD, wildcardTarget)
                 .substituteVariable(Keys.THIS, newInstanceName);
-        for (String s : map.keySet()) {
-            transitionedState = transitionedState.substituteVariable(s, map.get(s));
-        }
-        return checkOldMentions(transitionedState, instanceName, newInstanceName);
+        return checkOldMentions(substituteArguments(transitionedState, map), instanceName, newInstanceName);
     }
 
     /**
@@ -912,9 +897,7 @@ public class AuxStateHandler {
         if (alternatives.size() < 2)
             return false;
         String instanceName = vi.getName();
-        Predicate previous = prevState;
-        for (String parameter : map.keySet())
-            previous = previous.substituteVariable(parameter, map.get(parameter));
+        Predicate previous = substituteArguments(prevState, map);
         Predicate anyEntry = Predicate.createLit("false", Types.BOOLEAN);
         for (ObjectState alternative : alternatives)
             anyEntry = Predicate.createDisjunction(anyEntry, entryState(alternative, instanceName, map));
@@ -943,9 +926,14 @@ public class AuxStateHandler {
     /** The entry state of {@code stateChange}, for the object {@code instanceName} */
     private static Predicate entryState(ObjectState stateChange, String instanceName, Map<String, String> map) {
         Predicate entry = stateChange.getFrom().substituteVariable(Keys.THIS, instanceName);
+        return substituteArguments(entry, map).changeOldMentions(instanceName, instanceName);
+    }
+
+    /** Replaces the parameters of the called method with the arguments of the call, as given by {@code map} */
+    private static Predicate substituteArguments(Predicate predicate, Map<String, String> map) {
         for (String parameter : map.keySet())
-            entry = entry.substituteVariable(parameter, map.get(parameter));
-        return entry.changeOldMentions(instanceName, instanceName);
+            predicate = predicate.substituteVariable(parameter, map.get(parameter));
+        return predicate;
     }
 
     private static Predicate checkOldMentions(Predicate transitionedState, String instanceName,
