@@ -53,11 +53,11 @@ public class RefinementError extends LJError {
                     "Not enough information to prove the expected refinement. Add a refinement or condition to constrain it."));
     }
 
-    /** Unprovable when what was found says nothing about the values the expected refinement constrains */
+    /** Unknown when what was found says nothing about the values the expected refinement constrains */
     private static ErrorCategory categoryOf(Predicate expected, VCSimplificationResult found) {
         List<String> foundVariables = found.getImplication().toPredicate().getVariableNames();
         boolean constrained = expected.getVariableNames().stream().anyMatch(foundVariables::contains);
-        return constrained ? ErrorCategory.OUT_OF_DOMAIN : ErrorCategory.UNPROVABLE;
+        return constrained ? ErrorCategory.OUT_OF_DOMAIN : ErrorCategory.UNKNOWN;
     }
 
     @Override

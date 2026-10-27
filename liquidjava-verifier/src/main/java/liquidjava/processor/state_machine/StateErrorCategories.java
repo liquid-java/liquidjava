@@ -31,7 +31,7 @@ public final class StateErrorCategories {
         List<GhostState> states = ghostStates.stream().filter(g -> g.getParent() != null).toList();
         // all states are possible and none is mentioned: nothing is known, which differs from a join of every state
         if (current.size() == machine.states().size() && found.getStateInvocations(states).isEmpty())
-            return Optional.of(ErrorCategory.UNPROVABLE);
+            return Optional.of(ErrorCategory.UNKNOWN);
         if (current.size() == 1)
             return Optional.of(ErrorCategory.OUT_OF_ORDER);
         // with several state sets, the states may differ only in a set the call does not check

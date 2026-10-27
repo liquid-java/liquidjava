@@ -2,7 +2,7 @@ package testSuite;
 
 import liquidjava.specification.Refinement;
 
-public class ErrorUnprovableArgument {
+public class ErrorUnknownArgument {
 
     static void take(@Refinement("_ > 0") int amount) {}
 

@@ -60,7 +60,7 @@ public final class StateHints {
             return List.of();
 
         StateHints hints = new StateHints(machine, receiver);
-        if (category == ErrorCategory.UNPROVABLE)
+        if (category == ErrorCategory.UNKNOWN)
             return hints.reachingCalls(call, goal);
         boolean pathDependent = category == ErrorCategory.PATH_DEPENDENT_STATE;
         return Stream.concat(hints.howToReach(current, call, goal, pathDependent).stream(),

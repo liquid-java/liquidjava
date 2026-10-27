@@ -50,8 +50,8 @@ class TestErrorCategories {
     }
 
     @Test
-    void unknownStateIsUnprovable() {
-        assertCategory("ErrorStateHintUnknownState.java", ErrorCategory.UNPROVABLE);
+    void nothingKnownAboutStateIsUnknown() {
+        assertCategory("ErrorStateHintUnknownState.java", ErrorCategory.UNKNOWN);
     }
 
     @Test
@@ -70,8 +70,8 @@ class TestErrorCategories {
     }
 
     @Test
-    void argumentWithNothingKnownIsUnprovable() {
-        assertCategory("ErrorUnprovableArgument.java", ErrorCategory.UNPROVABLE);
+    void argumentWithNothingKnownIsUnknown() {
+        assertCategory("ErrorUnknownArgument.java", ErrorCategory.UNKNOWN);
     }
 
     private static void assertCategory(String test, ErrorCategory expected) {
