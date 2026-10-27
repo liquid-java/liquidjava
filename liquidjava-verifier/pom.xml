@@ -90,8 +90,8 @@
 				<configuration>
 					<trimStackTrace>true</trimStackTrace>
 					<systemPropertyVariables>
-						<!-- recompute every result found in a cache and fail if it differs -->
-						<liquidjava.caches>check</liquidjava.caches>
+						<!-- recompute every result found in the solver cache and fail if it differs -->
+						<liquidjava.cache>check</liquidjava.cache>
 					</systemPropertyVariables>
 				</configuration>
 			</plugin>

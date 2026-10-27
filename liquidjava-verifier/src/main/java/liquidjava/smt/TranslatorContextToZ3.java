@@ -49,9 +49,14 @@ public class TranslatorContextToZ3 {
             EnumSort<?> enumSort = z3.mkEnumSort(k, enumValueNames);
             Expr<?>[] consts = enumSort.getConsts();
             for (int i = 0; i < enumValueNames.length; i++)
-                varTranslation.put(enumDecl.getSimpleName() + "." + enumValueNames[i], consts[i]);
+                varTranslation.put(enumConstantName(enumDecl, enumValueNames[i]), consts[i]);
             return enumSort;
         });
+    }
+
+    /** The name the constant {@code value} of an enum is translated from, which denotes that constant */
+    static String enumConstantName(CtEnum<?> enumDecl, String value) {
+        return enumDecl.getSimpleName() + "." + value;
     }
 
     public static void storeVariablesSubtypes(Context z3, List<RefinedVariable> variables,

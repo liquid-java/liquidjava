@@ -1,7 +1,6 @@
 package liquidjava.smt;
 
 import com.microsoft.z3.Expr;
-import com.microsoft.z3.Model;
 import com.microsoft.z3.Solver;
 import com.microsoft.z3.Status;
 import com.microsoft.z3.Z3Exception;
@@ -75,12 +74,8 @@ public class SMTEvaluator {
         QueryCache.Key key = QueryCache.key(exp, context);
         Optional<SMTResult> cached = QueryCache.get(key, needsCounterexample);
         if (cached.isPresent() && mode == CacheMode.ON) {
-            if (!silent) {
-                if (cached.get().isOk())
-                    DebugLog.smtUnsat();
-                else
-                    DebugLog.smtSat(cached.get().getCounterexample());
-            }
+            if (!silent)
+                log(cached.get());
             return cached.get();
         }
         SMTResult result = solve(exp, context, silent);
@@ -102,15 +97,6 @@ public class SMTEvaluator {
                 result = solver.check();
             }
 
-            // subRef is not a subtype of supRef
-            if (result.equals(Status.SATISFIABLE)) {
-                Model model = solver.getModel();
-                Counterexample counterexample = tz3.getCounterexample(model);
-                if (!silent) {
-                    DebugLog.smtSat(counterexample);
-                }
-                return SMTResult.error(counterexample);
-            }
             if (result.equals(Status.UNKNOWN)) {
                 SMTUnknownError error = new SMTUnknownError(solver.getReasonUnknown());
                 if (!silent) {
@@ -118,10 +104,19 @@ public class SMTEvaluator {
                 }
                 throw error;
             }
-            if (!silent) {
-                DebugLog.smtUnsat();
-            }
-            return SMTResult.ok();
+            // subRef is not a subtype of supRef
+            SMTResult verified = result.equals(Status.SATISFIABLE)
+                    ? SMTResult.error(tz3.getCounterexample(solver.getModel())) : SMTResult.ok();
+            if (!silent)
+                log(verified);
+            return verified;
         }
+    }
+
+    private static void log(SMTResult result) {
+        if (result.isOk())
+            DebugLog.smtUnsat();
+        else
+            DebugLog.smtSat(result.getCounterexample());
     }
 }

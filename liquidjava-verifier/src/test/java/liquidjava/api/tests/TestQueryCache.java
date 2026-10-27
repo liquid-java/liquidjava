@@ -14,6 +14,8 @@ import org.junit.jupiter.api.io.TempDir;
 import liquidjava.api.CommandLineLauncher;
 import liquidjava.diagnostics.Diagnostics;
 import liquidjava.diagnostics.LJDiagnostic;
+import liquidjava.diagnostics.errors.NotFoundError;
+import liquidjava.diagnostics.errors.SyntaxError;
 import liquidjava.utils.CacheMode;
 
 /**
@@ -96,8 +98,31 @@ class TestQueryCache {
             }
             """;
 
+    private static final String MODE = """
+            import liquidjava.specification.Refinement;
+
+            public class Test {
+                enum Mode { Photo, Video }
+
+                public static void photo(@Refinement("m == Mode.Photo") Mode m) {}
+
+                public static void main(String[] args) {
+                    photo(Mode.Photo);
+                    photo(Mode.Video);
+                }
+            }
+            """;
+
     @TempDir
     Path dir;
+
+    @Test
+    void enumConstantsAreValuesNotVariables() throws IOException {
+        // the two calls only differ in the enum constant: the second must not reuse the result of the first
+        List<String> cached = verify(MODE, CacheMode.ON);
+        assertEquals(verify(MODE, CacheMode.OFF), cached);
+        assertEquals(1, Diagnostics.getInstance().getErrors().size(), "photo(Mode.Video) must be reported");
+    }
 
     @Test
     void editedTransition() throws IOException {
@@ -124,16 +149,27 @@ class TestQueryCache {
 
     @Test
     void typeOfAGhost() throws IOException {
-        assertSameAsUncachedAfterEdit(String.format(BOX, "int"), String.format(BOX, "long"));
+        // sizes greater than 0 are at least 1 for an int ghost, but not for a double one
+        assertSameAsUncachedAfterEdit(String.format(BOX, "int"), String.format(BOX, "double"));
     }
 
     /** Verifies {@code before}, then {@code after} with the cache, which must report what it reports without it */
     private void assertSameAsUncachedAfterEdit(String before, String after) throws IOException {
         List<String> reportedBefore = verify(before, CacheMode.ON);
+        assertWellFormed(before);
         List<String> cached = verify(after, CacheMode.ON);
         List<String> uncached = verify(after, CacheMode.OFF);
+        assertWellFormed(after);
         assertEquals(uncached, cached);
         assertNotEquals(reportedBefore, uncached, "the edit must change what the verifier reports");
+    }
+
+    /** The program must reach the solver, or the test would not exercise the cache */
+    private static void assertWellFormed(String source) {
+        assertTrue(
+                Diagnostics.getInstance().getErrors().stream()
+                        .noneMatch(e -> e instanceof SyntaxError || e instanceof NotFoundError),
+                () -> "not well formed:\n" + source);
     }
 
     private List<String> verify(String source, CacheMode mode) throws IOException {

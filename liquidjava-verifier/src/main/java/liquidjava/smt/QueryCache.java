@@ -1,11 +1,14 @@
 package liquidjava.smt;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import liquidjava.processor.context.Context;
@@ -26,7 +29,6 @@ import liquidjava.rj_language.ast.LiteralString;
 import liquidjava.rj_language.ast.UnaryExpression;
 import liquidjava.rj_language.ast.Var;
 import liquidjava.rj_language.visitors.ExpressionVisitor;
-import liquidjava.utils.CacheMode;
 import spoon.reflect.declaration.CtEnum;
 import spoon.reflect.reference.CtTypeReference;
 
@@ -35,27 +37,23 @@ import spoon.reflect.reference.CtTypeReference;
  * the whole program again after every save, and asks the solver mostly the same queries each time.
  * <p>
  * A query is identified by everything {@link TranslatorToZ3} reads to build it: the expression, node by node, the type
- * and supertypes of each of its variables, the enums and the ghosts and ghost states of the context, and the solver
- * configuration. Variables are renamed in order of appearance, so that a query whose variables were numbered
- * differently by an earlier edit is still found. A counterexample names the variables, so a cached one is only reused
- * when the names are the same; otherwise a caller that needs one asks the solver again. Unknown results and errors are
- * never kept.
+ * and supertypes of each of its variables, and the enums, ghosts and ghost states of the context. Variables are renamed
+ * in order of appearance, so that a query whose variables were numbered differently by an earlier edit is still found.
+ * Names that denote enum constants are values, not variables, and keep their name. A counterexample names the
+ * variables, so a cached one is only reused when the names are the same; otherwise a caller that needs one asks the
+ * solver again. Unknown results and errors are never kept. Results only live as long as the process, so the verifier
+ * and the solver cannot change under them.
  */
 final class QueryCache {
 
-    /** Changes when the way queries are solved changes */
-    private static final String SOLVER = "simple solver with rlimit " + TranslatorToZ3.SIMPLE_SOLVER_RLIMIT
-            + ", then default solver";
-
     private static final int MAX_RESULTS = 50_000;
 
-    private static final Map<String, Result> RESULTS = Collections
-            .synchronizedMap(new LinkedHashMap<>(16, 0.75f, true) {
-                @Override
-                protected boolean removeEldestEntry(Map.Entry<String, Result> eldest) {
-                    return size() > MAX_RESULTS;
-                }
-            });
+    private static final Map<String, Entry> RESULTS = Collections.synchronizedMap(new LinkedHashMap<>(16, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, Entry> eldest) {
+            return size() > MAX_RESULTS;
+        }
+    });
 
     /**
      * @param text
@@ -66,8 +64,8 @@ final class QueryCache {
     record Key(String text, List<String> names) {
     }
 
-    /** {@code counterexample} is null when the query holds; it names the variables in {@code names} */
-    private record Result(Counterexample counterexample, List<String> names) {
+    /** A result, whose counterexample names the variables in {@code names} */
+    private record Entry(SMTResult result, List<String> names) {
     }
 
     private QueryCache() {
@@ -77,23 +75,25 @@ final class QueryCache {
         Map<String, CtTypeReference<?>> types = context.getContext();
         List<String> occurrences = new ArrayList<>();
         expression.getVariableNames(occurrences);
-        List<String> names = occurrences.stream().distinct().filter(types::containsKey).toList();
+        Set<String> constants = enumConstants(types.values());
+        List<String> names = occurrences.stream().distinct().filter(n -> types.containsKey(n) && !constants.contains(n))
+                .toList();
 
-        StringBuilder text = new StringBuilder(SOLVER).append('\n');
-        text.append(expression.accept(new Canonical(names))).append('\n');
+        StringBuilder text = new StringBuilder(expression.accept(new Canonical(names))).append('\n');
+        Map<String, List<String>> supertypes = new LinkedHashMap<>();
+        for (RefinedVariable variable : context.getAllVariablesWithSupertypes())
+            if (names.contains(variable.getName()))
+                supertypes.computeIfAbsent(variable.getName(), k -> new ArrayList<>()).add(
+                        variable.getSuperTypes().stream().map(QueryCache::describe).collect(Collectors.joining(", ")));
         for (int i = 0; i < names.size(); i++) {
             String name = names.get(i);
             text.append('@').append(i).append(": ").append(describe(types.get(name)));
-            for (RefinedVariable variable : context.getAllVariablesWithSupertypes())
-                if (variable.getName().equals(name))
-                    text.append(" <: ").append(variable.getSuperTypes().stream().map(QueryCache::describe)
-                            .collect(Collectors.joining(", ")));
+            supertypes.getOrDefault(name, List.of()).forEach(s -> text.append(" <: ").append(s));
             text.append('\n');
         }
         // every enum of the context, as their constants can be named in the query
-        for (CtTypeReference<?> type : types.values())
-            if (type.isEnum())
-                text.append("enum ").append(describe(type)).append('\n');
+        types.values().stream().filter(CtTypeReference::isEnum).map(QueryCache::describe).distinct()
+                .forEach(e -> text.append("enum ").append(e).append('\n'));
         for (GhostFunction ghost : context.getGhosts())
             text.append("ghost ").append(describe(ghost)).append('\n');
         for (GhostFunction state : context.getGhostStates())
@@ -106,31 +106,46 @@ final class QueryCache {
      * reused when the variables have the same names
      */
     static Optional<SMTResult> get(Key key, boolean needsCounterexample) {
-        if (CacheMode.current() == CacheMode.OFF)
+        Entry entry = RESULTS.get(key.text());
+        if (entry == null)
             return Optional.empty();
-        Result result = RESULTS.get(key.text());
-        if (result == null)
-            return Optional.empty();
-        if (result.counterexample() == null)
-            return Optional.of(SMTResult.ok());
-        if (result.names().equals(key.names()))
-            return Optional.of(SMTResult.error(result.counterexample()));
+        if (entry.result().isOk() || entry.names().equals(key.names()))
+            return Optional.of(entry.result());
         return needsCounterexample ? Optional.empty() : Optional.of(SMTResult.error(new Counterexample(List.of())));
     }
 
     static void put(Key key, SMTResult result) {
-        if (CacheMode.current() != CacheMode.OFF)
-            RESULTS.put(key.text(), new Result(result.getCounterexample(), key.names()));
+        RESULTS.put(key.text(), new Entry(result, key.names()));
     }
 
-    /** Fails if {@code recomputed} differs from the result kept for {@code key} */
+    /**
+     * Fails if {@code recomputed} differs from {@code cached}, with an {@link AssertionError} so that code that
+     * recovers from exceptions cannot hide it
+     */
     static void checkSame(Key key, SMTResult cached, SMTResult recomputed) {
-        CacheMode.checkSame("solver query", cached.isOk(), recomputed.isOk());
-        if (cached.isError() && !cached.getCounterexample().isEmpty())
-            CacheMode.checkSame("solver query", cached.getCounterexample(), recomputed.getCounterexample());
+        boolean same = cached.isOk() == recomputed.isOk() && (cached.isOk() || cached.getCounterexample().isEmpty()
+                || cached.getCounterexample().equals(recomputed.getCounterexample()));
+        if (!same)
+            throw new AssertionError(
+                    String.format("The solver query cache returned %s but recomputing gives %s for%n%s",
+                            describe(cached), describe(recomputed), key.text()));
     }
 
-    /** What the translator reads from a type: its name, and the constants of an enum */
+    /** The names the translator binds to the constants of the enums, which denote values rather than variables */
+    private static Set<String> enumConstants(Collection<CtTypeReference<?>> types) {
+        Set<String> constants = new HashSet<>();
+        for (CtTypeReference<?> type : types)
+            if (type.isEnum() && type.getDeclaration()instanceof CtEnum<?> declaration)
+                declaration.getEnumValues().forEach(
+                        v -> constants.add(TranslatorContextToZ3.enumConstantName(declaration, v.getSimpleName())));
+        return constants;
+    }
+
+    private static String describe(SMTResult result) {
+        return result.isOk() ? "ok" : "error with " + result.getCounterexample();
+    }
+
+    /** What the translator reads from a type: its names, and the constants of an enum */
     private static String describe(CtTypeReference<?> type) {
         if (type == null)
             return "?";
