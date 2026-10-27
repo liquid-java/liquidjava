@@ -849,10 +849,8 @@ public class AuxStateHandler {
             // `new T(args).method()`: the receiver is a fresh object in the state the constructor gives. Must come
             // before the TARGET case: a constructor with refined parameters puts its (void) return value in TARGET
             String name = String.format(Formats.FRESH, tc.getContext().getCounter());
-            CtTypeReference<?> type = newCall.getType();
-            RefinedVariable receiver = tc.getContext().addInstanceToContext(name, type,
+            RefinedVariable receiver = tc.getContext().addInstanceToContext(name, newCall.getType(),
                     state.substituteVariable(Keys.THIS, name).substituteVariable(Keys.WILDCARD, name), newCall);
-            receiver.addSuperTypes(type.getSuperclass(), type.getSuperInterfaces());
             newCall.putMetadata(Keys.TARGET, receiver);
             newCall.putMetadata(Keys.RECEIVER, receiver);
             invocation.putMetadata(Keys.TARGET, receiver);
@@ -866,9 +864,8 @@ public class AuxStateHandler {
             // `a.get().method()` where get() has no return refinement: the call's TARGET is its own receiver (a), not
             // the value it returns, so the receiver is a fresh value of the call's type, in a state not known here
             String name = String.format(Formats.FRESH, tc.getContext().getCounter());
-            CtTypeReference<?> type = call.getType();
-            RefinedVariable receiver = tc.getContext().addInstanceToContext(name, type, new Predicate(), call);
-            receiver.addSuperTypes(type.getSuperclass(), type.getSuperInterfaces());
+            RefinedVariable receiver = tc.getContext().addInstanceToContext(name, call.getType(), new Predicate(),
+                    call);
             call.putMetadata(Keys.RECEIVER, receiver);
             invocation.putMetadata(Keys.TARGET, receiver);
             return name;

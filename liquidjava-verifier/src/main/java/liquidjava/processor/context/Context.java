@@ -209,7 +209,7 @@ public class Context {
 
     public RefinedVariable addInstanceToContext(String simpleName, CtTypeReference<?> type, Predicate c,
             CtElement element) {
-        RefinedVariable vi = new VariableInstance(simpleName, type, c);
+        RefinedVariable vi = new VariableInstance(simpleName, typeOrObject(type, element), c);
         vi.setPlacementInCode(element);
         if (!ctxInstanceVars.contains(vi))
             addInstanceVariable(vi);
