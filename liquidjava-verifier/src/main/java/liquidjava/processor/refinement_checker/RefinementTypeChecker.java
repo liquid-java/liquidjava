@@ -1,12 +1,16 @@
 package liquidjava.processor.refinement_checker;
 
 import java.lang.annotation.Annotation;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Deque;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.Diagnostics;
 import liquidjava.diagnostics.errors.LJError;
@@ -43,6 +47,7 @@ import spoon.reflect.code.CtFieldWrite;
 import spoon.reflect.code.CtFor;
 import spoon.reflect.code.CtForEach;
 import spoon.reflect.code.CtIf;
+import spoon.reflect.code.CtLabelledFlowBreak;
 import spoon.reflect.code.CtInvocation;
 import spoon.reflect.code.CtLambda;
 import spoon.reflect.code.CtLiteral;
@@ -54,6 +59,8 @@ import spoon.reflect.code.CtOperatorAssignment;
 import spoon.reflect.code.CtReturn;
 import spoon.reflect.code.CtStatement;
 import spoon.reflect.code.CtSuperAccess;
+import spoon.reflect.code.CtSwitch;
+import spoon.reflect.code.CtSwitchExpression;
 import spoon.reflect.code.CtThisAccess;
 import spoon.reflect.code.CtThrow;
 import spoon.reflect.code.CtTry;
@@ -82,6 +89,8 @@ public class RefinementTypeChecker extends TypeChecker {
     TryChecker tryChecker;
     Diagnostics diagnostics = Diagnostics.getInstance();
     ContextHistory contextHistory = ContextHistory.getInstance();
+    // the loops being checked, innermost first
+    private final Deque<LoopTypestates> loops = new ArrayDeque<>();
 
     public RefinementTypeChecker(Context context, Factory factory) {
         super(context, factory);
@@ -664,71 +673,171 @@ public class RefinementTypeChecker extends TypeChecker {
 
     @Override
     public void visitCtWhile(CtWhile whileLoop) {
-        visitLoop(whileLoop, () -> {
+        visitLoop(whileLoop, states -> {
             scan(whileLoop.getLoopingExpression());
+            recordExit(states, whileLoop.getLoopingExpression());
             assumeLoopCondition(whileLoop.getLoopingExpression());
-            scan(whileLoop.getBody());
+            scanBody(whileLoop, states);
+            states.recordNextIteration();
         });
     }
 
     @Override
     public void visitCtFor(CtFor forLoop) {
         scan(forLoop.getForInit());
-        visitLoop(forLoop, () -> {
+        visitLoop(forLoop, states -> {
             scan(forLoop.getExpression());
+            recordExit(states, forLoop.getExpression());
             assumeLoopCondition(forLoop.getExpression());
-            List<RefinedVariable> pathVariables = vcChecker.getPathVariables();
-            CtStatement body = forLoop.getBody(); // null for an empty statement body, as in for (...);
-            scan(body);
-            if (body != null && !body.getElements(new TypeFilter<>(CtContinue.class)).isEmpty()) {
-                // a continue reaches the update from any point of the body, skipping its facts and assignments
-                vcChecker.restorePathVariables(pathVariables);
-                havocChangedIn(forLoop);
-            }
+            scanBody(forLoop, states);
             // the update runs after the body, so the body sees the values the condition was checked on
             scan(forLoop.getForUpdate());
+            states.recordNextIteration();
         });
     }
 
     @Override
     public void visitCtDo(CtDo doLoop) {
-        // the condition is not checked before the first iteration, so it is not assumed in the body
-        visitLoop(doLoop, () -> super.visitCtDo(doLoop));
+        visitLoop(doLoop, states -> {
+            // the condition is not checked before the first iteration, so it is not assumed in the body
+            scanBody(doLoop, states);
+            scan(doLoop.getLoopingExpression());
+            recordExit(states, doLoop.getLoopingExpression());
+            states.recordNextIteration();
+        });
     }
 
     @Override
     public void visitCtForEach(CtForEach forEach) {
-        visitLoop(forEach, () -> super.visitCtForEach(forEach));
+        // the iterable is evaluated once, before the first iteration
+        scan(forEach.getExpression());
+        visitLoop(forEach, states -> {
+            states.recordExit();
+            scan(forEach.getVariable());
+            scanBody(forEach, states);
+            states.recordNextIteration();
+        });
+    }
+
+    @Override
+    public void visitCtBreak(CtBreak breakStatement) {
+        super.visitCtBreak(breakStatement);
+        loopLeftBy(breakStatement).ifPresent(LoopTypestates::recordBreak);
+    }
+
+    @Override
+    public void visitCtContinue(CtContinue continueStatement) {
+        super.visitCtContinue(continueStatement);
+        loopLeftBy(continueStatement).ifPresent(LoopTypestates::recordContinue);
     }
 
     /**
-     * Checks one arbitrary iteration of a loop: what the loop may change is havocked (keeps only its declared
-     * refinement, which every assignment re-checks) before it and again after it, since the loop may run any number of
-     * times. Path conditions added inside the loop (e.g. the loop condition, or an {@code if (...) break;}) are dropped
-     * after it.
+     * Checks a loop for any number of iterations. What the loop may change is havocked (keeps only its declared
+     * refinement, which every assignment re-checks) before it and again after it, except the typestates of the local
+     * objects it may change, which are computed over its iterations (see {@link LoopTypestates}). Path conditions added
+     * inside the loop (e.g. the loop condition, or an {@code if (...) break;}) are dropped after it.
      */
-    private void visitLoop(CtLoop loop, Runnable iteration) {
+    private void visitLoop(CtLoop loop, Consumer<LoopTypestates> iteration) {
         List<RefinedVariable> pathVariables = vcChecker.getPathVariables();
-        havocChangedIn(loop);
-        iteration.run();
+        // a field may also change in a method the loop calls, out of sight here, so fields are only havocked
+        Set<String> locals = changedIn(loop).stream().filter(name -> !isField(name))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        LoopTypestates states = new LoopTypestates(this, loop, locals);
+        havocChangedIn(loop, states.tracked());
+        loops.push(states);
+        try {
+            checkUntilFixpoint(states, iteration);
+        } finally {
+            loops.pop();
+        }
         vcChecker.restorePathVariables(pathVariables);
-        havocChangedIn(loop);
+        havocChangedIn(loop, states.tracked());
+        states.finishLoop();
     }
 
     /**
-     * Havocs what the loop may change: the variables it writes, the objects it calls state-changing methods on, and the
-     * fields if it calls any method or constructor (which may write them)
+     * Checks iterations of a loop from the typestates at its head until they stop changing. Only the last iteration
+     * checked keeps its diagnostics: an earlier one starts from fewer states, so an error it throws, which stops the
+     * check, is also an error from the final states.
      */
-    private void havocChangedIn(CtLoop loop) {
+    private void checkUntilFixpoint(LoopTypestates states, Consumer<LoopTypestates> iteration) {
+        List<RefinedVariable> pathVariables = vcChecker.getPathVariables();
+        while (true) {
+            Set<LJError> errors = new LinkedHashSet<>(diagnostics.getErrors());
+            states.startIteration();
+            iteration.accept(states);
+            if (states.reachedFixpoint())
+                return;
+            diagnostics.getErrors().retainAll(errors);
+            vcChecker.replacePathVariables(pathVariables);
+        }
+    }
+
+    /** The loop exits where its condition is false: never if it has none, or if it is {@code true} */
+    private void recordExit(LoopTypestates states, CtExpression<Boolean> condition) {
+        if (condition == null)
+            return;
+        RefinedVariable conditionIsFalse = assumeCondition(condition, false);
+        states.recordExit();
+        if (conditionIsFalse != null)
+            vcChecker.removePathVariable(conditionIsFalse);
+    }
+
+    /** Checks the body of a loop, up to the point after it where its continues join */
+    private void scanBody(CtLoop loop, LoopTypestates states) {
+        List<RefinedVariable> pathVariables = vcChecker.getPathVariables();
+        CtStatement body = loop.getBody(); // null for an empty statement body, as in for (...);
+        scan(body);
+        if (body != null && !body.getElements(new TypeFilter<>(CtContinue.class)).isEmpty()) {
+            // a continue reaches the end of the body from any point of it, skipping its facts and assignments
+            vcChecker.restorePathVariables(pathVariables);
+            havocChangedIn(loop, states.tracked());
+        }
+        states.endBody(canCompleteNormally(body));
+    }
+
+    /** The loop being checked that {@code jump} leaves, if any (an unlabeled break in a switch leaves the switch) */
+    private Optional<LoopTypestates> loopLeftBy(CtLabelledFlowBreak jump) {
+        CtElement target = jump.getTargetLabel() != null ? jump.getLabelledStatement()
+                : jump.getParent(e -> e instanceof CtLoop || jump instanceof CtBreak
+                        && (e instanceof CtSwitch<?> || e instanceof CtSwitchExpression<?, ?>));
+        return loops.stream().filter(states -> states.loop() == target).findFirst();
+    }
+
+    /** Havocs what the loop may change, except the {@code tracked} typestates */
+    private void havocChangedIn(CtLoop loop, Set<String> tracked) {
+        for (String name : changedIn(loop))
+            if (!tracked.contains(name))
+                forgetChanges(name, new Predicate(), loop);
+    }
+
+    /**
+     * Gives a variable a new instance that keeps only its declared refinement and {@code known}, since the facts on its
+     * previous instances may no longer hold
+     */
+    void forgetChanges(String name, Predicate known, CtElement element) {
+        if (!(context.getVariableByName(name)instanceof Variable variable))
+            return;
+        vcChecker.removePathVariableThatIncludes(name);
+        String instanceName = String.format(Formats.INSTANCE, name, context.getCounter());
+        Predicate declared = variable.getMainRefinement().substituteVariable(name, instanceName);
+        context.addInstanceToContext(instanceName, variable.getType(),
+                Predicate.createConjunction(declared, known.substituteVariable(Keys.THIS, instanceName)), element);
+        context.addRefinementInstanceToVariable(name, instanceName);
+    }
+
+    /**
+     * What the loop may change: the variables it writes, the objects it calls state-changing methods on, and the fields
+     * if it calls any method or constructor (which may write them)
+     */
+    private Set<String> changedIn(CtLoop loop) {
         List<CtVariableAccess<?>> changed = new ArrayList<>(
                 loop.getElements(new TypeFilter<CtVariableWrite<?>>(CtVariableWrite.class)));
         List<CtAbstractInvocation<?>> calls = loop
                 .getElements(new TypeFilter<CtAbstractInvocation<?>>(CtAbstractInvocation.class));
         Set<String> names = new LinkedHashSet<>();
         for (CtAbstractInvocation<?> call : calls) {
-            if (call instanceof CtInvocation<?> inv
-                    && context.getAllMethodsWithNameSize(inv.getExecutable().getSimpleName(), inv.getArguments().size())
-                            .stream().anyMatch(f -> f.getAllStates().stream().anyMatch(ObjectState::hasTo))) {
+            if (call instanceof CtInvocation<?> inv && mayChangeState(inv)) {
                 if (inv.getTarget()instanceof CtVariableAccess<?> target)
                     changed.add(target);
                 else if (inv.getTarget() != null && AuxStateHandler.isCurrentReceiver(inv.getTarget()))
@@ -743,17 +852,25 @@ public class RefinementTypeChecker extends TypeChecker {
             names.add(access instanceof CtFieldAccess<?> ? String.format(Formats.THIS, name) : name);
         }
         if (!calls.isEmpty())
-            context.getCtxVars().stream().map(RefinedVariable::getName)
-                    .filter(n -> n.startsWith(String.format(Formats.THIS, ""))).forEach(names::add);
-        for (String name : names) {
-            if (!(context.getVariableByName(name)instanceof Variable variable))
-                continue;
-            vcChecker.removePathVariableThatIncludes(name);
-            String instanceName = String.format(Formats.INSTANCE, name, context.getCounter());
-            Predicate declared = variable.getMainRefinement().substituteVariable(name, instanceName);
-            context.addInstanceToContext(instanceName, variable.getType(), declared, loop);
-            context.addRefinementInstanceToVariable(name, instanceName);
-        }
+            context.getCtxVars().stream().map(RefinedVariable::getName).filter(RefinementTypeChecker::isField)
+                    .forEach(names::add);
+        return names;
+    }
+
+    /** Whether a name in the context is that of a field of this */
+    private static boolean isField(String name) {
+        return name.startsWith(String.format(Formats.THIS, ""));
+    }
+
+    /**
+     * Whether some method with the name and arity of the invoked one changes the state of its receiver. Methods
+     * specified externally are registered under their qualified name.
+     */
+    private boolean mayChangeState(CtInvocation<?> invocation) {
+        String name = invocation.getExecutable().getSimpleName();
+        int arity = invocation.getArguments().size();
+        return context.getCtxFunctions().stream().anyMatch(f -> Utils.getSimpleName(f.getName()).equals(name)
+                && f.getArguments().size() == arity && f.getAllStates().stream().anyMatch(ObjectState::hasTo));
     }
 
     /**

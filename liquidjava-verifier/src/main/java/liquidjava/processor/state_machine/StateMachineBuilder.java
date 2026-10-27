@@ -81,7 +81,7 @@ public class StateMachineBuilder {
     }
 
     /** Every combination of one state from each state set of the class */
-    private static List<State> statesOf(Context context, String className) {
+    public static List<State> statesOf(Context context, String className) {
         List<GhostState> ghostStates = context.getGhostState(Utils.getSimpleName(className));
         if (ghostStates == null)
             return List.of();
