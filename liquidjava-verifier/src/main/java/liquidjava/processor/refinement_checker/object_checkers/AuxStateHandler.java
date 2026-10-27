@@ -147,6 +147,9 @@ public class AuxStateHandler {
         List<Predicate> states = spec.get().function().getToStates();
         if (states.stream().anyMatch(to -> to.getVariableNames().stream().anyMatch(unknown::contains)))
             return Optional.empty();
+        // a spec that leaves some state sets unchanged refers to old(this), which a new object does not have
+        if (states.stream().anyMatch(to -> to.invokes(Keys.OLD)))
+            return Optional.empty();
         return Optional.of(states.stream()
                 .map(to -> values.entrySet().stream().reduce(to,
                         (p, v) -> p.substituteVariable(v.getKey(), v.getValue()), (p, q) -> p))
@@ -167,27 +170,31 @@ public class AuxStateHandler {
         if (arg instanceof CtVariableRead<?> vr
                 && vr.getVariable() instanceof spoon.reflect.reference.CtParameterReference<?>)
             return Optional.of(Predicate.createVar(vr.getVariable().getSimpleName()));
-        return arg instanceof CtLiteral<?> lit ? literal(lit.getValue()) : Optional.empty();
+        return literalValue(arg);
     }
 
-    /** How a state can write {@code arg} at a call: by the variable's current instance (as for calls) or a literal. */
+    /**
+     * How a state can write {@code arg} at a call: by the variable's current instance, which keeps the value it has now
+     * even if the variable is assigned later, or a literal. A variable without an instance (e.g. a parameter not
+     * assigned yet) has no known value here.
+     */
     private static Optional<Predicate> callArgumentValue(TypeChecker tc, CtExpression<?> arg) {
-        if (arg instanceof CtVariableRead<?> vr && !(arg instanceof CtFieldRead<?>)) {
-            String name = vr.getVariable().getSimpleName();
-            return Optional.of(Predicate
-                    .createVar(tc.getContext().getLastVariableInstance(name).map(Refined::getName).orElse(name)));
-        }
+        if (arg instanceof CtVariableRead<?> vr && !(arg instanceof CtFieldRead<?>))
+            return tc.getContext().getLastVariableInstance(vr.getVariable().getSimpleName())
+                    .map(vi -> Predicate.createVar(vi.getName()));
+        return literalValue(arg);
+    }
+
+    /** {@code arg} as a literal of the refinement language, if it is a boolean or int literal. */
+    private static Optional<Predicate> literalValue(CtExpression<?> arg) {
         return arg instanceof CtLiteral<?> lit ? literal(lit.getValue()) : Optional.empty();
     }
 
-    /** {@code value} as a literal of the refinement language, for booleans and whole numbers. */
     private static Optional<Predicate> literal(Object value) {
         if (value instanceof Boolean)
             return Optional.of(Predicate.createLit(value.toString(), Types.BOOLEAN));
         if (value instanceof Integer || value instanceof Short || value instanceof Byte)
             return Optional.of(Predicate.createLit(value.toString(), Types.INT));
-        if (value instanceof Long)
-            return Optional.of(Predicate.createLit(value.toString(), Types.LONG));
         return Optional.empty();
     }
 
