@@ -637,12 +637,15 @@ public class RefinementTypeChecker extends TypeChecker {
      * must be discarded at the join.
      *
      * <p>
+     * A statement that a labelled {@code break} leaves completes normally, since execution goes on after it.
+     *
+     * <p>
      * Not currently handled (treated conservatively as completing normally): {@code switch} where every case exits,
-     * labeled {@code break}/{@code continue} targets, {@code try}/{@code catch}/{@code finally} flow, and infinite
-     * loops such as {@code while (true)}. Extending this list only tightens precision.
+     * {@code try}/{@code catch}/{@code finally} flow, and infinite loops such as {@code while (true)}. Extending this
+     * list only tightens precision.
      */
     boolean canCompleteNormally(CtStatement statement) {
-        if (statement == null)
+        if (statement == null || isLeftByLabelledBreak(statement))
             return true;
         if (statement instanceof CtReturn<?> || statement instanceof CtThrow || statement instanceof CtBreak
                 || statement instanceof CtContinue)
@@ -659,6 +662,11 @@ public class RefinementTypeChecker extends TypeChecker {
             return canCompleteNormally(nestedIf.getThenStatement()) || canCompleteNormally(elseStatement);
         }
         return true;
+    }
+
+    private static boolean isLeftByLabelledBreak(CtStatement statement) {
+        return statement.getLabel() != null && statement.getElements(new TypeFilter<>(CtBreak.class)).stream()
+                .anyMatch(jump -> jump.getTargetLabel() != null && jump.getLabelledStatement() == statement);
     }
 
     @Override
@@ -739,9 +747,10 @@ public class RefinementTypeChecker extends TypeChecker {
      */
     private void visitLoop(CtLoop loop, Consumer<LoopTypestates> iteration) {
         List<RefinedVariable> pathVariables = vcChecker.getPathVariables();
-        // a field may also change in a method the loop calls, out of sight here, so fields are only havocked
-        Set<String> locals = changedIn(loop).stream().filter(name -> !isField(name))
-                .collect(Collectors.toCollection(LinkedHashSet::new));
+        // a field may also change in a method the loop calls, out of sight here, so fields are only havocked; and
+        // typestates are only followed through jumps whose states are recorded, else they are havocked too
+        Set<String> locals = followsJumps(loop) ? changedIn(loop).stream().filter(name -> !isField(name))
+                .collect(Collectors.toCollection(LinkedHashSet::new)) : Set.of();
         LoopTypestates states = new LoopTypestates(this, loop, locals);
         havocChangedIn(loop, states.tracked());
         loops.push(states);
@@ -756,24 +765,35 @@ public class RefinementTypeChecker extends TypeChecker {
     }
 
     /**
-     * Checks iterations of a loop from the typestates at its head until they stop changing. Only the last iteration
-     * checked keeps its diagnostics: an earlier one starts from fewer states, so an error it throws, which stops the
-     * check, is also an error from the final states.
+     * Checks iterations of a loop from the typestates at its head until they stop changing. Every iteration starts from
+     * the same facts: those before it, with what the loop changes havocked, and only the head typestates differ, since
+     * what an iteration adds to the context is dropped after it (its variables and instances are scoped to it, and its
+     * path conditions are restored). So an earlier iteration starts from fewer states than the last one, and an error
+     * it throws, which stops the check, is also an error from the final states. Only the last iteration keeps the
+     * errors recorded without stopping it (e.g. in a lambda).
      */
     private void checkUntilFixpoint(LoopTypestates states, Consumer<LoopTypestates> iteration) {
         List<RefinedVariable> pathVariables = vcChecker.getPathVariables();
         while (true) {
             Set<LJError> errors = new LinkedHashSet<>(diagnostics.getErrors());
-            states.startIteration();
-            iteration.accept(states);
+            context.enterContext();
+            try {
+                states.startIteration();
+                iteration.accept(states);
+            } finally {
+                context.exitContext();
+                vcChecker.replacePathVariables(pathVariables);
+            }
             if (states.reachedFixpoint())
                 return;
             diagnostics.getErrors().retainAll(errors);
-            vcChecker.replacePathVariables(pathVariables);
         }
     }
 
-    /** The loop exits where its condition is false: never if it has none, or if it is {@code true} */
+    /**
+     * Records the states where the loop exits through its condition, which are those where the condition is false: none
+     * if there is no condition or it is {@code true}
+     */
     private void recordExit(LoopTypestates states, CtExpression<Boolean> condition) {
         if (condition == null)
             return;
@@ -796,12 +816,41 @@ public class RefinementTypeChecker extends TypeChecker {
         states.endBody(canCompleteNormally(body));
     }
 
-    /** The loop being checked that {@code jump} leaves, if any (an unlabeled break in a switch leaves the switch) */
+    /** The loop being checked that {@code jump} leaves, if any */
     private Optional<LoopTypestates> loopLeftBy(CtLabelledFlowBreak jump) {
-        CtElement target = jump.getTargetLabel() != null ? jump.getLabelledStatement()
-                : jump.getParent(e -> e instanceof CtLoop || jump instanceof CtBreak
-                        && (e instanceof CtSwitch<?> || e instanceof CtSwitchExpression<?, ?>));
+        CtElement target = jumpTarget(jump);
         return loops.stream().filter(states -> states.loop() == target).findFirst();
+    }
+
+    /** The statement a break or continue leaves: its label's, else the innermost loop, or switch for a break */
+    private static CtElement jumpTarget(CtLabelledFlowBreak jump) {
+        if (jump.getTargetLabel() != null)
+            return jump.getLabelledStatement();
+        return jump.getParent(e -> e instanceof CtLoop || (jump instanceof CtBreak && isSwitch(e)));
+    }
+
+    private static boolean isSwitch(CtElement element) {
+        return element instanceof CtSwitch<?> || element instanceof CtSwitchExpression<?, ?>;
+    }
+
+    /**
+     * Whether the states at every jump in the loop are recorded where it goes: each jump goes to a loop or leaves a
+     * switch (not a labelled block, which joins no states), and runs no finally block or resource closing on its way,
+     * which could change states after they are recorded
+     */
+    private static boolean followsJumps(CtLoop loop) {
+        return loop.getElements(new TypeFilter<>(CtLabelledFlowBreak.class)).stream().allMatch(jump -> {
+            CtElement target = jumpTarget(jump);
+            return (target instanceof CtLoop || isSwitch(target)) && !leavesTryWithCleanup(jump, target);
+        });
+    }
+
+    private static boolean leavesTryWithCleanup(CtLabelledFlowBreak jump, CtElement target) {
+        for (CtTry left = jump.getParent(CtTry.class); left != null
+                && left.hasParent(target); left = left.getParent(CtTry.class))
+            if (left.getFinalizer() != null || left instanceof CtTryWithResource)
+                return true;
+        return false;
     }
 
     /** Havocs what the loop may change, except the {@code tracked} typestates */
@@ -869,8 +918,8 @@ public class RefinementTypeChecker extends TypeChecker {
     private boolean mayChangeState(CtInvocation<?> invocation) {
         String name = invocation.getExecutable().getSimpleName();
         int arity = invocation.getArguments().size();
-        return context.getCtxFunctions().stream().anyMatch(f -> Utils.getSimpleName(f.getName()).equals(name)
-                && f.getArguments().size() == arity && f.getAllStates().stream().anyMatch(ObjectState::hasTo));
+        return context.getFunctionsWithSimpleName(name).stream().anyMatch(
+                f -> f.getArguments().size() == arity && f.getAllStates().stream().anyMatch(ObjectState::hasTo));
     }
 
     /**

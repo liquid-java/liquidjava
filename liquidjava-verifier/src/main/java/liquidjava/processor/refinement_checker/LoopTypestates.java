@@ -78,7 +78,10 @@ class LoopTypestates {
         reachable = true;
     }
 
-    /** The loop may exit here, if this point is reachable (the condition of a do-while is not, after a return) */
+    /**
+     * The loop may exit here, through its condition, if this point is reachable (the condition of a do-while is not
+     * when every path through the body returns)
+     */
     void recordExit() throws LJError {
         if (reachable)
             addCurrentStates(exit);
@@ -93,8 +96,8 @@ class LoopTypestates {
     }
 
     /**
-     * Where the body ends, a continue joins the end of the body: from here, each object is in a state it may be in at
-     * either
+     * Marks the end of the body, where the paths through its continues join the path through its last statement: from
+     * here on, each object is in a state it may be in at the end of the body or at any of the continues
      *
      * @param completes
      *            whether the end of the body can be reached without a continue
@@ -128,9 +131,18 @@ class LoopTypestates {
         return !grown;
     }
 
-    /** After the loop, each tracked object is in a state it may be in where the loop exits */
+    /**
+     * After the loop, each tracked object is in a state it may be in where the loop exits. Java rejects code after a
+     * loop that never exits, so no exit state means the states were not followed: the object is havocked instead, so
+     * that this can never make the code after the loop pass
+     */
     void finishLoop() {
-        exit.forEach(this::setStates);
+        exit.forEach((name, states) -> {
+            if (states.isEmpty())
+                checker.forgetChanges(name, new Predicate(), loop);
+            else
+                setStates(name, states);
+        });
     }
 
     private Map<String, Set<State>> emptyStates() {
