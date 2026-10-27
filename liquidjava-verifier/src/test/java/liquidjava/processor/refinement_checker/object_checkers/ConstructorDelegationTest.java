@@ -39,13 +39,19 @@ class ConstructorDelegationTest {
     }
 
     @Test
-    void namesBooleanAndIntConstantsBySuperParameterType() {
-        // ReferenceHandler(ThreadGroup g, String name) { super(g, null, name, 0, false); }
-        Optional<ConstructorDelegation> d = ConstructorDelegation.of("java.lang.ref.Reference$ReferenceHandler",
-                List.of("java.lang.ThreadGroup", "java.lang.String"));
-        assertTrue(d.isPresent());
-        assertEquals(List.of(new Parameter(0), UNNAMED, new Parameter(1), UNNAMED, new Constant(Optional.of("false"))),
-                d.get().arguments());
+    void typesIntConstantsBySuperParameterType() {
+        // LinkedHashSet() { super(16, .75f, true); }
+        assertEquals(
+                Optional.of(new ConstructorDelegation("java.util.HashSet", List.of("int", "float", "boolean"),
+                        List.of(new Constant(Optional.of(16)), UNNAMED, new Constant(Optional.of(true))))),
+                ConstructorDelegation.of("java.util.LinkedHashSet", List.of()));
+    }
+
+    @Test
+    void passesAParameterAmongConstants() {
+        // LinkedHashSet(int initialCapacity) { super(initialCapacity, .75f, true); }
+        assertEquals(List.of(new Parameter(0), UNNAMED, new Constant(Optional.of(true))),
+                ConstructorDelegation.of("java.util.LinkedHashSet", List.of("int")).orElseThrow().arguments());
     }
 
     @Test

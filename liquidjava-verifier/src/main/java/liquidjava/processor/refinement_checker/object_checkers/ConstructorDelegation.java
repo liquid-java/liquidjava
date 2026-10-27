@@ -32,7 +32,8 @@ import org.objectweb.asm.Type;
  *
  * Anything else (field writes, method calls, this(...), branches) is not a delegation. Classes are read from the JDK
  * only: the verifier runs without the analyzed program's classpath, and the verifier's own libraries may differ from
- * the versions the program uses.
+ * the versions the program uses. The result therefore depends on the JDK the verifier runs on, which may not be the one
+ * the program is compiled against.
  *
  * @param superclass
  *            qualified name of the superclass whose constructor is called
@@ -52,19 +53,23 @@ public record ConstructorDelegation(String superclass, List<String> superParamet
     }
 
     /**
-     * A constant, with how a state can refer to it ({@code 0}, {@code true}); empty when it cannot (e.g. {@code null}).
+     * A constant, with its value when a state can refer to it (an {@link Integer} or a {@link Boolean}, by the type of
+     * the parameter it is passed for); empty when it cannot (e.g. {@code null}, a string).
      */
-    public record Constant(Optional<String> value) implements Argument {
+    public record Constant(Optional<Object> value) implements Argument {
     }
 
-    private static final Map<String, Optional<ConstructorDelegation>> CACHE = new ConcurrentHashMap<>();
+    private record Key(String className, List<String> parameterTypes) {
+    }
+
+    private static final Map<Key, Optional<ConstructorDelegation>> CACHE = new ConcurrentHashMap<>();
 
     /**
      * How the constructor of {@code className} with these parameter types delegates to a superclass constructor, if its
      * bytecode is available and has exactly that shape.
      */
     public static Optional<ConstructorDelegation> of(String className, List<String> parameterTypes) {
-        return CACHE.computeIfAbsent(className + parameterTypes, k -> read(className, parameterTypes));
+        return CACHE.computeIfAbsent(new Key(className, parameterTypes), k -> read(className, parameterTypes));
     }
 
     private static Optional<ConstructorDelegation> read(String className, List<String> parameterTypes) {
@@ -73,6 +78,8 @@ public record ConstructorDelegation(String superclass, List<String> superParamet
             if (in == null)
                 return Optional.empty();
             ClassReader reader = new ClassReader(in);
+            if (reader.getSuperName() == null)
+                return Optional.empty(); // java.lang.Object
             ConstructorFinder finder = new ConstructorFinder(reader.getSuperName(), parameterTypes);
             reader.accept(finder, ClassReader.SKIP_DEBUG);
             return finder.delegation();
@@ -97,7 +104,7 @@ public record ConstructorDelegation(String superclass, List<String> superParamet
         public MethodVisitor visitMethod(int access, String name, String descriptor, String signature,
                 String[] exceptions) {
             Type[] params = Type.getArgumentTypes(descriptor);
-            if (superclass == null || !name.equals("<init>")
+            if (!name.equals("<init>")
                     || !Arrays.stream(params).map(Type::getClassName).toList().equals(parameterTypes))
                 return null;
             matcher = new DelegationMatcher(superclass, params);
@@ -182,8 +189,8 @@ public record ConstructorDelegation(String superclass, List<String> superParamet
         /** An int constant: a boolean, a number, or a char a state cannot write, depending on the parameter. */
         private void pushInt(int value) {
             push(t -> new Constant(switch (t.getSort()) {
-            case Type.BOOLEAN -> Optional.of(Boolean.toString(value != 0));
-            case Type.INT, Type.SHORT, Type.BYTE -> Optional.of(Integer.toString(value));
+            case Type.BOOLEAN -> Optional.of(value != 0);
+            case Type.INT, Type.SHORT, Type.BYTE -> Optional.of(value);
             default -> Optional.empty();
             }));
         }
