@@ -41,6 +41,13 @@ class TestStateHints {
     }
 
     @Test
+    void oldInAPreconditionIsTheStateBeforeTheCall() {
+        assertHints("ErrorStateHintOldInPrecondition.java",
+                new Hint(Kind.CALL_SEQUENCE, "Call f.open() before this call to move f from created to open"),
+                new Hint(Kind.AVAILABLE_CALLS, "In state created, f can call: open()"));
+    }
+
+    @Test
     void finalStateSuggestsCreatingANewObject() {
         assertHints("ErrorStateHintFinalState.java", new Hint(Kind.UNREACHABLE_STATE,
                 "No sequence of calls moves f from closed to open. Create a new object instead with new ErrorStateHintFinalState()"),
