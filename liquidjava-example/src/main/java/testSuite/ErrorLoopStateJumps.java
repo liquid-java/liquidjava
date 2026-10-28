@@ -3,7 +3,8 @@ package testSuite;
 import liquidjava.specification.StateRefinement;
 import liquidjava.specification.StateSet;
 
-// Typestates through the jumps in a loop body
+// Loops with jumps whose states are not followed (a break to a labelled block, or through a finally) havoc the
+// typestates of the objects they change, as before the fixpoint: these tests pin that fallback
 @StateSet({"open", "marked", "closed"})
 public class ErrorLoopStateJumps {
     @StateRefinement(to = "open(this)")
@@ -22,7 +23,7 @@ public class ErrorLoopStateJumps {
     @StateRefinement(from = "open(this)")
     void needOpen() {}
 
-    // a break out of a labelled block at the end of the body still goes on to the next iteration
+    // break done: the state of b is unknown in the body (the fixpoint would find it closed in the second iteration)
     static void labelledBlockEndsBody(int n) {
         ErrorLoopStateJumps b = new ErrorLoopStateJumps();
         while (n > 0) {
@@ -45,7 +46,7 @@ public class ErrorLoopStateJumps {
         } while (n > 0);
     }
 
-    // the break leaves the loop and the enclosing labelled block with b marked
+    // break out: the state of b is unknown in the body (the fixpoint would miss the marked state at the break)
     static void breakOutOfEnclosingBlock(int n) {
         ErrorLoopStateJumps b = new ErrorLoopStateJumps();
         out: {
@@ -60,7 +61,7 @@ public class ErrorLoopStateJumps {
         b.needOpen();
     }
 
-    // the finally closes b after the break, so b is closed after the loop
+    // a break through a finally: the state of b is unknown in the body (the finally closes b after the break)
     static void breakThroughFinally() {
         ErrorLoopStateJumps b = new ErrorLoopStateJumps();
         while (true) {

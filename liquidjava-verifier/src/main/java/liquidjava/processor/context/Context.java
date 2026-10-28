@@ -393,7 +393,7 @@ public class Context {
 
     /** The functions with this simple name, whether registered under it or, if specified externally, qualified */
     public List<RefinedFunction> getFunctionsWithSimpleName(String simpleName) {
-        return functionsBySimpleName.getOrDefault(simpleName, List.of());
+        return Collections.unmodifiableList(functionsBySimpleName.getOrDefault(simpleName, List.of()));
     }
 
     public RefinedFunction getFunction(String name, String target, int size) {

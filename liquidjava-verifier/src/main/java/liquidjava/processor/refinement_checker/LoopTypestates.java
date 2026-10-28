@@ -132,9 +132,9 @@ class LoopTypestates {
     }
 
     /**
-     * After the loop, each tracked object is in a state it may be in where the loop exits. Java rejects code after a
-     * loop that never exits, so no exit state means the states were not followed: the object is havocked instead, so
-     * that this can never make the code after the loop pass
+     * After the loop, each tracked object is in a state it may be in where the loop exits. With no exit state (the
+     * solver proves the loop never exits, or its states were not followed), the object is havocked instead: an object
+     * in no state would make every check after the loop pass, which must not depend on that proof
      */
     void finishLoop() {
         exit.forEach((name, states) -> {
