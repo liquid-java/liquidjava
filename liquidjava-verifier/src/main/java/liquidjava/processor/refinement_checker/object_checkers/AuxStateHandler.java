@@ -309,22 +309,28 @@ public class AuxStateHandler {
             }
         }
         CtTypeReference<?> r = tc.getFactory().Type().createReference(targetClass);
-        String nameOld = String.format(Formats.INSTANCE, Keys.THIS, tc.getContext().getCounter());
-        String name = String.format(Formats.INSTANCE, Keys.THIS, tc.getContext().getCounter());
-        tc.getContext().addVarToContext(Keys.THIS, r, new Predicate(), e);
-        tc.getContext().addVarToContext(name, r, new Predicate(), e);
-        tc.getContext().addVarToContext(nameOld, r, new Predicate(), e);
-        if (returnType != null && !tc.getContext().hasVariable(Keys.WILDCARD))
-            tc.getContext().addVarToContext(Keys.WILDCARD, returnType, new Predicate(), e);
-        // TODO REVIEW!!
-        // what is it for?
-        Predicate c1 = isTo ? getMissingStates(targetClass, tc, p) : p;
-        Predicate c = c1.substituteVariable(Keys.THIS, name);
-        c = c.changeOldMentions(nameOld, name);
-        boolean ok = tc.checkStateSMT(new Predicate(), c.negate(), position, true);
-        if (ok)
-            tc.throwStateConflictError(position, p);
-        return c1;
+        tc.getContext().enterContext();
+        try {
+            String nameOld = String.format(Formats.INSTANCE, Keys.THIS, tc.getContext().getCounter());
+            String name = String.format(Formats.INSTANCE, Keys.THIS, tc.getContext().getCounter());
+            tc.getContext().addVarToContext(Keys.THIS, r, new Predicate(), e);
+            tc.getContext().addVarToContext(name, r, new Predicate(), e);
+            tc.getContext().addVarToContext(nameOld, r, new Predicate(), e);
+            // in this scope, so that each method's `return` has its own type
+            if (returnType != null)
+                tc.getContext().addVarToContext(Keys.WILDCARD, returnType, new Predicate(), e);
+            // TODO REVIEW!!
+            // what is it for?
+            Predicate c1 = isTo ? getMissingStates(targetClass, tc, p) : p;
+            Predicate c = c1.substituteVariable(Keys.THIS, name);
+            c = c.changeOldMentions(nameOld, name);
+            boolean ok = tc.checkStateSMT(new Predicate(), c.negate(), position, true);
+            if (ok)
+                tc.throwStateConflictError(position, p);
+            return c1;
+        } finally {
+            tc.getContext().exitContext();
+        }
     }
 
     /**
