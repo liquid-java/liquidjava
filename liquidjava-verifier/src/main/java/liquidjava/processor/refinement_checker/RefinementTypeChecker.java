@@ -89,6 +89,9 @@ public class RefinementTypeChecker extends TypeChecker {
     TryChecker tryChecker;
     Diagnostics diagnostics = Diagnostics.getInstance();
     ContextHistory contextHistory = ContextHistory.getInstance();
+    // the metadata that checking an element puts on it
+    private static final List<String> CHECK_METADATA = List.of(Keys.REFINEMENT, Keys.TARGET, Keys.RECEIVER,
+            Keys.RETURN_VAR_NAME, Keys.STATE_CHANGE);
     // the loops being checked, innermost first
     private final Deque<LoopTypestates> loops = new ArrayDeque<>();
 
@@ -766,16 +769,22 @@ public class RefinementTypeChecker extends TypeChecker {
 
     /**
      * Checks iterations of a loop from the typestates at its head until they stop changing. Every iteration starts from
-     * the same facts: those before it, with what the loop changes havocked, and only the head typestates differ, since
-     * what an iteration adds to the context is dropped after it (its variables and instances are scoped to it, and its
-     * path conditions are restored). So an earlier iteration starts from fewer states than the last one, and an error
-     * it throws, which stops the check, is also an error from the final states. Only the last iteration keeps the
-     * errors recorded without stopping it (e.g. in a lambda).
+     * the same facts: those before the loop, with what it changes havocked, and only the head typestates differ. What
+     * an iteration adds is dropped after it: the variables it declares and the instances it gives to variables are
+     * scoped to it, its path conditions are restored, and the metadata it puts on the loop's elements is removed before
+     * the next one. The instances it created stay in the context's list of instances, but no variable or path condition
+     * refers to them any more, so no later check includes their refinements.
+     *
+     * <p>
+     * So an earlier iteration starts from fewer states than the last one, and an error it throws, which stops the
+     * check, is also an error from the final states. Only the last iteration keeps the errors recorded without stopping
+     * it (e.g. in a lambda).
      */
     private void checkUntilFixpoint(LoopTypestates states, Consumer<LoopTypestates> iteration) {
         List<RefinedVariable> pathVariables = vcChecker.getPathVariables();
         while (true) {
             Set<LJError> errors = new LinkedHashSet<>(diagnostics.getErrors());
+            removeCheckMetadata(states.loop());
             context.enterContext();
             try {
                 states.startIteration();
@@ -787,6 +796,29 @@ public class RefinementTypeChecker extends TypeChecker {
             if (states.reachedFixpoint())
                 return;
             diagnostics.getErrors().retainAll(errors);
+        }
+    }
+
+    /**
+     * Removes the metadata that checking the elements of a loop puts on them, which each iteration must compute afresh,
+     * as the first one does: unlike the context, it is not scoped, so it could refer to what an earlier iteration
+     * created and dropped (e.g. the receiver of a call in a lambda). The parts checked once before the loop (the
+     * initialization of a for, the iterable of a for-each) and the declarations in local classes and their parameters,
+     * which carry their contracts, keep theirs.
+     */
+    private static void removeCheckMetadata(CtLoop loop) {
+        List<CtElement> checkedBefore = new ArrayList<>();
+        if (loop instanceof CtFor forLoop)
+            checkedBefore.addAll(forLoop.getForInit());
+        if (loop instanceof CtForEach forEach)
+            checkedBefore.add(forEach.getExpression());
+        for (CtElement element : loop.getElements((CtElement e) -> true)) {
+            if (element instanceof CtTypeMember
+                    || (element instanceof CtParameter<?> && element.getParent() instanceof CtTypeMember)
+                    || checkedBefore.stream().anyMatch(before -> element == before || element.hasParent(before)))
+                continue;
+            for (String key : CHECK_METADATA)
+                element.putMetadata(key, null);
         }
     }
 
@@ -846,10 +878,12 @@ public class RefinementTypeChecker extends TypeChecker {
     }
 
     private static boolean leavesTryWithCleanup(CtLabelledFlowBreak jump, CtElement target) {
-        for (CtTry left = jump.getParent(CtTry.class); left != null
-                && left.hasParent(target); left = left.getParent(CtTry.class))
-            if (left.getFinalizer() != null || left instanceof CtTryWithResource)
+        CtTry enclosing = jump.getParent(CtTry.class);
+        while (enclosing != null && enclosing.hasParent(target)) {
+            if (enclosing.getFinalizer() != null || enclosing instanceof CtTryWithResource)
                 return true;
+            enclosing = enclosing.getParent(CtTry.class);
+        }
         return false;
     }
 
