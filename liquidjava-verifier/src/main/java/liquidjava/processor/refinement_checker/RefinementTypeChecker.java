@@ -256,10 +256,13 @@ public class RefinementTypeChecker extends TypeChecker {
             CtFieldReference<?> cr = fw.getVariable();
             CtField<?> f = fw.getVariable().getDeclaration();
             String updatedVarName = Utils.qualifyFieldName(cr);
-            checkAssignment(updatedVarName, cr.getType(), ex, assignment.getAssignment(), assignment, f);
+            // a field declared outside the analyzed sources (e.g. a library field) has no declared refinement: the
+            // write stands in for its declaration
+            checkAssignment(updatedVarName, cr.getType(), ex, assignment.getAssignment(), assignment,
+                    f != null ? f : assignment);
 
-            // corresponding ghost function update
-            if (fw.getVariable().getType().toString().equals("int")) {
+            // corresponding ghost function update, for fields declared in the analyzed sources
+            if (f != null && fw.getVariable().getType().toString().equals("int")) {
                 AuxStateHandler.updateGhostField(fw, this);
             }
         }
@@ -675,8 +678,9 @@ public class RefinementTypeChecker extends TypeChecker {
             scan(forLoop.getExpression());
             assumeLoopCondition(forLoop.getExpression());
             List<RefinedVariable> pathVariables = vcChecker.getPathVariables();
-            scan(forLoop.getBody());
-            if (!forLoop.getBody().getElements(new TypeFilter<>(CtContinue.class)).isEmpty()) {
+            CtStatement body = forLoop.getBody(); // null for an empty statement body, as in for (...);
+            scan(body);
+            if (body != null && !body.getElements(new TypeFilter<>(CtContinue.class)).isEmpty()) {
                 // a continue reaches the update from any point of the body, skipping its facts and assignments
                 vcChecker.restorePathVariables(pathVariables);
                 havocChangedIn(forLoop);

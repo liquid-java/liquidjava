@@ -188,11 +188,18 @@ public class Context {
     }
 
     public RefinedVariable addVarToContext(String simpleName, CtTypeReference<?> type, Predicate c, CtElement element) {
-        RefinedVariable vi = new Variable(simpleName, type, c);
+        RefinedVariable vi = new Variable(simpleName, typeOrObject(type, element), c);
         vi.setPlacementInCode(element);
-        vi.addSuperTypes(type.getSuperclass(), type.getSuperInterfaces());
         addVarToContext(vi);
         return vi;
+    }
+
+    /**
+     * Spoon leaves the type unset when it cannot be resolved (e.g. its class is not on the classpath). A variable of
+     * such a type is typed as Object, as every variable needs a type for its supertypes and its SMT sort.
+     */
+    private static CtTypeReference<?> typeOrObject(CtTypeReference<?> type, CtElement element) {
+        return type != null ? type : element.getFactory().Type().objectType();
     }
 
     public void removeVarFromContext(String name) {
@@ -202,7 +209,7 @@ public class Context {
 
     public RefinedVariable addInstanceToContext(String simpleName, CtTypeReference<?> type, Predicate c,
             CtElement element) {
-        RefinedVariable vi = new VariableInstance(simpleName, type, c);
+        RefinedVariable vi = new VariableInstance(simpleName, typeOrObject(type, element), c);
         vi.setPlacementInCode(element);
         if (!ctxInstanceVars.contains(vi))
             addInstanceVariable(vi);
