@@ -78,10 +78,13 @@ public class MethodsFunctionsChecker {
                         f.getTargetClass(), paramTypes);
                 AuxStateHandler.constructorStateMetadata(Keys.REFINEMENT, f, map, ctConstructorCall);
             } else {
-                // default constructor refinements
+                // the state of a specified ancestor constructor it delegates to, else the default
                 CtTypeReference<?> type = exe.getDeclaringType() != null ? exe.getDeclaringType()
                         : ctConstructorCall.getType();
-                if (type != null)
+                Optional<Predicate> delegated = AuxStateHandler.delegatedConstructorState(rtc, ctConstructorCall);
+                if (delegated.isPresent())
+                    ctConstructorCall.putMetadata(Keys.REFINEMENT, delegated.get());
+                else if (type != null)
                     ctConstructorCall.putMetadata(Keys.REFINEMENT, AuxStateHandler.getDefaultState(rtc,
                             type.getQualifiedName(), Predicate.createVar(Keys.THIS)));
             }

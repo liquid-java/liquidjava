@@ -178,6 +178,18 @@ public class Predicate {
         return new Predicate(ec);
     }
 
+    /** Replaces the variable {@code from} with the expression {@code to} (e.g. a literal). */
+    public Predicate substituteVariable(String from, Predicate to) {
+        return new Predicate(exp.clone().substitute(new Var(from), to.getExpression().clone()));
+    }
+
+    /** Whether the function {@code name} is called anywhere in this predicate. */
+    public boolean invokes(String name) {
+        List<String> found = new ArrayList<>();
+        exp.getStateInvocations(found, List.of(name));
+        return !found.isEmpty();
+    }
+
     public List<String> getVariableNames() {
         List<String> l = new ArrayList<>();
         exp.getVariableNames(l);

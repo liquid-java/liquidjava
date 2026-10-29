@@ -62,7 +62,7 @@ public class AuxStateHandler {
     }
 
     /**
-     * An unannotated constructor whose body starts with {@code super(...)} leaves the object in the state that the
+     * An unannotated constructor whose body is only a {@code super(...)} call leaves the object in the state that the
      * called superclass constructor's specification gives it (e.g. {@code MyException(String m, Throwable c) { super(m,
      * c); }} with the {@code Throwable(String, Throwable)} spec: {@code withThrowable(this)}). The super constructor's
      * parameters are renamed to the arguments passed, which must be parameters of this constructor or literals.
@@ -70,66 +70,207 @@ public class AuxStateHandler {
      * @return whether a state was inherited (otherwise the caller falls back to the default state)
      */
     private static boolean inheritSuperConstructorState(CtConstructor<?> c, RefinedFunction f, TypeChecker tc) {
-        CtStatement first = c.getBody() == null || c.getBody().getStatements().isEmpty() ? null
-                : c.getBody().getStatement(0);
-        if (!(first instanceof CtInvocation<?> call) || !call.getExecutable().isConstructor()
-                || c.getDeclaringType() == null
-                || c.getDeclaringType().getReference().equals(call.getExecutable().getDeclaringType()))
-            return false; // not a super(...) call (this(...) delegates within the class)
-        RefinedFunction superF = specifiedConstructor(tc, call.getExecutable());
-        List<CtExpression<?>> args = call.getArguments();
-        if (superF == null || superF.getToStates().isEmpty() || superF.getArguments().size() != args.size())
+        Optional<CtInvocation<?>> call = onlySuperCall(c);
+        if (call.isEmpty())
             return false;
-
-        // rename each super parameter to the argument passed for it; a state may not mention an unnamed one
-        Map<String, String> rename = new HashMap<>();
-        Set<String> unnamed = new HashSet<>();
-        for (int i = 0; i < args.size(); i++) {
-            String param = superF.getArguments().get(i).getName();
-            argumentName(args.get(i)).ifPresentOrElse(a -> rename.put(param, a), () -> unnamed.add(param));
-        }
-        if (superF.getToStates().stream().anyMatch(to -> to.getVariableNames().stream().anyMatch(unnamed::contains)))
-            return false;
-        f.setAllStates(superF.getToStates().stream()
-                .map(to -> new ObjectState(null, rename.entrySet().stream().reduce(to,
-                        (p, r) -> p.substituteVariable(r.getKey(), r.getValue()), (p, q) -> p)))
-                .collect(Collectors.toList()));
-        return true;
+        List<Optional<Predicate>> values = call.get().getArguments().stream().map(AuxStateHandler::argumentValue)
+                .toList();
+        Optional<List<Predicate>> states = specifiedStates(tc, call.get().getExecutable(), values,
+                c.getDeclaringType().getQualifiedName());
+        states.ifPresent(
+                to -> f.setAllStates(to.stream().map(p -> new ObjectState(null, p)).collect(Collectors.toList())));
+        return states.isPresent();
     }
 
-    /** How a state can refer to {@code arg}: by the caller's parameter name or a non-string literal's value. */
-    private static Optional<String> argumentName(CtExpression<?> arg) {
+    /**
+     * The {@code super(...)} call that is all {@code c} runs, if so. Anything after it, or an instance initializer or
+     * field initializer of the class (which run right after it), may change the state, as in {@code super(m);
+     * initCause(c);}. This is the source counterpart of what {@link ConstructorDelegation} accepts in bytecode.
+     */
+    private static Optional<CtInvocation<?>> onlySuperCall(CtConstructor<?> c) {
+        CtType<?> owner = c.getDeclaringType();
+        if (owner == null || c.getBody() == null || c.getBody().getStatements().size() != 1
+                || !(c.getBody().getStatement(0)instanceof CtInvocation<?> call)
+                || !call.getExecutable().isConstructor()
+                || owner.getReference().equals(call.getExecutable().getDeclaringType()))
+            return Optional.empty(); // not only a super(...) call (this(...) delegates within the class)
+        boolean initializers = owner instanceof CtClass<?> klass
+                && klass.getAnonymousExecutables().stream().anyMatch(block -> !block.isStatic());
+        boolean fieldInitializers = owner.getFields().stream()
+                .anyMatch(field -> !field.isStatic() && field.getDefaultExpression() != null);
+        return initializers || fieldInitializers ? Optional.empty() : Optional.of(call);
+    }
+
+    /**
+     * The state that {@code new C(...)} gives when {@code C}'s constructor has no specification of its own but is a
+     * binary constructor that delegates to a specified one of an ancestor (e.g. {@code new RuntimeException(m)} runs
+     * {@code Throwable(String)}), with the arguments renamed as in {@link #inheritSuperConstructorState}.
+     */
+    public static Optional<Predicate> delegatedConstructorState(TypeChecker tc, CtConstructorCall<?> call) {
+        if (call instanceof CtNewClass<?> || call.getExecutable().getDeclaringType() == null)
+            return Optional.empty(); // an anonymous class body may change the state
+        List<Optional<Predicate>> values = call.getArguments().stream().map(a -> callArgumentValue(tc, a)).toList();
+        return specifiedStates(tc, call.getExecutable(), values,
+                call.getExecutable().getDeclaringType().getQualifiedName()).filter(to -> !to.isEmpty())
+                        .map(to -> to.get(0));
+    }
+
+    /**
+     * The to-states of the specified constructor that {@code exe} ends up running, with each of its parameters replaced
+     * by the value passed for it, and the default value for each state set of {@code constructed} that they leave
+     * unconstrained. Empty if no specified constructor is known, or if a state mentions a parameter whose value cannot
+     * be written.
+     *
+     * @param argumentValues
+     *            how a state can write each argument of the call to {@code exe}
+     */
+    private static Optional<List<Predicate>> specifiedStates(TypeChecker tc, CtExecutableReference<?> exe,
+            List<Optional<Predicate>> argumentValues, String constructed) {
+        if (exe.getDeclaringType() == null || argumentValues.size() != exe.getParameters().size())
+            return Optional.empty(); // e.g. a varargs call
+        Optional<SpecifiedConstructor> spec = specifiedConstructor(tc, exe);
+        if (spec.isEmpty() || spec.get().function().getToStates().isEmpty())
+            return Optional.empty();
+
+        // replace each spec parameter by the value passed for it; a state may not mention one without a value
+        Map<String, Predicate> values = new HashMap<>();
+        Set<String> unknown = new HashSet<>();
+        List<Variable> params = spec.get().function().getArguments();
+        for (int i = 0; i < params.size(); i++) {
+            String param = params.get(i).getName();
+            ConstructorDelegation.Argument passed = spec.get().arguments().get(i);
+            Optional<Predicate> value = passed instanceof ConstructorDelegation.Parameter p
+                    ? argumentValues.get(p.index())
+                    : ((ConstructorDelegation.Constant) passed).value().flatMap(AuxStateHandler::literal);
+            value.ifPresentOrElse(v -> values.put(param, v), () -> unknown.add(param));
+        }
+        List<Predicate> states = spec.get().function().getToStates();
+        if (states.stream().anyMatch(to -> to.getVariableNames().stream().anyMatch(unknown::contains)))
+            return Optional.empty();
+        // a spec that leaves some state sets unchanged refers to old(this), which a new object does not have
+        if (states.stream().anyMatch(to -> to.invokes(Keys.OLD)))
+            return Optional.empty();
+        return Optional.of(states.stream().map(to -> substituteAll(to, values))
+                .map(to -> withDefaultsForOtherSets(tc, constructed, to)).toList());
+    }
+
+    /**
+     * Replaces each variable of {@code values} at once, so a value that is also a name in {@code values} is not
+     * replaced again (e.g. {@code Sub(boolean y, boolean x) { super(y, x); }} for {@code Base(boolean x, boolean y)}).
+     */
+    private static Predicate substituteAll(Predicate p, Map<String, Predicate> values) {
+        Map<String, String> placeholders = new HashMap<>();
+        for (String name : values.keySet()) {
+            String placeholder = "#param_" + placeholders.size();
+            placeholders.put(name, placeholder);
+            p = p.substituteVariable(name, placeholder);
+        }
+        for (Map.Entry<String, String> e : placeholders.entrySet())
+            p = p.substituteVariable(e.getValue(), values.get(e.getKey()));
+        return p;
+    }
+
+    /**
+     * {@code to} and the default value of each state set of {@code klass} it does not mention: an ancestor's
+     * constructor spec says nothing about the sets a subclass adds (e.g. {@code Stack}'s, after {@code Vector()}).
+     */
+    private static Predicate withDefaultsForOtherSets(TypeChecker tc, String klass, Predicate to) {
+        return Predicate.createConjunction(to,
+                defaultValues(unmentionedSets(tc, klass, to), Predicate.createVar(Keys.THIS)));
+    }
+
+    /** How a state can write {@code arg}: by the caller's parameter name or a literal. */
+    private static Optional<Predicate> argumentValue(CtExpression<?> arg) {
         if (arg instanceof CtVariableRead<?> vr
                 && vr.getVariable() instanceof spoon.reflect.reference.CtParameterReference<?>)
-            return Optional.of(vr.getVariable().getSimpleName());
-        if (arg instanceof CtLiteral<?> lit && lit.getValue() != null && !(lit.getValue() instanceof String))
-            return Optional.of(lit.getValue().toString());
+            return Optional.of(Predicate.createVar(vr.getVariable().getSimpleName()));
+        return literalValue(arg);
+    }
+
+    /**
+     * How a state can write {@code arg} at a call: by the variable's current instance, which keeps the value it has now
+     * even if the variable is assigned later, or a literal. A variable without an instance (e.g. a parameter not
+     * assigned yet) has no known value here.
+     */
+    private static Optional<Predicate> callArgumentValue(TypeChecker tc, CtExpression<?> arg) {
+        if (arg instanceof CtVariableRead<?> vr && !(arg instanceof CtFieldRead<?>))
+            return tc.getContext().getLastVariableInstance(vr.getVariable().getSimpleName())
+                    .map(vi -> Predicate.createVar(vi.getName()));
+        return literalValue(arg);
+    }
+
+    /** {@code arg} as a literal of the refinement language, if it is a boolean or int literal. */
+    private static Optional<Predicate> literalValue(CtExpression<?> arg) {
+        return arg instanceof CtLiteral<?> lit ? literal(lit.getValue()) : Optional.empty();
+    }
+
+    private static Optional<Predicate> literal(Object value) {
+        if (value instanceof Boolean)
+            return Optional.of(Predicate.createLit(value.toString(), Types.BOOLEAN));
+        if (value instanceof Integer || value instanceof Short || value instanceof Byte)
+            return Optional.of(Predicate.createLit(value.toString(), Types.INT));
         return Optional.empty();
     }
 
     /**
-     * JDK classes whose constructors all pass their arguments unchanged to the superclass constructor with the same
-     * parameter types (documented in their Javadoc), so a spec on that superclass constructor describes them too. Only
-     * these are walked through: other binary classes may not (e.g. {@code ClassNotFoundException(String)} sets a null
-     * cause), and assuming they did would hide real errors.
+     * A constructor specification, and what a call passes for each of its parameters.
+     *
+     * @param arguments
+     *            for each parameter of {@code function}: an index into the call's arguments, or a constant
      */
-    private static final Set<String> DELEGATING_JDK_CLASSES = Set.of("java.lang.Exception",
-            "java.lang.RuntimeException", "java.lang.Error");
+    private record SpecifiedConstructor(RefinedFunction function, List<ConstructorDelegation.Argument> arguments) {
+    }
 
-    /** The specified constructor that {@code exe} ends up running, if one is known. */
-    private static RefinedFunction specifiedConstructor(TypeChecker tc, CtExecutableReference<?> exe) {
-        for (CtTypeReference<?> t = exe.getDeclaringType(); t != null;) {
-            RefinedFunction f = tc.getContext().getFunction(exe.getSimpleName(), t.getQualifiedName(),
-                    exe.getParameters());
-            if (f != null || !DELEGATING_JDK_CLASSES.contains(t.getQualifiedName()))
-                return f;
-            try {
-                t = t.getSuperclass();
-            } catch (RuntimeException | LinkageError e) {
-                return null;
-            }
+    /**
+     * The specified constructor that {@code exe} ends up running, if one is known. A binary constructor without a
+     * specification is walked through only when its bytecode just passes values on to a superclass constructor (e.g.
+     * {@code RuntimeException(String)} to {@code Exception(String)} to {@code Throwable(String)}); assuming any other
+     * constructor did so would hide real errors (e.g. {@code ClassNotFoundException(String)} also sets a null cause).
+     */
+    private static Optional<SpecifiedConstructor> specifiedConstructor(TypeChecker tc, CtExecutableReference<?> exe) {
+        List<ConstructorDelegation.Argument> arguments = new ArrayList<>();
+        for (int i = 0; i < exe.getParameters().size(); i++)
+            arguments.add(new ConstructorDelegation.Parameter(i));
+        String klass = exe.getDeclaringType().getQualifiedName();
+        RefinedFunction f = tc.getContext().getFunction(exe.getSimpleName(), klass, exe.getParameters());
+        Optional<List<String>> types = erasedNames(exe.getParameters());
+        while (f == null && types.isPresent()) {
+            Optional<ConstructorDelegation> delegation = ConstructorDelegation.of(klass, types.get());
+            if (delegation.isEmpty())
+                return Optional.empty();
+            arguments = passedOn(arguments, delegation.get().arguments());
+            klass = delegation.get().superclass();
+            types = Optional.of(delegation.get().superParameterTypes());
+            // exact types: the arity fallback of getFunction could pick another overload's spec
+            f = tc.getContext().getFunctionExact(exe.getSimpleName(), klass, typeReferences(tc, types.get()));
         }
-        return null;
+        return f == null ? Optional.empty() : Optional.of(new SpecifiedConstructor(f, arguments));
+    }
+
+    /**
+     * What reaches the superclass constructor, in terms of the original call: a parameter passed on refers back to the
+     * value the call gave for it.
+     */
+    private static List<ConstructorDelegation.Argument> passedOn(List<ConstructorDelegation.Argument> callArguments,
+            List<ConstructorDelegation.Argument> delegated) {
+        return delegated.stream()
+                .map(a -> a instanceof ConstructorDelegation.Parameter p ? callArguments.get(p.index()) : a).toList();
+    }
+
+    /** The erased qualified names of {@code types}, as in bytecode descriptors, if they can be resolved. */
+    private static Optional<List<String>> erasedNames(List<CtTypeReference<?>> types) {
+        try {
+            return Optional.of(types.stream().map(t -> t.getTypeErasure().getQualifiedName()).toList());
+        } catch (RuntimeException e) {
+            return Optional.empty();
+        }
+    }
+
+    private static List<CtTypeReference<?>> typeReferences(TypeChecker tc, List<String> names) {
+        List<CtTypeReference<?>> refs = new ArrayList<>();
+        for (String name : names)
+            refs.add(tc.getFactory().Type().createReference(name));
+        return refs;
     }
 
     /**
@@ -180,8 +321,12 @@ public class AuxStateHandler {
     }
 
     public static Predicate getDefaultState(TypeChecker tc, String klass, Predicate target) {
+        return defaultValues(getDifferentSets(tc, klass), target);
+    }
+
+    /** Each of {@code sets} at its default value on {@code target}. */
+    private static Predicate defaultValues(List<GhostFunction> sets, Predicate target) {
         Predicate c = new Predicate();
-        List<GhostFunction> sets = getDifferentSets(tc, klass);
         for (GhostFunction sg : sets) {
             String retType = sg.getReturnType().toString();
             Predicate typePredicate = switch (retType) {
@@ -343,6 +488,11 @@ public class AuxStateHandler {
      * @return the updated predicate
      */
     private static Predicate getMissingStates(String t, TypeChecker tc, Predicate p) {
+        return addOldStates(p, Predicate.createVar(Keys.THIS), unmentionedSets(tc, t, p));
+    }
+
+    /** The ghost state sets of class {@code t} that {@code p} does not mention. */
+    private static List<GhostFunction> unmentionedSets(TypeChecker tc, String t, Predicate p) {
         List<GhostState> gs = p.getStateInvocations(getGhostStatesFor(t, tc));
         List<GhostFunction> sets = getDifferentSets(tc, t);
         for (GhostState g : gs) {
@@ -352,7 +502,7 @@ public class AuxStateHandler {
                 sets.remove(g.getParent());
             }
         }
-        return addOldStates(p, Predicate.createVar(Keys.THIS), sets);
+        return sets;
     }
 
     /**
