@@ -150,10 +150,24 @@ public class AuxStateHandler {
         // a spec that leaves some state sets unchanged refers to old(this), which a new object does not have
         if (states.stream().anyMatch(to -> to.invokes(Keys.OLD)))
             return Optional.empty();
-        return Optional.of(states.stream()
-                .map(to -> values.entrySet().stream().reduce(to,
-                        (p, v) -> p.substituteVariable(v.getKey(), v.getValue()), (p, q) -> p))
+        return Optional.of(states.stream().map(to -> substituteAll(to, values))
                 .map(to -> withDefaultsForOtherSets(tc, constructed, to)).toList());
+    }
+
+    /**
+     * Replaces each variable of {@code values} at once, so a value that is also a name in {@code values} is not
+     * replaced again (e.g. {@code Sub(boolean y, boolean x) { super(y, x); }} for {@code Base(boolean x, boolean y)}).
+     */
+    private static Predicate substituteAll(Predicate p, Map<String, Predicate> values) {
+        Map<String, String> placeholders = new HashMap<>();
+        for (String name : values.keySet()) {
+            String placeholder = "#param_" + placeholders.size();
+            placeholders.put(name, placeholder);
+            p = p.substituteVariable(name, placeholder);
+        }
+        for (Map.Entry<String, String> e : placeholders.entrySet())
+            p = p.substituteVariable(e.getValue(), values.get(e.getKey()));
+        return p;
     }
 
     /**
