@@ -882,7 +882,7 @@ public class RefinementTypeChecker extends TypeChecker {
             return getRefinement(op);
         } else if (element instanceof CtLiteral<?>) {
             CtLiteral<?> l = (CtLiteral<?>) element;
-            return new Predicate(l.getValue().toString(), l);
+            return Predicate.createLit(l.getValue(), l);
         } else if (element instanceof CtInvocation<?>) {
             CtInvocation<?> inv = (CtInvocation<?>) element;
             visitCtInvocation(inv);
