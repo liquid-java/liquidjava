@@ -339,6 +339,16 @@ public class Predicate {
         return new Predicate(new Ite(c1.getExpression(), c2.getExpression(), c3.getExpression()));
     }
 
+    /**
+     * Wrap the value of a Java literal as an RJ literal. The literal node is built directly instead of parsing the
+     * value's text, since RJ has no char-literal syntax: {@code '['} would not parse and {@code 'a'} would read as a
+     * variable.
+     */
+    public static Predicate createLit(Object value, CtElement element) throws LJError {
+        Predicate lit = StaticConstants.asLiteralPredicate(value);
+        return lit != null ? lit : new Predicate(value.toString(), element);
+    }
+
     public static Predicate createLit(String value, String type) {
         Expression exp = switch (type) {
         case Types.BOOLEAN -> new LiteralBoolean(value);

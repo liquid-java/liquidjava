@@ -311,7 +311,7 @@ public class OperationsChecker {
                 return new Predicate();
             }
 
-            return new Predicate(l.getValue().toString(), element);
+            return Predicate.createLit(l.getValue(), element);
 
         } else if (element instanceof CtInvocation<?> inv) {
             CtExecutable<?> method = inv.getExecutable().getDeclaration();
@@ -428,7 +428,7 @@ public class OperationsChecker {
         } else if (element instanceof CtLiteral<?> literal) {
             if (literal.getValue() == null)
                 return new Predicate(); // null literals are not supported yet, carry no information
-            return new Predicate(literal.getValue().toString(), element);
+            return Predicate.createLit(literal.getValue(), element);
         } else if (element instanceof CtInvocation<?>) {
             VariableInstance invocationValue = (VariableInstance) element.getMetadata(Keys.TARGET);
             if (invocationValue != null)
