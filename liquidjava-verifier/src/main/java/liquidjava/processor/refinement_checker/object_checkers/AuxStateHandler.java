@@ -898,11 +898,10 @@ public class AuxStateHandler {
             return false;
         String instanceName = vi.getName();
         Predicate previous = substituteArguments(prevState, map);
-        Predicate anyEntry = Predicate.createLit("false", Types.BOOLEAN);
-        for (ObjectState alternative : alternatives)
-            anyEntry = Predicate.createDisjunction(anyEntry, entryState(alternative, instanceName, map));
+        List<Predicate> entries = alternatives.stream().map(a -> entryState(a, instanceName, map)).toList();
         try {
-            if (!tc.checkStateSMT(previous, anyEntry, invocation.getPosition()))
+            if (!tc.checkStateSMT(previous, entries.stream().reduce(Predicate::createDisjunction).orElseThrow(),
+                    invocation.getPosition()))
                 return false;
         } catch (SMTUnknownError error) {
             error.setDeclarationPosition(alternatives.get(0).getFromPosition());
@@ -912,8 +911,9 @@ public class AuxStateHandler {
         String newInstanceName = String.format(Formats.INSTANCE, name, tc.getContext().getCounter());
         Predicate unchanged = previous.substituteVariable(instanceName, newInstanceName);
         Predicate after = Predicate.createLit("false", Types.BOOLEAN);
-        for (ObjectState alternative : alternatives) {
-            Predicate entry = entryState(alternative, instanceName, map);
+        for (int i = 0; i < alternatives.size(); i++) {
+            ObjectState alternative = alternatives.get(i);
+            Predicate entry = entries.get(i);
             Predicate exit = alternative.hasTo()
                     ? transitionedState(alternative, instanceName, newInstanceName, map, invocation)
                     : Predicate.createConjunction(entry.substituteVariable(instanceName, newInstanceName), unchanged);

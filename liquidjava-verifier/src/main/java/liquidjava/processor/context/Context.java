@@ -2,14 +2,12 @@ package liquidjava.processor.context;
 
 import java.util.*;
 import liquidjava.rj_language.Predicate;
-import liquidjava.utils.Utils;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.reference.CtTypeReference;
 
 public class Context {
     private Stack<List<RefinedVariable>> ctxVars;
     private List<RefinedFunction> ctxFunctions;
-    private Map<String, List<RefinedFunction>> functionsBySimpleName;
     private List<RefinedVariable> ctxInstanceVars;
     private final List<RefinedVariable> ctxGlobalVars;
 
@@ -26,7 +24,6 @@ public class Context {
         ctxVars = new Stack<>();
         ctxVars.add(new ArrayList<>());
         ctxFunctions = new ArrayList<>();
-        functionsBySimpleName = new HashMap<>();
         ctxInstanceVars = new ArrayList<>();
         ctxGlobalVars = new ArrayList<>();
 
@@ -132,7 +129,6 @@ public class Context {
     public void reinitializeAllContext() {
         reinitializeContext();
         ctxFunctions = new ArrayList<>();
-        functionsBySimpleName = new HashMap<>();
         aliases = new ArrayList<>();
         ghosts = new ArrayList<>();
         classStates = new HashMap<>();
@@ -385,15 +381,8 @@ public class Context {
 
     // ---------------------- Functions ----------------------
     public void addFunctionToContext(RefinedFunction f) {
-        if (!ctxFunctions.contains(f)) {
+        if (!ctxFunctions.contains(f))
             ctxFunctions.add(f);
-            functionsBySimpleName.computeIfAbsent(Utils.getSimpleName(f.getName()), n -> new ArrayList<>()).add(f);
-        }
-    }
-
-    /** The functions with this simple name, whether registered under it or, if specified externally, qualified */
-    public List<RefinedFunction> getFunctionsWithSimpleName(String simpleName) {
-        return Collections.unmodifiableList(functionsBySimpleName.getOrDefault(simpleName, List.of()));
     }
 
     public RefinedFunction getFunction(String name, String target, int size) {

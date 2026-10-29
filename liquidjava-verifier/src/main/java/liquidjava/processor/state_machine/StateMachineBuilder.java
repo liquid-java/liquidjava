@@ -65,7 +65,7 @@ public class StateMachineBuilder {
      */
     public static Optional<StateMachine> build(TypeChecker tc, StateSolver solver, String className, CtElement element)
             throws LJError {
-        List<State> states = statesOf(tc.getContext(), className);
+        List<State> states = statesOf(tc.getContext(), className, false);
         if (states.isEmpty() || states.size() > MAX_STATES)
             return Optional.empty();
         Context context = tc.getContext();
@@ -80,20 +80,14 @@ public class StateMachineBuilder {
         }
     }
 
-    /** Every combination of one state from each state set of the class */
-    public static List<State> statesOf(Context context, String className) {
-        return statesOf(context, className, false);
-    }
-
     /**
-     * Every combination of one state from each state set of the class, where an object may also be in none of the
-     * states of a set (e.g. after {@code @StateRefinement(to = "!open(this) && !closed(this)")}), named {@code none}
+     * Every combination of one state from each state set of the class
+     *
+     * @param withNone
+     *            whether an object may also be in none of the states of a set, named {@code none} (e.g. after
+     *            {@code @StateRefinement(to = "!open(this) && !closed(this)")})
      */
-    public static List<State> statesOrNoneOf(Context context, String className) {
-        return statesOf(context, className, true);
-    }
-
-    private static List<State> statesOf(Context context, String className, boolean withNone) {
+    public static List<State> statesOf(Context context, String className, boolean withNone) {
         List<GhostState> ghostStates = context.getGhostState(Utils.getSimpleName(className));
         if (ghostStates == null)
             return List.of();
@@ -104,10 +98,8 @@ public class StateMachineBuilder {
 
         List<State> combinations = List.of(new State(List.of(), new Predicate()));
         for (List<GhostState> stateSet : stateSets.values()) {
-            List<State> alternatives = stateSet.stream().map(StateMachineBuilder::inState).toList();
-            if (withNone)
-                alternatives = Stream.concat(alternatives.stream(), Stream.of(inNone(stateSet))).toList();
-            List<State> inSet = alternatives;
+            List<State> inSet = Stream.concat(stateSet.stream().map(StateMachineBuilder::inState),
+                    withNone ? Stream.of(inNone(stateSet)) : Stream.empty()).toList();
             combinations = combinations.stream().flatMap(s -> inSet.stream().map(a -> combine(s, a))).toList();
         }
         return combinations;

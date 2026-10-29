@@ -51,8 +51,8 @@ class LoopTypestates {
             if (!(checker.getContext().getVariableByName(name)instanceof Variable variable)
                     || variable.getType() == null)
                 continue;
-            List<State> states = StateMachineBuilder.statesOrNoneOf(checker.getContext(),
-                    variable.getType().getQualifiedName());
+            List<State> states = StateMachineBuilder.statesOf(checker.getContext(),
+                    variable.getType().getQualifiedName(), true);
             if (states.isEmpty())
                 continue;
             classStates.put(name, states);

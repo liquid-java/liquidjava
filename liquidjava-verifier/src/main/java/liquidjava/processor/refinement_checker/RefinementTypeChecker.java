@@ -689,7 +689,6 @@ public class RefinementTypeChecker extends TypeChecker {
             recordExit(states, whileLoop.getLoopingExpression());
             assumeLoopCondition(whileLoop.getLoopingExpression());
             scanBody(whileLoop, states);
-            states.recordNextIteration();
         });
     }
 
@@ -703,7 +702,6 @@ public class RefinementTypeChecker extends TypeChecker {
             scanBody(forLoop, states);
             // the update runs after the body, so the body sees the values the condition was checked on
             scan(forLoop.getForUpdate());
-            states.recordNextIteration();
         });
     }
 
@@ -714,7 +712,6 @@ public class RefinementTypeChecker extends TypeChecker {
             scanBody(doLoop, states);
             scan(doLoop.getLoopingExpression());
             recordExit(states, doLoop.getLoopingExpression());
-            states.recordNextIteration();
         });
     }
 
@@ -726,7 +723,6 @@ public class RefinementTypeChecker extends TypeChecker {
             states.recordExit();
             scan(forEach.getVariable());
             scanBody(forEach, states);
-            states.recordNextIteration();
         });
     }
 
@@ -768,17 +764,13 @@ public class RefinementTypeChecker extends TypeChecker {
     }
 
     /**
-     * Checks iterations of a loop from the typestates at its head until they stop changing. Every iteration starts from
-     * the same facts: those before the loop, with what it changes havocked, and only the head typestates differ. What
-     * an iteration adds is dropped after it: the variables it declares and the instances it gives to variables are
-     * scoped to it, its path conditions are restored, and the metadata it puts on the loop's elements is removed before
-     * the next one. The instances it created stay in the context's list of instances, but no variable or path condition
-     * refers to them any more, so no later check includes their refinements.
+     * Checks iterations of a loop from the typestates at its head until they stop changing. Every check starts from the
+     * facts before the loop, with what it changes havocked; only the head typestates differ. What a check adds
+     * (variables, instances, path conditions, metadata) is dropped before the next one.
      *
      * <p>
-     * So an earlier iteration starts from fewer states than the last one, and an error it throws, which stops the
-     * check, is also an error from the final states. Only the last iteration keeps the errors recorded without stopping
-     * it (e.g. in a lambda).
+     * An earlier check starts from fewer states than the last one, so an error that stops it is also an error of the
+     * last one. Only the last check keeps the errors recorded without stopping it (e.g. in a lambda).
      */
     private void checkUntilFixpoint(LoopTypestates states, Consumer<LoopTypestates> iteration) {
         List<RefinedVariable> pathVariables = vcChecker.getPathVariables();
@@ -789,6 +781,7 @@ public class RefinementTypeChecker extends TypeChecker {
             try {
                 states.startIteration();
                 iteration.accept(states);
+                states.recordNextIteration();
             } finally {
                 context.exitContext();
                 vcChecker.replacePathVariables(pathVariables);
@@ -800,11 +793,10 @@ public class RefinementTypeChecker extends TypeChecker {
     }
 
     /**
-     * Removes the metadata that checking the elements of a loop puts on them, which each iteration must compute afresh,
-     * as the first one does: unlike the context, it is not scoped, so it could refer to what an earlier iteration
-     * created and dropped (e.g. the receiver of a call in a lambda). The parts checked once before the loop (the
-     * initialization of a for, the iterable of a for-each) and the declarations in local classes and their parameters,
-     * which carry their contracts, keep theirs.
+     * Removes the metadata that checking a loop puts on its elements: unlike the context it is not scoped, so it could
+     * refer to what an earlier check dropped (e.g. the receiver of a call in a lambda). The parts checked once before
+     * the loop (a for's initialization, a for-each's iterable) and local class members, which carry their contracts,
+     * keep theirs.
      */
     private static void removeCheckMetadata(CtLoop loop) {
         List<CtElement> checkedBefore = new ArrayList<>();
@@ -952,8 +944,8 @@ public class RefinementTypeChecker extends TypeChecker {
     private boolean mayChangeState(CtInvocation<?> invocation) {
         String name = invocation.getExecutable().getSimpleName();
         int arity = invocation.getArguments().size();
-        return context.getFunctionsWithSimpleName(name).stream().anyMatch(
-                f -> f.getArguments().size() == arity && f.getAllStates().stream().anyMatch(ObjectState::hasTo));
+        return context.getCtxFunctions().stream().anyMatch(f -> Utils.getSimpleName(f.getName()).equals(name)
+                && f.getArguments().size() == arity && f.getAllStates().stream().anyMatch(ObjectState::hasTo));
     }
 
     /**
