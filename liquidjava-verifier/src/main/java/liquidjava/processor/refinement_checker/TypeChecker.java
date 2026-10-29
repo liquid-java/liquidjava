@@ -415,13 +415,19 @@ public abstract class TypeChecker extends CtScanner {
 
     public boolean checkStateSMT(Predicate prevState, Predicate expectedState, SourcePosition p, boolean silent)
             throws LJError {
-        return verifyStateSMT(prevState, expectedState, p, silent).isOk();
+        return verifyStateSMT(prevState, expectedState, p, silent, false).isOk();
     }
 
     /** Checks that {@code prevState} implies {@code expectedState}, with a counterexample when it does not */
     public SMTResult verifyStateSMT(Predicate prevState, Predicate expectedState, SourcePosition p, boolean silent)
             throws LJError {
-        return vcChecker.verifySMTSubtypeStates(prevState, expectedState, context.getGhostStates(), p, factory, silent);
+        return verifyStateSMT(prevState, expectedState, p, silent, true);
+    }
+
+    private SMTResult verifyStateSMT(Predicate prevState, Predicate expectedState, SourcePosition p, boolean silent,
+            boolean needsCounterexample) throws LJError {
+        return vcChecker.verifySMTSubtypeStates(prevState, expectedState, context.getGhostStates(), p, factory, silent,
+                needsCounterexample);
     }
 
     public void throwRefinementError(SourcePosition position, SourcePosition declarationPosition,

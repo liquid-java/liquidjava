@@ -71,7 +71,7 @@ public class VCConstraintSimplification implements VCSimplificationPass {
      */
     private boolean implies(Predicate stronger, Predicate weaker) {
         try {
-            SMTResult result = new SMTEvaluator().verifySubtype(stronger, weaker, Context.getInstance(), true);
+            SMTResult result = new SMTEvaluator().verifySubtype(stronger, weaker, Context.getInstance(), true, false);
             return result.isOk();
         } catch (Exception e) {
             return false;

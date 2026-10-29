@@ -71,7 +71,7 @@ public class VCChecker {
         DebugLog.smtStart(impl, expected);
         SMTResult result;
         try {
-            result = dischargeToSMT(expected, premises, annotationValuePos, true);
+            result = dischargeToSMT(expected, premises, annotationValuePos, true, true);
         } catch (SMTUnknownError error) {
             error.setDeclarationPosition(declarationPosition);
             DebugLog.smtError(error.getMessage());
@@ -123,13 +123,13 @@ public class VCChecker {
      */
     public SMTResult verifySMTSubtype(Predicate expected, Predicate found, SourcePosition position) throws LJError {
         DebugLog.smtVerifying(position);
-        return dischargeToSMT(expected, found, position, false);
+        return dischargeToSMT(expected, found, position, false, true);
     }
 
-    private SMTResult dischargeToSMT(Predicate expected, Predicate found, SourcePosition position, boolean silent)
-            throws LJError {
+    private SMTResult dischargeToSMT(Predicate expected, Predicate found, SourcePosition position, boolean silent,
+            boolean needsCounterexample) throws LJError {
         try {
-            return new SMTEvaluator().verifySubtype(found, expected, context, silent);
+            return new SMTEvaluator().verifySubtype(found, expected, context, silent, needsCounterexample);
         } catch (LJError e) {
             if (e.getPosition() == null) {
                 e.setPosition(position);
@@ -158,6 +158,15 @@ public class VCChecker {
 
     public SMTResult verifySMTSubtypeStates(Predicate type, Predicate expectedType, List<GhostState> states,
             SourcePosition position, Factory factory, boolean silent) throws LJError {
+        return verifySMTSubtypeStates(type, expectedType, states, position, factory, silent, true);
+    }
+
+    /**
+     * @param needsCounterexample
+     *            whether the caller uses the counterexample when the verification fails
+     */
+    public SMTResult verifySMTSubtypeStates(Predicate type, Predicate expectedType, List<GhostState> states,
+            SourcePosition position, Factory factory, boolean silent, boolean needsCounterexample) throws LJError {
         if (!silent) {
             DebugLog.smtVerifying(position);
         }
@@ -185,7 +194,7 @@ public class VCChecker {
 
         SMTResult result;
         try {
-            result = dischargeToSMT(expected, premises, position, true);
+            result = dischargeToSMT(expected, premises, position, true, needsCounterexample);
         } catch (RuntimeException ex) {
             if (!silent) {
                 DebugLog.smtError(ex.getMessage());
