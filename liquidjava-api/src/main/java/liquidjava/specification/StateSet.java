@@ -9,9 +9,10 @@ import java.lang.annotation.Target;
 /**
  * Annotation to create a set of disjoint states in which class objects can be.
  * <p>
- * An object will always be in exactly one state from each state set at any given time,
- * and cannot be in more than one state from the same state set (e.g., {@code open} and {@code closed} simultaneously).
- * To allow an object to be in multiple states at once, they must be from different state sets.
+ * An object cannot be in more than one state from the same state set at a time (e.g., {@code open} and
+ * {@code closed} simultaneously). To allow an object to be in multiple states at once, they must be from different
+ * state sets. An object may also be in none of the states of a set, e.g. after
+ * {@code @StateRefinement(to = "!open(this) && !closed(this)")}.
  * <p>
  * <strong>Example:</strong>
  * <pre>
@@ -20,6 +21,7 @@ import java.lang.annotation.Target;
  * @StateSet({"locked", "unlocked"})
  * public class File {
  *    // ...
+ * }
  * }
  * </pre>
  *
