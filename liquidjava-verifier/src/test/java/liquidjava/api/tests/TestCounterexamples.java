@@ -82,6 +82,92 @@ class TestCounterexamples {
         assertAssignments(error, assignment("value", "false"), assignment("#ret", "false"));
     }
 
+    @Test
+    void argumentFoundKnowsNothingAboutIsKeptWhileUnrelatedGuardIsOmitted() {
+        RefinementError error = verify("ErrorCounterexampleUnconstrainedArgument.java");
+        assertAssignments(error, assignment("timeout", "-1"));
+    }
+
+    @Test
+    void argumentIsKeptWhenFoundIsTrue() {
+        RefinementError error = verify("ErrorCounterexampleNothingKnown.java");
+        assertAssignments(error, assignment("millis", "-1"));
+    }
+
+    @Test
+    void argumentConstrainedByFoundIsKeptWhileUnrelatedGuardIsOmitted() {
+        RefinementError error = verify("ErrorCounterexampleGuardedArgument.java");
+        assertAssignments(error, assignment("timeout", "-1"));
+    }
+
+    @Test
+    void aliasedArgumentKeepsTheVariableItCopiesInBinderOrder() {
+        RefinementError error = verify("ErrorCounterexampleAliasedArgument.java");
+        assertAssignments(error, assignment("configured", "-1"), assignment("#timeout", "-1"));
+    }
+
+    @Test
+    void fieldArgumentKeepsTheField() {
+        RefinementError error = verify("ErrorCounterexampleFieldArgument.java");
+        assertAssignments(error, assignment("this#testSuite.ErrorCounterexampleFieldArgument.timeout", "-1"),
+                assignment("#timeout", "-1"));
+    }
+
+    @Test
+    void callInsideArgumentKeepsItsResultAfterTheArgument() {
+        RefinementError error = verify("ErrorCounterexampleCallArgument.java");
+        assertAssignments(error, assignment("#timeout", "-1"), assignment("#fresh", "0"));
+    }
+
+    @Test
+    void branchConditionsThatDoNotAffectTheArgumentAreOmitted() {
+        RefinementError error = verify("ErrorCounterexampleBranchArgument.java");
+        assertAssignments(error, assignment("timeout", "-1"));
+    }
+
+    @Test
+    void severalExpectedVariablesListTheUnconstrainedOneFirst() {
+        RefinementError error = verify("ErrorCounterexampleSeveralArguments.java");
+        assertAssignments(error, assignment("hi", "0"), assignment("lo", "1"));
+    }
+
+    @Test
+    void knownArgumentIsOmittedWhileTheOtherArgumentIsKept() {
+        RefinementError error = verify("ErrorCounterexampleKnownArgument.java");
+        assertAssignments(error, assignment("capacity", "0"));
+    }
+
+    @Test
+    void pathConditionLinkedToTheArgumentIsKeptWhileUnlinkedOneIsOmitted() {
+        RefinementError error = verify("ErrorCounterexampleLinkedPathCondition.java");
+        assertAssignments(error, assignment("port", "0"), assignment("#timeout", "-1"));
+    }
+
+    @Test
+    void returnKeepsItsSourceWhileUnrelatedPathConditionIsOmitted() {
+        RefinementError error = verify("ErrorCounterexampleReturnPath.java");
+        assertAssignments(error, assignment("configured", "-1"), assignment("#ret", "-1"));
+    }
+
+    @Test
+    void refinementAliasArgumentIsKept() {
+        RefinementError error = verify("ErrorCounterexampleRefinementAlias.java");
+        assertAssignments(error, assignment("timeout", "-1"));
+    }
+
+    @Test
+    void ghostOfArgumentFoundKnowsNothingAboutIsKept() {
+        RefinementError error = verify("ErrorCounterexampleGhostArgument.java");
+        assertAssignments(error, assignment("size(bag)", "0"));
+        assertTrue(error.getCounterexampleStr().contains("Counterexample: size(bag) == 0"));
+    }
+
+    @Test
+    void ghostValueFoundAlreadyStatesIsOmitted() {
+        RefinementError error = verify("ErrorCounterexampleKnownGhost.java");
+        assertTrue(error.getCounterexample().isEmpty());
+    }
+
     private static RefinementError verify(String test) {
         CommandLineLauncher.launch(TEST_SUITE + test);
         List<LJError> errors = Diagnostics.getInstance().getErrors().stream().toList();

@@ -14,4 +14,12 @@ class VariableFormatterTest {
         assertEquals("#ret³", VariableFormatter.format("#ret_3"));
         assertEquals("this#Class", VariableFormatter.format("this#Class"));
     }
+
+    @Test
+    void formatsGhostApplicationArguments() {
+        assertEquals("size(s²)", VariableFormatter.format("size(#s_2)"));
+        assertEquals("size(bag)", VariableFormatter.format("size(bag)"));
+        assertEquals("at(list³, #fresh¹²)", VariableFormatter.format("at(#list_3, #fresh_12)"));
+        assertEquals("size(this)", VariableFormatter.format("size(this)"));
+    }
 }

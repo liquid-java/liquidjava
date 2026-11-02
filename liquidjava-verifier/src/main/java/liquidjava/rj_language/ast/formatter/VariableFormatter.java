@@ -1,18 +1,27 @@
 package liquidjava.rj_language.ast.formatter;
 
+import java.util.Arrays;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * Formats internal variable names into a cleaner display representation using superscript notation
  */
 public final class VariableFormatter {
     private static final Pattern INSTACE_VAR_PATTERN = Pattern.compile("^#(.+)_([0-9]+)$");
+    private static final Pattern APPLICATION_PATTERN = Pattern.compile("^([^(]+)\\((.*)\\)$");
     private static final char[] SUPERSCRIPT_CHARS = { '⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹' };
 
     public static String format(String name) {
         if (name == null)
             return null;
+
+        // ghost applications such as size(#s_2) are named by their arguments
+        Matcher application = APPLICATION_PATTERN.matcher(name);
+        if (application.matches())
+            return application.group(1) + "(" + Arrays.stream(application.group(2).split(", "))
+                    .map(VariableFormatter::format).collect(Collectors.joining(", ")) + ")";
 
         Matcher matcher = INSTACE_VAR_PATTERN.matcher(name);
         if (!matcher.matches())
