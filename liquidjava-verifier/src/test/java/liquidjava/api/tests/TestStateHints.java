@@ -61,6 +61,45 @@ class TestStateHints {
     }
 
     @Test
+    void subclassReceiverCanUseItsOwnTransitionsOnInheritedStates() {
+        assertHints("ErrorStateHintInheritedStates.java",
+                new Hint(Kind.CALL_SEQUENCE, "Call s.bc() before this call to move s from b to c"),
+                new Hint(Kind.AVAILABLE_CALLS, "In state b, s can call: bc()"));
+    }
+
+    @Test
+    void overrideInTheReceiversClassReplacesTheInheritedTransition() {
+        assertHints("ErrorStateHintOverride.java",
+                new Hint(Kind.CALL_SEQUENCE, "Call s.next() before this call to move s from a to c"),
+                new Hint(Kind.AVAILABLE_CALLS, "In state a, s can call: next()"));
+    }
+
+    @Test
+    void stateSetAndMethodsFromSpecsOfTheReceiversSuperclasses() {
+        assertHints("classes/state_hints_grandchild_spec_error",
+                new Hint(Kind.CALL_SEQUENCE,
+                        "Call window.dispose() before this call to move window from displayable to notDisplayable"),
+                new Hint(Kind.AVAILABLE_CALLS, "In state displayable, window can call: dispose(), pack()"));
+    }
+
+    @Test
+    void superclassRefinementOfAMethodTheReceiversClassRedeclaresIsNotSuggested() {
+        assertHints("classes/state_hints_redeclared_method_error",
+                new Hint(Kind.CALL_SEQUENCE,
+                        "Call host.dispose() before this call to move host from displayable to notDisplayable"),
+                new Hint(Kind.AVAILABLE_CALLS,
+                        "In state displayable, host can call: dispose(), pack() (and possibly others)"));
+    }
+
+    @Test
+    void stateSetAndMethodsFromTheReceiversSuperclassSpec() {
+        assertHints("classes/state_hints_superclass_spec_error",
+                new Hint(Kind.CALL_SEQUENCE,
+                        "Call host.dispose() before this call to move host from displayable to notDisplayable"),
+                new Hint(Kind.AVAILABLE_CALLS, "In state displayable, host can call: dispose(), pack()"));
+    }
+
+    @Test
     void stateDependingOnThePathAsksForTheSameStateOnEveryPath() {
         assertHints("ErrorStateHintPathDependent.java", new Hint(Kind.PATH_DEPENDENT_STATE,
                 "f can be in created or open here, depending on the path taken, and no sequence of calls moves all of them to open. "

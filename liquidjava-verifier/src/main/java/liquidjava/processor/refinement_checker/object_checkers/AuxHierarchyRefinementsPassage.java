@@ -139,7 +139,7 @@ public class AuxHierarchyRefinementsPassage {
                     ObjectState subState = subStates.get(i);
 
                     String thisName = String.format(Formats.FRESH, tc.getContext().getCounter());
-                    createVariableInContext(thisName, tc, subFunction, superFunction, method.getParameters().get(i));
+                    createVariableInContext(thisName, tc, subFunction, superFunction, method);
 
                     Predicate superConst = matchVariableNames(thisName, superState.getFrom());
                     Predicate subConst = matchVariableNames(thisName, superFunction, subFunction, subState.getFrom());
@@ -164,9 +164,9 @@ public class AuxHierarchyRefinementsPassage {
     }
 
     private static void createVariableInContext(String thisName, TypeChecker tc, RefinedFunction subFunction,
-            RefinedFunction superFunction, CtParameter<?> ctParameter) {
+            RefinedFunction superFunction, CtMethod<?> method) {
         RefinedVariable rv = tc.getContext().addVarToContext(thisName,
-                Utils.getType(subFunction.getTargetClass(), tc.getFactory()), new Predicate(), ctParameter);
+                Utils.getType(subFunction.getTargetClass(), tc.getFactory()), new Predicate(), method);
         rv.addSuperType(Utils.getType(superFunction.getTargetClass(), tc.getFactory())); // TODO: change: this only
         // works for one superclass
     }
