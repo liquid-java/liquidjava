@@ -2,12 +2,11 @@ package liquidjava.diagnostics.hints;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import liquidjava.diagnostics.categories.ErrorCategory;
@@ -17,7 +16,6 @@ import liquidjava.processor.context.Variable;
 import liquidjava.processor.state_machine.DecidingArgument;
 import liquidjava.processor.state_machine.State;
 import liquidjava.processor.state_machine.StateMachine;
-import liquidjava.processor.state_machine.Transition;
 import liquidjava.utils.Utils;
 import spoon.reflect.reference.CtExecutableReference;
 import spoon.reflect.reference.CtTypeReference;
@@ -61,7 +59,7 @@ public final class StateHints {
 
         StateHints hints = new StateHints(machine, receiver);
         if (category == ErrorCategory.UNKNOWN)
-            return hints.reachingCalls(call, goal);
+            return hints.unknownState(current, call, goal);
         boolean pathDependent = category == ErrorCategory.PATH_DEPENDENT_STATE;
         return Stream.concat(hints.howToReach(current, call, goal, pathDependent).stream(),
                 hints.allowedCalls(current).stream()).toList();
@@ -79,19 +77,37 @@ public final class StateHints {
                         deciding.call().position().getLine(), receiver, values));
     }
 
-    /** Nothing is known about the receiver's state: list what leads to a state where {@code call} is allowed */
-    private List<Hint> reachingCalls(RefinedFunction call, Set<State> goal) {
-        Map<RefinedFunction, List<State>> sources = new LinkedHashMap<>();
-        for (Transition t : machine.transitionsEnabling(call))
-            sources.computeIfAbsent(t.method(), m -> new ArrayList<>()).add(t.from());
-        Stream<String> constructors = machine.constructorsEnabling(call).stream().map(StateHints::constructor);
-        Stream<String> calls = sources.entrySet().stream()
-                .map(e -> call(e.getKey()) + " (from " + names(e.getValue()) + ")");
-        List<String> ways = Stream.concat(constructors, calls).toList();
-        if (ways.isEmpty())
+    /**
+     * Nothing is known about the receiver's state: name the state {@code call} needs, in the state sets it checks, and
+     * the calls that get there from any state. A call allowed in only some states is never suggested, since whether it
+     * is allowed is just as unknown. Calls that only tell which state the object is in are not in the machine, so no
+     * hint suggests checking one first.
+     */
+    private List<Hint> unknownState(Set<State> current, RefinedFunction call, Set<State> goal) {
+        List<Integer> checked = machine.stateSetsConstraining(goal);
+        if (checked.isEmpty())
+            return List.of(); // every state allows the call, but no single state refinement covers them all
+        List<Hint> hints = new ArrayList<>();
+        hints.add(neededState(call, goal, checked));
+        hints.addAll(callsFromAnyState(current, call, checked));
+        return hints;
+    }
+
+    /** The shortest sequences of calls that are allowed in every state of {@code current} and lead to {@code call} */
+    private List<Hint> callsFromAnyState(Set<State> current, RefinedFunction call, List<Integer> checked) {
+        Optional<List<List<RefinedFunction>>> search = machine.shortestPaths(current, call, MAX_SEQUENCES);
+        if (search.isEmpty() || search.get().isEmpty() || search.get().get(0).size() > MAX_SEQUENCE_LENGTH)
             return List.of();
-        return List.of(new Hint(Kind.REACHING_CALLS, String.format(
-                "The state of %s is unknown here. To get it to %s, use: %s", receiver, names(goal), list(ways))));
+        return search.get().stream().map(sequence -> callSequence(current, sequence, "any state", checked)).toList();
+    }
+
+    private Hint neededState(RefinedFunction call, Set<State> goal, List<Integer> checked) {
+        String message = String.format("The state of %s is unknown here, and this call needs it to be %s", receiver,
+                names(goal, checked));
+        List<String> constructors = machine.constructorsEnabling(call).stream().map(StateHints::constructor).toList();
+        if (!constructors.isEmpty())
+            message += ". Objects created with " + String.join(" or ", constructors) + " start in such a state";
+        return new Hint(Kind.REACHING_CALLS, message);
     }
 
     private List<Hint> howToReach(Set<State> current, RefinedFunction call, Set<State> goal, boolean pathDependent) {
@@ -103,16 +119,27 @@ public final class StateHints {
             return machine.complete() ? List.of(unreachable(current, call, goal, pathDependent)) : List.of();
         if (sequences.get(0).size() > MAX_SEQUENCE_LENGTH)
             return List.of();
-        return sequences.stream().map(sequence -> callSequence(current, sequence)).toList();
+        return sequences.stream().map(sequence -> callSequence(current, sequence, names(current), allStateSets()))
+                .toList();
     }
 
-    private Hint callSequence(Set<State> current, List<RefinedFunction> sequence) {
+    /**
+     * @param from
+     *            how to name {@code current}
+     * @param shown
+     *            the state sets to name the reached states in
+     */
+    private Hint callSequence(Set<State> current, List<RefinedFunction> sequence, String from, List<Integer> shown) {
         Set<State> reached = current;
         for (RefinedFunction method : sequence)
             reached = machine.after(reached, method);
         String calls = sequence.stream().map(this::call).collect(Collectors.joining(", then "));
         return new Hint(Kind.CALL_SEQUENCE, String.format("Call %s before this call to move %s from %s to %s", calls,
-                receiver, names(current), names(reached)));
+                receiver, from, names(reached, shown)));
+    }
+
+    private List<Integer> allStateSets() {
+        return IntStream.range(0, machine.states().get(0).names().size()).boxed().toList();
     }
 
     private Hint unreachable(Set<State> current, RefinedFunction call, Set<State> goal, boolean pathDependent) {
@@ -165,6 +192,11 @@ public final class StateHints {
 
     private static String names(Collection<State> states) {
         return states.stream().map(State::name).collect(Collectors.joining(" or "));
+    }
+
+    /** {@code states} named only in the state sets {@code shown}, each name once */
+    private static String names(Collection<State> states, List<Integer> shown) {
+        return states.stream().map(s -> s.name(shown)).distinct().collect(Collectors.joining(" or "));
     }
 
     private static String list(List<String> items) {

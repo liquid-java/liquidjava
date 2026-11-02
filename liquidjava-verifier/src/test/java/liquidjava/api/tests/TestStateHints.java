@@ -85,9 +85,61 @@ class TestStateHints {
     }
 
     @Test
-    void unknownStateListsTheCallsThatLeadToTheExpectedState() {
-        assertHints("ErrorStateHintUnknownState.java", new Hint(Kind.REACHING_CALLS,
-                "The state of f is unknown here. To get it to open, use: f.open() (from created)"));
+    void unknownStateDoesNotSuggestACallThatNeedsAnotherUnknownState() {
+        assertHints("ErrorStateHintUnknownState.java",
+                new Hint(Kind.REACHING_CALLS, "The state of f is unknown here, and this call needs it to be open"));
+    }
+
+    @Test
+    void unknownStateOfAnExternalClassNamesOnlyTheCheckedStateSet() {
+        assertHints("classes/state_hint_undo_manager_error", new Hint(Kind.REACHING_CALLS,
+                "The state of undoManager is unknown here, and this call needs it to be redoable"));
+    }
+
+    @Test
+    void unknownStateWithThreeStateSetsNamesOnlyTheCheckedOne() {
+        assertHints("ErrorStateHintUnknownThreeSets.java", new Hint(Kind.REACHING_CALLS,
+                "The state of history is unknown here, and this call needs it to be redoable"));
+    }
+
+    @Test
+    void unknownStateSuggestsCallsAllowedInAnyState() {
+        assertHints("ErrorStateHintUnknownAnyState.java",
+                new Hint(Kind.REACHING_CALLS, "The state of f is unknown here, and this call needs it to be open"),
+                new Hint(Kind.CALL_SEQUENCE,
+                        "Call f.reset(), then f.open() before this call to move f from any state to open"));
+    }
+
+    @Test
+    void knownStateStartsTheSequenceFromThatState() {
+        assertHints("ErrorStateHintKnownAnyState.java",
+                new Hint(Kind.CALL_SEQUENCE,
+                        "Call f.reset(), then f.open() before this call to move f from closed to open"),
+                new Hint(Kind.AVAILABLE_CALLS, "In state closed, f can call: reset()"));
+    }
+
+    @Test
+    void unknownStateNamesEveryStateSetTheCallChecks() {
+        assertHints("ErrorStateHintUnknownTwoSetGoal.java",
+                new Hint(Kind.REACHING_CALLS,
+                        "The state of door is unknown here, and this call needs it to be closed and unlocked. "
+                                + "Objects created with new ErrorStateHintUnknownTwoSetGoal() start in such a state"),
+                new Hint(Kind.CALL_SEQUENCE,
+                        "Call door.reset() before this call to move door from any state to closed and unlocked"));
+    }
+
+    @Test
+    void unknownStateOfAFieldSuggestsCallsAllowedInAnyState() {
+        assertHints("ErrorStateHintUnknownField.java",
+                new Hint(Kind.REACHING_CALLS, "The state of door is unknown here, and this call needs it to be opened"),
+                new Hint(Kind.CALL_SEQUENCE,
+                        "Call door.forceOpen() before this call to move door from any state to opened"));
+    }
+
+    @Test
+    void unknownStateNamesEveryStateTheCallAccepts() {
+        assertHints("ErrorStateHintUnknownDisjunction.java", new Hint(Kind.REACHING_CALLS,
+                "The state of s is unknown here, and this call needs it to be open or ready"));
     }
 
     @Test
