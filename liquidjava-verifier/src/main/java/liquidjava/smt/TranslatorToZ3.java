@@ -112,8 +112,9 @@ public class TranslatorToZ3 implements AutoCloseable {
                 Symbol name = decl.getName();
                 Expr<?> value = model.getConstInterp(decl);
                 Pair<String, String> assignment = new Pair<>(name.toString(), value.toString());
-                // Skip values of uninterpreted sorts
-                if (value.getSort().getSortKind() != Z3_sort_kind.Z3_UNINTERPRETED_SORT)
+                // Skip values of uninterpreted sorts, and arrays, whose values only Z3 can read
+                Z3_sort_kind kind = value.getSort().getSortKind();
+                if (kind != Z3_sort_kind.Z3_UNINTERPRETED_SORT && kind != Z3_sort_kind.Z3_ARRAY_SORT)
                     assignments.add(assignment);
             }
         }

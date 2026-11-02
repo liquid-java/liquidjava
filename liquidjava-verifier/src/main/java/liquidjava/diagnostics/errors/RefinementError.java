@@ -12,14 +12,18 @@ import liquidjava.diagnostics.TranslationTable;
 import liquidjava.diagnostics.categories.ErrorCategory;
 import liquidjava.diagnostics.hints.Hint;
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.ast.BinaryExpression;
+import liquidjava.rj_language.ast.Enum;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.FunctionInvocation;
+import liquidjava.rj_language.ast.UnaryExpression;
 import liquidjava.rj_language.ast.Var;
 import liquidjava.rj_language.ast.formatter.VariableFormatter;
 import liquidjava.rj_language.opt.VCSimplificationResult;
 import liquidjava.smt.Counterexample;
 import liquidjava.utils.Pair;
 import liquidjava.utils.Utils;
+import liquidjava.utils.constants.Formats;
 import spoon.reflect.cu.SourcePosition;
 
 import static liquidjava.rj_language.opt.VCSimplificationUtils.isTrue;
@@ -30,8 +34,6 @@ import static liquidjava.rj_language.opt.VCSimplificationUtils.isTrue;
  * @see LJError
  */
 public class RefinementError extends LJError {
-
-    private static final String FRESH_PREFIX = "#fresh_";
 
     private final Predicate expected;
     private final VCSimplificationResult found;
@@ -86,38 +88,62 @@ public class RefinementError extends LJError {
         return found;
     }
 
-    // Keeps the counterexample assignments to the terms of expected and of the found conjuncts linked to them, except
-    // values found already states, listing the terms only expected mentions first, generated names last, and the rest
-    // in the order of the VC binders
+    // Keeps the counterexample assignments to the terms of expected and of the found facts linked to them, except
+    // values found already states, or to every term found shows when that leaves nothing. The terms of expected come
+    // first, those found says nothing about before the rest, then the linked terms in the order of the VC binders, with
+    // generated names last
     private Counterexample filterCounterexample(Counterexample counterexample) {
         if (counterexample == null)
             return new Counterexample(List.of());
 
         Expression foundExpression = getFound().getImplication().toPredicate().getExpression();
-        List<Expression> conjuncts = foundExpression.getConjuncts();
+        List<Expression> facts = factsOf(foundExpression);
         List<String> foundTerms = termsOf(foundExpression);
         List<String> expectedTerms = termsOf(getExpected().getExpression());
-        Set<String> relevantTerms = expectedTerms.isEmpty() ? new HashSet<>(foundTerms)
-                : linkedTerms(conjuncts, expectedTerms);
+        Set<String> linkedTerms = expectedTerms.isEmpty() ? new HashSet<>(foundTerms)
+                : linkedTerms(facts, expectedTerms);
+        List<Pair<String, String>> unknown = counterexample.assignments().stream().filter(a -> !isKnown(a, facts))
+                .toList();
+        List<Pair<String, String>> assignments = unknown.stream().filter(a -> linkedTerms.contains(a.first())).toList();
+        // e.g. a return value found states, where the path condition that led to it is what is left to show
+        if (assignments.isEmpty())
+            assignments = unknown.stream().filter(a -> foundTerms.contains(a.first())).toList();
+
         List<String> order = new ArrayList<>(originalBinders());
         order.addAll(foundTerms);
         order.addAll(expectedTerms);
-        Set<String> knownAssignments = conjuncts.stream().map(Expression::toString).collect(Collectors.toSet());
-        List<Pair<String, String>> assignments = counterexample.assignments().stream()
-                .filter(a -> relevantTerms.contains(a.first()))
-                .filter(a -> !knownAssignments.contains(a.first() + " == " + a.second()))
-                .sorted(Comparator.<Pair<String, String>> comparingInt(a -> relevance(a.first(), foundTerms))
+        return new Counterexample(assignments.stream()
+                .sorted(Comparator
+                        .<Pair<String, String>> comparingInt(a -> relevance(a.first(), expectedTerms, foundTerms))
                         .thenComparingInt(a -> order.indexOf(a.first())))
-                .toList();
-
-        return new Counterexample(assignments);
+                .toList());
     }
 
-    // Terms of expected plus those of every conjunct sharing a term with them, directly or through other conjuncts.
-    // The remaining conjuncts constrain other values only, so any values satisfying them make the same counterexample
-    private static Set<String> linkedTerms(List<Expression> conjuncts, List<String> expectedTerms) {
+    // Conjuncts of found, also splitting negated disjunctions (!(a || b) is !a && !b) and dropping double negations, so
+    // each fact links only the terms it relates
+    private static List<Expression> factsOf(Expression expression) {
+        List<Expression> facts = new ArrayList<>();
+        if (expression instanceof BinaryExpression binary && "&&".equals(binary.getOperator())) {
+            facts.addAll(factsOf(binary.getFirstOperand()));
+            facts.addAll(factsOf(binary.getSecondOperand()));
+        } else if (expression instanceof UnaryExpression not && "!".equals(not.getOp())
+                && not.getExpression()instanceof BinaryExpression binary && "||".equals(binary.getOperator())) {
+            facts.addAll(factsOf(new UnaryExpression("!", binary.getFirstOperand())));
+            facts.addAll(factsOf(new UnaryExpression("!", binary.getSecondOperand())));
+        } else if (expression instanceof UnaryExpression not && "!".equals(not.getOp())
+                && not.getExpression()instanceof UnaryExpression inner && "!".equals(inner.getOp())) {
+            facts.addAll(factsOf(inner.getExpression()));
+        } else {
+            facts.add(expression);
+        }
+        return facts;
+    }
+
+    // Terms of expected plus those of every fact sharing a term with them, directly or through other facts. The
+    // remaining facts constrain other values only, so any values satisfying them make the same counterexample
+    private static Set<String> linkedTerms(List<Expression> facts, List<String> expectedTerms) {
         Set<String> linked = new HashSet<>(expectedTerms);
-        List<List<String>> unlinked = conjuncts.stream().map(RefinementError::termsOf)
+        List<List<String>> unlinked = facts.stream().map(RefinementError::termsOf)
                 .collect(Collectors.toCollection(ArrayList::new));
         boolean changed = true;
         while (changed) {
@@ -134,6 +160,21 @@ public class RefinementError extends LJError {
         return linked;
     }
 
+    // Whether a fact of found is term == value, which the counterexample would only repeat
+    private static boolean isKnown(Pair<String, String> assignment, List<Expression> facts) {
+        return facts.stream()
+                .anyMatch(fact -> fact instanceof BinaryExpression binary && "==".equals(binary.getOperator())
+                        && (states(binary.getFirstOperand(), binary.getSecondOperand(), assignment)
+                                || states(binary.getSecondOperand(), binary.getFirstOperand(), assignment)));
+    }
+
+    // An enum constant is written Format.JPG in found, either as such or as a variable, and JPG in the model
+    private static boolean states(Expression term, Expression value, Pair<String, String> assignment) {
+        String valueName = value instanceof Enum constant ? constant.getConstName()
+                : value instanceof Var var ? Utils.getSimpleName(var.getName()) : value.toString();
+        return assignment.first().equals(termName(term)) && assignment.second().equals(valueName);
+    }
+
     // Binders of the VC chain before simplification, which keeps the variables in the order they were introduced
     private List<String> originalBinders() {
         VCSimplificationResult original = getFound();
@@ -142,11 +183,12 @@ public class RefinementError extends LJError {
         return original.getBinders();
     }
 
-    // 0 when found says nothing about the term, so its value alone breaks expected; 2 for generated names
-    private static int relevance(String term, List<String> foundTerms) {
-        if (!foundTerms.contains(term))
-            return 0;
-        return term.startsWith(FRESH_PREFIX) ? 2 : 1;
+    // 0 for terms of expected found says nothing about, whose values alone break it, 1 for the other terms of
+    // expected, 2 for the terms linked to them and 3 for generated names among those
+    private static int relevance(String term, List<String> expectedTerms, List<String> foundTerms) {
+        if (expectedTerms.contains(term))
+            return foundTerms.contains(term) ? 1 : 0;
+        return term.startsWith(Formats.FRESH_PREFIX) ? 3 : 2;
     }
 
     // Variables and ghost applications of an expression, named as in the SMT model
@@ -158,14 +200,22 @@ public class RefinementError extends LJError {
     }
 
     private static void addGhostApplications(Expression expression, List<String> terms) {
+        String term = expression instanceof FunctionInvocation ? termName(expression) : null;
+        if (term != null && !terms.contains(term))
+            terms.add(term);
+        for (Expression child : expression.getChildren())
+            addGhostApplications(child, terms);
+    }
+
+    // Name of a variable, or of a ghost application over variables, as in the SMT model; null for other expressions
+    private static String termName(Expression expression) {
+        if (expression instanceof Var var)
+            return var.getName();
         if (expression instanceof FunctionInvocation invocation
                 && invocation.getArgs().stream().allMatch(Var.class::isInstance)) {
             String args = invocation.getArgs().stream().map(Expression::toString).collect(Collectors.joining(", "));
-            String term = Utils.getSimpleName(invocation.getName()) + "(" + args + ")";
-            if (!terms.contains(term))
-                terms.add(term);
+            return Utils.getSimpleName(invocation.getName()) + "(" + args + ")";
         }
-        for (Expression child : expression.getChildren())
-            addGhostApplications(child, terms);
+        return null;
     }
 }

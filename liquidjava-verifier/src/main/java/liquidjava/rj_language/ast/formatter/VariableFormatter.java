@@ -1,27 +1,21 @@
 package liquidjava.rj_language.ast.formatter;
 
-import java.util.Arrays;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 /**
  * Formats internal variable names into a cleaner display representation using superscript notation
  */
 public final class VariableFormatter {
     private static final Pattern INSTACE_VAR_PATTERN = Pattern.compile("^#(.+)_([0-9]+)$");
-    private static final Pattern APPLICATION_PATTERN = Pattern.compile("^([^(]+)\\((.*)\\)$");
     private static final char[] SUPERSCRIPT_CHARS = { '⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹' };
 
     public static String format(String name) {
         if (name == null)
             return null;
 
-        // ghost applications such as size(#s_2) are named by their arguments
-        Matcher application = APPLICATION_PATTERN.matcher(name);
-        if (application.matches())
-            return application.group(1) + "(" + Arrays.stream(application.group(2).split(", "))
-                    .map(VariableFormatter::format).collect(Collectors.joining(", ")) + ")";
+        if (isApplication(name))
+            return formatApplication(name);
 
         Matcher matcher = INSTACE_VAR_PATTERN.matcher(name);
         if (!matcher.matches())
@@ -51,5 +45,36 @@ public final class VariableFormatter {
 
     private static boolean isSpecialIdentifier(String id) {
         return id.equals("fresh") || id.equals("ret");
+    }
+
+    private static boolean isApplication(String name) {
+        int open = name.indexOf('(');
+        return open > 0 && name.endsWith(")");
+    }
+
+    /**
+     * Formats the arguments of a ghost application such as {@code size(#s_2)}, splitting them only at top-level commas
+     * so nested applications keep theirs
+     */
+    private static String formatApplication(String name) {
+        int open = name.indexOf('(');
+        String args = name.substring(open + 1, name.length() - 1);
+        StringBuilder formatted = new StringBuilder(name.substring(0, open)).append('(');
+        int depth = 0;
+        int start = 0;
+        for (int i = 0; i <= args.length(); i++) {
+            char c = i < args.length() ? args.charAt(i) : ',';
+            if (c == '(')
+                depth++;
+            else if (c == ')')
+                depth--;
+            else if (c == ',' && depth == 0) {
+                if (start > 0)
+                    formatted.append(", ");
+                formatted.append(format(args.substring(start, i).trim()));
+                start = i + 1;
+            }
+        }
+        return formatted.append(')').toString();
     }
 }

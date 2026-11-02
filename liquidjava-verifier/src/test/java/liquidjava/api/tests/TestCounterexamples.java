@@ -19,19 +19,19 @@ class TestCounterexamples {
     @Test
     void recursiveDecrementIncludesInputAndGeneratedArgument() {
         RefinementError error = verify("ErrorRecursiveDecrement.java");
-        assertAssignments(error, assignment("x", "1"), assignment("#x", "0"));
+        assertAssignments(error, assignment("#x", "0"), assignment("x", "1"));
     }
 
     @Test
     void integerDivisionIncludesInputAndGeneratedReturn() {
         RefinementError error = verify("ErrorIntegerDivision.java");
-        assertAssignments(error, assignment("x", "1"), assignment("#ret", "0"));
+        assertAssignments(error, assignment("#ret", "0"), assignment("x", "1"));
     }
 
     @Test
-    void dependentUpperBoundIncludesBoundaryValuesInBinderOrder() {
+    void dependentUpperBoundListsExpectedValuesBeforeLinkedOnes() {
         RefinementError error = verify("ErrorDependentUpperBound.java");
-        assertAssignments(error, assignment("len", "1"), assignment("i", "0"), assignment("#ret", "1"));
+        assertAssignments(error, assignment("len", "1"), assignment("#ret", "1"), assignment("i", "0"));
     }
 
     @Test
@@ -43,7 +43,7 @@ class TestCounterexamples {
     @Test
     void identityRetainsInputAndReturnSelectedByTheModel() {
         RefinementError error = verify("ErrorIdentity.java");
-        assertAssignments(error, assignment("x", "0"), assignment("#ret", "0"));
+        assertAssignments(error, assignment("#ret", "0"), assignment("x", "0"));
     }
 
     @Test
@@ -67,19 +67,19 @@ class TestCounterexamples {
     @Test
     void variableUpdateIncludesNegativeInputAndGeneratedReturn() {
         RefinementError error = verify("ErrorAssignmentBeforeReturn.java");
-        assertAssignments(error, assignment("x", "-1"), assignment("#ret", "0"));
+        assertAssignments(error, assignment("#ret", "0"), assignment("x", "-1"));
     }
 
     @Test
     void pathConditionIsOmittedWhileRecursiveArgumentRemains() {
         RefinementError error = verify("ErrorRecursion.java");
-        assertAssignments(error, assignment("k", "0"), assignment("#k", "-1"));
+        assertAssignments(error, assignment("#k", "-1"), assignment("k", "0"));
     }
 
     @Test
     void booleanCounterexampleIncludesInputAndGeneratedReturn() {
         RefinementError error = verify("ErrorBoolean.java");
-        assertAssignments(error, assignment("value", "false"), assignment("#ret", "false"));
+        assertAssignments(error, assignment("#ret", "false"), assignment("value", "false"));
     }
 
     @Test
@@ -101,16 +101,16 @@ class TestCounterexamples {
     }
 
     @Test
-    void aliasedArgumentKeepsTheVariableItCopiesInBinderOrder() {
+    void aliasedArgumentKeepsTheVariableItCopiesAfterIt() {
         RefinementError error = verify("ErrorCounterexampleAliasedArgument.java");
-        assertAssignments(error, assignment("configured", "-1"), assignment("#timeout", "-1"));
+        assertAssignments(error, assignment("#timeout", "-1"), assignment("configured", "-1"));
     }
 
     @Test
     void fieldArgumentKeepsTheField() {
         RefinementError error = verify("ErrorCounterexampleFieldArgument.java");
-        assertAssignments(error, assignment("this#testSuite.ErrorCounterexampleFieldArgument.timeout", "-1"),
-                assignment("#timeout", "-1"));
+        assertAssignments(error, assignment("#timeout", "-1"),
+                assignment("this#testSuite.ErrorCounterexampleFieldArgument.timeout", "-1"));
     }
 
     @Test
@@ -140,13 +140,13 @@ class TestCounterexamples {
     @Test
     void pathConditionLinkedToTheArgumentIsKeptWhileUnlinkedOneIsOmitted() {
         RefinementError error = verify("ErrorCounterexampleLinkedPathCondition.java");
-        assertAssignments(error, assignment("port", "0"), assignment("#timeout", "-1"));
+        assertAssignments(error, assignment("#timeout", "-1"), assignment("port", "0"));
     }
 
     @Test
     void returnKeepsItsSourceWhileUnrelatedPathConditionIsOmitted() {
         RefinementError error = verify("ErrorCounterexampleReturnPath.java");
-        assertAssignments(error, assignment("configured", "-1"), assignment("#ret", "-1"));
+        assertAssignments(error, assignment("#ret", "-1"), assignment("configured", "-1"));
     }
 
     @Test
@@ -163,9 +163,51 @@ class TestCounterexamples {
     }
 
     @Test
-    void ghostValueFoundAlreadyStatesIsOmitted() {
+    void ghostValueFoundAlreadyStatesIsOmittedSoThePathConditionIsShown() {
         RefinementError error = verify("ErrorCounterexampleKnownGhost.java");
+        assertAssignments(error, assignment("port", "0"));
+    }
+
+    @Test
+    void combinedGuardShowsOnlyTheArgument() {
+        RefinementError error = verify("ErrorCounterexampleCombinedGuard.java");
+        assertAssignments(error, assignment("timeout", "-1"));
+    }
+
+    @Test
+    void mixedGuardShowsOnlyTheArgument() {
+        RefinementError error = verify("ErrorCounterexampleMixedGuard.java");
+        assertAssignments(error, assignment("timeout", "-1"));
+    }
+
+    @Test
+    void guardRelatingTheArgumentToAnotherVariableKeepsItAfterTheArgument() {
+        RefinementError error = verify("ErrorCounterexampleGuardRelatesArguments.java");
+        assertAssignments(error, assignment("timeout", "-1"), assignment("retries", "0"));
+    }
+
+    @Test
+    void returnedConstantShowsThePathConditionThatLedToIt() {
+        RefinementError error = verify("ErrorCounterexampleReturnConstant.java");
+        assertAssignments(error, assignment("port", "-1"));
+    }
+
+    @Test
+    void enumValueFoundAlreadyStatesIsOmitted() {
+        RefinementError error = verify("ErrorCounterexampleKnownEnum.java");
         assertTrue(error.getCounterexample().isEmpty());
+    }
+
+    @Test
+    void arrayArgumentShowsItsLengthAndNotTheArray() {
+        RefinementError error = verify("ErrorCounterexampleArrayArgument.java");
+        assertAssignments(error, assignment("length(a)", "0"));
+    }
+
+    @Test
+    void indexIntoLocalArrayShowsTheIndexAndNotTheArray() {
+        RefinementError error = verify("ErrorCounterexampleArrayIndex.java");
+        assertAssignments(error, assignment("k", "-1"));
     }
 
     private static RefinementError verify(String test) {
