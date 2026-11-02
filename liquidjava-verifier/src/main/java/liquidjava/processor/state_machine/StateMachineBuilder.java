@@ -26,6 +26,7 @@ import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtModifiable;
 import spoon.reflect.declaration.CtType;
 import spoon.reflect.reference.CtExecutableReference;
+import spoon.reflect.reference.CtTypeParameterReference;
 import spoon.reflect.reference.CtTypeReference;
 
 /**
@@ -94,12 +95,14 @@ public class StateMachineBuilder {
 
     private static List<GhostState> ghostStatesOf(Context context, CtTypeReference<?> type,
             List<CtTypeReference<?>> supertypes) {
-        // a state set can be registered more than once, so states are told apart by name
+        // a state set can be registered more than once, so states are told apart by name, and states are kept by
+        // simple class name, so those of another class with the same simple name are left out
         Map<String, GhostState> ghostStates = new LinkedHashMap<>();
         for (CtTypeReference<?> t : Stream.concat(Stream.of(type), supertypes.stream()).toList()) {
             List<GhostState> declared = context.getGhostState(Utils.getSimpleName(t.getQualifiedName()));
             if (declared != null)
-                declared.forEach(g -> ghostStates.putIfAbsent(g.getQualifiedName(), g));
+                declared.stream().filter(g -> t.getQualifiedName().equals(g.getPrefix()))
+                        .forEach(g -> ghostStates.putIfAbsent(g.getQualifiedName(), g));
         }
         return List.copyOf(ghostStates.values());
     }
@@ -204,12 +207,16 @@ public class StateMachineBuilder {
                 created.ifPresent(s -> constructors.put(function, s));
                 continue;
             }
+            if (className.equals(function.getTargetClass()) && !appliesToOwnType(function, type, supertypes)) {
+                complete = false;
+                continue;
+            }
             if (!className.equals(function.getTargetClass())) {
                 if (constructor || !inherited.contains(function.getTargetClass()))
                     continue;
                 if (overridden(function, className))
                     continue; // the class's own refinement for it is the one in the machine
-                if (!inheritedFrom(function, type, supertypes)) {
+                if (!resolvesTo(function, type, supertypes)) {
                     complete = false;
                     continue;
                 }
@@ -233,6 +240,19 @@ public class StateMachineBuilder {
                 .map(c -> tc.getFactory().Type().createReference(c)).anyMatch(other -> other.isSubtypeOf(type));
     }
 
+    /**
+     * Whether the verifier checks a call to {@code method}, specified for {@code type}, on an object of that type. It
+     * looks the refinement up by the receiver's type, which needs the parameter types to match those of the method it
+     * resolves to, and otherwise by the type that declares that method. A parameter whose type is a type variable may
+     * not match, so then {@code type} must declare the method.
+     */
+    private boolean appliesToOwnType(RefinedFunction method, CtTypeReference<?> type,
+            List<CtTypeReference<?>> supertypes) {
+        boolean concreteParameters = method.getArguments().stream()
+                .noneMatch(a -> a.getType() instanceof CtTypeParameterReference);
+        return concreteParameters || resolvesTo(method, type, supertypes);
+    }
+
     /** Whether {@code className} has its own refinement for {@code method}, with the same parameter types */
     private boolean overridden(RefinedFunction method, String className) {
         String name = Utils.getSimpleName(method.getName());
@@ -246,13 +266,11 @@ public class StateMachineBuilder {
     }
 
     /**
-     * Whether the verifier checks a call to {@code method}, specified for a supertype, on an object of {@code type}
-     * that has no refinement of its own for it. Like the verifier, it uses the refinement for the nearest type that
-     * declares the method. Methods are matched by name and number of parameters, so an overload can hide an inherited
-     * method, which only leaves the machine incomplete.
+     * Whether the nearest type in the hierarchy of {@code type} that declares {@code method} is the one it is specified
+     * for, which is where the verifier looks up the refinement of a call. Methods are matched by name and number of
+     * parameters, so an overload can hide an inherited method, which only leaves the machine incomplete.
      */
-    private boolean inheritedFrom(RefinedFunction method, CtTypeReference<?> type,
-            List<CtTypeReference<?>> supertypes) {
+    private boolean resolvesTo(RefinedFunction method, CtTypeReference<?> type, List<CtTypeReference<?>> supertypes) {
         String name = Utils.getSimpleName(method.getName());
         int arity = method.getArguments().size();
         for (CtTypeReference<?> t : Stream.concat(Stream.of(type), supertypes.stream()).toList()) {

@@ -100,6 +100,18 @@ class TestStateHints {
     }
 
     @Test
+    void ownGenericRefinementOfAnInheritedMethodIsNotSuggested() {
+        assertHints("classes/state_hints_generic_inherited_method_error");
+    }
+
+    @Test
+    void statesOfAnotherClassWithTheSimpleNameOfASupertypeAreLeftOut() {
+        assertHints("classes/state_hints_same_simple_name_error",
+                new Hint(Kind.CALL_SEQUENCE, "Call l.add(E) before this call to move l from empty to nonEmpty"),
+                new Hint(Kind.AVAILABLE_CALLS, "In state empty, l can call: add(E)"));
+    }
+
+    @Test
     void stateDependingOnThePathAsksForTheSameStateOnEveryPath() {
         assertHints("ErrorStateHintPathDependent.java", new Hint(Kind.PATH_DEPENDENT_STATE,
                 "f can be in created or open here, depending on the path taken, and no sequence of calls moves all of them to open. "
