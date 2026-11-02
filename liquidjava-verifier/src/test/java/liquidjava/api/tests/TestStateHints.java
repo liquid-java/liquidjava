@@ -87,25 +87,25 @@ class TestStateHints {
     @Test
     void unknownStateDoesNotSuggestACallThatNeedsAnotherUnknownState() {
         assertHints("ErrorStateHintUnknownState.java",
-                new Hint(Kind.REACHING_CALLS, "The state of f is unknown here, and this call needs it to be open"));
+                new Hint(Kind.NEEDED_STATE, "The state of f is unknown here, and this call needs it to be open"));
     }
 
     @Test
     void unknownStateOfAnExternalClassNamesOnlyTheCheckedStateSet() {
-        assertHints("classes/state_hint_undo_manager_error", new Hint(Kind.REACHING_CALLS,
+        assertHints("classes/state_hint_undo_manager_error", new Hint(Kind.NEEDED_STATE,
                 "The state of undoManager is unknown here, and this call needs it to be redoable"));
     }
 
     @Test
     void unknownStateWithThreeStateSetsNamesOnlyTheCheckedOne() {
-        assertHints("ErrorStateHintUnknownThreeSets.java", new Hint(Kind.REACHING_CALLS,
+        assertHints("ErrorStateHintUnknownThreeSets.java", new Hint(Kind.NEEDED_STATE,
                 "The state of history is unknown here, and this call needs it to be redoable"));
     }
 
     @Test
     void unknownStateSuggestsCallsAllowedInAnyState() {
         assertHints("ErrorStateHintUnknownAnyState.java",
-                new Hint(Kind.REACHING_CALLS, "The state of f is unknown here, and this call needs it to be open"),
+                new Hint(Kind.NEEDED_STATE, "The state of f is unknown here, and this call needs it to be open"),
                 new Hint(Kind.CALL_SEQUENCE,
                         "Call f.reset(), then f.open() before this call to move f from any state to open"));
     }
@@ -121,7 +121,7 @@ class TestStateHints {
     @Test
     void unknownStateNamesEveryStateSetTheCallChecks() {
         assertHints("ErrorStateHintUnknownTwoSetGoal.java",
-                new Hint(Kind.REACHING_CALLS,
+                new Hint(Kind.NEEDED_STATE,
                         "The state of door is unknown here, and this call needs it to be closed and unlocked. "
                                 + "Objects created with new ErrorStateHintUnknownTwoSetGoal() start in such a state"),
                 new Hint(Kind.CALL_SEQUENCE,
@@ -131,15 +131,74 @@ class TestStateHints {
     @Test
     void unknownStateOfAFieldSuggestsCallsAllowedInAnyState() {
         assertHints("ErrorStateHintUnknownField.java",
-                new Hint(Kind.REACHING_CALLS, "The state of door is unknown here, and this call needs it to be opened"),
+                new Hint(Kind.NEEDED_STATE, "The state of door is unknown here, and this call needs it to be opened"),
                 new Hint(Kind.CALL_SEQUENCE,
                         "Call door.forceOpen() before this call to move door from any state to opened"));
     }
 
     @Test
     void unknownStateNamesEveryStateTheCallAccepts() {
-        assertHints("ErrorStateHintUnknownDisjunction.java", new Hint(Kind.REACHING_CALLS,
+        assertHints("ErrorStateHintUnknownDisjunction.java", new Hint(Kind.NEEDED_STATE,
                 "The state of s is unknown here, and this call needs it to be open or ready"));
+    }
+
+    @Test
+    void disjunctionAcrossStateSetsNamesEachStateAlone() {
+        assertHints("ErrorStateHintUnknownCrossDisjunction.java", new Hint(Kind.NEEDED_STATE,
+                "The state of s is unknown here, and this call needs it to be open or loud"));
+    }
+
+    @Test
+    void oneRefinementPerStateSetNamesEachStateAlone() {
+        assertHints("ErrorStateHintUnknownTwoRefinements.java", new Hint(Kind.NEEDED_STATE,
+                "The state of history is unknown here, and this call needs it to be undoable or redoable"));
+    }
+
+    @Test
+    void callAllowedInEveryStateByDifferentRefinementsStillNamesTheStatesAndConstructors() {
+        assertHints("ErrorStateHintUnknownToggle.java",
+                new Hint(Kind.NEEDED_STATE, "The state of t is unknown here, and this call needs it to be up or down. "
+                        + "Objects created with new ErrorStateHintUnknownToggle() start in such a state"));
+    }
+
+    @Test
+    void unknownStateDoesNotSuggestSequencesLongerThanTheLimit() {
+        assertHints("ErrorStateHintUnknownLongPath.java",
+                new Hint(Kind.NEEDED_STATE, "The state of x is unknown here, and this call needs it to be s3"));
+    }
+
+    @Test
+    void unknownStateSuggestsEverySequenceOfTheShortestLength() {
+        assertHints("ErrorStateHintUnknownSeveralWays.java",
+                new Hint(Kind.NEEDED_STATE, "The state of x is unknown here, and this call needs it to be s1 or s2"),
+                new Hint(Kind.CALL_SEQUENCE, "Call x.one() before this call to move x from any state to s1"),
+                new Hint(Kind.CALL_SEQUENCE, "Call x.two() before this call to move x from any state to s2"));
+    }
+
+    @Test
+    void thisReceiverIsNotToldToCreateANewObject() {
+        assertHints("ErrorStateHintUnknownThis.java",
+                new Hint(Kind.NEEDED_STATE, "The state of this is unknown here, and this call needs it to be open"));
+    }
+
+    @Test
+    void stateCheckedByAnEarlierCallIsNotCalledUnknown() {
+        assertHints("classes/state_hint_checked_state_error", new Hint(Kind.NEEDED_STATE,
+                "What is known here does not decide the state of it, and this call needs it to be hasMore"));
+    }
+
+    @Test
+    void partlyKnownStateIsNamedInTheKnownStateSetsOnly() {
+        assertHints("ErrorStateHintPartlyKnown.java",
+                new Hint(Kind.UNREACHABLE_STATE, "No sequence of calls moves this from notRedoable to redoable"),
+                new Hint(Kind.AVAILABLE_CALLS, "In state notRedoable, this can call: check()"));
+    }
+
+    @Test
+    void statesDifferingInAnotherStateSetAreNamedOnce() {
+        assertHints("ErrorPathDependentOtherStateSet.java",
+                new Hint(Kind.CALL_SEQUENCE, "Call d.open() before this call to move d from closed to opened"),
+                new Hint(Kind.AVAILABLE_CALLS, "In state closed, d can call: open()"));
     }
 
     @Test

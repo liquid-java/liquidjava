@@ -430,6 +430,11 @@ public abstract class TypeChecker extends CtScanner {
                 needsCounterexample);
     }
 
+    /** What a state refinement error from {@code found} to {@code expected} shows as found */
+    public Predicate shownFound(Predicate found, Predicate expected) {
+        return vcChecker.shownFound(found, expected);
+    }
+
     public void throwRefinementError(SourcePosition position, SourcePosition declarationPosition,
             Predicate expectedType, Predicate foundType, String customMessage) throws LJError {
         vcChecker.throwRefinementError(position, declarationPosition, expectedType, foundType, null, customMessage);

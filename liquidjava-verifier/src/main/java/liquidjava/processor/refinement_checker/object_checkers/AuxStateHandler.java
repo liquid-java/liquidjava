@@ -794,10 +794,10 @@ public class AuxStateHandler {
             List<GhostState> ghostStates = getGhostStatesFor(function.getTargetClass(), tc);
             Optional<DecidingArgument> deciding = decidingArgument(tc, vi, function, ghostStates, invocation);
             Optional<ReceiverStates> states = receiverStates(tc, function, instanceName, prevState, invocation);
+            Predicate expected = expectedStatesDisjunction;
             ErrorCategory category = deciding.isPresent() ? ErrorCategory.ARGUMENT_PICKS_THE_STATE
-                    : states.flatMap(
-                            r -> StateErrorCategories.categorize(r.machine(), r.current(), prevState, ghostStates))
-                            .orElse(null);
+                    : states.flatMap(r -> StateErrorCategories.categorize(r.machine(), r.current(), prevState,
+                            tc.shownFound(prevState, expected), ghostStates)).orElse(null);
             List<Hint> hints = deciding.isPresent()
                     ? receiverOf(invocation).map(r -> StateHints.decidingArgument(deciding.get(), r)).stream().toList()
                     : states.map(r -> stateHints(r, function, category, invocation)).orElse(List.of());

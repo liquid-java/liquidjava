@@ -55,6 +55,11 @@ class TestErrorCategories {
     }
 
     @Test
+    void stateMentionedOnlyByAnEarlierCheckIsNotUnknown() {
+        assertNoCategory("classes/state_hint_checked_state_error");
+    }
+
+    @Test
     void stateErrorWithoutStateSetGetsNoCategory() {
         assertNoCategory("ErrorUnconstrainedStateRefinement.java");
     }

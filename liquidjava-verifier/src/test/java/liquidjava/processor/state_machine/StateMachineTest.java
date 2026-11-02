@@ -2,6 +2,7 @@ package liquidjava.processor.state_machine;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -17,36 +18,66 @@ class StateMachineTest {
     private static final State OPEN_UNLOCKED = state("open", "unlocked");
     private static final State CLOSED_LOCKED = state("closed", "locked");
     private static final State CLOSED_UNLOCKED = state("closed", "unlocked");
-    private static final StateMachine MACHINE = new StateMachine(
-            List.of(OPEN_LOCKED, OPEN_UNLOCKED, CLOSED_LOCKED, CLOSED_UNLOCKED), List.of(), List.of(), Map.of(), true);
+    private static final StateMachine MACHINE = machine(
+            List.of(OPEN_LOCKED, OPEN_UNLOCKED, CLOSED_LOCKED, CLOSED_UNLOCKED));
 
     @Test
-    void statesOfOneSetConstrainOnlyThatSet() {
-        assertEquals(List.of(0), MACHINE.stateSetsConstraining(Set.of(OPEN_LOCKED, OPEN_UNLOCKED)));
-        assertEquals(List.of(1), MACHINE.stateSetsConstraining(Set.of(OPEN_UNLOCKED, CLOSED_UNLOCKED)));
+    void statesDifferingOnlyInOneSetAreNamedByTheOther() {
+        assertEquals(List.of(List.of("open")), MACHINE.describe(Set.of(OPEN_LOCKED, OPEN_UNLOCKED)));
+        assertEquals(List.of(List.of("unlocked")), MACHINE.describe(Set.of(OPEN_UNLOCKED, CLOSED_UNLOCKED)));
     }
 
     @Test
-    void singleStateConstrainsEverySet() {
-        assertEquals(List.of(0, 1), MACHINE.stateSetsConstraining(Set.of(CLOSED_UNLOCKED)));
+    void singleStateIsNamedInEverySet() {
+        assertEquals(List.of(List.of("closed", "unlocked")), MACHINE.describe(Set.of(CLOSED_UNLOCKED)));
     }
 
     @Test
-    void statesDifferingInBothSetsConstrainBoth() {
-        assertEquals(List.of(0, 1), MACHINE.stateSetsConstraining(Set.of(OPEN_LOCKED, CLOSED_UNLOCKED)));
+    void statesDifferingInBothSetsAreNamedInBoth() {
+        assertEquals(List.of(List.of("open", "locked"), List.of("closed", "unlocked")),
+                MACHINE.describe(Set.of(CLOSED_UNLOCKED, OPEN_LOCKED)));
+    }
+
+    @Test
+    void disjunctionAcrossSetsNamesEachStateAlone() {
         // open || locked
-        assertEquals(List.of(0, 1), MACHINE.stateSetsConstraining(Set.of(OPEN_LOCKED, OPEN_UNLOCKED, CLOSED_LOCKED)));
+        assertEquals(List.of(List.of("open"), List.of("locked")),
+                MACHINE.describe(Set.of(OPEN_LOCKED, OPEN_UNLOCKED, CLOSED_LOCKED)));
     }
 
     @Test
-    void everyStateConstrainsNoSet() {
-        assertEquals(List.of(), MACHINE.stateSetsConstraining(Set.copyOf(MACHINE.states())));
+    void everyStateIsNamedStateByState() {
+        assertEquals(List.of(List.of("open", "locked"), List.of("open", "unlocked"), List.of("closed", "locked"),
+                List.of("closed", "unlocked")), MACHINE.describe(Set.copyOf(MACHINE.states())));
     }
 
     @Test
-    void stateIsNamedInTheGivenSetsOnly() {
-        assertEquals("locked", OPEN_LOCKED.name(List.of(1)));
-        assertEquals("open and locked", OPEN_LOCKED.name(List.of(0, 1)));
+    void noStatesAreNamedByNothing() {
+        assertEquals(List.of(), MACHINE.describe(Set.of()));
+    }
+
+    @Test
+    void disjunctionOverThreeSetsNamesOnlyTheCheckedStates() {
+        // {start, canEdit, end} x {undoable, notUndoable} x {redoable, notRedoable}, and undoable || redoable
+        List<State> states = new ArrayList<>();
+        for (String edit : List.of("start", "canEdit", "end"))
+            for (String undo : List.of("undoable", "notUndoable"))
+                for (String redo : List.of("redoable", "notRedoable"))
+                    states.add(state(edit, undo, redo));
+        Set<State> goal = Set.copyOf(states.stream()
+                .filter(s -> s.names().get(1).equals("undoable") || s.names().get(2).equals("redoable")).toList());
+        assertEquals(List.of(List.of("undoable"), List.of("redoable")), machine(states).describe(goal));
+    }
+
+    @Test
+    void statesOfOneSetAreNamedInDeclarationOrder() {
+        List<State> states = List.of(state("s0"), state("s1"), state("s2"), state("s3"));
+        assertEquals(List.of(List.of("s1"), List.of("s3")),
+                machine(states).describe(Set.of(states.get(3), states.get(1))));
+    }
+
+    private static StateMachine machine(List<State> states) {
+        return new StateMachine(states, List.of(), List.of(), Map.of(), true);
     }
 
     private static State state(String... names) {

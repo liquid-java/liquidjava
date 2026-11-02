@@ -11,7 +11,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import liquidjava.processor.context.ObjectState;
 import liquidjava.processor.context.RefinedFunction;
@@ -114,14 +113,12 @@ public record StateMachine(List<State> states, List<RefinedFunction> methods, Li
     }
 
     /**
-     * The state sets that {@code subset} depends on, as indexes into {@link State#names()}: those where changing only
-     * the state in that set can take a state out of {@code subset}. Every other state set can be in any of its states.
+     * {@code subset} named as briefly as possible, as groups of states that each fix the state in some state sets and
+     * allow any state in the others, e.g. {@code [[open], [loud]]} for the states where {@code open(this) ||
+     * loud(this)} holds
      */
-    public List<Integer> stateSetsConstraining(Set<State> subset) {
-        int stateSets = states.isEmpty() ? 0 : states.get(0).names().size();
-        return IntStream.range(0, stateSets).filter(set -> subset.stream().anyMatch(
-                state -> states.stream().anyMatch(other -> !subset.contains(other) && differOnlyIn(state, other, set))))
-                .boxed().toList();
+    public List<List<String>> describe(Collection<State> subset) {
+        return StateCover.of(states, Set.copyOf(subset));
     }
 
     /** {@code subset} in declaration order */
@@ -131,11 +128,6 @@ public record StateMachine(List<State> states, List<RefinedFunction> methods, Li
 
     private Optional<Transition> transition(State from, RefinedFunction method) {
         return transitions.stream().filter(t -> t.from().equals(from) && t.method().equals(method)).findFirst();
-    }
-
-    private static boolean differOnlyIn(State state, State other, int stateSet) {
-        return IntStream.range(0, state.names().size())
-                .allMatch(set -> set == stateSet || state.names().get(set).equals(other.names().get(set)));
     }
 
     private static List<RefinedFunction> append(List<RefinedFunction> path, RefinedFunction method) {
