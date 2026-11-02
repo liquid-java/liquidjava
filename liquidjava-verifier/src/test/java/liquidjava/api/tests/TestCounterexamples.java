@@ -32,6 +32,17 @@ class TestCounterexamples {
     void dependentUpperBoundIncludesBoundaryValuesInBinderOrder() {
         RefinementError error = verify("ErrorDependentUpperBound.java");
         assertAssignments(error, assignment("len", "1"), assignment("i", "0"), assignment("#ret", "1"));
+        assertNotNull(error.getFinalExpected());
+        assertNotNull(error.getExpectedWithWitness());
+        assertTrue(error.getCounterexampleStr().contains("With witness:"));
+    }
+
+    @Test
+    void aliasFailureRetainsOriginalAndExpandedExpectedPredicates() {
+        RefinementError error = verify("ErrorAliasSimple.java");
+        assertTrue(error.getExpected().getExpression().toDisplayString().contains("PtGrade"));
+        assertNotNull(error.getFinalExpected());
+        assertFalse(error.getFinalExpected().getExpression().toDisplayString().contains("PtGrade"));
     }
 
     @Test
