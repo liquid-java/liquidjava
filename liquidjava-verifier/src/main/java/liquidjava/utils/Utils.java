@@ -7,6 +7,7 @@ import java.util.Scanner;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import liquidjava.rj_language.ast.formatter.VariableFormatter;
 import liquidjava.utils.constants.Types;
 import spoon.reflect.code.CtBlock;
 import spoon.reflect.code.CtFieldAccess;
@@ -58,7 +59,10 @@ public class Utils {
     public static String qualifyFieldName(CtFieldReference<?> field) {
         if (field.getDeclaringType() == null) // declaring class not resolved: matches no known field
             return "this#" + field.getSimpleName();
-        return "this#" + field.getDeclaringType().getQualifiedName() + "." + field.getSimpleName();
+        String name = "this#" + field.getDeclaringType().getQualifiedName() + "." + field.getSimpleName();
+        if (field.isStatic())
+            VariableFormatter.registerStaticField(name);
+        return name;
     }
 
     public static String getFile(CtElement element) {

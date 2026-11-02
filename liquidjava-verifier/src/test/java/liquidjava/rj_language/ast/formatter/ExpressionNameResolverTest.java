@@ -42,4 +42,30 @@ class ExpressionNameResolverTest {
         assertEquals("java.util.ArrayList.size¹", resolver.resolveVariable("#java.util.ArrayList.size_1"));
         assertEquals("java.util.ArrayDeque.size²", resolver.resolveVariable("#java.util.ArrayDeque.size_2"));
     }
+
+    @Test
+    void writesFieldsAsInCodeNextToALocalOfTheSameName() {
+        Expression expression = Predicate
+                .createEquals(Predicate.createVar("#items_5"), Predicate.createVar("this#shop.Basket.items"))
+                .getExpression();
+
+        assertEquals("items⁵ == this.items", expression.toDisplayString());
+    }
+
+    @Test
+    void writesFieldsAsInCodeInsideFunctionArguments() {
+        Predicate size = Predicate.createInvocation("java.util.ArrayList.size",
+                Predicate.createVar("this#shop.Basket.items"));
+        Expression expression = Predicate.createEquals(Predicate.createVar("#bound_6"), size).getExpression();
+
+        assertEquals("bound⁶ == size(this.items)", expression.toDisplayString());
+    }
+
+    @Test
+    void writesTheClassOfFieldsWithTheSameName() {
+        Expression expression = Predicate.createEquals(Predicate.createVar("this#shop.Basket.count"),
+                Predicate.createVar("this#shop.Shelf.count")).getExpression();
+
+        assertEquals("Basket.this.count == Shelf.this.count", expression.toDisplayString());
+    }
 }

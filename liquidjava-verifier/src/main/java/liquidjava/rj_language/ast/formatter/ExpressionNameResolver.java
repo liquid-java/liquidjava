@@ -22,6 +22,10 @@ final class ExpressionNameResolver {
 
     public String resolveVariable(String name) {
         String formatted = VariableFormatter.format(name);
+        // a field is always written as in code, and with its class only when another field is written the same way
+        if (VariableFormatter.isField(name))
+            return isAmbiguous(name, variables, VariableFormatter::format) ? VariableFormatter.formatWithOwner(name)
+                    : formatted;
         return isAmbiguous(name, variables, ExpressionNameResolver::getVariableSimpleName) ? formatted
                 : Utils.getSimpleName(formatted);
     }

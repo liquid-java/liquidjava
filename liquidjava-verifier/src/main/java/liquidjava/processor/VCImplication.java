@@ -3,6 +3,7 @@ package liquidjava.processor;
 import java.util.Objects;
 
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.opt.NeededVariables;
 import liquidjava.rj_language.opt.VCSimplification;
 import liquidjava.rj_language.opt.VCSimplificationResult;
 import liquidjava.utils.Utils;
@@ -77,6 +78,10 @@ public class VCImplication {
 
     public VCSimplificationResult simplify() {
         return VCSimplification.simplifyToFixedPoint(this);
+    }
+
+    public VCSimplificationResult simplify(NeededVariables needed) {
+        return VCSimplification.simplifyToFixedPoint(this, needed);
     }
 
     public Predicate toPredicate() {
