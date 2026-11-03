@@ -166,12 +166,18 @@ class TestFoundBinders {
     }
 
     @Test
+    void writesToAnotherObjectsFieldAreCheckedAsOnMain() {
+        // other.level++ and other.level += 1 verify, other.level-- and the write through an alias of this are reported
+        assertEquals(List.of(11, 23, 31, 35), new ArrayList<>(otherObjectWrite.keySet()));
+        assertEquals("k == 7", otherObjectWrite.get(31).message().replaceAll(".* is not a subtype of ", ""));
+    }
+
+    @Test
     void writeToAnotherObjectsFieldIsWrittenWithThatObject() {
-        assertEquals(List.of(11, 15, 19), new ArrayList<>(otherObjectWrite.keySet()));
         assertEquals("other.level == -1 is not a subtype of other.level >= 0", otherObjectWrite.get(11).message());
-        assertEquals(List.of("∀other.level true", "∀other.level other.level == other.level - 1"),
-                otherObjectWrite.get(15).rows());
-        assertEquals("this.level == -1 is not a subtype of this.level >= 0", otherObjectWrite.get(19).message());
+        assertEquals(List.of("∀this.level this.level >= 0", "∀other.level other.level == this.level - 1"),
+                otherObjectWrite.get(23).rows());
+        assertEquals("this.level == -1 is not a subtype of this.level >= 0", otherObjectWrite.get(35).message());
     }
 
     @Test

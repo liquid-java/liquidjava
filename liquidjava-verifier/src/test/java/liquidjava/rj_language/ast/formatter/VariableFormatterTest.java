@@ -58,16 +58,22 @@ class VariableFormatterTest {
     }
 
     @Test
-    void writesFieldsOfAnotherObjectWithThatObject() {
-        assertEquals("other.level", VariableFormatter.format("other#otherwrite.W.level"));
-        assertEquals("other.level¹", VariableFormatter.format("#other#otherwrite.W.level_1"));
+    void writesAnInstanceCreatedByAWriteThroughAnotherObjectWithThatObject() {
+        VariableFormatter.registerReceiver("#this#otherwrite.W.level_1", "other");
+        VariableFormatter.registerReceiver("#this#otherwrite.W.level_2", "");
+        assertEquals("other.level¹", VariableFormatter.format("#this#otherwrite.W.level_1"));
+        assertEquals("level²", VariableFormatter.format("#this#otherwrite.W.level_2"));
+        assertEquals("this.level³", VariableFormatter.format("#this#otherwrite.W.level_3"));
+        assertEquals("this.level", VariableFormatter.format("this#otherwrite.W.level"));
+        VariableFormatter.clearStaticFields();
+        assertEquals("this.level¹", VariableFormatter.format("#this#otherwrite.W.level_1"));
     }
 
     @Test
     void recognisesFieldNames() {
         assertTrue(VariableFormatter.isField("this#shop.Basket.items"));
         assertTrue(VariableFormatter.isField("#this#shop.Basket.items_4"));
-        assertTrue(VariableFormatter.isField("other#otherwrite.W.level"));
+        assertFalse(VariableFormatter.isField("other#otherwrite.W.level"));
         assertFalse(VariableFormatter.isField("this#Basket"));
         assertFalse(VariableFormatter.isField("#this_4"));
         assertFalse(VariableFormatter.isField("items"));

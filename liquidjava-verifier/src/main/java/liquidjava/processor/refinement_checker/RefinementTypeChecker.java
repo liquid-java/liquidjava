@@ -267,7 +267,7 @@ public class RefinementTypeChecker extends TypeChecker {
         } else if (ex instanceof CtFieldWrite<?> fw) {
             CtFieldReference<?> cr = fw.getVariable();
             CtField<?> f = fw.getVariable().getDeclaration();
-            String updatedVarName = Utils.writtenFieldName(fw);
+            String updatedVarName = Utils.qualifyFieldName(cr);
             // a field declared outside the analyzed sources (e.g. a library field) has no declared refinement: the
             // write stands in for its declaration
             checkAssignment(updatedVarName, cr.getType(), ex, assignment.getAssignment(), assignment,

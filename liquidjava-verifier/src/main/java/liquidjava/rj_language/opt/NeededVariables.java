@@ -5,6 +5,7 @@ import static liquidjava.rj_language.opt.VCSimplificationUtils.linkedConjuncts;
 import static liquidjava.rj_language.opt.VCSimplificationUtils.splitConjuncts;
 import static liquidjava.rj_language.opt.VCSimplificationUtils.termsOf;
 import static liquidjava.rj_language.opt.VCSimplificationUtils.valueVariablesOf;
+import static liquidjava.rj_language.opt.VCSimplificationUtils.variablesOf;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -60,19 +61,32 @@ public record NeededVariables(Set<String> expectedTerms, Set<String> expectedVal
 
     /**
      * Variables whose binder refined only by true the chain keeps: those whose own value a fact linked to expected
-     * constrains. A variable named only as the object of a ghost or state application ({@code x} in
-     * {@code b == size(x)}) has no value of its own there, so its row would say nothing
+     * constrains. A variable of an object type that a fact names only as the argument of a ghost or state application
+     * ({@code x} in {@code b == size(x)}) has no value of its own there, so its row would say nothing; a primitive
+     * argument ({@code k} in {@code y == f(k)}) has one
      */
     public Set<String> trueBindersToKeep(VCImplication chain) {
         List<Expression> facts = new ArrayList<>();
-        for (VCImplication current = chain; current != null; current = current.getNext())
+        Set<String> primitives = new HashSet<>();
+        for (VCImplication current = chain; current != null; current = current.getNext()) {
+            if (current.hasBinder() && current.getType().isPrimitive())
+                primitives.add(current.getName());
             if (!isTrue(current.getRefinement().getExpression()))
                 facts.addAll(splitConjuncts(current.getRefinement().getExpression()));
+        }
 
-        Set<String> keep = new HashSet<>(keepExpected ? expectedValues : Set.of());
-        for (Expression fact : linkedConjuncts(facts, VCSimplificationUtils::termsOf, expectedTerms))
-            for (String name : valueVariablesOf(fact))
-                if (!expectedTerms.contains(name))
+        Set<String> keep = new HashSet<>();
+        if (keepExpected)
+            keep.addAll(expectedValues);
+        for (Expression fact : linkedConjuncts(facts, VCSimplificationUtils::termsOf, expectedTerms)) {
+            List<String> values = valueVariablesOf(fact);
+            for (String name : variablesOf(fact))
+                if ((values.contains(name) || primitives.contains(name)) && !expectedTerms.contains(name))
+                    keep.add(name);
+        }
+        if (keepExpected)
+            for (String name : expectedTerms)
+                if (primitives.contains(name))
                     keep.add(name);
         return keep;
     }

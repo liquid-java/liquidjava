@@ -179,7 +179,7 @@ public class OperationsChecker {
         if (ex instanceof CtVariableWrite<T> w) {
             name = w.getVariable().getSimpleName();
             if (w instanceof CtFieldWrite<?> fieldWrite)
-                name = Utils.writtenFieldName(fieldWrite);
+                name = Utils.qualifyFieldName(fieldWrite.getVariable());
             all = getRefinementUnaryVariableWrite(ex, operator, w, name);
             rtc.checkVariableRefinements(all, name, w.getType(), operator, w.getVariable().getDeclaration());
             return;
@@ -498,8 +498,6 @@ public class OperationsChecker {
         String newName = String.format(Formats.INSTANCE, name, rtc.getContext().getCounter());
 
         Predicate metadada = rtc.getContext().getVariableRefinements(name);
-        if (metadada == null) // a field of another object, whose current value is not tracked
-            metadada = new Predicate();
         metadada = metadada.substituteVariable(Keys.WILDCARD, newName);
         metadada = metadada.substituteVariable(name, newName);
 

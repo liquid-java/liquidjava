@@ -1,5 +1,6 @@
 package liquidjava.rj_language.ast.formatter;
 
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
@@ -10,11 +11,11 @@ import java.util.regex.Pattern;
  */
 public final class VariableFormatter {
     private static final Pattern INSTACE_VAR_PATTERN = Pattern.compile("^#(.+)_([0-9]+)$");
-    // <object>#<declaring type>.<field>: a field of the current object (this) or of the object in a local variable
-    private static final Pattern FIELD_PATTERN = Pattern.compile("^([A-Za-z_$][\\w$]*)#([\\w.$]+)\\.([\\w$]+)$");
+    // this#<declaring type>.<field>
+    private static final Pattern FIELD_PATTERN = Pattern.compile("^this#([\\w.$]+)\\.([\\w$]+)$");
     private static final char[] SUPERSCRIPT_CHARS = { '⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹' };
-    private static final String THIS = "this";
     private static final Set<String> STATIC_FIELDS = ConcurrentHashMap.newKeySet();
+    private static final Map<String, String> WRITE_RECEIVERS = new ConcurrentHashMap<>();
 
     public static String format(String name) {
         if (name == null)
@@ -29,6 +30,9 @@ public final class VariableFormatter {
 
         String baseName = matcher.group(1);
         String counter = matcher.group(2);
+        String receiver = WRITE_RECEIVERS.get(name);
+        if (receiver != null && isField(baseName))
+            return (receiver.isEmpty() ? "" : receiver + ".") + fieldOf(baseName) + toSuperscript(counter);
         String prefix = isSpecialIdentifier(baseName) ? "#" : "";
         return prefix + formatField(baseName) + toSuperscript(counter);
     }
@@ -39,7 +43,7 @@ public final class VariableFormatter {
     }
 
     /**
-     * Whether a name is that of a field, {@code <object>#<declaring type>.<field>}, possibly with an instance counter
+     * Whether a name is that of a field, {@code this#<declaring type>.<field>}, possibly with an instance counter
      */
     public static boolean isField(String name) {
         return FIELD_PATTERN.matcher(withoutInstance(name)).matches();
@@ -54,27 +58,40 @@ public final class VariableFormatter {
     }
 
     /**
-     * Forgets the static fields recorded by the previous verification
+     * Records that an instance of a field ({@code #this#<declaring type>.<field>_<n>}) was created by a write through
+     * another object ({@code receiver.field = v}), so that it is displayed as {@code receiver.field} instead of
+     * {@code this.field}; an empty receiver displays the bare field name. Only the display changes
      */
-    public static void clearStaticFields() {
-        STATIC_FIELDS.clear();
+    public static void registerReceiver(String instanceName, String receiver) {
+        WRITE_RECEIVERS.put(instanceName, receiver);
     }
 
     /**
-     * Writes a field name as it is written in code: {@code this.field} or {@code other.field} for an instance field and
-     * {@code Class.field} for a static one, leaving any other name unchanged; the internal name keeps the declaring
-     * type to tell fields of different classes apart
+     * Forgets the static fields and write receivers recorded by the previous verification
+     */
+    public static void clearStaticFields() {
+        STATIC_FIELDS.clear();
+        WRITE_RECEIVERS.clear();
+    }
+
+    /**
+     * Writes a field name as it is written in code: {@code this.field} for an instance field and {@code Class.field}
+     * for a static one, leaving any other name unchanged; the internal name keeps the declaring type to tell fields of
+     * different classes apart
      */
     private static String formatField(String name) {
         Matcher matcher = FIELD_PATTERN.matcher(name);
         if (!matcher.matches())
             return name;
 
-        String object = matcher.group(1);
-        String field = matcher.group(3);
-        if (object.equals(THIS) && STATIC_FIELDS.contains(name))
-            return simpleTypeName(matcher.group(2)) + "." + field;
-        return object + "." + field;
+        if (STATIC_FIELDS.contains(name))
+            return simpleTypeName(matcher.group(1)) + "." + matcher.group(2);
+        return "this." + matcher.group(2);
+    }
+
+    private static String fieldOf(String name) {
+        Matcher matcher = FIELD_PATTERN.matcher(name);
+        return matcher.matches() ? matcher.group(2) : name;
     }
 
     private static String simpleTypeName(String qualifiedName) {

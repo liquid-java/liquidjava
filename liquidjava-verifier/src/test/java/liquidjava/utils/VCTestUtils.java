@@ -101,6 +101,8 @@ public class VCTestUtils {
             return TYPE_FACTORY.INTEGER_PRIMITIVE;
         if ("boolean".equals(name))
             return TYPE_FACTORY.BOOLEAN_PRIMITIVE;
+        if ("Object".equals(name))
+            return TYPE_FACTORY.OBJECT;
         throw new IllegalArgumentException("Unsupported test type: " + name);
     }
 

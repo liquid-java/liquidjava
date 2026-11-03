@@ -124,8 +124,14 @@ class VCBinderSimplificationTest {
 
     @Test
     void removesTrueBinderNamedOnlyAsTheObjectOfAGhost() {
-        assertSimplificationSteps(forRefinementError("b"), vc("∀x:int. true", "∀b:int. b == size(x) && b >= 0"),
+        assertSimplificationSteps(forRefinementError("b"), vc("∀x:Object. true", "∀b:int. b == size(x) && b >= 0"),
                 step("b == size(x) && b >= 0"));
+    }
+
+    @Test
+    void keepsPrimitiveTrueBinderThatIsTheArgumentOfAGhost() {
+        assertSimplificationSteps(forRefinementError("y"), vc("∀k:int. true", "∀y:int. y == f(k)"),
+                step("true", "y == f(k)"));
     }
 
     @Test
