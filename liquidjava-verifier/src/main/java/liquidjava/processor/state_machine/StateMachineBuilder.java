@@ -65,7 +65,7 @@ public class StateMachineBuilder {
      */
     public static Optional<StateMachine> build(TypeChecker tc, StateSolver solver, String className, CtElement element)
             throws LJError {
-        List<State> states = statesOf(tc.getContext(), className);
+        List<State> states = statesOf(tc.getContext(), className, false);
         if (states.isEmpty() || states.size() > MAX_STATES)
             return Optional.empty();
         Context context = tc.getContext();
@@ -80,8 +80,14 @@ public class StateMachineBuilder {
         }
     }
 
-    /** Every combination of one state from each state set of the class */
-    private static List<State> statesOf(Context context, String className) {
+    /**
+     * Every combination of one state from each state set of the class
+     *
+     * @param withNone
+     *            whether an object may also be in none of the states of a set, named {@code none} (e.g. after
+     *            {@code @StateRefinement(to = "!open(this) && !closed(this)")})
+     */
+    public static List<State> statesOf(Context context, String className, boolean withNone) {
         List<GhostState> ghostStates = context.getGhostState(Utils.getSimpleName(className));
         if (ghostStates == null)
             return List.of();
@@ -91,16 +97,29 @@ public class StateMachineBuilder {
             return List.of();
 
         List<State> combinations = List.of(new State(List.of(), new Predicate()));
-        for (List<GhostState> stateSet : stateSets.values())
-            combinations = combinations.stream().flatMap(s -> stateSet.stream().map(g -> combine(s, g))).toList();
+        for (List<GhostState> stateSet : stateSets.values()) {
+            List<State> inSet = Stream.concat(stateSet.stream().map(StateMachineBuilder::inState),
+                    withNone ? Stream.of(inNone(stateSet)) : Stream.empty()).toList();
+            combinations = combinations.stream().flatMap(s -> inSet.stream().map(a -> combine(s, a))).toList();
+        }
         return combinations;
     }
 
-    private static State combine(State state, GhostState ghostState) {
+    private static State inState(GhostState ghostState) {
+        return new State(List.of(ghostState.getName()),
+                Predicate.createInvocation(ghostState.getQualifiedName(), Predicate.createVar(Keys.THIS)));
+    }
+
+    private static State inNone(List<GhostState> stateSet) {
+        Predicate none = stateSet.stream().map(g -> inState(g).predicate().negate())
+                .reduce(Predicate::createConjunction).orElseThrow();
+        return new State(List.of("none"), none);
+    }
+
+    private static State combine(State state, State inSet) {
         List<String> names = new ArrayList<>(state.names());
-        names.add(ghostState.getName());
-        Predicate holds = Predicate.createInvocation(ghostState.getQualifiedName(), Predicate.createVar(Keys.THIS));
-        return new State(names, Predicate.createConjunction(state.predicate(), holds));
+        names.addAll(inSet.names());
+        return new State(names, Predicate.createConjunction(state.predicate(), inSet.predicate()));
     }
 
     private StateMachine build(String className, CtTypeReference<?> type) throws LJError {

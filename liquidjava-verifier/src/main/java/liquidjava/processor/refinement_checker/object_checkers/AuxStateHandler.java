@@ -741,12 +741,8 @@ public class AuxStateHandler {
             Predicate expected = stateChanges.stream().filter(ObjectState::hasFrom).map(ObjectState::getFrom)
                     .reduce(Predicate.createLit("false", Types.BOOLEAN), Predicate::createDisjunction)
                     .substituteVariable(Keys.THIS, instanceName);
-            Predicate previous = prevState;
-            for (String parameter : map.keySet()) {
-                previous = previous.substituteVariable(parameter, map.get(parameter));
-                expected = expected.substituteVariable(parameter, map.get(parameter));
-            }
-            expected = expected.changeOldMentions(vi.getName(), instanceName);
+            Predicate previous = substituteArguments(prevState, map);
+            expected = substituteArguments(expected, map).changeOldMentions(vi.getName(), instanceName);
             try {
                 found = tc.checkStateSMT(previous, expected, invocation.getPosition());
             } catch (SMTUnknownError error) {
@@ -761,14 +757,8 @@ public class AuxStateHandler {
             if (!stateChange.hasFrom())
                 continue;
 
-            // replace "state(this)" to "state(whatever method is called from) and so on"
-            Predicate expectState = stateChange.getFrom().substituteVariable(Keys.THIS, instanceName);
-            Predicate prevCheck = prevState;
-            for (String s : map.keySet()) { // substituting function variables into annotation if there are any
-                prevCheck = prevCheck.substituteVariable(s, map.get(s));
-                expectState = expectState.substituteVariable(s, map.get(s));
-            }
-            expectState = expectState.changeOldMentions(vi.getName(), instanceName);
+            Predicate expectState = entryState(stateChange, instanceName, map);
+            Predicate prevCheck = substituteArguments(prevState, map);
 
             try {
                 found = tc.checkStateSMT(prevCheck, expectState, invocation.getPosition());
@@ -778,29 +768,22 @@ public class AuxStateHandler {
             }
             if (found && stateChange.hasTo()) {
                 String newInstanceName = String.format(Formats.INSTANCE, name, tc.getContext().getCounter());
-                // Non-void: `_` is the return value; void: legacy alias for the new instance.
-                String returnViName = (String) invocation.getMetadata(Keys.RETURN_VAR_NAME);
-                String wildcardTarget = returnViName != null ? returnViName : newInstanceName;
-                Predicate transitionedState = stateChange.getTo().substituteVariable(Keys.WILDCARD, wildcardTarget)
-                        .substituteVariable(Keys.THIS, newInstanceName);
-                for (String s : map.keySet()) {
-                    transitionedState = transitionedState.substituteVariable(s, map.get(s));
-                }
-                transitionedState = checkOldMentions(transitionedState, instanceName, newInstanceName);
+                Predicate transitionedState = transitionedState(stateChange, instanceName, newInstanceName, map,
+                        invocation);
                 // update of state of new instance of this#n#(whatever it was + 1)
                 addInstanceWithState(tc, name, newInstanceName, vi, transitionedState, invocation)
                         .setStateChange(new StateChange(function, stateChange, vi, invocation.getPosition()));
             }
         }
+        if (!found && !preservesState)
+            found = changeToStateOfAnyEntryState(tc, vi, function, name, map, invocation, prevState);
         if (!found) { // Reaches the end of stateChange no matching states
             Predicate expectedStatesDisjunction = stateChanges.stream().filter(ObjectState::hasFrom)
                     .map(ObjectState::getFrom)
                     .reduce(Predicate.createLit("false", Types.BOOLEAN), Predicate::createDisjunction);
-            expectedStatesDisjunction = expectedStatesDisjunction.substituteVariable(Keys.THIS, instanceName);
-            for (String s : map.keySet()) {
-                expectedStatesDisjunction = expectedStatesDisjunction.substituteVariable(s, map.get(s));
-            }
-            expectedStatesDisjunction = expectedStatesDisjunction.changeOldMentions(vi.getName(), instanceName);
+            expectedStatesDisjunction = substituteArguments(
+                    expectedStatesDisjunction.substituteVariable(Keys.THIS, instanceName), map)
+                            .changeOldMentions(vi.getName(), instanceName);
 
             // combine messages of all state changes
             String message = stateChanges.stream().map(ObjectState::getMessage)
@@ -888,6 +871,69 @@ public class AuxStateHandler {
     private static String writtenReceiver(CtElement invocation) {
         CtExpression<?> target = invocation instanceof CtInvocation<?> call ? call.getTarget() : null;
         return target == null || target.isImplicit() ? Keys.THIS : target.toString();
+    }
+
+    /** The state that {@code stateChange} gives the object after the call, as the instance {@code newInstanceName} */
+    private static Predicate transitionedState(ObjectState stateChange, String instanceName, String newInstanceName,
+            Map<String, String> map, CtElement invocation) {
+        // Non-void: `_` is the return value; void: legacy alias for the new instance.
+        String returnViName = (String) invocation.getMetadata(Keys.RETURN_VAR_NAME);
+        String wildcardTarget = returnViName != null ? returnViName : newInstanceName;
+        Predicate transitionedState = stateChange.getTo().substituteVariable(Keys.WILDCARD, wildcardTarget)
+                .substituteVariable(Keys.THIS, newInstanceName);
+        return checkOldMentions(substituteArguments(transitionedState, map), instanceName, newInstanceName);
+    }
+
+    /**
+     * A call whose entry states are each unprovable but whose union is provable, e.g. on an object that is in one of
+     * two states after a loop. The call is allowed, and the object ends up in the state given by any alternative whose
+     * entry state it may be in: an alternative without a target state leaves the object as it was.
+     *
+     * @return whether the call is allowed
+     */
+    private static boolean changeToStateOfAnyEntryState(TypeChecker tc, VariableInstance vi, RefinedFunction function,
+            String name, Map<String, String> map, CtElement invocation, Predicate prevState) throws LJError {
+        List<ObjectState> alternatives = function.getAllStates().stream().filter(ObjectState::hasFrom).toList();
+        if (alternatives.size() < 2)
+            return false;
+        String instanceName = vi.getName();
+        Predicate previous = substituteArguments(prevState, map);
+        List<Predicate> entries = alternatives.stream().map(a -> entryState(a, instanceName, map)).toList();
+        try {
+            if (!tc.checkStateSMT(previous, entries.stream().reduce(Predicate::createDisjunction).orElseThrow(),
+                    invocation.getPosition()))
+                return false;
+        } catch (SMTUnknownError error) {
+            error.setDeclarationPosition(alternatives.get(0).getFromPosition());
+            throw error;
+        }
+
+        String newInstanceName = String.format(Formats.INSTANCE, name, tc.getContext().getCounter());
+        Predicate unchanged = previous.substituteVariable(instanceName, newInstanceName);
+        Predicate after = Predicate.createLit("false", Types.BOOLEAN);
+        for (int i = 0; i < alternatives.size(); i++) {
+            ObjectState alternative = alternatives.get(i);
+            Predicate entry = entries.get(i);
+            Predicate exit = alternative.hasTo()
+                    ? transitionedState(alternative, instanceName, newInstanceName, map, invocation)
+                    : Predicate.createConjunction(entry.substituteVariable(instanceName, newInstanceName), unchanged);
+            after = Predicate.createDisjunction(after, Predicate.createConjunction(entry, exit));
+        }
+        addInstanceWithState(tc, name, newInstanceName, vi, after, invocation);
+        return true;
+    }
+
+    /** The entry state of {@code stateChange}, for the object {@code instanceName} */
+    private static Predicate entryState(ObjectState stateChange, String instanceName, Map<String, String> map) {
+        Predicate entry = stateChange.getFrom().substituteVariable(Keys.THIS, instanceName);
+        return substituteArguments(entry, map).changeOldMentions(instanceName, instanceName);
+    }
+
+    /** Replaces the parameters of the called method with the arguments of the call, as given by {@code map} */
+    private static Predicate substituteArguments(Predicate predicate, Map<String, String> map) {
+        for (String parameter : map.keySet())
+            predicate = predicate.substituteVariable(parameter, map.get(parameter));
+        return predicate;
     }
 
     private static Predicate checkOldMentions(Predicate transitionedState, String instanceName,
