@@ -15,10 +15,17 @@ public class Hatch {
     @StateRefinement(from = "closed(this)", to = "open(this)")
     void openInPackage() {}
 
+    @StateRefinement(from = "closed(this)", to = "open(this)")
+    protected void openInSubclass() {}
+
+    @StateRefinement(from = "closed(this)", to = "open(this)")
+    public void openPublicly() {}
+
     @StateRefinement(from = "open(this)")
     public void use() {}
 }
 
+// only openPublicly() can be called on a subclass by every caller
 class SamePackageHatch extends Hatch {
 
     static void useClosed() {

@@ -213,14 +213,12 @@ class TestStateHints {
     }
 
     @Test
-    void inheritedMethodsTheReceiverCannotCallAreNotSuggested() {
-        List<StateRefinementError> errors = errors("classes/state_hints_inaccessible_inherited_error", 2);
-        assertHints(errors.get(0),
+    void onlyPublicInheritedMethodsAreSuggested() {
+        assertHints("classes/state_hints_inaccessible_inherited_error",
                 new Hint(Kind.CALL_SEQUENCE,
-                        "Call hatch.openInPackage() before this call to move hatch from closed to open"),
+                        "Call hatch.openPublicly() before this call to move hatch from closed to open"),
                 new Hint(Kind.AVAILABLE_CALLS,
-                        "In state closed, hatch can call: openInPackage() (and possibly others)"));
-        assertHints(errors.get(1));
+                        "In state closed, hatch can call: openPublicly() (and possibly others)"));
     }
 
     @Test

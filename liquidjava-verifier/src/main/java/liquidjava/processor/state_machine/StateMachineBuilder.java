@@ -7,7 +7,6 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -217,7 +216,7 @@ public class StateMachineBuilder {
                     continue;
                 if (overridden(function, className))
                     continue; // the class's own refinement for it is the one in the machine
-                if (!resolvesTo(function, type, supertypes) || !inheritedBy(function, type)) {
+                if (!resolvesTo(function, type, supertypes) || !publiclyInherited(function)) {
                     complete = false;
                     continue;
                 }
@@ -287,23 +286,21 @@ public class StateMachineBuilder {
     }
 
     /**
-     * Whether objects of {@code type} inherit {@code method}, so it can be called on them: a private method is not
-     * inherited, nor is a package-private one by a class in another package. Methods are matched by name and number of
-     * parameters, so an inaccessible overload also leaves the method out, which only leaves the machine incomplete.
+     * Whether any caller can call {@code method} on an object of a subtype of the type it is specified for. The machine
+     * is shared by every caller, so a method that only some callers can reach (private, package-private or protected)
+     * is left out, which only leaves the machine incomplete. Methods are matched by name and number of parameters.
      */
-    private boolean inheritedBy(RefinedFunction method, CtTypeReference<?> type) {
+    private boolean publiclyInherited(RefinedFunction method) {
         CtType<?> declaring = tc.getFactory().Type().createReference(method.getTargetClass()).getTypeDeclaration();
-        CtType<?> declaration = type.getTypeDeclaration();
-        if (declaring == null || declaration == null)
-            return false; // cannot tell whether it is inherited
+        if (declaring == null)
+            return false; // cannot tell whether it is public
         if (declaring.isInterface())
             return true;
         String name = Utils.getSimpleName(method.getName());
         int arity = method.getArguments().size();
-        boolean samePackage = Objects.equals(declaring.getPackage(), declaration.getPackage());
         return declaring.getMethods().stream()
                 .filter(m -> m.getSimpleName().equals(name) && m.getParameters().size() == arity)
-                .noneMatch(m -> m.isPrivate() || (!samePackage && !m.isPublic() && !m.isProtected()));
+                .allMatch(CtModifiable::isPublic);
     }
 
     private static boolean abstractType(CtTypeReference<?> type) {
