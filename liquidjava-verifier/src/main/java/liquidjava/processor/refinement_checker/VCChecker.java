@@ -446,6 +446,11 @@ public class VCChecker {
                 customMessage);
     }
 
+    /** What a state refinement error shows as found: what is known about the variables of both predicates */
+    protected Predicate shownFound(Predicate found, Predicate expected) {
+        return buildPremiseChain(new TranslationTable(), expected, found).simplify().getImplication().toPredicate();
+    }
+
     protected void throwStateRefinementError(SourcePosition position, SourcePosition declarationPosition,
             Predicate found, Predicate expected, String customMessage, List<Hint> hints, ErrorCategory category,
             StateErrorContext context) throws StateRefinementError {

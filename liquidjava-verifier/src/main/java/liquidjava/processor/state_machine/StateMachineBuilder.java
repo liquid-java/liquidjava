@@ -19,7 +19,10 @@ import liquidjava.processor.refinement_checker.TypeChecker;
 import liquidjava.rj_language.Predicate;
 import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Keys;
+import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtElement;
+import spoon.reflect.declaration.CtModifiable;
+import spoon.reflect.declaration.CtType;
 import spoon.reflect.reference.CtExecutableReference;
 import spoon.reflect.reference.CtTypeReference;
 
@@ -131,6 +134,8 @@ public class StateMachineBuilder {
             if (!className.equals(function.getTargetClass()) || !function.hasStateChange())
                 continue;
             if (CtExecutableReference.CONSTRUCTOR_NAME.equals(function.getName())) {
+                if (abstractType(type) || privateConstructor(function, type))
+                    continue; // cannot be suggested as a new object
                 Optional<Set<State>> created = createdStates(function);
                 created.ifPresent(s -> constructors.put(function, s));
                 continue;
@@ -152,6 +157,36 @@ public class StateMachineBuilder {
                 .map(RefinedFunction::getTargetClass).filter(c -> c != null && !c.equals(className)).distinct()
                 .map(c -> tc.getFactory().Type().createReference(c))
                 .anyMatch(other -> other.isSubtypeOf(type) || type.isSubtypeOf(other));
+    }
+
+    private static boolean abstractType(CtTypeReference<?> type) {
+        CtType<?> declaration = type.getTypeDeclaration();
+        return declaration == null || declaration.isInterface() || declaration.isAbstract();
+    }
+
+    /**
+     * Whether {@code constructor} cannot be called from outside its class: it is private, or the class is an enum. A
+     * constructor that is not found in the class's declaration is assumed callable. The machine is shared by every
+     * caller, so a private constructor is left out even for calls inside its class.
+     */
+    private static boolean privateConstructor(RefinedFunction constructor, CtTypeReference<?> type) {
+        try {
+            CtType<?> declaration = type.getTypeDeclaration();
+            if (declaration.isEnum())
+                return true;
+            if (!(declaration instanceof CtClass<?> declared))
+                return false;
+            List<String> parameters = constructor.getArguments().stream().map(a -> typeName(a.getType())).toList();
+            return declared.getConstructors().stream()
+                    .filter(c -> c.getParameters().stream().map(p -> typeName(p.getType())).toList().equals(parameters))
+                    .anyMatch(CtModifiable::isPrivate);
+        } catch (RuntimeException e) {
+            return false; // a declaration that cannot be built is not evidence that the constructor is private
+        }
+    }
+
+    private static String typeName(CtTypeReference<?> type) {
+        return type == null ? "" : type.getQualifiedName();
     }
 
     /** The transitions of {@code method}, or nothing if they depend on more than the state of {@code this} */

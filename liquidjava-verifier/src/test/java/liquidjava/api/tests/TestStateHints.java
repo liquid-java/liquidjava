@@ -3,11 +3,13 @@ package liquidjava.api.tests;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 
 import liquidjava.api.CommandLineLauncher;
 import liquidjava.diagnostics.Diagnostics;
+import liquidjava.diagnostics.categories.ErrorCategory;
 import liquidjava.diagnostics.errors.LJError;
 import liquidjava.diagnostics.errors.StateRefinementError;
 import liquidjava.diagnostics.hints.Hint;
@@ -85,9 +87,78 @@ class TestStateHints {
     }
 
     @Test
-    void unknownStateListsTheCallsThatLeadToTheExpectedState() {
-        assertHints("ErrorStateHintUnknownState.java", new Hint(Kind.REACHING_CALLS,
-                "The state of f is unknown here. To get it to open, use: f.open() (from created)"));
+    void unknownStateDoesNotSuggestACallThatNeedsAnotherUnknownState() {
+        assertHints("ErrorStateHintUnknownState.java",
+                new Hint(Kind.NEEDED_STATE, "The state of f is unknown here, and this call needs it to be open"));
+    }
+
+    @Test
+    void unknownStateOfAnExternalClassNamesOnlyTheCheckedStateSet() {
+        assertHints("classes/state_hint_undo_manager_error", new Hint(Kind.NEEDED_STATE,
+                "The state of undoManager is unknown here, and this call needs it to be redoable"));
+    }
+
+    @Test
+    void unknownStateSuggestsCallsAllowedInAnyState() {
+        assertHints("ErrorStateHintUnknownAnyState.java",
+                new Hint(Kind.NEEDED_STATE, "The state of f is unknown here, and this call needs it to be open"),
+                new Hint(Kind.CALL_SEQUENCE,
+                        "Call f.reset(), then f.open() before this call to move f from any state to open"));
+    }
+
+    @Test
+    void statesAreNamedOnlyInTheStateSetsThatMatter() {
+        List<StateRefinementError> errors = errors("ErrorStateHintNaming.java", 3);
+        assertHints(errors.get(0), new Hint(Kind.NEEDED_STATE,
+                "The state of s is unknown here, and this call needs it to be open or loud"));
+        assertHints(errors.get(1),
+                new Hint(Kind.NEEDED_STATE, "The state of t is unknown here, and this call needs it to be a or b. "
+                        + "Objects created with new ErrorStateHintNamingToggle() start in such a state"));
+        assertHints(errors.get(2),
+                new Hint(Kind.UNREACHABLE_STATE, "No sequence of calls moves this from notRedoable to redoable"),
+                new Hint(Kind.AVAILABLE_CALLS, "In state notRedoable, this can call: check()"));
+    }
+
+    @Test
+    void failedCheckOfTheReceiverIsNotAnUnknownState() {
+        List<StateRefinementError> errors = errors("classes/state_hint_checked_error", 3);
+        assertHints(errors.get(0), new Hint(Kind.NEEDED_STATE,
+                "What is known here does not decide the state of it, and this call needs it to be hasMore"));
+        assertHints(errors.get(1), new Hint(Kind.NEEDED_STATE,
+                "What is known here does not decide the state of same, and this call needs it to be hasMore"));
+        assertHints(errors.get(2), new Hint(Kind.NEEDED_STATE,
+                "The state of input is unknown here, and this call needs it to be hasMore"));
+        assertEquals(List.of(Optional.empty(), Optional.empty(), Optional.of(ErrorCategory.UNKNOWN)),
+                errors.stream().map(LJError::getCategory).toList());
+    }
+
+    @Test
+    void joinsAreNotTakenForAnUnknownState() {
+        List<StateRefinementError> errors = errors("ErrorStateHintJoins.java", 2);
+        assertHints(errors.get(0), new Hint(Kind.UNREACHABLE_STATE,
+                "No sequence of calls moves d from closed and unlocked or closed and locked or opened and unlocked "
+                        + "or opened and locked to closed and unlocked. "
+                        + "Create a new object instead with new ErrorStateHintJoins()"));
+        assertHints(errors.get(1), new Hint(Kind.UNREACHABLE_STATE,
+                "No sequence of calls moves d from closed and unlocked or opened and unlocked to closed and unlocked. "
+                        + "Create a new object instead with new ErrorStateHintJoins()"),
+                new Hint(Kind.AVAILABLE_CALLS,
+                        "In state closed and unlocked or opened and unlocked, d can call: lock()"));
+        assertEquals(Optional.empty(), errors.get(0).getCategory());
+    }
+
+    @Test
+    void onlyConstructorsThatCanBeCalledAreSuggested() {
+        List<StateRefinementError> errors = errors("ErrorStateHintConstructors.java", 4);
+        assertHints(errors.get(0),
+                new Hint(Kind.NEEDED_STATE, "The state of value is unknown here, and this call needs it to be ready. "
+                        + "Objects created with new ErrorStateHintConstructors() start in such a state"));
+        assertHints(errors.get(1),
+                new Hint(Kind.NEEDED_STATE, "The state of this is unknown here, and this call needs it to be ready"));
+        assertHints(errors.get(2),
+                new Hint(Kind.NEEDED_STATE, "The state of value is unknown here, and this call needs it to be ready"));
+        assertHints(errors.get(3),
+                new Hint(Kind.NEEDED_STATE, "The state of value is unknown here, and this call needs it to be ready"));
     }
 
     @Test
@@ -109,10 +180,18 @@ class TestStateHints {
     }
 
     private static void assertHints(String test, Hint... expected) {
+        assertHints(errors(test, 1).get(0), expected);
+    }
+
+    private static void assertHints(StateRefinementError error, Hint... expected) {
+        assertEquals(List.of(expected), error.getHints());
+    }
+
+    /** The {@code count} errors {@code test} reports, in the order they are reported */
+    private static List<StateRefinementError> errors(String test, int count) {
         CommandLineLauncher.launch(TEST_SUITE + test);
         List<LJError> errors = Diagnostics.getInstance().getErrors().stream().toList();
-        assertEquals(1, errors.size(), "Expected exactly one error from " + test);
-        StateRefinementError error = assertInstanceOf(StateRefinementError.class, errors.get(0));
-        assertEquals(List.of(expected), error.getHints());
+        assertEquals(count, errors.size(), "Unexpected number of errors from " + test);
+        return errors.stream().map(e -> assertInstanceOf(StateRefinementError.class, e)).toList();
     }
 }

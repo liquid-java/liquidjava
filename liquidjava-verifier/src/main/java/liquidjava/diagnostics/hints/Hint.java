@@ -25,8 +25,8 @@ public record Hint(Kind kind, String message) {
         PATH_DEPENDENT_STATE,
         /** The object is in a state where no call with a state refinement is allowed */
         FINAL_STATE,
-        /** The object's state is unknown, so these are the calls that lead to a state that allows the failing call */
-        REACHING_CALLS
+        /** The object can be in any state: the state the failing call needs, and the constructors that create it */
+        NEEDED_STATE
     }
 
     public static Hint general(String message) {
