@@ -797,12 +797,9 @@ public class AuxStateHandler {
             Predicate expected = expectedStatesDisjunction;
             boolean checked = deciding.isEmpty() && states
                     .map(r -> checkedElsewhere(tc, r, prevState, expected, instanceName, invocation)).orElse(false);
-            ErrorCategory category = deciding
-                    .isPresent()
-                            ? ErrorCategory.ARGUMENT_PICKS_THE_STATE : states
-                                    .flatMap(r -> StateErrorCategories.categorize(r.machine(), r.current(), prevState,
-                                            checked, StateMachineBuilder.ghostStatesOf(tc, r.className())))
-                                    .orElse(null);
+            ErrorCategory category = deciding.isPresent() ? ErrorCategory.ARGUMENT_PICKS_THE_STATE : states.flatMap(
+                    r -> StateErrorCategories.categorize(r.machine(), r.current(), prevState, checked, r.ghostStates()))
+                    .orElse(null);
             List<Hint> hints = deciding.isPresent()
                     ? receiverOf(invocation).map(r -> StateHints.decidingArgument(deciding.get(), r)).stream().toList()
                     : states.map(r -> stateHints(r, function, category, checked, invocation)).orElse(List.of());
@@ -814,8 +811,11 @@ public class AuxStateHandler {
         }
     }
 
-    /** The state machine of the receiver's class and the states the receiver can be in before a call */
-    private record ReceiverStates(String className, StateMachine machine, Set<State> current) {
+    /**
+     * The state machine of the receiver's class, the states the receiver can be in before a call, and the ghost states
+     * of the class and its supertypes
+     */
+    private record ReceiverStates(StateMachine machine, Set<State> current, List<GhostState> ghostStates) {
     }
 
     /**
@@ -831,7 +831,8 @@ public class AuxStateHandler {
                 return Optional.empty();
             Set<State> current = new StateSolver(tc, invocation.getPosition()).possibleStates(machine.get().states(),
                     state, receiver.getName());
-            return Optional.of(new ReceiverStates(className, machine.get(), current));
+            List<GhostState> ghostStates = StateMachineBuilder.ghostStatesOf(tc, className);
+            return Optional.of(new ReceiverStates(machine.get(), current, ghostStates));
         } catch (RuntimeException e) {
             // a failure to analyse the states must not replace the error being reported
             DebugLog.warn("Could not compute the receiver's states: " + e.getMessage());
@@ -844,8 +845,7 @@ public class AuxStateHandler {
             String instanceName, CtElement invocation) {
         try {
             return StateErrorCategories.checkedElsewhere(states.machine(), states.current(), found,
-                    () -> tc.shownFound(found, expected), instanceName,
-                    StateMachineBuilder.ghostStatesOf(tc, states.className()),
+                    () -> tc.shownFound(found, expected), instanceName, states.ghostStates(),
                     new StateSolver(tc, invocation.getPosition()));
         } catch (RuntimeException e) {
             DebugLog.warn("Could not tell whether the receiver's state was checked: " + e.getMessage());

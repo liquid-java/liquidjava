@@ -23,6 +23,7 @@ import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Keys;
 import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtElement;
+import spoon.reflect.declaration.CtMethod;
 import spoon.reflect.declaration.CtModifiable;
 import spoon.reflect.declaration.CtType;
 import spoon.reflect.reference.CtExecutableReference;
@@ -200,26 +201,23 @@ public class StateMachineBuilder {
             if (!function.hasStateChange())
                 continue;
             boolean constructor = CtExecutableReference.CONSTRUCTOR_NAME.equals(function.getName());
-            if (className.equals(function.getTargetClass()) && constructor) {
+            boolean own = className.equals(function.getTargetClass());
+            if (own && constructor) {
                 if (abstractType(type) || privateConstructor(function, type))
                     continue; // cannot be suggested as a new object
                 Optional<Set<State>> created = createdStates(function);
                 created.ifPresent(s -> constructors.put(function, s));
                 continue;
             }
-            if (className.equals(function.getTargetClass()) && !appliesToOwnType(function, type, supertypes)) {
+            if (!own && (constructor || !inherited.contains(function.getTargetClass())))
+                continue;
+            if (!own && overridden(function, className))
+                continue; // the class's own refinement for it is the one in the machine
+            boolean applies = own ? appliesToOwnType(function, type, supertypes)
+                    : resolvesTo(function, type, supertypes) && publiclyInherited(function);
+            if (!applies) {
                 complete = false;
                 continue;
-            }
-            if (!className.equals(function.getTargetClass())) {
-                if (constructor || !inherited.contains(function.getTargetClass()))
-                    continue;
-                if (overridden(function, className))
-                    continue; // the class's own refinement for it is the one in the machine
-                if (!resolvesTo(function, type, supertypes) || !publiclyInherited(function)) {
-                    complete = false;
-                    continue;
-                }
             }
             Optional<List<Transition>> calls = transitionsOf(function);
             if (calls.isPresent()) {
@@ -271,15 +269,11 @@ public class StateMachineBuilder {
      * parameters, so an overload can hide an inherited method, which only leaves the machine incomplete.
      */
     private boolean resolvesTo(RefinedFunction method, CtTypeReference<?> type, List<CtTypeReference<?>> supertypes) {
-        String name = Utils.getSimpleName(method.getName());
-        int arity = method.getArguments().size();
         for (CtTypeReference<?> t : Stream.concat(Stream.of(type), supertypes.stream()).toList()) {
             CtType<?> declaration = t.getTypeDeclaration();
             if (declaration == null)
                 return false; // cannot tell which type declares it
-            boolean declares = declaration.getMethods().stream()
-                    .anyMatch(m -> m.getSimpleName().equals(name) && m.getParameters().size() == arity);
-            if (declares)
+            if (declarationsOf(method, declaration).findAny().isPresent())
                 return t.getQualifiedName().equals(method.getTargetClass());
         }
         return false;
@@ -288,18 +282,22 @@ public class StateMachineBuilder {
     /**
      * Whether any caller can call {@code method} on an object of a subtype of the type it is specified for. The machine
      * is shared by every caller, so a method that only some callers can reach (private, package-private or protected)
-     * is left out, which only leaves the machine incomplete. Methods are matched by name and number of parameters.
+     * is left out, which only leaves the machine incomplete.
      */
     private boolean publiclyInherited(RefinedFunction method) {
         CtType<?> declaring = tc.getFactory().Type().createReference(method.getTargetClass()).getTypeDeclaration();
         if (declaring == null)
             return false; // cannot tell whether it is public
+        // interface methods are public unless declared private
+        return declarationsOf(method, declaring).allMatch(m -> declaring.isInterface() ? !m.isPrivate() : m.isPublic());
+    }
+
+    /** The methods of {@code type} that {@code method} may refer to: those with its name and number of parameters */
+    private static Stream<CtMethod<?>> declarationsOf(RefinedFunction method, CtType<?> type) {
         String name = Utils.getSimpleName(method.getName());
         int arity = method.getArguments().size();
-        // interface methods are public unless declared private
-        return declaring.getMethods().stream()
-                .filter(m -> m.getSimpleName().equals(name) && m.getParameters().size() == arity)
-                .allMatch(m -> declaring.isInterface() ? !m.isPrivate() : m.isPublic());
+        return type.getMethods().stream()
+                .filter(m -> m.getSimpleName().equals(name) && m.getParameters().size() == arity);
     }
 
     private static boolean abstractType(CtTypeReference<?> type) {
