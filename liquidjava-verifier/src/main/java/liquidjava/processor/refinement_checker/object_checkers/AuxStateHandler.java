@@ -797,9 +797,12 @@ public class AuxStateHandler {
             Predicate expected = expectedStatesDisjunction;
             boolean checked = deciding.isEmpty() && states
                     .map(r -> checkedElsewhere(tc, r, prevState, expected, instanceName, invocation)).orElse(false);
-            ErrorCategory category = deciding.isPresent() ? ErrorCategory.ARGUMENT_PICKS_THE_STATE
-                    : states.flatMap(r -> StateErrorCategories.categorize(r.machine(), r.current(), prevState, checked,
-                            StateMachineBuilder.ghostStatesOf(tc, r.className()))).orElse(null);
+            ErrorCategory category = deciding
+                    .isPresent()
+                            ? ErrorCategory.ARGUMENT_PICKS_THE_STATE : states
+                                    .flatMap(r -> StateErrorCategories.categorize(r.machine(), r.current(), prevState,
+                                            checked, StateMachineBuilder.ghostStatesOf(tc, r.className())))
+                                    .orElse(null);
             List<Hint> hints = deciding.isPresent()
                     ? receiverOf(invocation).map(r -> StateHints.decidingArgument(deciding.get(), r)).stream().toList()
                     : states.map(r -> stateHints(r, function, category, checked, invocation)).orElse(List.of());
