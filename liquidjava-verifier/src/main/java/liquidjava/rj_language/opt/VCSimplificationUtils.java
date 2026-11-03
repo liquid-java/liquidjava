@@ -1,19 +1,13 @@
 package liquidjava.rj_language.opt;
 
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
-import java.util.function.Function;
 
 import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
-import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.FunctionInvocation;
 import liquidjava.rj_language.ast.LiteralBoolean;
-import liquidjava.rj_language.ast.UnaryExpression;
 import liquidjava.rj_language.ast.Var;
 
 public final class VCSimplificationUtils {
@@ -59,61 +53,6 @@ public final class VCSimplificationUtils {
 
     public static boolean isFalse(Expression expression) {
         return expression instanceof LiteralBoolean literal && !literal.isBooleanTrue();
-    }
-
-    /**
-     * Splits an expression into the facts it states together: the operands of {@code &&}, and of a negated disjunction
-     * {@code !(a || b)}, which states {@code !a} and {@code !b}
-     */
-    public static List<Expression> splitConjuncts(Expression expression) {
-        List<Expression> conjuncts = new ArrayList<>();
-        addConjuncts(expression, conjuncts);
-        return conjuncts;
-    }
-
-    private static void addConjuncts(Expression expression, List<Expression> conjuncts) {
-        Expression negated = negatedOperand(expression);
-        if (expression instanceof BinaryExpression binary && "&&".equals(binary.getOperator())) {
-            addConjuncts(binary.getFirstOperand(), conjuncts);
-            addConjuncts(binary.getSecondOperand(), conjuncts);
-        } else if (negated instanceof BinaryExpression binary && "||".equals(binary.getOperator())) {
-            addConjuncts(new UnaryExpression("!", binary.getFirstOperand()), conjuncts);
-            addConjuncts(new UnaryExpression("!", binary.getSecondOperand()), conjuncts);
-        } else if (negatedOperand(negated) != null) {
-            addConjuncts(negatedOperand(negated), conjuncts);
-        } else {
-            conjuncts.add(expression);
-        }
-    }
-
-    // the operand of !e, or null for any other expression
-    private static Expression negatedOperand(Expression expression) {
-        return expression instanceof UnaryExpression not && "!".equals(not.getOp()) ? not.getExpression() : null;
-    }
-
-    /**
-     * Returns the conjuncts linked to the seed terms: those sharing a term with the seed, directly or through other
-     * linked conjuncts. The remaining conjuncts only constrain values that the seed does not depend on
-     */
-    public static List<Expression> linkedConjuncts(List<Expression> conjuncts,
-            Function<Expression, ? extends Collection<String>> termsOf, Collection<String> seed) {
-        Set<String> linkedTerms = new HashSet<>(seed);
-        List<Expression> linked = new ArrayList<>();
-        List<Expression> unlinked = new ArrayList<>(conjuncts);
-        boolean changed = true;
-        while (changed) {
-            changed = false;
-            for (Expression conjunct : List.copyOf(unlinked)) {
-                Collection<String> terms = termsOf.apply(conjunct);
-                if (terms.stream().anyMatch(linkedTerms::contains)) {
-                    linkedTerms.addAll(terms);
-                    linked.add(conjunct);
-                    unlinked.remove(conjunct);
-                    changed = true;
-                }
-            }
-        }
-        return linked;
     }
 
     /**
