@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
 
@@ -58,6 +60,57 @@ class TestStateHints {
     @Test
     void subclassTransitionsPreventClaimingStateIsUnreachable() {
         assertHints("ErrorStateHintSubclass.java");
+    }
+
+    @Test
+    void subclassReceiverCanUseItsOwnTransitionsOnInheritedStates() {
+        assertHints("ErrorStateHintInheritedStates.java",
+                new Hint(Kind.CALL_SEQUENCE, "Call s.bc() before this call to move s from b to c"),
+                new Hint(Kind.AVAILABLE_CALLS, "In state b, s can call: bc()"));
+    }
+
+    @Test
+    void overrideInTheReceiversClassReplacesTheInheritedTransition() {
+        assertHints("ErrorStateHintOverride.java",
+                new Hint(Kind.CALL_SEQUENCE, "Call s.next() before this call to move s from a to c"),
+                new Hint(Kind.AVAILABLE_CALLS, "In state a, s can call: next()"));
+    }
+
+    @Test
+    void stateSetAndMethodsFromSpecsOfTheReceiversSuperclasses() {
+        assertHints("classes/state_hints_grandchild_spec_error",
+                new Hint(Kind.CALL_SEQUENCE,
+                        "Call window.dispose() before this call to move window from displayable to notDisplayable"),
+                new Hint(Kind.AVAILABLE_CALLS, "In state displayable, window can call: dispose(), pack()"));
+    }
+
+    @Test
+    void superclassRefinementOfAMethodTheReceiversClassRedeclaresIsNotSuggested() {
+        assertHints("classes/state_hints_redeclared_method_error",
+                new Hint(Kind.CALL_SEQUENCE,
+                        "Call host.dispose() before this call to move host from displayable to notDisplayable"),
+                new Hint(Kind.AVAILABLE_CALLS,
+                        "In state displayable, host can call: dispose(), pack() (and possibly others)"));
+    }
+
+    @Test
+    void stateSetAndMethodsFromTheReceiversSuperclassSpec() {
+        assertHints("classes/state_hints_superclass_spec_error",
+                new Hint(Kind.CALL_SEQUENCE,
+                        "Call host.dispose() before this call to move host from displayable to notDisplayable"),
+                new Hint(Kind.AVAILABLE_CALLS, "In state displayable, host can call: dispose(), pack()"));
+    }
+
+    @Test
+    void ownGenericRefinementOfAnInheritedMethodIsNotSuggested() {
+        assertHints("classes/state_hints_generic_inherited_method_error");
+    }
+
+    @Test
+    void statesOfAnotherClassWithTheSimpleNameOfASupertypeAreLeftOut() {
+        assertHints("classes/state_hints_same_simple_name_error",
+                new Hint(Kind.CALL_SEQUENCE, "Call l.add(E) before this call to move l from empty to nonEmpty"),
+                new Hint(Kind.AVAILABLE_CALLS, "In state empty, l can call: add(E)"));
     }
 
     @Test
@@ -159,6 +212,21 @@ class TestStateHints {
                 new Hint(Kind.NEEDED_STATE, "The state of value is unknown here, and this call needs it to be ready"));
         assertHints(errors.get(3),
                 new Hint(Kind.NEEDED_STATE, "The state of value is unknown here, and this call needs it to be ready"));
+    }
+
+    @Test
+    void onlyPublicInheritedMethodsAreSuggested() {
+        List<StateRefinementError> errors = errors("classes/state_hints_inaccessible_inherited_error", 2);
+        // the files are verified in no fixed order
+        assertEquals(Set.of(
+                List.of(new Hint(Kind.CALL_SEQUENCE,
+                        "Call hatch.openPublicly() before this call to move hatch from closed to open"),
+                        new Hint(Kind.AVAILABLE_CALLS,
+                                "In state closed, hatch can call: openPublicly() (and possibly others)")),
+                List.of(new Hint(Kind.CALL_SEQUENCE,
+                        "Call door.push() before this call to move door from shut to ajar"),
+                        new Hint(Kind.AVAILABLE_CALLS, "In state shut, door can call: push() (and possibly others)"))),
+                errors.stream().map(StateRefinementError::getHints).collect(Collectors.toSet()));
     }
 
     @Test

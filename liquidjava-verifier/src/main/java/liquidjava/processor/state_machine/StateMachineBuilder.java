@@ -1,6 +1,9 @@
 package liquidjava.processor.state_machine;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -11,7 +14,6 @@ import java.util.stream.Stream;
 
 import liquidjava.diagnostics.errors.LJError;
 import liquidjava.processor.context.Context;
-import liquidjava.processor.context.GhostFunction;
 import liquidjava.processor.context.GhostState;
 import liquidjava.processor.context.ObjectState;
 import liquidjava.processor.context.RefinedFunction;
@@ -21,17 +23,19 @@ import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Keys;
 import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtElement;
+import spoon.reflect.declaration.CtMethod;
 import spoon.reflect.declaration.CtModifiable;
 import spoon.reflect.declaration.CtType;
 import spoon.reflect.reference.CtExecutableReference;
+import spoon.reflect.reference.CtTypeParameterReference;
 import spoon.reflect.reference.CtTypeReference;
 
 /**
- * Builds the {@link StateMachine} of a class from its {@code @StateSet}s and {@code @StateRefinement}s. Every
- * transition is proven by the SMT solver, so the machine never contains a call that would not verify. Methods whose
- * state refinements mention anything besides the states of {@code this} (parameters, return values, other ghosts) are
- * left out, and the machine is then marked incomplete, as it is when a superclass or subclass has state refinements of
- * its own.
+ * Builds the {@link StateMachine} of a class from its {@code @StateSet}s and {@code @StateRefinement}s, and those of
+ * its supertypes, which it inherits. Every transition is proven by the SMT solver, so the machine never contains a call
+ * that would not verify. Methods whose state refinements mention anything besides the states of {@code this}
+ * (parameters, return values, other ghosts) are left out, and the machine is then marked incomplete, as it is when a
+ * subclass has state refinements of its own or an inherited refinement may not be the one the verifier applies.
  */
 public class StateMachineBuilder {
 
@@ -68,18 +72,77 @@ public class StateMachineBuilder {
      */
     public static Optional<StateMachine> build(TypeChecker tc, StateSolver solver, String className, CtElement element)
             throws LJError {
-        List<State> states = statesOf(tc.getContext(), className, false);
+        CtTypeReference<?> type = tc.getFactory().Type().createReference(className);
+        List<CtTypeReference<?>> supertypes = supertypesOf(type);
+        List<State> states = statesOf(ghostStatesOf(tc.getContext(), type, supertypes), false);
         if (states.isEmpty() || states.size() > MAX_STATES)
             return Optional.empty();
         Context context = tc.getContext();
         context.enterContext();
         try {
-            CtTypeReference<?> type = tc.getFactory().Type().createReference(className);
             context.addVarToContext(BEFORE, type, new Predicate(), element);
             context.addVarToContext(AFTER, type, new Predicate(), element);
-            return Optional.of(new StateMachineBuilder(tc, solver, states).build(className, type));
+            return Optional.of(new StateMachineBuilder(tc, solver, states).build(type, supertypes));
         } finally {
             context.exitContext();
+        }
+    }
+
+    /** The ghost states of {@code className} and of its supertypes, which its objects also have */
+    public static List<GhostState> ghostStatesOf(TypeChecker tc, String className) {
+        CtTypeReference<?> type = tc.getFactory().Type().createReference(className);
+        return ghostStatesOf(tc.getContext(), type, supertypesOf(type));
+    }
+
+    private static List<GhostState> ghostStatesOf(Context context, CtTypeReference<?> type,
+            List<CtTypeReference<?>> supertypes) {
+        // a state set can be registered more than once, so states are told apart by name, and states are kept by
+        // simple class name, so those of another class with the same simple name are left out
+        Map<String, GhostState> ghostStates = new LinkedHashMap<>();
+        for (CtTypeReference<?> t : Stream.concat(Stream.of(type), supertypes.stream()).toList()) {
+            List<GhostState> declared = context.getGhostState(Utils.getSimpleName(t.getQualifiedName()));
+            if (declared != null)
+                declared.stream().filter(g -> t.getQualifiedName().equals(g.getPrefix()))
+                        .forEach(g -> ghostStates.putIfAbsent(g.getQualifiedName(), g));
+        }
+        return List.copyOf(ghostStates.values());
+    }
+
+    /** Every supertype of {@code type}, nearest first: its superclasses, then the interfaces they implement */
+    private static List<CtTypeReference<?>> supertypesOf(CtTypeReference<?> type) {
+        List<CtTypeReference<?>> superclasses = new ArrayList<>();
+        Deque<CtTypeReference<?>> interfaces = new ArrayDeque<>();
+        Set<String> seen = new HashSet<>(Set.of(type.getQualifiedName()));
+        for (CtTypeReference<?> t = type; t != null; t = superclassOf(t)) {
+            if (t != type && seen.add(t.getQualifiedName()))
+                superclasses.add(t);
+            interfaces.addAll(superInterfacesOf(t));
+        }
+        List<CtTypeReference<?>> supertypes = new ArrayList<>(superclasses);
+        while (!interfaces.isEmpty()) {
+            CtTypeReference<?> t = interfaces.poll();
+            if (seen.add(t.getQualifiedName())) {
+                supertypes.add(t);
+                interfaces.addAll(superInterfacesOf(t));
+            }
+        }
+        return supertypes;
+    }
+
+    // a supertype that cannot be resolved (no source, not on the classpath) ends the walk on that branch
+    private static CtTypeReference<?> superclassOf(CtTypeReference<?> type) {
+        try {
+            return type.getSuperclass();
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    private static Set<CtTypeReference<?>> superInterfacesOf(CtTypeReference<?> type) {
+        try {
+            return type.getSuperInterfaces();
+        } catch (RuntimeException e) {
+            return Set.of();
         }
     }
 
@@ -92,10 +155,12 @@ public class StateMachineBuilder {
      */
     public static List<State> statesOf(Context context, String className, boolean withNone) {
         List<GhostState> ghostStates = context.getGhostState(Utils.getSimpleName(className));
-        if (ghostStates == null)
-            return List.of();
-        Map<GhostFunction, List<GhostState>> stateSets = ghostStates.stream().filter(g -> g.getParent() != null)
-                .collect(Collectors.groupingBy(GhostState::getParent, LinkedHashMap::new, Collectors.toList()));
+        return ghostStates == null ? List.of() : statesOf(ghostStates, withNone);
+    }
+
+    private static List<State> statesOf(List<GhostState> ghostStates, boolean withNone) {
+        Map<String, List<GhostState>> stateSets = ghostStates.stream().filter(g -> g.getParent() != null).collect(
+                Collectors.groupingBy(g -> g.getParent().getQualifiedName(), LinkedHashMap::new, Collectors.toList()));
         if (stateSets.isEmpty())
             return List.of();
 
@@ -125,19 +190,33 @@ public class StateMachineBuilder {
         return new State(names, Predicate.createConjunction(state.predicate(), inSet.predicate()));
     }
 
-    private StateMachine build(String className, CtTypeReference<?> type) throws LJError {
+    private StateMachine build(CtTypeReference<?> type, List<CtTypeReference<?>> supertypes) throws LJError {
+        String className = type.getQualifiedName();
+        Set<String> inherited = supertypes.stream().map(CtTypeReference::getQualifiedName).collect(Collectors.toSet());
         List<RefinedFunction> methods = new ArrayList<>();
         List<Transition> transitions = new ArrayList<>();
         Map<RefinedFunction, Set<State>> constructors = new LinkedHashMap<>();
-        boolean complete = !relatedClassChangesState(className, type);
+        boolean complete = !subclassChangesState(className, type, inherited);
         for (RefinedFunction function : tc.getContext().getCtxFunctions()) {
-            if (!className.equals(function.getTargetClass()) || !function.hasStateChange())
+            if (!function.hasStateChange())
                 continue;
-            if (CtExecutableReference.CONSTRUCTOR_NAME.equals(function.getName())) {
+            boolean constructor = CtExecutableReference.CONSTRUCTOR_NAME.equals(function.getName());
+            boolean own = className.equals(function.getTargetClass());
+            if (own && constructor) {
                 if (abstractType(type) || privateConstructor(function, type))
                     continue; // cannot be suggested as a new object
                 Optional<Set<State>> created = createdStates(function);
                 created.ifPresent(s -> constructors.put(function, s));
+                continue;
+            }
+            if (!own && (constructor || !inherited.contains(function.getTargetClass())))
+                continue;
+            if (!own && overridden(function, className))
+                continue; // the class's own refinement for it is the one in the machine
+            boolean applies = own ? appliesToOwnType(function, type, supertypes)
+                    : resolvesTo(function, type, supertypes) && publiclyInherited(function);
+            if (!applies) {
+                complete = false;
                 continue;
             }
             Optional<List<Transition>> calls = transitionsOf(function);
@@ -151,12 +230,74 @@ public class StateMachineBuilder {
         return new StateMachine(states, methods, transitions, constructors, complete);
     }
 
-    /** Whether a superclass or subclass has state refinements of its own, which the machine does not include */
-    private boolean relatedClassChangesState(String className, CtTypeReference<?> type) {
+    /** Whether a subclass has state refinements of its own, which the machine does not include */
+    private boolean subclassChangesState(String className, CtTypeReference<?> type, Set<String> inherited) {
         return tc.getContext().getCtxFunctions().stream().filter(RefinedFunction::hasStateChange)
-                .map(RefinedFunction::getTargetClass).filter(c -> c != null && !c.equals(className)).distinct()
-                .map(c -> tc.getFactory().Type().createReference(c))
-                .anyMatch(other -> other.isSubtypeOf(type) || type.isSubtypeOf(other));
+                .map(RefinedFunction::getTargetClass)
+                .filter(c -> c != null && !c.equals(className) && !inherited.contains(c)).distinct()
+                .map(c -> tc.getFactory().Type().createReference(c)).anyMatch(other -> other.isSubtypeOf(type));
+    }
+
+    /**
+     * Whether the verifier checks a call to {@code method}, specified for {@code type}, on an object of that type. It
+     * looks the refinement up by the receiver's type, which needs the parameter types to match those of the method it
+     * resolves to, and otherwise by the type that declares that method. A parameter whose type is a type variable may
+     * not match, so then {@code type} must declare the method.
+     */
+    private boolean appliesToOwnType(RefinedFunction method, CtTypeReference<?> type,
+            List<CtTypeReference<?>> supertypes) {
+        boolean concreteParameters = method.getArguments().stream()
+                .noneMatch(a -> a.getType() instanceof CtTypeParameterReference);
+        return concreteParameters || resolvesTo(method, type, supertypes);
+    }
+
+    /** Whether {@code className} has its own refinement for {@code method}, with the same parameter types */
+    private boolean overridden(RefinedFunction method, String className) {
+        String name = Utils.getSimpleName(method.getName());
+        List<String> parameters = parameterTypes(method);
+        return tc.getContext().getCtxFunctions().stream().anyMatch(f -> className.equals(f.getTargetClass())
+                && name.equals(Utils.getSimpleName(f.getName())) && parameters.equals(parameterTypes(f)));
+    }
+
+    private static List<String> parameterTypes(RefinedFunction function) {
+        return function.getArguments().stream().map(a -> typeName(a.getType())).toList();
+    }
+
+    /**
+     * Whether the nearest type in the hierarchy of {@code type} that declares {@code method} is the one it is specified
+     * for, which is where the verifier looks up the refinement of a call. Methods are matched by name and number of
+     * parameters, so an overload can hide an inherited method, which only leaves the machine incomplete.
+     */
+    private boolean resolvesTo(RefinedFunction method, CtTypeReference<?> type, List<CtTypeReference<?>> supertypes) {
+        for (CtTypeReference<?> t : Stream.concat(Stream.of(type), supertypes.stream()).toList()) {
+            CtType<?> declaration = t.getTypeDeclaration();
+            if (declaration == null)
+                return false; // cannot tell which type declares it
+            if (declarationsOf(method, declaration).findAny().isPresent())
+                return t.getQualifiedName().equals(method.getTargetClass());
+        }
+        return false;
+    }
+
+    /**
+     * Whether any caller can call {@code method} on an object of a subtype of the type it is specified for. The machine
+     * is shared by every caller, so a method that only some callers can reach (private, package-private or protected)
+     * is left out, which only leaves the machine incomplete.
+     */
+    private boolean publiclyInherited(RefinedFunction method) {
+        CtType<?> declaring = tc.getFactory().Type().createReference(method.getTargetClass()).getTypeDeclaration();
+        if (declaring == null)
+            return false; // cannot tell whether it is public
+        // interface methods are public unless declared private
+        return declarationsOf(method, declaring).allMatch(m -> declaring.isInterface() ? !m.isPrivate() : m.isPublic());
+    }
+
+    /** The methods of {@code type} that {@code method} may refer to: those with its name and number of parameters */
+    private static Stream<CtMethod<?>> declarationsOf(RefinedFunction method, CtType<?> type) {
+        String name = Utils.getSimpleName(method.getName());
+        int arity = method.getArguments().size();
+        return type.getMethods().stream()
+                .filter(m -> m.getSimpleName().equals(name) && m.getParameters().size() == arity);
     }
 
     private static boolean abstractType(CtTypeReference<?> type) {
@@ -176,7 +317,7 @@ public class StateMachineBuilder {
                 return true;
             if (!(declaration instanceof CtClass<?> declared))
                 return false;
-            List<String> parameters = constructor.getArguments().stream().map(a -> typeName(a.getType())).toList();
+            List<String> parameters = parameterTypes(constructor);
             return declared.getConstructors().stream()
                     .filter(c -> c.getParameters().stream().map(p -> typeName(p.getType())).toList().equals(parameters))
                     .anyMatch(CtModifiable::isPrivate);

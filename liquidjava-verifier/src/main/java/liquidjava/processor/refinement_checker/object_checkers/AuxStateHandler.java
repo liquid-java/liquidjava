@@ -793,13 +793,12 @@ public class AuxStateHandler {
                     .orElse(function.getPlacementInCode().getPosition());
             List<GhostState> ghostStates = getGhostStatesFor(function.getTargetClass(), tc);
             Optional<DecidingArgument> deciding = decidingArgument(tc, vi, function, ghostStates, invocation);
-            Optional<ReceiverStates> states = receiverStates(tc, function, instanceName, prevState, invocation);
+            Optional<ReceiverStates> states = receiverStates(tc, function, vi, prevState, invocation);
             Predicate expected = expectedStatesDisjunction;
             boolean checked = deciding.isEmpty() && states
-                    .map(r -> checkedElsewhere(tc, r, prevState, expected, instanceName, ghostStates, invocation))
-                    .orElse(false);
+                    .map(r -> checkedElsewhere(tc, r, prevState, expected, instanceName, invocation)).orElse(false);
             ErrorCategory category = deciding.isPresent() ? ErrorCategory.ARGUMENT_PICKS_THE_STATE : states.flatMap(
-                    r -> StateErrorCategories.categorize(r.machine(), r.current(), prevState, checked, ghostStates))
+                    r -> StateErrorCategories.categorize(r.machine(), r.current(), prevState, checked, r.ghostStates()))
                     .orElse(null);
             List<Hint> hints = deciding.isPresent()
                     ? receiverOf(invocation).map(r -> StateHints.decidingArgument(deciding.get(), r)).stream().toList()
@@ -812,8 +811,11 @@ public class AuxStateHandler {
         }
     }
 
-    /** The state machine of the receiver's class and the states the receiver can be in before a call */
-    private record ReceiverStates(StateMachine machine, Set<State> current) {
+    /**
+     * The state machine of the receiver's class, the states the receiver can be in before a call, and the ghost states
+     * of the class and its supertypes
+     */
+    private record ReceiverStates(StateMachine machine, Set<State> current, List<GhostState> ghostStates) {
     }
 
     /**
@@ -821,14 +823,16 @@ public class AuxStateHandler {
      * cannot be computed, the error is reported without hints or category
      */
     private static Optional<ReceiverStates> receiverStates(TypeChecker tc, RefinedFunction function,
-            String instanceName, Predicate state, CtElement invocation) {
+            VariableInstance receiver, Predicate state, CtElement invocation) {
         try {
-            Optional<StateMachine> machine = tc.getStateMachine(function.getTargetClass(), invocation);
+            String className = receiverClass(tc, function, receiver);
+            Optional<StateMachine> machine = tc.getStateMachine(className, invocation);
             if (machine.isEmpty())
                 return Optional.empty();
             Set<State> current = new StateSolver(tc, invocation.getPosition()).possibleStates(machine.get().states(),
-                    state, instanceName);
-            return Optional.of(new ReceiverStates(machine.get(), current));
+                    state, receiver.getName());
+            List<GhostState> ghostStates = StateMachineBuilder.ghostStatesOf(tc, className);
+            return Optional.of(new ReceiverStates(machine.get(), current, ghostStates));
         } catch (RuntimeException e) {
             // a failure to analyse the states must not replace the error being reported
             DebugLog.warn("Could not compute the receiver's states: " + e.getMessage());
@@ -838,15 +842,27 @@ public class AuxStateHandler {
 
     /** Best effort, like {@link #receiverStates}: see {@link StateErrorCategories#checkedElsewhere} */
     private static boolean checkedElsewhere(TypeChecker tc, ReceiverStates states, Predicate found, Predicate expected,
-            String instanceName, List<GhostState> ghostStates, CtElement invocation) {
+            String instanceName, CtElement invocation) {
         try {
             return StateErrorCategories.checkedElsewhere(states.machine(), states.current(), found,
-                    () -> tc.shownFound(found, expected), instanceName, ghostStates,
+                    () -> tc.shownFound(found, expected), instanceName, states.ghostStates(),
                     new StateSolver(tc, invocation.getPosition()));
         } catch (RuntimeException e) {
             DebugLog.warn("Could not tell whether the receiver's state was checked: " + e.getMessage());
             return false;
         }
+    }
+
+    /**
+     * The class whose machine explains the call: the receiver's own type, which inherits the state sets and methods of
+     * its supertypes, or the class the method is specified for if the receiver's type is not one of its subtypes
+     */
+    private static String receiverClass(TypeChecker tc, RefinedFunction function, VariableInstance receiver) {
+        String target = function.getTargetClass();
+        CtTypeReference<?> type = receiver.getType();
+        if (type == null || type.isPrimitive() || type.getQualifiedName().equals(target))
+            return target;
+        return type.isSubtypeOf(tc.getFactory().Type().createReference(target)) ? type.getQualifiedName() : target;
     }
 
     /** Best effort, like {@link #receiverStates} */

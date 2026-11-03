@@ -16,7 +16,7 @@ public class ErrorStateHintSubclass {
     public void useC() {}
 
     public static void use() {
-        ErrorStateHintSubclassChild s = new ErrorStateHintSubclassChild();
+        ErrorStateHintSubclass s = new ErrorStateHintSubclassChild();
         s.ab();
         s.useC(); // Expect: State Refinement Error
     }

@@ -170,7 +170,8 @@ public final class StateHints {
     private Optional<String> newObjects(RefinedFunction call) {
         if (receiver.equals(Keys.THIS))
             return Optional.empty();
-        List<String> constructors = machine.constructorsEnabling(call).stream().map(StateHints::constructor).toList();
+        List<String> constructors = machine.constructorsEnabling(call).stream().map(StateHints::constructor).distinct()
+                .toList();
         return constructors.isEmpty() ? Optional.empty() : Optional.of(String.join(" or ", constructors));
     }
 
