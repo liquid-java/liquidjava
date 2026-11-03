@@ -182,6 +182,37 @@ class TestStateHints {
     }
 
     @Test
+    void abstractClassIsNotToldToCreateANewObject() {
+        assertHints("ErrorStateHintUnknownAbstract.java",
+                new Hint(Kind.NEEDED_STATE, "The state of value is unknown here, and this call needs it to be ready"));
+    }
+
+    @Test
+    void abstractClassWithAnExternalSpecIsNotToldToCreateANewObject() {
+        assertHints("classes/state_hint_abstract_spec_error",
+                new Hint(Kind.NEEDED_STATE, "The state of in is unknown here, and this call needs it to be open"));
+    }
+
+    @Test
+    void interfaceWithAnExternalSpecIsNotToldToCreateANewObject() {
+        assertHints("classes/state_hint_interface_spec_error",
+                new Hint(Kind.NEEDED_STATE, "The state of task is unknown here, and this call needs it to be done"));
+    }
+
+    @Test
+    void privateConstructorIsNotSuggested() {
+        assertHints("ErrorStateHintUnknownPrivateConstructor.java",
+                new Hint(Kind.NEEDED_STATE, "The state of value is unknown here, and this call needs it to be ready"));
+    }
+
+    @Test
+    void concreteClassIsToldToCreateANewObject() {
+        assertHints("ErrorStateHintUnknownConcrete.java",
+                new Hint(Kind.NEEDED_STATE, "The state of value is unknown here, and this call needs it to be ready. "
+                        + "Objects created with new ErrorStateHintUnknownConcrete() start in such a state"));
+    }
+
+    @Test
     void stateCheckedByAnEarlierCallIsNotCalledUnknown() {
         assertHints("classes/state_hint_checked_state_error", new Hint(Kind.NEEDED_STATE,
                 "What is known here does not decide the state of it, and this call needs it to be hasMore"));
