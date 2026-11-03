@@ -76,7 +76,7 @@ class TestFoundBinders {
     void staticFieldIsWrittenWithItsClass() {
         Shown shown = ERRORS.get(31);
         assertEquals(List.of("∀Basket.served true", "∀count count == Basket.served + 1"), shown.rows());
-        assertEquals("Counterexample: Basket.served == -1 && count == 0", shown.counterexample());
+        assertEquals("Counterexample: count == 0 && Basket.served == -1", shown.counterexample());
     }
 
     @Test
