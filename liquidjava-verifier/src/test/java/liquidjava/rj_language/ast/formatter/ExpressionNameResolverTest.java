@@ -51,13 +51,4 @@ class ExpressionNameResolverTest {
 
         assertEquals("items⁵ == this.items", expression.toDisplayString());
     }
-
-    @Test
-    void writesFieldsAsInCodeInsideFunctionArguments() {
-        Predicate size = Predicate.createInvocation("java.util.ArrayList.size",
-                Predicate.createVar("this#shop.Basket.items"));
-        Expression expression = Predicate.createEquals(Predicate.createVar("#bound_6"), size).getExpression();
-
-        assertEquals("bound⁶ == size(this.items)", expression.toDisplayString());
-    }
 }

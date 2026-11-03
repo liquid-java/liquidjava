@@ -9,7 +9,7 @@ import liquidjava.diagnostics.errors.CustomError;
 import liquidjava.diagnostics.warnings.CustomWarning;
 import liquidjava.processor.RefinementProcessor;
 import liquidjava.processor.context.ContextHistory;
-import liquidjava.rj_language.ast.formatter.VariableFormatter;
+import liquidjava.rj_language.ast.formatter.FieldDisplayNames;
 import liquidjava.specification.Refinement;
 import picocli.CommandLine;
 import spoon.Launcher;
@@ -58,7 +58,7 @@ public class CommandLineLauncher {
 
         diagnostics.clear();
         contextHistory.clearHistory();
-        VariableFormatter.clearStaticFields();
+        FieldDisplayNames.clear();
         Launcher launcher = new Launcher();
         for (String path : paths) {
             if (!new File(path).exists()) {

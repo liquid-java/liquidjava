@@ -53,41 +53,51 @@ public record NeededVariables(Set<String> expectedTerms, Set<String> expectedVal
     }
 
     private static NeededVariables of(Predicate expected, boolean keepExpected) {
-        if (expected == null)
-            return new NeededVariables(Set.of(), Set.of(), keepExpected);
-        return new NeededVariables(new HashSet<>(termsOf(expected.getExpression())),
-                new HashSet<>(valueVariablesOf(expected.getExpression())), keepExpected);
+        Expression expression = expected.getExpression();
+        return new NeededVariables(new HashSet<>(termsOf(expression)), new HashSet<>(valueVariablesOf(expression)),
+                keepExpected);
     }
 
     /**
      * Variables whose binder refined only by true the chain keeps: those whose own value a fact linked to expected
-     * constrains. A variable of an object type that a fact names only as the argument of a ghost or state application
-     * ({@code x} in {@code b == size(x)}) has no value of its own there, so its row would say nothing; a primitive
-     * argument ({@code k} in {@code y == f(k)}) has one
+     * constrains, and, when {@code keepExpected}, those whose value expected constrains
      */
     public Set<String> trueBindersToKeep(VCImplication chain) {
-        List<Expression> facts = new ArrayList<>();
-        Set<String> primitives = new HashSet<>();
-        for (VCImplication current = chain; current != null; current = current.getNext()) {
-            if (current.hasBinder() && current.getType().isPrimitive())
-                primitives.add(current.getName());
-            if (!isTrue(current.getRefinement().getExpression()))
-                facts.addAll(splitConjuncts(current.getRefinement().getExpression()));
-        }
-
+        Set<String> primitives = primitiveBinders(chain);
         Set<String> keep = new HashSet<>();
-        if (keepExpected)
-            keep.addAll(expectedValues);
-        for (Expression fact : linkedConjuncts(facts, VCSimplificationUtils::termsOf, expectedTerms)) {
-            List<String> values = valueVariablesOf(fact);
+        for (Expression fact : linkedConjuncts(factsOf(chain), VCSimplificationUtils::termsOf, expectedTerms))
             for (String name : variablesOf(fact))
-                if ((values.contains(name) || primitives.contains(name)) && !expectedTerms.contains(name))
+                if (!expectedTerms.contains(name) && hasOwnValue(name, fact, primitives))
                     keep.add(name);
-        }
         if (keepExpected)
             for (String name : expectedTerms)
-                if (primitives.contains(name))
+                if (expectedValues.contains(name) || primitives.contains(name))
                     keep.add(name);
         return keep;
+    }
+
+    /**
+     * Whether a fact constrains the variable's own value. A variable of an object type that the fact names only as the
+     * argument of a ghost or state application ({@code x} in {@code b == size(x)}) has no value of its own there, so
+     * its row would say nothing; a primitive argument ({@code k} in {@code y == f(k)}) has one
+     */
+    private static boolean hasOwnValue(String name, Expression fact, Set<String> primitives) {
+        return primitives.contains(name) || valueVariablesOf(fact).contains(name);
+    }
+
+    private static List<Expression> factsOf(VCImplication chain) {
+        List<Expression> facts = new ArrayList<>();
+        for (VCImplication current = chain; current != null; current = current.getNext())
+            if (!isTrue(current.getRefinement().getExpression()))
+                facts.addAll(splitConjuncts(current.getRefinement().getExpression()));
+        return facts;
+    }
+
+    private static Set<String> primitiveBinders(VCImplication chain) {
+        Set<String> primitives = new HashSet<>();
+        for (VCImplication current = chain; current != null; current = current.getNext())
+            if (current.hasBinder() && current.getType().isPrimitive())
+                primitives.add(current.getName());
+        return primitives;
     }
 }

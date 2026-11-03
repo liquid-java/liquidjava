@@ -58,7 +58,7 @@ public class VCSimplification {
     private static List<VCSimplificationPass> passes(NeededVariables needed) {
         return List.of(new VCSubstitution(), new VCFunctionSubstitution(), new VCBinderSimplification(needed),
                 new VCFolding(), new VCArithmeticSimplification(), new VCLogicalSimplification(),
-                new VCConstraintSimplification());
+                new VCConstraintSimplification(), new VCBinderOrdering());
     }
 
     /**

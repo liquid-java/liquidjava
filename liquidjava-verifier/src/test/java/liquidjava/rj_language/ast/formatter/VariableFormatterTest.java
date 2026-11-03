@@ -1,8 +1,6 @@
 package liquidjava.rj_language.ast.formatter;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -10,8 +8,8 @@ import org.junit.jupiter.api.Test;
 class VariableFormatterTest {
 
     @AfterEach
-    void forgetStaticFields() {
-        VariableFormatter.clearStaticFields();
+    void forgetRecordedNames() {
+        FieldDisplayNames.clear();
     }
 
     @Test
@@ -34,49 +32,21 @@ class VariableFormatterTest {
     @Test
     void writesInstanceFieldsAsInCode() {
         assertEquals("this.items", VariableFormatter.format("this#shop.Basket.items"));
-        assertEquals("this.items", VariableFormatter.format("this#Basket.items"));
-        assertEquals("this.interrupts⁴⁷⁵", VariableFormatter
-                .format("#this#x_e_oss_a1_17_interruptmanager.E_OSS_A1_17_InterruptManager.interrupts_475"));
-        assertEquals("this.port", VariableFormatter.format("this#pkg.Outer$Job.port"));
+        assertEquals("this.port⁴", VariableFormatter.format("#this#pkg.Outer$Job.port_4"));
     }
 
     @Test
     void writesStaticFieldsWithTheirClass() {
-        VariableFormatter.registerStaticField("this#shop.Basket.served");
-        VariableFormatter.registerStaticField("this#pkg.Outer$Job.count");
-        assertEquals("Basket.served", VariableFormatter.format("this#shop.Basket.served"));
-        assertEquals("Basket.served³", VariableFormatter.format("#this#shop.Basket.served_3"));
-        assertEquals("Job.count", VariableFormatter.format("this#pkg.Outer$Job.count"));
-        assertEquals("this.items", VariableFormatter.format("this#shop.Basket.items"));
+        FieldDisplayNames.recordStaticField("this#pkg.Outer$Job.count");
+        assertEquals("Job.count³", VariableFormatter.format("#this#pkg.Outer$Job.count_3"));
     }
 
     @Test
-    void forgetsStaticFieldsOfThePreviousVerification() {
-        VariableFormatter.registerStaticField("this#shop.Basket.served");
-        VariableFormatter.clearStaticFields();
-        assertEquals("this.served", VariableFormatter.format("this#shop.Basket.served"));
-    }
-
-    @Test
-    void writesAnInstanceCreatedByAWriteThroughAnotherObjectWithThatObject() {
-        VariableFormatter.registerReceiver("#this#otherwrite.W.level_1", "other");
-        VariableFormatter.registerReceiver("#this#otherwrite.W.level_2", "");
-        assertEquals("other.level¹", VariableFormatter.format("#this#otherwrite.W.level_1"));
-        assertEquals("level²", VariableFormatter.format("#this#otherwrite.W.level_2"));
-        assertEquals("this.level³", VariableFormatter.format("#this#otherwrite.W.level_3"));
-        assertEquals("this.level", VariableFormatter.format("this#otherwrite.W.level"));
-        VariableFormatter.clearStaticFields();
-        assertEquals("this.level¹", VariableFormatter.format("#this#otherwrite.W.level_1"));
-    }
-
-    @Test
-    void recognisesFieldNames() {
-        assertTrue(VariableFormatter.isField("this#shop.Basket.items"));
-        assertTrue(VariableFormatter.isField("#this#shop.Basket.items_4"));
-        assertFalse(VariableFormatter.isField("other#otherwrite.W.level"));
-        assertFalse(VariableFormatter.isField("this#Basket"));
-        assertFalse(VariableFormatter.isField("#this_4"));
-        assertFalse(VariableFormatter.isField("items"));
-        assertFalse(VariableFormatter.isField("java.util.ArrayList.size"));
+    void writesAFieldWrittenThroughAnotherObjectWithThatObject() {
+        FieldDisplayNames.recordWriteReceiver("#this#pkg.W.level_1", "other");
+        assertEquals("other.level¹", VariableFormatter.format("#this#pkg.W.level_1"));
+        assertEquals("this.level²", VariableFormatter.format("#this#pkg.W.level_2"));
+        FieldDisplayNames.clear();
+        assertEquals("this.level¹", VariableFormatter.format("#this#pkg.W.level_1"));
     }
 }

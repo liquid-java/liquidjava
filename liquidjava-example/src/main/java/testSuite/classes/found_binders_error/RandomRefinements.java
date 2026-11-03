@@ -1,4 +1,4 @@
-package testSuite.classes.found_true_binders_error;
+package testSuite.classes.found_binders_error;
 
 import liquidjava.specification.ExternalRefinementsFor;
 import liquidjava.specification.Refinement;

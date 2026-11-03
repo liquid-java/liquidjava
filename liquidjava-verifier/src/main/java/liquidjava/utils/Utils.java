@@ -8,7 +8,7 @@ import java.util.Scanner;
 import java.util.Set;
 import java.util.stream.Stream;
 
-import liquidjava.rj_language.ast.formatter.VariableFormatter;
+import liquidjava.rj_language.ast.formatter.FieldDisplayNames;
 import liquidjava.utils.constants.Types;
 import spoon.reflect.code.CtAssignment;
 import spoon.reflect.code.CtBlock;
@@ -62,12 +62,16 @@ public class Utils {
         return String.format("%s.%s", prefix, name);
     }
 
+    /**
+     * The context variable name of a field, {@code this#<declaring type>.<field>}; also records a static field for
+     * display, since every field name of a verification is built here
+     */
     public static String qualifyFieldName(CtFieldReference<?> field) {
         if (field.getDeclaringType() == null) // declaring class not resolved: matches no known field
             return "this#" + field.getSimpleName();
         String name = "this#" + field.getDeclaringType().getQualifiedName() + "." + field.getSimpleName();
         if (field.isStatic())
-            VariableFormatter.registerStaticField(name);
+            FieldDisplayNames.recordStaticField(name);
         return name;
     }
 

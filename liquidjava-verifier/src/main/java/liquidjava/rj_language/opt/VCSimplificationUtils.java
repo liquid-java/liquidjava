@@ -72,19 +72,23 @@ public final class VCSimplificationUtils {
     }
 
     private static void addConjuncts(Expression expression, List<Expression> conjuncts) {
+        Expression negated = negatedOperand(expression);
         if (expression instanceof BinaryExpression binary && "&&".equals(binary.getOperator())) {
             addConjuncts(binary.getFirstOperand(), conjuncts);
             addConjuncts(binary.getSecondOperand(), conjuncts);
-        } else if (expression instanceof UnaryExpression not && "!".equals(not.getOp())
-                && not.getExpression()instanceof BinaryExpression binary && "||".equals(binary.getOperator())) {
+        } else if (negated instanceof BinaryExpression binary && "||".equals(binary.getOperator())) {
             addConjuncts(new UnaryExpression("!", binary.getFirstOperand()), conjuncts);
             addConjuncts(new UnaryExpression("!", binary.getSecondOperand()), conjuncts);
-        } else if (expression instanceof UnaryExpression not && "!".equals(not.getOp())
-                && not.getExpression()instanceof UnaryExpression inner && "!".equals(inner.getOp())) {
-            addConjuncts(inner.getExpression(), conjuncts);
+        } else if (negatedOperand(negated) != null) {
+            addConjuncts(negatedOperand(negated), conjuncts);
         } else {
             conjuncts.add(expression);
         }
+    }
+
+    // the operand of !e, or null for any other expression
+    private static Expression negatedOperand(Expression expression) {
+        return expression instanceof UnaryExpression not && "!".equals(not.getOp()) ? not.getExpression() : null;
     }
 
     /**

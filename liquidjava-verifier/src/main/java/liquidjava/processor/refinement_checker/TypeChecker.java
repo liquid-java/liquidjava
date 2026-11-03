@@ -23,7 +23,7 @@ import liquidjava.processor.state_machine.StateMachine;
 import liquidjava.processor.state_machine.StateMachineBuilder;
 import liquidjava.processor.state_machine.StateSolver;
 import liquidjava.rj_language.Predicate;
-import liquidjava.rj_language.ast.formatter.VariableFormatter;
+import liquidjava.rj_language.ast.formatter.FieldDisplayNames;
 import liquidjava.rj_language.parsing.RefinementsParser;
 import liquidjava.smt.SMTEvaluator;
 import liquidjava.smt.SMTResult;
@@ -384,7 +384,7 @@ public abstract class TypeChecker extends CtScanner {
 
         String newName = String.format(Formats.INSTANCE, simpleName, context.getCounter());
         Utils.untrackedWriteReceiver(usage)
-                .ifPresent(receiver -> VariableFormatter.registerReceiver(newName, receiver));
+                .ifPresent(receiver -> FieldDisplayNames.recordWriteReceiver(newName, receiver));
         Predicate correctNewRefinement = refinementFound.substituteVariable(Keys.WILDCARD, newName);
         correctNewRefinement = correctNewRefinement.substituteVariable(Keys.THIS, newName);
         cEt = cEt.substituteVariable(simpleName, newName);
