@@ -17,6 +17,7 @@ import liquidjava.diagnostics.errors.RefinementError;
 import liquidjava.diagnostics.errors.StateRefinementError;
 import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.ast.formatter.VariableFormatter;
+import liquidjava.rj_language.opt.VCSimplificationResult;
 
 /**
  * Checks the rows of Found: a binder refined only by true is shown only when the error needs it, and fields are written
@@ -28,9 +29,16 @@ class TestFoundBinders {
 
     private static Map<Integer, Shown> basket;
     private static Map<Integer, Shown> fieldState;
+    private static Map<Integer, Shown> pathDependentState;
+    private static Map<Integer, Shown> otherObjectWrite;
 
-    /** What the user is shown for an error, without the instance counters that depend on verification order */
-    private record Shown(List<String> rows, String message, String counterexample) {
+    /**
+     * What the user is shown for an error, without the instance counters that depend on verification order: the
+     * simplified Found, the original Found the panel steps back to, the simplification of each step and the raw binder
+     * names of the original
+     */
+    private record Shown(List<String> rows, String message, String counterexample, List<String> originalRows,
+            List<String> steps, List<String> originalBinders) {
     }
 
     @BeforeAll
@@ -38,11 +46,14 @@ class TestFoundBinders {
         // shown as the IDE gets it: right after the verification, before the next one starts
         basket = verify("classes/found_true_binders_error");
         fieldState = verify("classes/found_field_state_error");
+        pathDependentState = verify("ErrorStateHintPathDependent.java");
+        otherObjectWrite = verify("ErrorOtherObjectFieldWrite.java");
     }
 
     @Test
     void basketHasOneErrorPerCase() {
-        assertEquals(List.of(25, 30, 36, 49, 56, 62, 67, 76, 82, 88, 96), new ArrayList<>(basket.keySet()));
+        assertEquals(List.of(25, 30, 36, 49, 56, 62, 67, 76, 82, 88, 96, 104, 111, 117),
+                new ArrayList<>(basket.keySet()));
     }
 
     @Test
@@ -51,6 +62,17 @@ class TestFoundBinders {
         assertEquals(List.of("∀bound bound == size(this.items) && bound >= 0"), shown.rows());
         assertEquals("bound == size(this.items) && bound >= 0 is not a subtype of bound > 0", shown.message());
         assertEquals("Counterexample: bound == 0", shown.counterexample());
+    }
+
+    @Test
+    void steppingBackReachesTheOriginalWithTheDroppedRow() {
+        Shown shown = basket.get(25);
+        assertEquals(
+                List.of("∀this.items true", "∀items items == this.items", "∀bound bound == size(items) && bound >= 0"),
+                shown.originalRows());
+        assertEquals(List.of("Substitution", "Binder"), shown.steps());
+        assertEquals(List.of("this#testSuite.classes.found_true_binders_error.Basket.items", "#items_", "#bound_"),
+                shown.originalBinders());
     }
 
     @Test
@@ -77,7 +99,7 @@ class TestFoundBinders {
     }
 
     @Test
-    void trueRowUsedLaterIsKeptWhenTheCounterexampleHasItsValue() {
+    void trueRowLinkedToExpectedThroughALaterRowIsKept() {
         Shown shown = basket.get(62);
         assertEquals(List.of("∀x true", "∀y y == x + 1"), shown.rows());
         assertEquals("Counterexample: x == -1 && y == 0", shown.counterexample());
@@ -108,12 +130,48 @@ class TestFoundBinders {
 
     @Test
     void fieldReadWithoutThisIsWrittenTheSameWay() {
-        assertEquals(basket.get(82), basket.get(88));
+        Shown withThis = basket.get(82);
+        Shown withoutThis = basket.get(88);
+        assertEquals(withThis.rows(), withoutThis.rows());
+        assertEquals(withThis.message(), withoutThis.message());
+        assertEquals(withThis.counterexample(), withoutThis.counterexample());
     }
 
     @Test
     void fieldOfAnInnerClassIsWrittenAsInCode() {
         assertEquals(List.of("∀bound bound == size(this.names) && bound >= 0"), basket.get(96).rows());
+    }
+
+    @Test
+    void trueRowUsedOnlyByAnUnrelatedGuardIsDropped() {
+        Shown shown = basket.get(104);
+        assertEquals(List.of("∀#fresh !(port < 0)", "∀t true"), shown.rows());
+        assertEquals(List.of("∀port true", "∀#fresh !(port < 0)", "∀t true"), shown.originalRows());
+    }
+
+    @Test
+    void trueRowsOfACombinedGuardAreNotLinkedToExpected() {
+        assertEquals(List.of("∀#fresh !(p || q)", "∀t true"), basket.get(111).rows());
+    }
+
+    @Test
+    void keptTrueRowComesBeforeTheRowUsingIt() {
+        assertEquals(List.of("∀Basket.served true", "∀i true", "∀#fresh i < Basket.served"), basket.get(117).rows());
+    }
+
+    @Test
+    void trueRowDecidingAPathDependentStateIsKept() {
+        Shown shown = pathDependentState.get(25);
+        assertEquals(List.of("∀ready true", "∀f ready ? open(f) : created(f)"), shown.rows());
+    }
+
+    @Test
+    void writeToAnotherObjectsFieldIsWrittenWithThatObject() {
+        assertEquals(List.of(11, 15, 19), new ArrayList<>(otherObjectWrite.keySet()));
+        assertEquals("other.level == -1 is not a subtype of other.level >= 0", otherObjectWrite.get(11).message());
+        assertEquals(List.of("∀other.level true", "∀other.level other.level == other.level - 1"),
+                otherObjectWrite.get(15).rows());
+        assertEquals("this.level == -1 is not a subtype of this.level >= 0", otherObjectWrite.get(19).message());
     }
 
     @Test
@@ -130,20 +188,25 @@ class TestFoundBinders {
     private static Map<Integer, Shown> verify(String test) {
         CommandLineLauncher.launch(TEST_SUITE + test);
         Map<Integer, Shown> shown = new TreeMap<>();
-        for (LJError error : Diagnostics.getInstance().getErrors())
-            shown.put(error.getPosition().getLine(), new Shown(rows(error), plain(error.getMessage()),
-                    error.getCounterexampleStr() == null ? null : plain(error.getCounterexampleStr())));
+        for (LJError error : Diagnostics.getInstance().getErrors()) {
+            VCSimplificationResult found = error instanceof RefinementError refinementError ? refinementError.getFound()
+                    : assertInstanceOf(StateRefinementError.class, error).getFoundSimplification();
+            List<String> steps = new ArrayList<>();
+            VCSimplificationResult original = found;
+            for (; original.getOrigin() != null; original = original.getOrigin())
+                steps.add(0, original.getSimplification());
+            List<String> originalBinders = original.getBinders().stream().map(b -> b.replaceAll("[0-9]+$", ""))
+                    .toList();
+            shown.put(error.getPosition().getLine(),
+                    new Shown(rows(found.getImplication()), plain(error.getMessage()),
+                            error.getCounterexampleStr() == null ? null : plain(error.getCounterexampleStr()),
+                            rows(original.getImplication()), steps, originalBinders));
+        }
         return shown;
     }
 
     // the rows of Found as the IDE writes them: binder name, then its refinement
-    private static List<String> rows(LJError error) {
-        VCImplication found;
-        if (error instanceof RefinementError refinementError)
-            found = refinementError.getFound().getImplication();
-        else
-            found = assertInstanceOf(StateRefinementError.class, error).getFound();
-
+    private static List<String> rows(VCImplication found) {
         List<String> rows = new ArrayList<>();
         for (VCImplication current = found; current != null; current = current.getNext()) {
             String refinement = current.getRefinement().getExpression().toDisplayString();

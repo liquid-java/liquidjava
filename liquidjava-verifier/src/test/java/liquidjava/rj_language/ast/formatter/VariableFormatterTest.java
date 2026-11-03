@@ -58,16 +58,16 @@ class VariableFormatterTest {
     }
 
     @Test
-    void writesFieldsWithTheirOwnerOnRequest() {
-        assertEquals("Basket.this.items", VariableFormatter.formatWithOwner("this#shop.Basket.items"));
-        assertEquals("Job.this.port²", VariableFormatter.formatWithOwner("#this#pkg.Outer$Job.port_2"));
-        assertEquals("x²", VariableFormatter.formatWithOwner("#x_2"));
+    void writesFieldsOfAnotherObjectWithThatObject() {
+        assertEquals("other.level", VariableFormatter.format("other#otherwrite.W.level"));
+        assertEquals("other.level¹", VariableFormatter.format("#other#otherwrite.W.level_1"));
     }
 
     @Test
     void recognisesFieldNames() {
         assertTrue(VariableFormatter.isField("this#shop.Basket.items"));
         assertTrue(VariableFormatter.isField("#this#shop.Basket.items_4"));
+        assertTrue(VariableFormatter.isField("other#otherwrite.W.level"));
         assertFalse(VariableFormatter.isField("this#Basket"));
         assertFalse(VariableFormatter.isField("#this_4"));
         assertFalse(VariableFormatter.isField("items"));

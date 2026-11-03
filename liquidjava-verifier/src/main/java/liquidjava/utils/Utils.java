@@ -17,6 +17,7 @@ import spoon.reflect.code.CtIf;
 import spoon.reflect.code.CtSuperAccess;
 import spoon.reflect.code.CtThisAccess;
 import spoon.reflect.code.CtTry;
+import spoon.reflect.code.CtVariableRead;
 import spoon.reflect.code.CtWhile;
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.CtAnnotation;
@@ -63,6 +64,20 @@ public class Utils {
         if (field.isStatic())
             VariableFormatter.registerStaticField(name);
         return name;
+    }
+
+    /**
+     * Name of the context variable that a field write updates: the tracked field ({@link #qualifyFieldName}) for a
+     * static field or a field of the current object, and otherwise a variable of its own for that field of the other
+     * object, {@code <object>#<declaring type>.<field>}, named after the variable holding the object when there is one
+     */
+    public static String writtenFieldName(CtFieldAccess<?> access) {
+        String name = qualifyFieldName(access.getVariable());
+        if (accessesTrackedField(access))
+            return name;
+        String object = access.getTarget()instanceof CtVariableRead<?> read ? read.getVariable().getSimpleName()
+                : "other";
+        return object + name.substring("this".length());
     }
 
     public static String getFile(CtElement element) {

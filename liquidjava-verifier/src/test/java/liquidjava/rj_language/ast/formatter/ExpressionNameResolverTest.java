@@ -60,12 +60,4 @@ class ExpressionNameResolverTest {
 
         assertEquals("bound⁶ == size(this.items)", expression.toDisplayString());
     }
-
-    @Test
-    void writesTheClassOfFieldsWithTheSameName() {
-        Expression expression = Predicate.createEquals(Predicate.createVar("this#shop.Basket.count"),
-                Predicate.createVar("this#shop.Shelf.count")).getExpression();
-
-        assertEquals("Basket.this.count == Shelf.this.count", expression.toDisplayString());
-    }
 }

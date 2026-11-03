@@ -5,6 +5,10 @@ import static liquidjava.rj_language.opt.VCSimplificationUtils.copyWithRefinemen
 import static liquidjava.rj_language.opt.VCSimplificationUtils.isFalse;
 import static liquidjava.rj_language.opt.VCSimplificationUtils.isTrue;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+
 import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.LiteralBoolean;
@@ -34,24 +38,27 @@ public class VCBinderSimplification implements VCSimplificationPass {
     @Override
     public VCImplication apply(VCImplication implication) {
         VCImplication cloned = implication.clone();
-        VCImplication simplified = simplify(cloned);
+        Set<String> keptTrueBinders = needed.trueBindersToKeep(cloned);
+        VCImplication simplified = simplify(cloned, keptTrueBinders);
+        if (simplified == null)
+            simplified = moveTrueBinderBeforeFirstUse(cloned);
         return simplified == null ? cloned : simplified;
     }
 
     /**
      * Simplifies the first applicable binder in a VC chain
      */
-    private VCImplication simplify(VCImplication implication) {
+    private VCImplication simplify(VCImplication implication, Set<String> keptTrueBinders) {
         if (implication == null)
             return null;
 
         if (isFalseBinder(implication))
             return collapseFalseBinder(implication);
 
-        if (isRemovableBinder(implication))
+        if (isRemovableBinder(implication, keptTrueBinders))
             return removeBinder(implication);
 
-        VCImplication next = simplify(implication.getNext());
+        VCImplication next = simplify(implication.getNext(), keptTrueBinders);
         if (next == null)
             return null;
 
@@ -80,14 +87,50 @@ public class VCBinderSimplification implements VCSimplificationPass {
      * binder refined only by true states no fact, so it is removed even when a later implication uses its variable,
      * unless the error needs it
      */
-    private boolean isRemovableBinder(VCImplication implication) {
+    private boolean isRemovableBinder(VCImplication implication, Set<String> keptTrueBinders) {
         if (!implication.hasBinder())
             return false;
 
-        boolean usedDownstream = containsVar(implication.getNext(), implication.getName());
         if (isTrueBinder(implication))
-            return !needed.needsTrueBinder(implication.getName(), usedDownstream);
-        return !usedDownstream && isUnusedFreshPathBinder(implication);
+            return !keptTrueBinders.contains(implication.getName());
+        return !containsVar(implication.getNext(), implication.getName()) && isUnusedFreshPathBinder(implication);
+    }
+
+    /**
+     * Moves the first binder refined only by true that comes after an implication using its variable to just before
+     * that implication, so that each variable is introduced before it is used
+     */
+    private VCImplication moveTrueBinderBeforeFirstUse(VCImplication implication) {
+        List<VCImplication> nodes = new ArrayList<>();
+        for (VCImplication current = implication; current != null; current = current.getNext())
+            nodes.add(current);
+
+        for (int i = 0; i < nodes.size(); i++) {
+            VCImplication binder = nodes.get(i);
+            if (!isTrueBinder(binder))
+                continue;
+            for (int j = 0; j < i; j++) {
+                if (containsVar(nodes.get(j).getRefinement().getExpression(), binder.getName())) {
+                    nodes.add(j, nodes.remove(i));
+                    return relink(nodes);
+                }
+            }
+        }
+        return null;
+    }
+
+    private VCImplication relink(List<VCImplication> nodes) {
+        VCImplication first = null;
+        VCImplication last = null;
+        for (VCImplication node : nodes) {
+            VCImplication copy = copyWithRefinement(node, node.getRefinement().clone());
+            if (first == null)
+                first = copy;
+            else
+                last.setNext(copy);
+            last = copy;
+        }
+        return first;
     }
 
     /**

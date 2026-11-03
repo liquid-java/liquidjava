@@ -96,4 +96,25 @@ public class Basket {
             return names.get(new Random().nextInt(names.size())); // Expect: Refinement Error
         }
     }
+
+    // a guard on a parameter unrelated to the expected one
+    void guarded(int port, int t) {
+        if (port < 0)
+            return;
+        positive(t); // Expect: Refinement Error
+    }
+
+    // one guard on two flags unrelated to the expected parameter
+    void flags(boolean p, boolean q, int t) {
+        if (p || q)
+            return;
+        positive(t); // Expect: Refinement Error
+    }
+
+    // the guard of a loop uses its variable before the variable's row
+    void count(int start) {
+        for (int i = start; i < served; i++) {
+            positive(i); // Expect: Refinement Error
+        }
+    }
 }

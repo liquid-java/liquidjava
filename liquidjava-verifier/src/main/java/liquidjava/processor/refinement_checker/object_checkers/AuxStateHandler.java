@@ -635,7 +635,7 @@ public class AuxStateHandler {
      */
     public static void updateGhostField(CtFieldWrite<?> fw, TypeChecker tc) throws LJError {
         CtField<?> field = fw.getVariable().getDeclaration();
-        String updatedVarName = Utils.qualifyFieldName(fw.getVariable());
+        String updatedVarName = Utils.writtenFieldName(fw);
         String targetClass = field.getDeclaringType().getQualifiedName();
 
         // state transition annotation construction

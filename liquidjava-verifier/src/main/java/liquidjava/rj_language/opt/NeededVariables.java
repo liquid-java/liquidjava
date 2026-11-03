@@ -1,38 +1,79 @@
 package liquidjava.rj_language.opt;
 
+import static liquidjava.rj_language.opt.VCSimplificationUtils.isTrue;
+import static liquidjava.rj_language.opt.VCSimplificationUtils.linkedConjuncts;
+import static liquidjava.rj_language.opt.VCSimplificationUtils.splitConjuncts;
+import static liquidjava.rj_language.opt.VCSimplificationUtils.termsOf;
+import static liquidjava.rj_language.opt.VCSimplificationUtils.valueVariablesOf;
+
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
+import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
-import liquidjava.smt.Counterexample;
-import liquidjava.utils.Pair;
+import liquidjava.rj_language.ast.Expression;
 
 /**
- * Variables that a simplified VC chain must keep a binder for even when the binder only says {@code true}: those of the
- * expected refinement, and those that the counterexample gives a value
+ * Decides which binders refined only by {@code true} a simplified VC chain keeps for an error. Such a binder states no
+ * fact, so it is kept only when a fact linked to the expected refinement (sharing a term with it, directly or through
+ * other facts) constrains its variable's value, or, when the error shows a counterexample, when expected itself
+ * constrains its value, so that the counterexample can show it
+ *
+ * @param expectedTerms
+ *            variables and ghost applications of the expected refinement
+ * @param expectedValues
+ *            variables whose value the expected refinement constrains
+ * @param keepExpected
+ *            whether the binders of expectedValues are kept for that alone
  */
-public record NeededVariables(Set<String> expected, Set<String> assigned) {
+public record NeededVariables(Set<String> expectedTerms, Set<String> expectedValues, boolean keepExpected) {
 
-    public static final NeededVariables NONE = new NeededVariables(Set.of(), Set.of());
+    public static final NeededVariables NONE = new NeededVariables(Set.of(), Set.of(), false);
 
     public NeededVariables {
-        expected = Set.copyOf(expected);
-        assigned = Set.copyOf(assigned);
-    }
-
-    public static NeededVariables of(Predicate expected, Counterexample counterexample) {
-        Set<String> expectedNames = expected == null ? Set.of() : new HashSet<>(expected.getVariableNames());
-        Set<String> assignedNames = new HashSet<>();
-        if (counterexample != null)
-            counterexample.assignments().stream().map(Pair::first).forEach(assignedNames::add);
-        return new NeededVariables(expectedNames, assignedNames);
+        expectedTerms = Set.copyOf(expectedTerms);
+        expectedValues = Set.copyOf(expectedValues);
     }
 
     /**
-     * Whether a binder refined only by {@code true} must stay: the expected refinement is about its variable, or a
-     * later implication uses it and the counterexample has a value for it
+     * For a refinement error, whose counterexample lists the values of the binders
      */
-    public boolean needsTrueBinder(String name, boolean usedDownstream) {
-        return expected.contains(name) || usedDownstream && assigned.contains(name);
+    public static NeededVariables forRefinementError(Predicate expected) {
+        return of(expected, true);
+    }
+
+    /**
+     * For a state refinement error, which has no counterexample
+     */
+    public static NeededVariables forStateError(Predicate expected) {
+        return of(expected, false);
+    }
+
+    private static NeededVariables of(Predicate expected, boolean keepExpected) {
+        if (expected == null)
+            return new NeededVariables(Set.of(), Set.of(), keepExpected);
+        return new NeededVariables(new HashSet<>(termsOf(expected.getExpression())),
+                new HashSet<>(valueVariablesOf(expected.getExpression())), keepExpected);
+    }
+
+    /**
+     * Variables whose binder refined only by true the chain keeps: those whose own value a fact linked to expected
+     * constrains. A variable named only as the object of a ghost or state application ({@code x} in
+     * {@code b == size(x)}) has no value of its own there, so its row would say nothing
+     */
+    public Set<String> trueBindersToKeep(VCImplication chain) {
+        List<Expression> facts = new ArrayList<>();
+        for (VCImplication current = chain; current != null; current = current.getNext())
+            if (!isTrue(current.getRefinement().getExpression()))
+                facts.addAll(splitConjuncts(current.getRefinement().getExpression()));
+
+        Set<String> keep = new HashSet<>(keepExpected ? expectedValues : Set.of());
+        for (Expression fact : linkedConjuncts(facts, VCSimplificationUtils::termsOf, expectedTerms))
+            for (String name : valueVariablesOf(fact))
+                if (!expectedTerms.contains(name))
+                    keep.add(name);
+        return keep;
     }
 }

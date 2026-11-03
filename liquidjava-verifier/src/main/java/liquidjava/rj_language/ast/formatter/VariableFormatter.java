@@ -10,23 +10,13 @@ import java.util.regex.Pattern;
  */
 public final class VariableFormatter {
     private static final Pattern INSTACE_VAR_PATTERN = Pattern.compile("^#(.+)_([0-9]+)$");
+    // <object>#<declaring type>.<field>: a field of the current object (this) or of the object in a local variable
+    private static final Pattern FIELD_PATTERN = Pattern.compile("^([A-Za-z_$][\\w$]*)#([\\w.$]+)\\.([\\w$]+)$");
     private static final char[] SUPERSCRIPT_CHARS = { '⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹' };
-    private static final String FIELD_PREFIX = "this#";
+    private static final String THIS = "this";
     private static final Set<String> STATIC_FIELDS = ConcurrentHashMap.newKeySet();
 
     public static String format(String name) {
-        return format(name, false);
-    }
-
-    /**
-     * Formats a name like {@link #format(String)}, but writes an instance field with its declaring class
-     * ({@code Basket.this.items}) to tell it apart from a field with the same name in another class
-     */
-    public static String formatWithOwner(String name) {
-        return format(name, true);
-    }
-
-    private static String format(String name, boolean withOwner) {
         if (name == null)
             return null;
 
@@ -35,12 +25,12 @@ public final class VariableFormatter {
 
         Matcher matcher = INSTACE_VAR_PATTERN.matcher(name);
         if (!matcher.matches())
-            return formatField(name, withOwner);
+            return formatField(name);
 
         String baseName = matcher.group(1);
         String counter = matcher.group(2);
         String prefix = isSpecialIdentifier(baseName) ? "#" : "";
-        return prefix + formatField(baseName, withOwner) + toSuperscript(counter);
+        return prefix + formatField(baseName) + toSuperscript(counter);
     }
 
     public static String withoutInstance(String name) {
@@ -49,11 +39,10 @@ public final class VariableFormatter {
     }
 
     /**
-     * Whether a name is that of a field, {@code this#<declaring type>.<field>}, possibly with an instance counter
+     * Whether a name is that of a field, {@code <object>#<declaring type>.<field>}, possibly with an instance counter
      */
     public static boolean isField(String name) {
-        String baseName = withoutInstance(name);
-        return baseName.startsWith(FIELD_PREFIX) && baseName.indexOf('.', FIELD_PREFIX.length()) > 0;
+        return FIELD_PATTERN.matcher(withoutInstance(name)).matches();
     }
 
     /**
@@ -72,20 +61,20 @@ public final class VariableFormatter {
     }
 
     /**
-     * Writes a field name as it is written in code: {@code this.field} for an instance field and {@code Class.field}
-     * for a static one, leaving any other name unchanged; the internal name keeps the declaring type to tell fields of
-     * different classes apart
+     * Writes a field name as it is written in code: {@code this.field} or {@code other.field} for an instance field and
+     * {@code Class.field} for a static one, leaving any other name unchanged; the internal name keeps the declaring
+     * type to tell fields of different classes apart
      */
-    private static String formatField(String name, boolean withOwner) {
-        if (!isField(name))
+    private static String formatField(String name) {
+        Matcher matcher = FIELD_PATTERN.matcher(name);
+        if (!matcher.matches())
             return name;
 
-        int fieldStart = name.lastIndexOf('.');
-        String field = name.substring(fieldStart + 1);
-        String owner = simpleTypeName(name.substring(FIELD_PREFIX.length(), fieldStart));
-        if (STATIC_FIELDS.contains(name))
-            return owner + "." + field;
-        return (withOwner ? owner + ".this." : "this.") + field;
+        String object = matcher.group(1);
+        String field = matcher.group(3);
+        if (object.equals(THIS) && STATIC_FIELDS.contains(name))
+            return simpleTypeName(matcher.group(2)) + "." + field;
+        return object + "." + field;
     }
 
     private static String simpleTypeName(String qualifiedName) {

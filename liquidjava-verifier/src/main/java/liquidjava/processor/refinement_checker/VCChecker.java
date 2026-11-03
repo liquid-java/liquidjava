@@ -84,7 +84,7 @@ public class VCChecker {
         DebugLog.smtResult(result);
         if (result.isError()) {
             throw new RefinementError(element.getPosition(), declarationPosition, expectedType,
-                    implBeforeChange.simplify(NeededVariables.of(expectedType, result.getCounterexample())), map,
+                    implBeforeChange.simplify(NeededVariables.forRefinementError(expectedType)), map,
                     result.getCounterexample(), customMessage);
         }
     }
@@ -445,7 +445,7 @@ public class VCChecker {
         TranslationTable map = new TranslationTable();
         VCImplication premises = buildPremiseChain(map, expected, found);
         throw new RefinementError(position, declarationPosition, expected,
-                premises.simplify(NeededVariables.of(expected, counterexample)), map, counterexample, customMessage);
+                premises.simplify(NeededVariables.forRefinementError(expected)), map, counterexample, customMessage);
     }
 
     protected void throwStateRefinementError(SourcePosition position, SourcePosition declarationPosition,
@@ -454,7 +454,8 @@ public class VCChecker {
         TranslationTable map = new TranslationTable();
         VCImplication foundState = buildPremiseChain(map, expected, found);
         throw new StateRefinementError(position, declarationPosition, expected,
-                foundState.simplify(NeededVariables.of(expected, null)), map, customMessage, hints, category, context);
+                foundState.simplify(NeededVariables.forStateError(expected)), map, customMessage, hints, category,
+                context);
     }
 
     protected void throwStateConflictError(SourcePosition position, Predicate expected) throws StateConflictError {
