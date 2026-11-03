@@ -9,13 +9,14 @@ import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.LiteralBoolean;
 import liquidjava.rj_language.ast.Var;
+import liquidjava.utils.constants.Formats;
 
 /**
  * Simplifies VCImplication chains by removing vacuous binder implications
  */
 public class VCBinderSimplification implements VCSimplificationPass {
 
-    private static final String FRESH_PREFIX = "#fresh_";
+    private static final String FRESH_PREFIX = Formats.FRESH_PREFIX;
 
     /**
      * Applies one binder simplification in a VC chain

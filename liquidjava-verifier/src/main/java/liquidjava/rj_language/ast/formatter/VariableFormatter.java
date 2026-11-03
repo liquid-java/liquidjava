@@ -14,6 +14,9 @@ public final class VariableFormatter {
         if (name == null)
             return null;
 
+        if (isApplication(name))
+            return formatApplication(name);
+
         Matcher matcher = INSTACE_VAR_PATTERN.matcher(name);
         if (!matcher.matches())
             return name;
@@ -42,5 +45,36 @@ public final class VariableFormatter {
 
     private static boolean isSpecialIdentifier(String id) {
         return id.equals("fresh") || id.equals("ret");
+    }
+
+    private static boolean isApplication(String name) {
+        int open = name.indexOf('(');
+        return open > 0 && name.endsWith(")");
+    }
+
+    /**
+     * Formats the arguments of a ghost application such as {@code size(#s_2)}, splitting them only at top-level commas
+     * so nested applications keep theirs
+     */
+    private static String formatApplication(String name) {
+        int open = name.indexOf('(');
+        String args = name.substring(open + 1, name.length() - 1);
+        StringBuilder formatted = new StringBuilder(name.substring(0, open)).append('(');
+        int depth = 0;
+        int start = 0;
+        for (int i = 0; i <= args.length(); i++) {
+            char c = i < args.length() ? args.charAt(i) : ',';
+            if (c == '(')
+                depth++;
+            else if (c == ')')
+                depth--;
+            else if (c == ',' && depth == 0) {
+                if (start > 0)
+                    formatted.append(", ");
+                formatted.append(format(args.substring(start, i).trim()));
+                start = i + 1;
+            }
+        }
+        return formatted.append(')').toString();
     }
 }
