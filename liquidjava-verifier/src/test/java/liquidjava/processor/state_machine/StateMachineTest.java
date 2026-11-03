@@ -52,6 +52,22 @@ class StateMachineTest {
     }
 
     @Test
+    void statesAreNamedInEverySetAsked() {
+        // the states differ in the first set, which must still be named
+        assertEquals(List.of(List.of("open", "unlocked"), List.of("closed", "unlocked")),
+                MACHINE.describe(Set.of(OPEN_UNLOCKED, CLOSED_UNLOCKED), Set.of(0)));
+        assertEquals(List.of(List.of("open"), List.of("closed")),
+                MACHINE.describe(Set.copyOf(MACHINE.states()), Set.of(0)));
+    }
+
+    @Test
+    void setsNamedAreThoseTheDescriptionFixes() {
+        assertEquals(Set.of(1), MACHINE.stateSetsNamed(Set.of(OPEN_UNLOCKED, CLOSED_UNLOCKED)));
+        assertEquals(Set.of(0, 1), MACHINE.stateSetsNamed(Set.of(OPEN_LOCKED, OPEN_UNLOCKED, CLOSED_LOCKED)));
+        assertEquals(Set.of(), MACHINE.stateSetsNamed(Set.of()));
+    }
+
+    @Test
     void noStatesAreNamedByNothing() {
         assertEquals(List.of(), MACHINE.describe(Set.of()));
     }

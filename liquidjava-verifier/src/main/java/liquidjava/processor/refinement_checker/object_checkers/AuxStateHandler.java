@@ -795,12 +795,15 @@ public class AuxStateHandler {
             Optional<DecidingArgument> deciding = decidingArgument(tc, vi, function, ghostStates, invocation);
             Optional<ReceiverStates> states = receiverStates(tc, function, instanceName, prevState, invocation);
             Predicate expected = expectedStatesDisjunction;
-            ErrorCategory category = deciding.isPresent() ? ErrorCategory.ARGUMENT_PICKS_THE_STATE
-                    : states.flatMap(r -> StateErrorCategories.categorize(r.machine(), r.current(), prevState,
-                            tc.shownFound(prevState, expected), ghostStates)).orElse(null);
+            boolean checked = states
+                    .map(r -> checkedElsewhere(tc, r, prevState, expected, instanceName, ghostStates, invocation))
+                    .orElse(false);
+            ErrorCategory category = deciding.isPresent() ? ErrorCategory.ARGUMENT_PICKS_THE_STATE : states.flatMap(
+                    r -> StateErrorCategories.categorize(r.machine(), r.current(), prevState, checked, ghostStates))
+                    .orElse(null);
             List<Hint> hints = deciding.isPresent()
                     ? receiverOf(invocation).map(r -> StateHints.decidingArgument(deciding.get(), r)).stream().toList()
-                    : states.map(r -> stateHints(r, function, category, invocation)).orElse(List.of());
+                    : states.map(r -> stateHints(r, function, category, checked, invocation)).orElse(List.of());
             StateErrorContext context = states
                     .map(r -> StateErrorContext.of(r.machine(), function, r.current(), writtenReceiver(invocation)))
                     .orElse(null);
@@ -833,6 +836,19 @@ public class AuxStateHandler {
         }
     }
 
+    /** Best effort, like {@link #receiverStates}: see {@link StateErrorCategories#checkedElsewhere} */
+    private static boolean checkedElsewhere(TypeChecker tc, ReceiverStates states, Predicate found, Predicate expected,
+            String instanceName, List<GhostState> ghostStates, CtElement invocation) {
+        try {
+            return StateErrorCategories.checkedElsewhere(states.machine(), states.current(), found,
+                    () -> tc.shownFound(found, expected), instanceName, ghostStates,
+                    new StateSolver(tc, invocation.getPosition()));
+        } catch (RuntimeException e) {
+            DebugLog.warn("Could not tell whether the receiver's state was checked: " + e.getMessage());
+            return false;
+        }
+    }
+
     /** Best effort, like {@link #receiverStates} */
     private static Optional<DecidingArgument> decidingArgument(TypeChecker tc, VariableInstance receiver,
             RefinedFunction function, List<GhostState> ghostStates, CtElement invocation) {
@@ -846,11 +862,11 @@ public class AuxStateHandler {
 
     /** Hints on how to fix a call to {@code function} made in a state that does not allow it */
     private static List<Hint> stateHints(ReceiverStates states, RefinedFunction function, ErrorCategory category,
-            CtElement invocation) {
+            boolean checked, CtElement invocation) {
         Optional<String> receiver = receiverOf(invocation);
         if (receiver.isEmpty() || !StateMachineBuilder.canModel(function))
             return List.of();
-        return StateHints.forCall(states.machine(), function, states.current(), receiver.get(), category);
+        return StateHints.forCall(states.machine(), function, states.current(), receiver.get(), category, checked);
     }
 
     /**

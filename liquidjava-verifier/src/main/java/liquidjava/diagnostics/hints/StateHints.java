@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -34,10 +35,17 @@ public final class StateHints {
 
     private final StateMachine machine;
     private final String receiver;
+    /** The states that allow the failing call, grouped by the state refinement that allows it */
+    private final List<Set<State>> goals;
+    /** The state sets the failing call checks, as indexes into {@link State#names()} */
+    private final Set<Integer> checked;
 
-    private StateHints(StateMachine machine, String receiver) {
+    private StateHints(StateMachine machine, String receiver, RefinedFunction call) {
         this.machine = machine;
         this.receiver = receiver;
+        this.goals = machine.statesAllowingByRefinement(call);
+        this.checked = goals.stream().flatMap(g -> machine.stateSetsNamed(g).stream())
+                .collect(Collectors.toCollection(TreeSet::new));
     }
 
     /**
@@ -49,23 +57,24 @@ public final class StateHints {
      *            the receiver as written in the code
      * @param category
      *            the error's category, or {@code null} if it has none
+     * @param checked
+     *            whether the receiver's state was checked elsewhere, though not decided, e.g. by an earlier call whose
+     *            result says which state it is in
      */
     public static List<Hint> forCall(StateMachine machine, RefinedFunction call, Set<State> current, String receiver,
-            ErrorCategory category) {
+            ErrorCategory category, boolean checked) {
         if (!machine.models(call) || current.isEmpty() || machine.allows(current, call))
             return List.of(); // the machine cannot explain why the call failed
         Set<State> goal = machine.statesAllowing(call);
         if (goal.isEmpty())
             return List.of();
 
-        StateHints hints = new StateHints(machine, receiver);
-        if (category == ErrorCategory.UNKNOWN)
-            return hints.anyState(current, call, goal, false);
-        if (category == null && current.size() == machine.states().size())
-            return hints.anyState(current, call, goal, true); // something is known, e.g. an earlier check failed
+        StateHints hints = new StateHints(machine, receiver, call);
+        if (category == ErrorCategory.UNKNOWN || checked)
+            return hints.anyState(current, call, checked);
         boolean pathDependent = category == ErrorCategory.PATH_DEPENDENT_STATE;
-        List<Hint> sequences = hints.howToReach(current, call, hints.names(current),
-                () -> machine.complete() ? List.of(hints.unreachable(current, call, goal, pathDependent)) : List.of());
+        List<Hint> sequences = hints.howToReach(current, call, hints.namesHere(current),
+                () -> machine.complete() ? List.of(hints.unreachable(current, call, pathDependent)) : List.of());
         return Stream.concat(sequences.stream(), hints.allowedCalls(current).stream()).toList();
     }
 
@@ -86,13 +95,13 @@ public final class StateHints {
      * A call allowed in only some states is never suggested, since whether it is allowed is just as unknown. Calls that
      * only tell which state the object is in are not in the machine, so no hint suggests checking one first.
      *
-     * @param somethingKnown
-     *            whether anything is known about the state, though not enough to rule out any state
+     * @param checked
+     *            whether the state was checked, though the check did not decide it
      */
-    private List<Hint> anyState(Set<State> current, RefinedFunction call, Set<State> goal, boolean somethingKnown) {
-        String known = somethingKnown ? "What is known here does not decide the state of " + receiver
+    private List<Hint> anyState(Set<State> current, RefinedFunction call, boolean checked) {
+        String known = checked ? "What is known here does not decide the state of " + receiver
                 : "The state of " + receiver + " is unknown here";
-        String message = known + ", and this call needs it to be " + names(goal);
+        String message = known + ", and this call needs it to be " + needed();
         message += newObjects(call).map(c -> ". Objects created with " + c + " start in such a state").orElse("");
         List<Hint> hints = new ArrayList<>();
         hints.add(new Hint(Kind.NEEDED_STATE, message));
@@ -130,14 +139,14 @@ public final class StateHints {
                 receiver, from, names(reached)));
     }
 
-    private Hint unreachable(Set<State> current, RefinedFunction call, Set<State> goal, boolean pathDependent) {
+    private Hint unreachable(Set<State> current, RefinedFunction call, boolean pathDependent) {
         if (pathDependent)
             return new Hint(Kind.PATH_DEPENDENT_STATE, String.format(
                     "%s can be in %s here, depending on the path taken, and no sequence of calls moves all of them to %s. "
                             + "Make %s reach this line in the same state on every path",
-                    receiver, names(current), names(goal), receiver));
-        String message = String.format("No sequence of calls moves %s from %s to %s", receiver, names(current),
-                names(goal));
+                    receiver, namesHere(current), needed(), receiver));
+        String message = String.format("No sequence of calls moves %s from %s to %s", receiver, namesHere(current),
+                needed());
         message += newObjects(call).map(c -> ". Create a new object instead with " + c).orElse("");
         return new Hint(Kind.UNREACHABLE_STATE, message);
     }
@@ -148,13 +157,13 @@ public final class StateHints {
             List<String> signatures = allowed.stream().map(StateHints::signature).toList();
             String others = machine.complete() ? "" : " (and possibly others)";
             return List.of(new Hint(Kind.AVAILABLE_CALLS, String.format("In state %s, %s can call: %s%s",
-                    names(current), receiver, list(signatures), others)));
+                    namesHere(current), receiver, list(signatures), others)));
         }
         boolean noCallsInAnyState = current.stream().allMatch(s -> machine.allowedIn(Set.of(s)).isEmpty());
         if (machine.complete() && noCallsInAnyState)
             return List.of(new Hint(Kind.FINAL_STATE,
                     String.format("%s is in state %s, where none of its methods with state refinements can be called",
-                            receiver, names(current))));
+                            receiver, namesHere(current))));
         return List.of();
     }
 
@@ -186,8 +195,27 @@ public final class StateHints {
 
     /** {@code states} named as briefly as possible, e.g. {@code open or loud} */
     private String names(Collection<State> states) {
-        return machine.describe(states).stream().map(group -> String.join(" and ", group))
-                .collect(Collectors.joining(" or "));
+        return names(machine.describe(states));
+    }
+
+    /** The states the receiver can be in, named in the state sets the call checks and any set they all agree on */
+    private String namesHere(Collection<State> current) {
+        return names(machine.describe(current, checked));
+    }
+
+    /**
+     * The states that allow the call. If every state does, each by a different state refinement, the states each
+     * refinement allows are named on their own: {@code a or b}, not every state.
+     */
+    private String needed() {
+        Set<State> goal = machine.ordered(goals.stream().flatMap(Set::stream).toList());
+        if (goal.size() < machine.states().size())
+            return names(goal);
+        return goals.stream().map(this::names).distinct().collect(Collectors.joining(" or "));
+    }
+
+    private static String names(List<List<String>> groups) {
+        return groups.stream().map(group -> String.join(" and ", group)).collect(Collectors.joining(" or "));
     }
 
     private static String list(List<String> items) {

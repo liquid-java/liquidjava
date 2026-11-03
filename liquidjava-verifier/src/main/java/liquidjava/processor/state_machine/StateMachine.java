@@ -118,7 +118,28 @@ public record StateMachine(List<State> states, List<RefinedFunction> methods, Li
      * loud(this)} holds
      */
     public List<List<String>> describe(Collection<State> subset) {
-        return StateCover.of(states, Set.copyOf(subset));
+        return describe(subset, Set.of());
+    }
+
+    /** Like {@link #describe(Collection)}, but naming the state of every set in {@code named} */
+    public List<List<String>> describe(Collection<State> subset, Set<Integer> named) {
+        return StateCover.of(states, Set.copyOf(subset), named);
+    }
+
+    /**
+     * The state sets that {@code subset} depends on, as indexes into {@link State#names()}: those its
+     * {@link #describe(Collection) description} names
+     */
+    public Set<Integer> stateSetsNamed(Collection<State> subset) {
+        return StateCover.fixedSets(states, Set.copyOf(subset));
+    }
+
+    /** The states where {@code method} can be called, for each of its state refinements that applies in some state */
+    public List<Set<State>> statesAllowingByRefinement(RefinedFunction method) {
+        Map<ObjectState, List<State>> byChange = new LinkedHashMap<>();
+        transitions.stream().filter(t -> t.method().equals(method))
+                .forEach(t -> byChange.computeIfAbsent(t.change(), c -> new ArrayList<>()).add(t.from()));
+        return byChange.values().stream().map(this::ordered).toList();
     }
 
     /** {@code subset} in declaration order */

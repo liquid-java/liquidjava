@@ -213,6 +213,48 @@ class TestStateHints {
     }
 
     @Test
+    void checkOfAnotherObjectLeavesTheStateUnknown() {
+        assertHints("classes/state_hint_checked_other_object_error",
+                new Hint(Kind.NEEDED_STATE, "The state of it is unknown here, and this call needs it to be hasMore"));
+    }
+
+    @Test
+    void callOnAnObjectOtherThanTheCheckedOneLeavesItsStateUnknown() {
+        assertHints("classes/state_hint_checked_wrong_object_error", new Hint(Kind.NEEDED_STATE,
+                "The state of other is unknown here, and this call needs it to be hasMore"));
+    }
+
+    @Test
+    void checkOfAVariableHoldingTheSameObjectChecksTheReceiver() {
+        assertHints("classes/state_hint_checked_copy_error", new Hint(Kind.NEEDED_STATE,
+                "What is known here does not decide the state of same, and this call needs it to be hasMore"));
+    }
+
+    @Test
+    void joinOfEveryStateOfTwoSetsKeepsTheUnreachableHint() {
+        assertHints("ErrorStateHintJoinTwoSets.java", new Hint(Kind.UNREACHABLE_STATE,
+                "No sequence of calls moves d from closed and unlocked or closed and locked or opened and unlocked "
+                        + "or opened and locked to closed and unlocked. "
+                        + "Create a new object instead with new ErrorStateHintJoinTwoSets()"));
+    }
+
+    @Test
+    void joinDifferingInOneOfTwoSetsNamesTheStatesInTheCheckedSets() {
+        assertHints("ErrorStateHintJoinOneOfTwoSets.java", new Hint(Kind.UNREACHABLE_STATE,
+                "No sequence of calls moves d from closed and unlocked or opened and unlocked to closed and unlocked. "
+                        + "Create a new object instead with new ErrorStateHintJoinOneOfTwoSets()"),
+                new Hint(Kind.AVAILABLE_CALLS,
+                        "In state closed and unlocked or opened and unlocked, d can call: lock()"));
+    }
+
+    @Test
+    void callAllowedInEveryStateNamesTheStatesOfEachRefinement() {
+        assertHints("ErrorStateHintUnknownToggleTwoSets.java",
+                new Hint(Kind.NEEDED_STATE, "The state of t is unknown here, and this call needs it to be a or b. "
+                        + "Objects created with new ErrorStateHintUnknownToggleTwoSets() start in such a state"));
+    }
+
+    @Test
     void stateCheckedByAnEarlierCallIsNotCalledUnknown() {
         assertHints("classes/state_hint_checked_state_error", new Hint(Kind.NEEDED_STATE,
                 "What is known here does not decide the state of it, and this call needs it to be hasMore"));
