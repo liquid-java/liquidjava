@@ -8,6 +8,8 @@ import java.util.regex.Pattern;
  */
 public final class VariableFormatter {
     private static final Pattern INSTACE_VAR_PATTERN = Pattern.compile("^#(.+)_([0-9]+)$");
+    // this#<declaring type>.<field>
+    private static final Pattern FIELD_PATTERN = Pattern.compile("^this#([\\w.$]+)\\.([\\w$]+)$");
     private static final char[] SUPERSCRIPT_CHARS = { '⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹' };
 
     public static String format(String name) {
@@ -19,17 +21,52 @@ public final class VariableFormatter {
 
         Matcher matcher = INSTACE_VAR_PATTERN.matcher(name);
         if (!matcher.matches())
-            return name;
+            return formatField(name);
 
         String baseName = matcher.group(1);
         String counter = matcher.group(2);
+        String receiver = FieldDisplayNames.writeReceiver(name);
+        if (receiver != null && isField(baseName))
+            return (receiver.isEmpty() ? "" : receiver + ".") + fieldOf(baseName) + toSuperscript(counter);
         String prefix = isSpecialIdentifier(baseName) ? "#" : "";
-        return prefix + baseName + toSuperscript(counter);
+        return prefix + formatField(baseName) + toSuperscript(counter);
     }
 
     public static String withoutInstance(String name) {
         Matcher matcher = INSTACE_VAR_PATTERN.matcher(name);
         return matcher.matches() ? matcher.group(1) : name;
+    }
+
+    /**
+     * Whether a name is that of a field, {@code this#<declaring type>.<field>}, possibly with an instance counter
+     */
+    public static boolean isField(String name) {
+        return FIELD_PATTERN.matcher(withoutInstance(name)).matches();
+    }
+
+    /**
+     * Writes a field name as it is written in code: {@code this.field} for an instance field and {@code Class.field}
+     * for a static one, leaving any other name unchanged; the internal name keeps the declaring type to tell fields of
+     * different classes apart
+     */
+    private static String formatField(String name) {
+        Matcher matcher = FIELD_PATTERN.matcher(name);
+        if (!matcher.matches())
+            return name;
+
+        if (FieldDisplayNames.isStaticField(name))
+            return simpleTypeName(matcher.group(1)) + "." + matcher.group(2);
+        return "this." + matcher.group(2);
+    }
+
+    private static String fieldOf(String name) {
+        Matcher matcher = FIELD_PATTERN.matcher(name);
+        return matcher.matches() ? matcher.group(2) : name;
+    }
+
+    private static String simpleTypeName(String qualifiedName) {
+        int start = Math.max(qualifiedName.lastIndexOf('.'), qualifiedName.lastIndexOf('$'));
+        return qualifiedName.substring(start + 1);
     }
 
     private static String toSuperscript(String number) {

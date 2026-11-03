@@ -5,6 +5,8 @@ import static liquidjava.rj_language.opt.VCSimplificationUtils.copyWithRefinemen
 import static liquidjava.rj_language.opt.VCSimplificationUtils.isFalse;
 import static liquidjava.rj_language.opt.VCSimplificationUtils.isTrue;
 
+import java.util.Set;
+
 import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.LiteralBoolean;
@@ -18,30 +20,40 @@ public class VCBinderSimplification implements VCSimplificationPass {
 
     private static final String FRESH_PREFIX = Formats.FRESH_PREFIX;
 
+    private final NeededVariables needed;
+
+    public VCBinderSimplification() {
+        this(NeededVariables.NONE);
+    }
+
+    public VCBinderSimplification(NeededVariables needed) {
+        this.needed = needed;
+    }
+
     /**
      * Applies one binder simplification in a VC chain
      */
     @Override
     public VCImplication apply(VCImplication implication) {
         VCImplication cloned = implication.clone();
-        VCImplication simplified = simplify(cloned);
+        VCImplication simplified = simplify(cloned, needed.trueBindersToKeep(cloned));
         return simplified == null ? cloned : simplified;
     }
 
     /**
      * Simplifies the first applicable binder in a VC chain
      */
-    private VCImplication simplify(VCImplication implication) {
+    private VCImplication simplify(VCImplication implication, Set<String> keptTrueBinders) {
         if (implication == null)
             return null;
 
         if (isFalseBinder(implication))
             return collapseFalseBinder(implication);
 
-        if (isRemovableUnusedBinder(implication))
+        if (isRemovableBinder(implication, keptTrueBinders))
             return removeBinder(implication);
 
-        VCImplication next = simplify(implication.getNext());
+        VCImplication next = simplify(implication.getNext(), keptTrueBinders);
         if (next == null)
             return null;
 
@@ -56,7 +68,7 @@ public class VCBinderSimplification implements VCSimplificationPass {
     private VCImplication removeBinder(VCImplication implication) {
         VCImplication next = implication.getNext();
 
-        // ∀x. true => P -> P, and unused generated path conditions can be omitted from diagnostics
+        // ∀x. true => P -> P, and unneeded generated path conditions can be omitted from diagnostics
         if (next != null)
             return next.clone();
 
@@ -66,13 +78,17 @@ public class VCBinderSimplification implements VCSimplificationPass {
     }
 
     /**
-     * Checks whether a binder is unused and can be removed without changing the VC conclusion
+     * Checks whether a binder can be removed without changing the VC conclusion or hiding what explains the error. A
+     * binder refined only by true states no fact, so it is removed even when a later implication uses its variable,
+     * unless the error needs it
      */
-    private boolean isRemovableUnusedBinder(VCImplication implication) {
-        if (!implication.hasBinder() || containsVar(implication.getNext(), implication.getName()))
+    private boolean isRemovableBinder(VCImplication implication, Set<String> keptTrueBinders) {
+        if (!implication.hasBinder())
             return false;
 
-        return isTrueBinder(implication) || isUnusedFreshPathBinder(implication);
+        if (isTrueBinder(implication))
+            return !keptTrueBinders.contains(implication.getName());
+        return !containsVar(implication.getNext(), implication.getName()) && isUnusedFreshPathBinder(implication);
     }
 
     /**

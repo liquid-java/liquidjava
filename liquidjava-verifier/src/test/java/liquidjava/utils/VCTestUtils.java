@@ -88,7 +88,7 @@ public class VCTestUtils {
         if (!implication.startsWith("∀"))
             return new VCImplication(new Predicate(RefinementsParser.createAST(implication, "")));
 
-        int refinementStart = implication.indexOf('.');
+        int refinementStart = implication.indexOf('.', implication.indexOf(':')); // binder names may have dots
         String binder = implication.substring(1, refinementStart).trim();
         String refinement = implication.substring(refinementStart + 1).trim();
         String[] parts = binder.split(":");
@@ -101,6 +101,8 @@ public class VCTestUtils {
             return TYPE_FACTORY.INTEGER_PRIMITIVE;
         if ("boolean".equals(name))
             return TYPE_FACTORY.BOOLEAN_PRIMITIVE;
+        if ("Object".equals(name))
+            return TYPE_FACTORY.OBJECT;
         throw new IllegalArgumentException("Unsupported test type: " + name);
     }
 

@@ -3,19 +3,26 @@ package liquidjava.utils;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Scanner;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import liquidjava.rj_language.ast.formatter.FieldDisplayNames;
 import liquidjava.utils.constants.Types;
+import spoon.reflect.code.CtAssignment;
 import spoon.reflect.code.CtBlock;
+import spoon.reflect.code.CtExpression;
 import spoon.reflect.code.CtFieldAccess;
+import spoon.reflect.code.CtFieldWrite;
 import spoon.reflect.code.CtFor;
 import spoon.reflect.code.CtForEach;
 import spoon.reflect.code.CtIf;
 import spoon.reflect.code.CtSuperAccess;
 import spoon.reflect.code.CtThisAccess;
 import spoon.reflect.code.CtTry;
+import spoon.reflect.code.CtUnaryOperator;
+import spoon.reflect.code.CtVariableRead;
 import spoon.reflect.code.CtWhile;
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.CtAnnotation;
@@ -55,10 +62,31 @@ public class Utils {
         return String.format("%s.%s", prefix, name);
     }
 
+    /**
+     * The context variable name of a field, {@code this#<declaring type>.<field>}; also records a static field for
+     * display, since every field name of a verification is built here
+     */
     public static String qualifyFieldName(CtFieldReference<?> field) {
         if (field.getDeclaringType() == null) // declaring class not resolved: matches no known field
             return "this#" + field.getSimpleName();
-        return "this#" + field.getDeclaringType().getQualifiedName() + "." + field.getSimpleName();
+        String name = "this#" + field.getDeclaringType().getQualifiedName() + "." + field.getSimpleName();
+        if (field.isStatic())
+            FieldDisplayNames.recordStaticField(name);
+        return name;
+    }
+
+    /**
+     * The object through which a write updates a field of another object ({@code other} in {@code other.f = v} or
+     * {@code other.f++}), used only to display that write; empty when the write is to a tracked field (see
+     * {@link #accessesTrackedField}) or not a field write, and an empty string when the object is not in a variable
+     */
+    public static Optional<String> untrackedWriteReceiver(CtElement usage) {
+        CtExpression<?> written = usage instanceof CtAssignment<?, ?> assignment ? assignment.getAssigned()
+                : usage instanceof CtUnaryOperator<?> unary ? unary.getOperand() : null;
+        if (!(written instanceof CtFieldWrite<?> write) || accessesTrackedField(write))
+            return Optional.empty();
+        return Optional
+                .of(write.getTarget()instanceof CtVariableRead<?> read ? read.getVariable().getSimpleName() : "");
     }
 
     public static String getFile(CtElement element) {

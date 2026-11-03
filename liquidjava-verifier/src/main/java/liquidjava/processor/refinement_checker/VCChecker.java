@@ -20,6 +20,7 @@ import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.Ite;
 import liquidjava.rj_language.ast.Var;
+import liquidjava.rj_language.opt.NeededVariables;
 import liquidjava.smt.Counterexample;
 import liquidjava.smt.SMTEvaluator;
 import liquidjava.smt.SMTResult;
@@ -83,7 +84,8 @@ public class VCChecker {
         DebugLog.smtResult(result);
         if (result.isError()) {
             throw new RefinementError(element.getPosition(), declarationPosition, expectedType,
-                    implBeforeChange.simplify(), map, result.getCounterexample(), customMessage);
+                    implBeforeChange.simplify(NeededVariables.forRefinementError(expectedType)), map,
+                    result.getCounterexample(), customMessage);
         }
     }
 
@@ -442,8 +444,8 @@ public class VCChecker {
             Predicate found, Counterexample counterexample, String customMessage) throws RefinementError {
         TranslationTable map = new TranslationTable();
         VCImplication premises = buildPremiseChain(map, expected, found);
-        throw new RefinementError(position, declarationPosition, expected, premises.simplify(), map, counterexample,
-                customMessage);
+        throw new RefinementError(position, declarationPosition, expected,
+                premises.simplify(NeededVariables.forRefinementError(expected)), map, counterexample, customMessage);
     }
 
     /** What a state refinement error shows as found: what is known about the variables of both predicates */
@@ -456,8 +458,9 @@ public class VCChecker {
             StateErrorContext context) throws StateRefinementError {
         TranslationTable map = new TranslationTable();
         VCImplication foundState = buildPremiseChain(map, expected, found);
-        throw new StateRefinementError(position, declarationPosition, expected, foundState.simplify(), map,
-                customMessage, hints, category, context);
+        throw new StateRefinementError(position, declarationPosition, expected,
+                foundState.simplify(NeededVariables.forStateError(expected)), map, customMessage, hints, category,
+                context);
     }
 
     protected void throwStateConflictError(SourcePosition position, Predicate expected) throws StateConflictError {

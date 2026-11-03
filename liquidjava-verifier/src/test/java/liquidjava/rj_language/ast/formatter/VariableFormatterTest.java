@@ -2,9 +2,15 @@ package liquidjava.rj_language.ast.formatter;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 class VariableFormatterTest {
+
+    @AfterEach
+    void forgetRecordedNames() {
+        FieldDisplayNames.clear();
+    }
 
     @Test
     void formatsVariables() {
@@ -21,5 +27,26 @@ class VariableFormatterTest {
         assertEquals("f(g(a¹, b²), c³)", VariableFormatter.format("f(g(#a_1, #b_2), #c_3)"));
         assertEquals("f(g(h(a¹)), b)", VariableFormatter.format("f(g(h(#a_1)),b)"));
         assertEquals("size()", VariableFormatter.format("size()"));
+    }
+
+    @Test
+    void writesInstanceFieldsAsInCode() {
+        assertEquals("this.items", VariableFormatter.format("this#shop.Basket.items"));
+        assertEquals("this.port⁴", VariableFormatter.format("#this#pkg.Outer$Job.port_4"));
+    }
+
+    @Test
+    void writesStaticFieldsWithTheirClass() {
+        FieldDisplayNames.recordStaticField("this#pkg.Outer$Job.count");
+        assertEquals("Job.count³", VariableFormatter.format("#this#pkg.Outer$Job.count_3"));
+    }
+
+    @Test
+    void writesAFieldWrittenThroughAnotherObjectWithThatObject() {
+        FieldDisplayNames.recordWriteReceiver("#this#pkg.W.level_1", "other");
+        assertEquals("other.level¹", VariableFormatter.format("#this#pkg.W.level_1"));
+        assertEquals("this.level²", VariableFormatter.format("#this#pkg.W.level_2"));
+        FieldDisplayNames.clear();
+        assertEquals("this.level¹", VariableFormatter.format("#this#pkg.W.level_1"));
     }
 }
