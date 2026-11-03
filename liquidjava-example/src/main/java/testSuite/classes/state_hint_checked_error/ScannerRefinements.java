@@ -1,4 +1,4 @@
-package testSuite.classes.state_hint_checked_copy_error;
+package testSuite.classes.state_hint_checked_error;
 
 import liquidjava.specification.ExternalRefinementsFor;
 import liquidjava.specification.Refinement;

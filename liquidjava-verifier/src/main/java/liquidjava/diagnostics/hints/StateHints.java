@@ -38,13 +38,13 @@ public final class StateHints {
     /** The states that allow the failing call, grouped by the state refinement that allows it */
     private final List<Set<State>> goals;
     /** The state sets the failing call checks, as indexes into {@link State#names()} */
-    private final Set<Integer> checked;
+    private final Set<Integer> checkedSets;
 
     private StateHints(StateMachine machine, String receiver, RefinedFunction call) {
         this.machine = machine;
         this.receiver = receiver;
         this.goals = machine.statesAllowingByRefinement(call);
-        this.checked = goals.stream().flatMap(g -> machine.stateSetsNamed(g).stream())
+        this.checkedSets = goals.stream().flatMap(g -> machine.stateSetsNamed(g).stream())
                 .collect(Collectors.toCollection(TreeSet::new));
     }
 
@@ -57,21 +57,20 @@ public final class StateHints {
      *            the receiver as written in the code
      * @param category
      *            the error's category, or {@code null} if it has none
-     * @param checked
+     * @param checkedElsewhere
      *            whether the receiver's state was checked elsewhere, though not decided, e.g. by an earlier call whose
      *            result says which state it is in
      */
     public static List<Hint> forCall(StateMachine machine, RefinedFunction call, Set<State> current, String receiver,
-            ErrorCategory category, boolean checked) {
+            ErrorCategory category, boolean checkedElsewhere) {
         if (!machine.models(call) || current.isEmpty() || machine.allows(current, call))
             return List.of(); // the machine cannot explain why the call failed
-        Set<State> goal = machine.statesAllowing(call);
-        if (goal.isEmpty())
+        StateHints hints = new StateHints(machine, receiver, call);
+        if (hints.goals.isEmpty())
             return List.of();
 
-        StateHints hints = new StateHints(machine, receiver, call);
-        if (category == ErrorCategory.UNKNOWN || checked)
-            return hints.anyState(current, call, checked);
+        if (category == ErrorCategory.UNKNOWN || checkedElsewhere)
+            return hints.anyState(current, call, checkedElsewhere);
         boolean pathDependent = category == ErrorCategory.PATH_DEPENDENT_STATE;
         List<Hint> sequences = hints.howToReach(current, call, hints.namesHere(current),
                 () -> machine.complete() ? List.of(hints.unreachable(current, call, pathDependent)) : List.of());
@@ -95,11 +94,11 @@ public final class StateHints {
      * A call allowed in only some states is never suggested, since whether it is allowed is just as unknown. Calls that
      * only tell which state the object is in are not in the machine, so no hint suggests checking one first.
      *
-     * @param checked
+     * @param checkedElsewhere
      *            whether the state was checked, though the check did not decide it
      */
-    private List<Hint> anyState(Set<State> current, RefinedFunction call, boolean checked) {
-        String known = checked ? "What is known here does not decide the state of " + receiver
+    private List<Hint> anyState(Set<State> current, RefinedFunction call, boolean checkedElsewhere) {
+        String known = checkedElsewhere ? "What is known here does not decide the state of " + receiver
                 : "The state of " + receiver + " is unknown here";
         String message = known + ", and this call needs it to be " + needed();
         message += newObjects(call).map(c -> ". Objects created with " + c + " start in such a state").orElse("");
@@ -195,12 +194,12 @@ public final class StateHints {
 
     /** {@code states} named as briefly as possible, e.g. {@code open or loud} */
     private String names(Collection<State> states) {
-        return names(machine.describe(states));
+        return join(machine.describe(states));
     }
 
     /** The states the receiver can be in, named in the state sets the call checks and any set they all agree on */
     private String namesHere(Collection<State> current) {
-        return names(machine.describe(current, checked));
+        return join(machine.describe(current, checkedSets));
     }
 
     /**
@@ -214,7 +213,7 @@ public final class StateHints {
         return goals.stream().map(this::names).distinct().collect(Collectors.joining(" or "));
     }
 
-    private static String names(List<List<String>> groups) {
+    private static String join(List<List<String>> groups) {
         return groups.stream().map(group -> String.join(" and ", group)).collect(Collectors.joining(" or "));
     }
 

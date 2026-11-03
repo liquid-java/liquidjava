@@ -27,7 +27,7 @@ public final class StateErrorCategories {
      *            the states the receiver can be in before the call
      * @param found
      *            what is known about the receiver before the call
-     * @param checked
+     * @param checkedElsewhere
      *            whether its state was only checked elsewhere, as told by {@link #checkedElsewhere}
      * @param ghostStates
      *            the ghost states of the receiver's class
@@ -35,12 +35,11 @@ public final class StateErrorCategories {
      * @return the category, or nothing if it cannot be decided
      */
     public static Optional<ErrorCategory> categorize(StateMachine machine, Set<State> current, Predicate found,
-            boolean checked, List<GhostState> ghostStates) {
+            boolean checkedElsewhere, List<GhostState> ghostStates) {
         List<GhostState> states = stateGhosts(ghostStates);
-        // all states are possible and none is mentioned: nothing is known, which differs from a join of every state
-        // and from a check whose result did not decide the state
-        if (current.size() == machine.states().size() && found.getStateInvocations(states).isEmpty())
-            return checked ? Optional.empty() : Optional.of(ErrorCategory.UNKNOWN);
+        // nothing is known, which differs from a join of every state and from a check that did not decide the state
+        if (nothingMentioned(machine, current, found, states))
+            return checkedElsewhere ? Optional.empty() : Optional.of(ErrorCategory.UNKNOWN);
         if (current.size() == 1)
             return Optional.of(ErrorCategory.OUT_OF_ORDER);
         // with several state sets, the states may differ only in a set the call does not check
@@ -65,7 +64,7 @@ public final class StateErrorCategories {
             Supplier<Predicate> shownFound, String instance, List<GhostState> ghostStates, StateSolver solver)
             throws LJError {
         List<GhostState> states = stateGhosts(ghostStates);
-        if (current.size() != machine.states().size() || !found.getStateInvocations(states).isEmpty())
+        if (!nothingMentioned(machine, current, found, states))
             return false;
         Predicate shown = shownFound.get();
         Predicate receiver = Predicate.createVar(instance);
@@ -84,6 +83,12 @@ public final class StateErrorCategories {
                     .forEach(objects::add);
         expression.getChildren().forEach(child -> objectsWithState(child, states, objects));
         return objects;
+    }
+
+    /** Whether every state is possible and {@code found} mentions none of them */
+    private static boolean nothingMentioned(StateMachine machine, Set<State> current, Predicate found,
+            List<GhostState> states) {
+        return current.size() == machine.states().size() && found.getStateInvocations(states).isEmpty();
     }
 
     private static List<GhostState> stateGhosts(List<GhostState> ghostStates) {

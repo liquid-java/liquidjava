@@ -66,7 +66,7 @@ public record StateMachine(List<State> states, List<RefinedFunction> methods, Li
 
     /** The states where {@code method} can be called */
     public Set<State> statesAllowing(RefinedFunction method) {
-        return ordered(transitions.stream().filter(t -> t.method().equals(method)).map(Transition::from).toList());
+        return ordered(statesAllowingByRefinement(method).stream().flatMap(Set::stream).toList());
     }
 
     /** The states the object can be in after calling {@code method}, which must be allowed in all of {@code current} */
@@ -131,7 +131,7 @@ public record StateMachine(List<State> states, List<RefinedFunction> methods, Li
      * {@link #describe(Collection) description} names
      */
     public Set<Integer> stateSetsNamed(Collection<State> subset) {
-        return StateCover.fixedSets(states, Set.copyOf(subset));
+        return StateCover.namedSets(states, Set.copyOf(subset));
     }
 
     /** The states where {@code method} can be called, for each of its state refinements that applies in some state */

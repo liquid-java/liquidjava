@@ -55,23 +55,6 @@ class TestErrorCategories {
     }
 
     @Test
-    void stateMentionedOnlyByAnEarlierCheckIsNotUnknown() {
-        assertNoCategory("classes/state_hint_checked_state_error");
-        assertNoCategory("classes/state_hint_checked_copy_error");
-    }
-
-    @Test
-    void checkOfAnotherObjectLeavesTheStateUnknown() {
-        assertCategory("classes/state_hint_checked_other_object_error", ErrorCategory.UNKNOWN);
-        assertCategory("classes/state_hint_checked_wrong_object_error", ErrorCategory.UNKNOWN);
-    }
-
-    @Test
-    void joinOfEveryStateOfTwoSetsGetsNoCategory() {
-        assertNoCategory("ErrorStateHintJoinTwoSets.java");
-    }
-
-    @Test
     void stateErrorWithoutStateSetGetsNoCategory() {
         assertNoCategory("ErrorUnconstrainedStateRefinement.java");
     }

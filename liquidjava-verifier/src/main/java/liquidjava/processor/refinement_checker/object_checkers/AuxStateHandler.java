@@ -795,7 +795,7 @@ public class AuxStateHandler {
             Optional<DecidingArgument> deciding = decidingArgument(tc, vi, function, ghostStates, invocation);
             Optional<ReceiverStates> states = receiverStates(tc, function, instanceName, prevState, invocation);
             Predicate expected = expectedStatesDisjunction;
-            boolean checked = states
+            boolean checked = deciding.isEmpty() && states
                     .map(r -> checkedElsewhere(tc, r, prevState, expected, instanceName, ghostStates, invocation))
                     .orElse(false);
             ErrorCategory category = deciding.isPresent() ? ErrorCategory.ARGUMENT_PICKS_THE_STATE : states.flatMap(
