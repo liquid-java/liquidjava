@@ -163,9 +163,9 @@ class TestCounterexamples {
     }
 
     @Test
-    void ghostValueFoundAlreadyStatesIsOmittedSoThePathConditionIsShown() {
+    void ghostValueFoundAlreadyStatesIsOmittedWithTheUnrelatedPathCondition() {
         RefinementError error = verify("ErrorCounterexampleKnownGhost.java");
-        assertAssignments(error, assignment("port", "0"));
+        assertTrue(error.getCounterexample().isEmpty());
     }
 
     @Test
@@ -187,9 +187,33 @@ class TestCounterexamples {
     }
 
     @Test
-    void returnedConstantShowsThePathConditionThatLedToIt() {
+    void returnedConstantFoundAlreadyStatesHasNoCounterexample() {
         RefinementError error = verify("ErrorCounterexampleReturnConstant.java");
-        assertAssignments(error, assignment("port", "-1"));
+        assertTrue(error.getCounterexample().isEmpty());
+    }
+
+    @Test
+    void returnComputedFromThePathConditionShowsBoth() {
+        RefinementError error = verify("ErrorCounterexampleReturnFromPath.java");
+        assertAssignments(error, assignment("#ret", "0"), assignment("port", "-1"));
+    }
+
+    @Test
+    void argumentFoundAlreadyStatesHasNoCounterexampleUnderAGuard() {
+        RefinementError error = verify("ErrorCounterexampleKnownGuardedArgument.java");
+        assertTrue(error.getCounterexample().isEmpty());
+    }
+
+    @Test
+    void argumentFoundAlreadyStatesHasNoCounterexampleUnderTwoGuards() {
+        RefinementError error = verify("ErrorCounterexampleKnownTwiceGuardedArgument.java");
+        assertTrue(error.getCounterexample().isEmpty());
+    }
+
+    @Test
+    void argumentKnownThroughAnAliasHasNoCounterexampleUnderAGuard() {
+        RefinementError error = verify("ErrorCounterexampleKnownAliasedArgument.java");
+        assertTrue(error.getCounterexample().isEmpty());
     }
 
     @Test

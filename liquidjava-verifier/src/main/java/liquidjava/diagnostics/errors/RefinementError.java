@@ -89,9 +89,9 @@ public class RefinementError extends LJError {
     }
 
     // Keeps the counterexample assignments to the terms of expected and of the found facts linked to them, except
-    // values found already states, or to every term found shows when that leaves nothing. The terms of expected come
-    // first, those found says nothing about before the rest, then the linked terms in the order of the VC binders, with
-    // generated names last
+    // values found already states, so there is none when found fixes every value expected depends on. The terms of
+    // expected come first, those found says nothing about before the rest, then the linked terms in the order of the
+    // VC binders, with generated names last
     private Counterexample filterCounterexample(Counterexample counterexample) {
         if (counterexample == null)
             return new Counterexample(List.of());
@@ -102,12 +102,8 @@ public class RefinementError extends LJError {
         List<String> expectedTerms = termsOf(getExpected().getExpression());
         Set<String> linkedTerms = expectedTerms.isEmpty() ? new HashSet<>(foundTerms)
                 : linkedTerms(facts, expectedTerms);
-        List<Pair<String, String>> unknown = counterexample.assignments().stream().filter(a -> !isKnown(a, facts))
-                .toList();
-        List<Pair<String, String>> assignments = unknown.stream().filter(a -> linkedTerms.contains(a.first())).toList();
-        // e.g. a return value found states, where the path condition that led to it is what is left to show
-        if (assignments.isEmpty())
-            assignments = unknown.stream().filter(a -> foundTerms.contains(a.first())).toList();
+        List<Pair<String, String>> assignments = counterexample.assignments().stream()
+                .filter(a -> linkedTerms.contains(a.first())).filter(a -> !isKnown(a, facts)).toList();
 
         List<String> order = new ArrayList<>(originalBinders());
         order.addAll(foundTerms);

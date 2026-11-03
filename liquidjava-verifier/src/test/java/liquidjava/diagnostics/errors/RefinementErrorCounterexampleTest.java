@@ -67,9 +67,16 @@ class RefinementErrorCounterexampleTest {
     }
 
     @Test
-    void fallsBackToThePathConditionWhenFoundStatesEveryLinkedValue() {
+    void omitsThePathConditionWhenFoundStatesEveryLinkedValue() {
         RefinementError error = error("x > 1", vc("∀x:int. x == 1", "∀port:int. port > 0", "true"), "x=1", "port=1");
-        assertEquals(List.of(pair("port", "1")), error.getCounterexample().assignments());
+        assertTrue(error.getCounterexample().isEmpty());
+    }
+
+    @Test
+    void keepsAPathConditionTheExpectedValueIsComputedFrom() {
+        RefinementError error = error("#ret_1 > 10",
+                vc("∀port:int. port < 0", "∀#ret_1:int. #ret_1 == port + 1", "true"), "#ret_1=0", "port=-1");
+        assertEquals(List.of(pair("#ret_1", "0"), pair("port", "-1")), error.getCounterexample().assignments());
     }
 
     @Test
