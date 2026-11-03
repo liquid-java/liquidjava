@@ -213,6 +213,17 @@ class TestStateHints {
     }
 
     @Test
+    void inheritedMethodsTheReceiverCannotCallAreNotSuggested() {
+        List<StateRefinementError> errors = errors("classes/state_hints_inaccessible_inherited_error", 2);
+        assertHints(errors.get(0),
+                new Hint(Kind.CALL_SEQUENCE,
+                        "Call hatch.openInPackage() before this call to move hatch from closed to open"),
+                new Hint(Kind.AVAILABLE_CALLS,
+                        "In state closed, hatch can call: openInPackage() (and possibly others)"));
+        assertHints(errors.get(1));
+    }
+
+    @Test
     void argumentThatDecidedTheStateIsShownWithAValueThatWouldWork() {
         assertHints("ErrorArgumentPicksTheState.java", new Hint(Kind.DECIDING_ARGUMENT,
                 "buffer.reset(boolean) on line 20 decides the state of buffer: with keep == true, this call would be allowed"));
