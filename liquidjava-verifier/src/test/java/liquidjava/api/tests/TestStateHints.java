@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
 
@@ -214,11 +216,17 @@ class TestStateHints {
 
     @Test
     void onlyPublicInheritedMethodsAreSuggested() {
-        assertHints("classes/state_hints_inaccessible_inherited_error",
-                new Hint(Kind.CALL_SEQUENCE,
+        List<StateRefinementError> errors = errors("classes/state_hints_inaccessible_inherited_error", 2);
+        // the files are verified in no fixed order
+        assertEquals(Set.of(
+                List.of(new Hint(Kind.CALL_SEQUENCE,
                         "Call hatch.openPublicly() before this call to move hatch from closed to open"),
-                new Hint(Kind.AVAILABLE_CALLS,
-                        "In state closed, hatch can call: openPublicly() (and possibly others)"));
+                        new Hint(Kind.AVAILABLE_CALLS,
+                                "In state closed, hatch can call: openPublicly() (and possibly others)")),
+                List.of(new Hint(Kind.CALL_SEQUENCE,
+                        "Call door.push() before this call to move door from shut to ajar"),
+                        new Hint(Kind.AVAILABLE_CALLS, "In state shut, door can call: push() (and possibly others)"))),
+                errors.stream().map(StateRefinementError::getHints).collect(Collectors.toSet()));
     }
 
     @Test

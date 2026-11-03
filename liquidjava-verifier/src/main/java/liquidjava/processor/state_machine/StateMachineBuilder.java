@@ -294,13 +294,12 @@ public class StateMachineBuilder {
         CtType<?> declaring = tc.getFactory().Type().createReference(method.getTargetClass()).getTypeDeclaration();
         if (declaring == null)
             return false; // cannot tell whether it is public
-        if (declaring.isInterface())
-            return true;
         String name = Utils.getSimpleName(method.getName());
         int arity = method.getArguments().size();
+        // interface methods are public unless declared private
         return declaring.getMethods().stream()
                 .filter(m -> m.getSimpleName().equals(name) && m.getParameters().size() == arity)
-                .allMatch(CtModifiable::isPublic);
+                .allMatch(m -> declaring.isInterface() ? !m.isPrivate() : m.isPublic());
     }
 
     private static boolean abstractType(CtTypeReference<?> type) {
