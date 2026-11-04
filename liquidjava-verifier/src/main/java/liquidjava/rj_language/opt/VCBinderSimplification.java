@@ -11,14 +11,12 @@ import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.LiteralBoolean;
 import liquidjava.rj_language.ast.Var;
-import liquidjava.utils.constants.Formats;
+import liquidjava.utils.GeneratedNames;
 
 /**
  * Simplifies VCImplication chains by removing vacuous binder implications
  */
 public class VCBinderSimplification implements VCSimplificationPass {
-
-    private static final String FRESH_PREFIX = Formats.FRESH_PREFIX;
 
     private final NeededVariables needed;
 
@@ -95,7 +93,7 @@ public class VCBinderSimplification implements VCSimplificationPass {
      * Checks for a generated boolean path binder refined exactly by itself
      */
     private boolean isUnusedFreshPathBinder(VCImplication implication) {
-        if (!implication.hasNext() || !implication.getName().startsWith(FRESH_PREFIX)
+        if (!implication.hasNext() || !GeneratedNames.isGenerated(implication.getName())
                 || !"boolean".equals(implication.getType().getQualifiedName()))
             return false;
 

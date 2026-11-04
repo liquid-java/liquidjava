@@ -21,9 +21,9 @@ import liquidjava.rj_language.ast.Var;
 import liquidjava.rj_language.ast.formatter.VariableFormatter;
 import liquidjava.rj_language.opt.VCSimplificationResult;
 import liquidjava.smt.Counterexample;
+import liquidjava.utils.GeneratedNames;
 import liquidjava.utils.Pair;
 import liquidjava.utils.Utils;
-import liquidjava.utils.constants.Formats;
 import spoon.reflect.cu.SourcePosition;
 
 import static liquidjava.rj_language.opt.VCSimplificationUtils.isTrue;
@@ -184,7 +184,7 @@ public class RefinementError extends LJError {
     private static int relevance(String term, List<String> expectedTerms, List<String> foundTerms) {
         if (expectedTerms.contains(term))
             return foundTerms.contains(term) ? 1 : 0;
-        return term.startsWith(Formats.FRESH_PREFIX) ? 3 : 2;
+        return GeneratedNames.isGenerated(term) ? 3 : 2;
     }
 
     // Variables and ghost applications of an expression, named as in the SMT model

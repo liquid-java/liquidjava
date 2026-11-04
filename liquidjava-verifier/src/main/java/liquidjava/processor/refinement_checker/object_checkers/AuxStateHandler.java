@@ -23,6 +23,7 @@ import liquidjava.processor.state_machine.StateMachine;
 import liquidjava.processor.state_machine.StateMachineBuilder;
 import liquidjava.processor.state_machine.StateSolver;
 import liquidjava.rj_language.Predicate;
+import liquidjava.utils.GeneratedNames;
 import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Formats;
 import liquidjava.utils.constants.Keys;
@@ -1090,7 +1091,7 @@ public class AuxStateHandler {
                 && newCall.getMetadata(Keys.REFINEMENT)instanceof Predicate state) {
             // `new T(args).method()`: the receiver is a fresh object in the state the constructor gives. Must come
             // before the TARGET case: a constructor with refined parameters puts its (void) return value in TARGET
-            String name = String.format(Formats.FRESH, tc.getContext().getCounter());
+            String name = GeneratedNames.valueOf(newCall, tc.getContext().getCounter());
             RefinedVariable receiver = tc.getContext().addInstanceToContext(name, newCall.getType(),
                     state.substituteVariable(Keys.THIS, name).substituteVariable(Keys.WILDCARD, name), newCall);
             newCall.putMetadata(Keys.TARGET, receiver);
@@ -1105,7 +1106,7 @@ public class AuxStateHandler {
                 && !isReturnValue(call)) {
             // `a.get().method()` where get() has no return refinement: the call's TARGET is its own receiver (a), not
             // the value it returns, so the receiver is a fresh value of the call's type, in a state not known here
-            String name = String.format(Formats.FRESH, tc.getContext().getCounter());
+            String name = GeneratedNames.valueOf(call, tc.getContext().getCounter());
             RefinedVariable receiver = tc.getContext().addInstanceToContext(name, call.getType(), new Predicate(),
                     call);
             call.putMetadata(Keys.RECEIVER, receiver);
