@@ -98,7 +98,7 @@ public class AuxHierarchyRefinementsPassage {
         if (functionRef.isBooleanTrue())
             function.setRefinement(superRef);
         else {
-            String name = String.format(Formats.FRESH, tc.getContext().getCounter());
+            String name = String.format(Formats.RET, tc.getContext().getCounter());
             tc.getContext().addVarToContext(name, superFunction.getType(), new Predicate(), method);
             // functionRef might be stronger than superRef
             // check (superRef <: functionRef)
@@ -138,7 +138,7 @@ public class AuxHierarchyRefinementsPassage {
                     ObjectState superState = superStates.get(i);
                     ObjectState subState = subStates.get(i);
 
-                    String thisName = String.format(Formats.FRESH, tc.getContext().getCounter());
+                    String thisName = String.format(Formats.INSTANCE, Keys.THIS, tc.getContext().getCounter());
                     createVariableInContext(thisName, tc, subFunction, superFunction, method);
 
                     Predicate superConst = matchVariableNames(thisName, superState.getFrom());

@@ -10,6 +10,7 @@ import liquidjava.processor.context.RefinedVariable;
 import liquidjava.processor.context.Variable;
 import liquidjava.processor.context.VariableInstance;
 import liquidjava.processor.refinement_checker.TypeChecker;
+import liquidjava.utils.GeneratedNames;
 import liquidjava.utils.StaticConstants;
 import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Formats;
@@ -174,7 +175,7 @@ public class OperationsChecker {
             operator.putMetadata(Keys.REFINEMENT, Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), value));
             return;
         }
-        String name = Formats.FRESH;
+        String name = null;
         Predicate all;
         if (ex instanceof CtVariableWrite<T> w) {
             name = w.getVariable().getSimpleName();
@@ -211,9 +212,8 @@ public class OperationsChecker {
             type = operator.getFactory().Type().booleanPrimitiveType();
         }
         Predicate metadata = rtc.getRefinement(ex);
-        String newName = !name.equals(Formats.FRESH)
-                ? String.format(Formats.INSTANCE, name, rtc.getContext().getCounter())
-                : String.format(name, rtc.getContext().getCounter());
+        String newName = name != null ? String.format(Formats.INSTANCE, name, rtc.getContext().getCounter())
+                : GeneratedNames.valueOf(ex, rtc.getContext().getCounter());
         Predicate newMeta = metadata.substituteVariable(Keys.WILDCARD, newName);
 
         Predicate unOp = getOperatorFromKind(operator.getKind(), operator);
@@ -254,7 +254,7 @@ public class OperationsChecker {
             CtExpression<?> element) throws LJError {
         if (element instanceof CtFieldRead<?> field) {
             if (field.getVariable().getSimpleName().equals("length")) {
-                String name = String.format(Formats.FRESH, rtc.getContext().getCounter());
+                String name = GeneratedNames.valueOf(field, rtc.getContext().getCounter());
                 rtc.getContext().addVarToContext(name, element.getType(),
                         rtc.getRefinement(element).substituteVariable(Keys.WILDCARD, name), field);
                 return Predicate.createVar(name);
@@ -327,7 +327,7 @@ public class OperationsChecker {
             Predicate innerRefs = fi.getRenamedRefinements(rtc.getContext(), inv); // TODO REVIEW!!
 
             // Substitute _ by the variable that we send
-            String newName = String.format(Formats.FRESH, rtc.getContext().getCounter());
+            String newName = GeneratedNames.valueOf(inv, rtc.getContext().getCounter());
             innerRefs = innerRefs.substituteVariable(Keys.WILDCARD, newName);
             rtc.getContext().addVarToContext(newName, fi.getType(), innerRefs, inv);
             return new Predicate(newName, inv); // Return variable that represents the invocation
@@ -341,7 +341,7 @@ public class OperationsChecker {
      * method without refinements
      */
     private Predicate getUnconstrainedInvocationVariable(CtInvocation<?> inv) {
-        String newName = String.format(Formats.FRESH, rtc.getContext().getCounter());
+        String newName = GeneratedNames.valueOf(inv, rtc.getContext().getCounter());
         rtc.getContext().addVarToContext(newName, inv.getType(), new Predicate(), inv);
         return new Predicate(newName, inv);
     }
@@ -365,7 +365,7 @@ public class OperationsChecker {
             Predicate innerRefs = fi.getRenamedRefinements(rtc.getContext(), inv); // TODO REVIEW!!
 
             // Substitute _ by the variable that we send
-            String newName = String.format(Formats.FRESH, rtc.getContext().getCounter());
+            String newName = GeneratedNames.valueOf(inv, rtc.getContext().getCounter());
             innerRefs = innerRefs.substituteVariable(Keys.WILDCARD, newName);
 
             // change this for the current instance
@@ -476,7 +476,7 @@ public class OperationsChecker {
     }
 
     private Predicate createFreshValue(CtExpression<?> element, CtTypeReference<?> type, Predicate refinement) {
-        String newName = String.format(Formats.FRESH, rtc.getContext().getCounter());
+        String newName = GeneratedNames.valueOf(element, rtc.getContext().getCounter());
         Predicate freshRefinement = refinement.substituteVariable(Keys.WILDCARD, newName);
         rtc.getContext().addVarToContext(newName, type, freshRefinement, element);
         return Predicate.createVar(newName);

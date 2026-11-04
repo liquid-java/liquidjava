@@ -1,8 +1,6 @@
 package liquidjava.utils.constants;
 
 public final class Formats {
-    public static final String FRESH_PREFIX = "#fresh_";
-    public static final String FRESH = FRESH_PREFIX + "%d";
     public static final String INSTANCE = "#%s_%d";
     public static final String THIS = "this#%s";
     public static final String RET = "#ret_%d";

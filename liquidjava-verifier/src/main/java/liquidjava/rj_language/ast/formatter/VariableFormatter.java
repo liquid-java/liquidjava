@@ -28,7 +28,7 @@ public final class VariableFormatter {
         String receiver = FieldDisplayNames.writeReceiver(name);
         if (receiver != null && isField(baseName))
             return (receiver.isEmpty() ? "" : receiver + ".") + fieldOf(baseName) + toSuperscript(counter);
-        String prefix = isSpecialIdentifier(baseName) ? "#" : "";
+        String prefix = isReturn(baseName) ? "#" : "";
         return prefix + formatField(baseName) + toSuperscript(counter);
     }
 
@@ -80,8 +80,8 @@ public final class VariableFormatter {
         return sb.toString();
     }
 
-    private static boolean isSpecialIdentifier(String id) {
-        return id.equals("fresh") || id.equals("ret");
+    private static boolean isReturn(String id) {
+        return id.equals("ret");
     }
 
     private static boolean isApplication(String name) {

@@ -43,8 +43,8 @@ class VCConstraintSimplificationTest {
     @Test
     void removesCoverageConstraintsImpliedByStrongerLaterConstraints() {
         assertSimplificationSteps(simplification,
-                vc("∀x:int. x >= 0", "∀#fresh_40:boolean. !(y < 40)", "∀#fresh_60:boolean. !(y < 60)",
-                        "∀#fresh_80:boolean. !(y < 80)", "x + y > 0"),
+                vc("∀x:int. x >= 0", "∀##if_condition_40:boolean. !(y < 40)", "∀##if_condition_60:boolean. !(y < 60)",
+                        "∀##if_condition_80:boolean. !(y < 80)", "x + y > 0"),
                 step("x >= 0", "!(y < 60)", "!(y < 80)", "x + y > 0"), step("x >= 0", "!(y < 80)", "x + y > 0"));
     }
 
@@ -74,7 +74,7 @@ class VCConstraintSimplificationTest {
     @Test
     void simplifiesOnlyFirstImpliedConstraint() {
         assertSimplificationSteps(simplification,
-                vc("∀x:int. x > 2", "∀#fresh_1:boolean. x > 1", "∀#fresh_2:boolean. x > 0", "y > 0"),
+                vc("∀x:int. x > 2", "∀##if_condition_1:boolean. x > 1", "∀##if_condition_2:boolean. x > 0", "y > 0"),
                 step("x > 2", "x > 0", "y > 0"), step("x > 2", "y > 0"));
     }
 }

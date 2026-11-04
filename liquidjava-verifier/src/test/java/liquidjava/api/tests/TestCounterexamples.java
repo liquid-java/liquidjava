@@ -116,7 +116,7 @@ class TestCounterexamples {
     @Test
     void callInsideArgumentKeepsItsResultAfterTheArgument() {
         RefinementError error = verify("ErrorCounterexampleCallArgument.java");
-        assertAssignments(error, assignment("#timeout", "-1"), assignment("#fresh", "0"));
+        assertAssignments(error, assignment("#timeout", "-1"), assignment("##read_result", "0"));
     }
 
     @Test
