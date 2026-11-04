@@ -5,7 +5,7 @@ import java.util.Random;
 
 import liquidjava.specification.Refinement;
 
-// Found drops the true rows the error does not need and writes fields as in code (#457)
+// Found drops the true rows the error does not need and writes fields as in code (#457, #375)
 public class Basket {
     static int served;
 
@@ -54,5 +54,18 @@ public class Basket {
         other.level = 3;
         @Refinement("_ == 7")
         int k = level; // Expect: Refinement Error
+    }
+
+    static void positive(@Refinement("_ > 0") int t) {}
+
+    // parameters that another row already shows get no true row
+    void addUp(int first, int second) {
+        @Refinement("_ > 0")
+        int sum = first + second; // Expect: Refinement Error
+    }
+
+    // a variable only expected names keeps its true row: nothing is known about it
+    void forward(int t) {
+        positive(t); // Expect: Refinement Error
     }
 }

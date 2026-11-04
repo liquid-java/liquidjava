@@ -75,8 +75,22 @@ class TestFoundBinders {
     @Test
     void staticFieldIsWrittenWithItsClass() {
         Shown shown = ERRORS.get(31);
-        assertEquals(List.of("∀Basket.served true", "∀count count == Basket.served + 1"), shown.rows());
+        assertEquals(List.of("∀count count == Basket.served + 1"), shown.rows());
         assertEquals("Counterexample: count == 0 && Basket.served == -1", shown.counterexample());
+    }
+
+    @Test
+    void variablesAnotherRowShowsGetNoTrueRow() {
+        Shown shown = ERRORS.get(64);
+        assertEquals(List.of("∀sum sum == first + second"), shown.rows());
+        assertEquals("Counterexample: sum == 0 && first == 0 && second == 0", shown.counterexample());
+    }
+
+    @Test
+    void variableOnlyExpectedNamesKeepsItsTrueRow() {
+        Shown shown = ERRORS.get(69);
+        assertEquals(List.of("∀t true"), shown.rows());
+        assertEquals("Counterexample: t == 0", shown.counterexample());
     }
 
     @Test

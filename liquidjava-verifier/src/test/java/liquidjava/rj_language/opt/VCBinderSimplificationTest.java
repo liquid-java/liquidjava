@@ -49,27 +49,18 @@ class VCBinderSimplificationTest {
     }
 
     @Test
-    void keepsTrueBinderLinkedToExpectedThroughALaterRow() {
+    void removesTrueBinderThatALaterRowShows() {
         assertSimplificationSteps(forRefinementError("y > 0"), vc("∀x:int. true", "∀y:int. y == x + 1"),
-                step("true", "y == x + 1"));
+                step("y == x + 1"));
     }
 
     @Test
-    void keepsTrueBinderLinkedToExpectedThroughSeveralRows() {
-        assertSimplificationSteps(forRefinementError("z > 0"),
-                vc("∀x:int. true", "∀y:int. y == x + 1", "∀z:int. z == y"), step("true", "y == x + 1", "z == y"));
+    void removesTrueBinderOfExpectedVariableThatAnotherRowShows() {
+        assertSimplificationSteps(forRefinementError("x > 0"), vc("∀x:int. true", "x != 0"), step("x != 0"));
     }
 
     @Test
-    void removesTrueBindersOnlyAnUnlinkedGuardUses() {
-        // one guard !(p || t < 0) states !p and !(t < 0) apart, so only the second is linked to t
-        assertSimplificationSteps(forRefinementError("t > 0"),
-                vc("∀port:int. true", "∀p:boolean. true", "!(port < 0)", "!(p || t < 0)", "∀t:int. true"),
-                step("true", "!(port < 0)", "!(p || t < 0)", "true"), step("!(port < 0)", "!(p || t < 0)", "true"));
-    }
-
-    @Test
-    void keepsTrueBinderOfExpectedVariableInRefinementError() {
+    void keepsTrueBinderOfExpectedVariableNoOtherRowMentions() {
         assertSimplificationSteps(forRefinementError("x > 0"), vc("∀x:int. true", "y > 0"), step("true", "y > 0"));
     }
 
@@ -79,16 +70,16 @@ class VCBinderSimplificationTest {
     }
 
     @Test
-    void keepsPrimitiveTrueBinderThatIsTheArgumentOfAGhost() {
+    void removesTrueBinderThatIsTheArgumentOfAGhost() {
         assertSimplificationSteps(forRefinementError("y > 0"), vc("∀k:int. true", "∀y:int. y == f(k)"),
-                step("true", "y == f(k)"));
+                step("y == f(k)"));
     }
 
     @Test
-    void linksThroughGhostApplicationsButKeepsOnlyValueVariables() {
+    void removesTrueBindersThatAConditionalStateShows() {
         assertSimplificationSteps(forStateError("open(f)"),
                 vc("∀ready:boolean. true", "∀f:Object. true", "ready ? open(f) : created(f)"),
-                step("true", "ready ? open(f) : created(f)"));
+                step("true", "ready ? open(f) : created(f)"), step("ready ? open(f) : created(f)"));
     }
 
     @Test
@@ -104,8 +95,8 @@ class VCBinderSimplificationTest {
 
     @Test
     void skipsInapplicableTrueBinderAndSimplifiesLaterBinder() {
-        assertSimplificationSteps(forRefinementError("x > 0"), vc("∀x:int. true", "x > 0", "∀y:int. true", "z > 0"),
-                step("true", "x > 0", "z > 0"));
+        assertSimplificationSteps(forRefinementError("x > 0"), vc("∀x:int. true", "w > 0", "∀y:int. true", "z > 0"),
+                step("true", "w > 0", "z > 0"));
     }
 
     @Test
