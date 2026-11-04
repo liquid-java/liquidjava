@@ -9,6 +9,7 @@ import liquidjava.processor.context.RefinedVariable;
 import liquidjava.processor.context.Variable;
 import liquidjava.processor.context.VariableInstance;
 import liquidjava.rj_language.Predicate;
+import liquidjava.utils.GeneratedNames;
 import liquidjava.utils.constants.Formats;
 import spoon.reflect.code.CtCatch;
 import spoon.reflect.code.CtExpression;
@@ -73,7 +74,8 @@ class TryChecker {
         if (i == tryBlock.getCatchers().size())
             return visitBranch(tryBlock, i, before, inTry);
 
-        String pathVarName = String.format(Formats.FRESH, context.getCounter());
+        String branch = i == 0 ? GeneratedNames.TRY_BRANCH : GeneratedNames.CATCH_BRANCH;
+        String pathVarName = GeneratedNames.of(branch, context.getCounter());
         Predicate cond = Predicate.createVar(pathVarName);
         RefinedVariable pathVar = context.addInstanceToContext(pathVarName, factory.Type().BOOLEAN_PRIMITIVE,
                 new Predicate(), tryBlock);

@@ -3,6 +3,8 @@ package liquidjava.rj_language.ast.formatter;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import liquidjava.utils.GeneratedNames;
+
 /**
  * Formats internal variable names into a cleaner display representation using superscript notation
  */
@@ -28,7 +30,7 @@ public final class VariableFormatter {
         String receiver = FieldDisplayNames.writeReceiver(name);
         if (receiver != null && isField(baseName))
             return (receiver.isEmpty() ? "" : receiver + ".") + fieldOf(baseName) + toSuperscript(counter);
-        String prefix = isSpecialIdentifier(baseName) ? "#" : "";
+        String prefix = isGenerated(name, baseName) ? "#" : "";
         return prefix + formatField(baseName) + toSuperscript(counter);
     }
 
@@ -80,8 +82,8 @@ public final class VariableFormatter {
         return sb.toString();
     }
 
-    private static boolean isSpecialIdentifier(String id) {
-        return id.equals("fresh") || id.equals("ret");
+    private static boolean isGenerated(String name, String baseName) {
+        return GeneratedNames.isGenerated(name) || baseName.equals("ret");
     }
 
     private static boolean isApplication(String name) {

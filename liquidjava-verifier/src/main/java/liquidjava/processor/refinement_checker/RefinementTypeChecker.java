@@ -21,6 +21,7 @@ import liquidjava.processor.refinement_checker.object_checkers.AuxStateHandler;
 import liquidjava.rj_language.BuiltinFunctionPredicate;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.Enum;
+import liquidjava.utils.GeneratedNames;
 import liquidjava.utils.StaticConstants;
 import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Formats;
@@ -210,7 +211,7 @@ public class RefinementTypeChecker extends TypeChecker {
         // TODO only working for 1 dimension
         for (CtExpression<?> exp : l) {
             Predicate c = getExpressionRefinements(exp);
-            String name = String.format(Formats.FRESH, context.getCounter());
+            String name = GeneratedNames.of(GeneratedNames.ARRAY_LENGTH, context.getCounter());
             if (c.getVariableNames().contains(Keys.WILDCARD)) {
                 c = c.substituteVariable(Keys.WILDCARD, name);
             } else {
@@ -498,7 +499,7 @@ public class RefinementTypeChecker extends TypeChecker {
         CtExpression<Boolean> exp = ifElement.getCondition();
         Predicate expRefs = getExpressionRefinements(exp);
 
-        String pathVarName = String.format(Formats.FRESH, context.getCounter());
+        String pathVarName = GeneratedNames.of(GeneratedNames.IF_CONDITION, context.getCounter());
         // A value refinement constrains the result of evaluating the expression; it is not
         // itself the truth value selecting the branch. Calls without a wildcard likewise
         // provide no information about their boolean result.
@@ -610,14 +611,13 @@ public class RefinementTypeChecker extends TypeChecker {
     }
 
     private void keepFreshValues(Predicate predicate, Set<String> visited) {
-        String freshPrefix = Formats.FRESH.substring(0, Formats.FRESH.indexOf('%'));
         for (String name : predicate.getVariableNames()) {
             if (!visited.add(name))
                 continue;
             RefinedVariable value = context.getVariableByName(name);
             if (value == null)
                 continue;
-            if (name.startsWith(freshPrefix))
+            if (GeneratedNames.isGenerated(name))
                 context.addInstanceVariable(value);
             keepFreshValues(value.getMainRefinement(), visited);
         }
@@ -821,7 +821,7 @@ public class RefinementTypeChecker extends TypeChecker {
     private void recordExit(LoopTypestates states, CtExpression<Boolean> condition) {
         if (condition == null)
             return;
-        RefinedVariable conditionIsFalse = assumeCondition(condition, false);
+        RefinedVariable conditionIsFalse = assumeCondition(condition, false, GeneratedNames.LOOP_CONDITION);
         states.recordExit();
         if (conditionIsFalse != null)
             vcChecker.removePathVariable(conditionIsFalse);
@@ -953,22 +953,22 @@ public class RefinementTypeChecker extends TypeChecker {
      * the condition of an if, see visitCtIf). Re-assigning a variable in the body drops the conditions on it.
      */
     private void assumeLoopCondition(CtExpression<Boolean> condition) {
-        assumeCondition(condition, true);
+        assumeCondition(condition, true, GeneratedNames.LOOP_CONDITION);
     }
 
     /**
      * Adds a path condition saying that {@code condition} evaluated to {@code holds}, on the values it was evaluated
-     * on. Returns the path variable, so the caller can remove it where the condition no longer applies, or null when
-     * nothing is assumed.
+     * on, in a path variable named after {@code kind}. Returns the path variable, so the caller can remove it where the
+     * condition no longer applies, or null when nothing is assumed.
      */
-    private RefinedVariable assumeCondition(CtExpression<Boolean> condition, boolean holds) {
+    private RefinedVariable assumeCondition(CtExpression<Boolean> condition, boolean holds, String kind) {
         // conditions with side effects (e.g. (n = read()) > 0) are not encoded, so they assume nothing
         if (condition == null || !condition.getElements(new TypeFilter<>(CtVariableWrite.class)).isEmpty())
             return null;
         Predicate refs = getRefinement(condition);
         if (isUninformativeCondition(refs, condition))
             return null;
-        String pathVarName = String.format(Formats.FRESH, context.getCounter());
+        String pathVarName = GeneratedNames.of(kind, context.getCounter());
         boolean valueIsCondition = refs.getVariableNames().contains(Keys.WILDCARD);
         refs = refs.substituteVariable(Keys.WILDCARD, pathVarName);
         refs = Predicate.createConjunction(refs, substituteAllVariablesForLastInstance(refs));
@@ -1006,7 +1006,7 @@ public class RefinementTypeChecker extends TypeChecker {
     }
 
     private void scanAssuming(CtExpression<?> branch, CtExpression<Boolean> condition, boolean holds) {
-        RefinedVariable pathVar = assumeCondition(condition, holds);
+        RefinedVariable pathVar = assumeCondition(condition, holds, GeneratedNames.TERNARY_CONDITION);
         scan(branch);
         if (pathVar != null)
             vcChecker.removePathVariable(pathVar);
