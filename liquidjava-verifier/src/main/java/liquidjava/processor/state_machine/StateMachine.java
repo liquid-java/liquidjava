@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -241,6 +242,39 @@ public record StateMachine(List<State> states, List<RefinedFunction> methods, Li
     /** Like {@link #describe(Collection)}, but naming the state of every set in {@code named} */
     public List<List<String>> describe(Collection<State> subset, Set<Integer> named) {
         return StateCover.of(states, Set.copyOf(subset), named);
+    }
+
+    /**
+     * {@code subset} named only by its states in the sets {@code shown}, whatever they are in the other sets, e.g.
+     * {@code [[unmarked]]} for the state {@code open and unmarked} if only the second set is shown
+     */
+    public List<List<String>> describeOnly(Collection<State> subset, Set<Integer> shown) {
+        List<State> agreeing = states.stream()
+                .filter(s -> subset.stream().anyMatch(
+                        member -> shown.stream().allMatch(k -> s.names().get(k).equals(member.names().get(k)))))
+                .toList();
+        return describe(agreeing, shown);
+    }
+
+    /**
+     * The state sets, as indexes into {@link State#names()}, whose states in {@code after} differ from those in
+     * {@code before}. Every set if the other sets, taken together, differ too: then how the states of different sets
+     * are combined changed, which naming the changed sets alone would hide.
+     */
+    public Set<Integer> stateSetsChanged(Collection<State> before, Collection<State> after) {
+        Set<Integer> every = IntStream.range(0, states.get(0).names().size()).boxed()
+                .collect(Collectors.toCollection(TreeSet::new));
+        Set<Integer> changed = every.stream()
+                .filter(k -> !statesIn(before, Set.of(k)).equals(statesIn(after, Set.of(k))))
+                .collect(Collectors.toCollection(TreeSet::new));
+        Set<Integer> kept = every.stream().filter(k -> !changed.contains(k)).collect(Collectors.toSet());
+        return !changed.isEmpty() && statesIn(before, kept).equals(statesIn(after, kept)) ? changed : every;
+    }
+
+    /** The states of the sets {@code sets} that {@code subset} has, combined as in its states */
+    private static Set<List<String>> statesIn(Collection<State> subset, Set<Integer> sets) {
+        return subset.stream().map(s -> sets.stream().sorted().map(s.names()::get).toList())
+                .collect(Collectors.toSet());
     }
 
     /**

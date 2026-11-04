@@ -37,10 +37,9 @@ class TestStateHints {
     }
 
     @Test
-    void statesOfMultipleStateSetsAreCombined() {
+    void callSequenceNamesOnlyTheStateSetsItChanges() {
         assertHints("ErrorStateHintMultipleSets.java",
-                new Hint(Kind.CALL_SEQUENCE,
-                        "Call d.unlock() before this call to move d from closed and locked to closed and unlocked"),
+                new Hint(Kind.CALL_SEQUENCE, "Call d.unlock() before this call to move d from locked to unlocked"),
                 new Hint(Kind.AVAILABLE_CALLS, "In state closed and locked, d can call: unlock()"));
     }
 
