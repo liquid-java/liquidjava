@@ -1,7 +1,5 @@
 package liquidjava.api.tests;
 
-import static liquidjava.api.tests.FoundRows.plain;
-import static liquidjava.api.tests.FoundRows.rows;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.ArrayList;
@@ -16,6 +14,8 @@ import liquidjava.api.CommandLineLauncher;
 import liquidjava.diagnostics.Diagnostics;
 import liquidjava.diagnostics.errors.LJError;
 import liquidjava.diagnostics.errors.RefinementError;
+import liquidjava.processor.VCImplication;
+import liquidjava.rj_language.ast.formatter.VariableFormatter;
 import liquidjava.rj_language.opt.VCSimplificationResult;
 
 /**
@@ -98,5 +98,20 @@ class TestFoundBinders {
         assertEquals("other.level == -1 is not a subtype of other.level >= 0", ERRORS.get(36).message());
         assertEquals(List.of("∀this.level this.level >= 0", "∀other.level other.level == this.level - 1"),
                 ERRORS.get(48).rows());
+    }
+
+    // the rows of Found as the IDE writes them: binder name, then its refinement
+    private static List<String> rows(VCImplication found) {
+        List<String> rows = new ArrayList<>();
+        for (VCImplication current = found; current != null; current = current.getNext()) {
+            String refinement = current.getRefinement().getExpression().toDisplayString();
+            rows.add(plain(current.hasBinder() ? "∀" + VariableFormatter.format(current.getName()) + " " + refinement
+                    : refinement));
+        }
+        return rows;
+    }
+
+    private static String plain(String text) {
+        return text.replaceAll("[⁰¹²³⁴⁵⁶⁷⁸⁹]", "");
     }
 }
