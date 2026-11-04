@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -241,6 +242,35 @@ public record StateMachine(List<State> states, List<RefinedFunction> methods, Li
     /** Like {@link #describe(Collection)}, but naming the state of every set in {@code named} */
     public List<List<String>> describe(Collection<State> subset, Set<Integer> named) {
         return StateCover.of(states, Set.copyOf(subset), named);
+    }
+
+    /**
+     * {@code subset} named only by its states in the sets {@code shown}, whatever they are in the other sets, e.g.
+     * {@code [[unmarked]]} for the state {@code open and unmarked} if only the second set is shown
+     */
+    public List<List<String>> describeOnly(Collection<State> subset, Set<Integer> shown) {
+        List<State> agreeing = states.stream()
+                .filter(s -> subset.stream().anyMatch(
+                        member -> shown.stream().allMatch(k -> s.names().get(k).equals(member.names().get(k)))))
+                .toList();
+        return describe(agreeing, shown);
+    }
+
+    /**
+     * The state sets, as indexes into {@link State#names()}, whose states in {@code after} differ from those in
+     * {@code before}; every set if no set differs on its own, since then only their combination changed
+     */
+    public Set<Integer> stateSetsChanged(Collection<State> before, Collection<State> after) {
+        Set<Integer> every = IntStream.range(0, states.get(0).names().size()).boxed()
+                .collect(Collectors.toCollection(TreeSet::new));
+        Set<Integer> changed = every.stream().filter(k -> !statesIn(before, k).equals(statesIn(after, k)))
+                .collect(Collectors.toCollection(TreeSet::new));
+        return changed.isEmpty() ? every : changed;
+    }
+
+    /** The states of the set {@code k} that {@code subset} has */
+    private static Set<String> statesIn(Collection<State> subset, int k) {
+        return subset.stream().map(s -> s.names().get(k)).collect(Collectors.toSet());
     }
 
     /**

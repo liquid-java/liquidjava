@@ -71,6 +71,21 @@ class StateMachineTest {
     }
 
     @Test
+    void statesAreNamedOnlyInTheSetsShown() {
+        assertEquals(List.of(List.of("locked")), MACHINE.describeOnly(Set.of(OPEN_LOCKED), Set.of(1)));
+        assertEquals(List.of(List.of("locked"), List.of("unlocked")),
+                MACHINE.describeOnly(Set.of(OPEN_LOCKED, CLOSED_UNLOCKED), Set.of(1)));
+    }
+
+    @Test
+    void setsChangedAreThoseWhoseStatesDiffer() {
+        assertEquals(Set.of(1), MACHINE.stateSetsChanged(Set.of(OPEN_LOCKED), Set.of(OPEN_UNLOCKED)));
+        // each set has the same states on both sides, only how they are combined changed
+        assertEquals(Set.of(0, 1),
+                MACHINE.stateSetsChanged(Set.of(OPEN_LOCKED, CLOSED_UNLOCKED), Set.of(OPEN_UNLOCKED, CLOSED_LOCKED)));
+    }
+
+    @Test
     void setsNamedAreThoseTheDescriptionFixes() {
         assertEquals(Set.of(1), MACHINE.stateSetsNamed(Set.of(OPEN_UNLOCKED, CLOSED_UNLOCKED)));
         assertEquals(Set.of(0, 1), MACHINE.stateSetsNamed(Set.of(OPEN_LOCKED, OPEN_UNLOCKED, CLOSED_LOCKED)));

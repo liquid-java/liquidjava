@@ -74,7 +74,7 @@ public final class StateHints {
         if (category == ErrorCategory.UNKNOWN || checkedElsewhere)
             return hints.anyState(current, call, checkedElsewhere);
         boolean pathDependent = category == ErrorCategory.PATH_DEPENDENT_STATE;
-        List<Hint> sequences = hints.howToReach(current, call, hints.namesHere(current),
+        List<Hint> sequences = hints.howToReach(current, call, false,
                 () -> machine.complete() ? List.of(hints.unreachable(current, call, pathDependent)) : List.of());
         // in a known state, a check is suggested only when no sequence of calls reaches a state that allows the call
         boolean reachable = sequences.stream().anyMatch(h -> h.kind() == Kind.CALL_SEQUENCE);
@@ -112,19 +112,19 @@ public final class StateHints {
         List<Hint> hints = new ArrayList<>();
         hints.add(new Hint(Kind.NEEDED_STATE, message));
         hints.addAll(guard(current, call));
-        hints.addAll(howToReach(current, call, "any state", List::of));
+        hints.addAll(howToReach(current, call, true, List::of));
         return hints;
     }
 
     /**
      * The shortest sequences of calls that are allowed in every state of {@code current} and lead to {@code call}
      *
-     * @param from
-     *            how to name {@code current}
+     * @param fromAnyState
+     *            whether to name {@code current} as any state
      * @param unreachable
      *            the hints to give if no sequence exists
      */
-    private List<Hint> howToReach(Set<State> current, RefinedFunction call, String from,
+    private List<Hint> howToReach(Set<State> current, RefinedFunction call, boolean fromAnyState,
             Supplier<List<Hint>> unreachable) {
         Optional<List<List<CallVariant>>> search = machine.shortestPaths(current, call, MAX_SEQUENCES);
         if (search.isEmpty())
@@ -134,7 +134,7 @@ public final class StateHints {
             return unreachable.get();
         if (sequences.get(0).size() > MAX_SEQUENCE_LENGTH)
             return List.of();
-        return sequences.stream().map(sequence -> callSequence(current, sequence, from)).toList();
+        return sequences.stream().map(sequence -> callSequence(current, sequence, fromAnyState)).toList();
     }
 
     /**
@@ -193,13 +193,16 @@ public final class StateHints {
         return refinements.anyMatch(p -> StateMachine.mayName(p, checked));
     }
 
-    private Hint callSequence(Set<State> current, List<CallVariant> sequence, String from) {
+    /** The states before and after {@code sequence} are named only in the state sets it changes */
+    private Hint callSequence(Set<State> current, List<CallVariant> sequence, boolean fromAnyState) {
         Set<State> reached = current;
         for (CallVariant step : sequence)
             reached = machine.after(reached, step);
+        Set<Integer> changed = machine.stateSetsChanged(current, reached);
+        String from = fromAnyState ? "any state" : join(machine.describeOnly(current, changed));
         String calls = sequence.stream().map(this::call).collect(Collectors.joining(", then "));
         return new Hint(Kind.CALL_SEQUENCE, String.format("Call %s before this call to move %s from %s to %s", calls,
-                receiver, from, names(reached)));
+                receiver, from, join(machine.describeOnly(reached, changed))));
     }
 
     private Hint unreachable(Set<State> current, RefinedFunction call, boolean pathDependent) {
