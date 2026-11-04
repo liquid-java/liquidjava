@@ -152,7 +152,7 @@ public final class StateHints {
             return List.of();
         CallVariant guard = guards.get(0);
         boolean negated = guard.negatedResult();
-        String check = (negated ? "!" : "") + call(guard.method());
+        String check = (negated ? "!" : "") + invocation(guard.method());
         String message = String.format("Guard this call with if (%s): when it returns %s, %s is %s", check, !negated,
                 receiver, needed());
         return List.of(new Hint(Kind.GUARD, message));
@@ -206,6 +206,12 @@ public final class StateHints {
 
     private String call(RefinedFunction method) {
         return receiver + "." + signature(method);
+    }
+
+    /** A call as written in code, with the parameters' names as its arguments, e.g. {@code l.tryLock(timeout)} */
+    private String invocation(RefinedFunction method) {
+        return receiver + "." + Utils.getSimpleName(method.getName())
+                + method.getArguments().stream().map(Variable::getName).collect(Collectors.joining(", ", "(", ")"));
     }
 
     /**

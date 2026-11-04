@@ -262,7 +262,7 @@ class TestStateHints {
                                 + "Objects created with new GuardChannel() start in such a state"),
                 new Hint(Kind.GUARD, "Guard this call with if (!c.isClosed()): when it returns false, c is open"));
         assertHints(errors.get(1),
-                new Hint(Kind.GUARD, "Guard this call with if (l.tryLock(long)): when it returns true, l is locked"),
+                new Hint(Kind.GUARD, "Guard this call with if (l.tryLock(timeout)): when it returns true, l is locked"),
                 new Hint(Kind.AVAILABLE_CALLS, "In state unlocked, l can call: tryLock(long) (and possibly others)"));
         assertHints(errors.get(2),
                 new Hint(Kind.NEEDED_STATE, "The state of p is unknown here, and this call needs it to be ready"));
