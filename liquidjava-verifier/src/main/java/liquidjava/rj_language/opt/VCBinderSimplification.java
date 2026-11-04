@@ -65,7 +65,7 @@ public class VCBinderSimplification implements VCSimplificationPass {
      */
     private VCImplication withNext(VCImplication implication, VCImplication next) {
         VCImplication result = copyWithRefinement(implication, implication.getRefinement().clone());
-        // P => true -> P, so a trailing true row does not read as the value of the row above
+        // Found reads its rows as a conjunction, so P && true -> P: a trailing true row only reads as the value above
         if (!isPlainTrue(next))
             result.setNext(next);
         return result;
