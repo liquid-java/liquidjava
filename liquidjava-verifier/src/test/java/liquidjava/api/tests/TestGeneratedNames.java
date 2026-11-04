@@ -22,9 +22,9 @@ class TestGeneratedNames {
         Map<Integer, String> messages = Diagnostics.getInstance().getErrors().stream().collect(Collectors.toMap(
                 error -> error.getPosition().getLine(), error -> error.getMessage().replaceAll("[⁰¹²³⁴⁵⁶⁷⁸⁹]", "")));
 
-        assertEquals(Map.of(25, "#if_condition == ready && #if_condition is not a subtype of a > 0", 30,
-                "#loop_condition == ready && #loop_condition == true is not a subtype of a > 0", 34,
-                "#ternary_condition == ready && #ternary_condition == true is not a subtype of a < 0", 43,
+        assertEquals(Map.of(25, "#if_condition == #ready_result && #if_condition is not a subtype of a > 0", 30,
+                "#loop_condition == #ready_result && #loop_condition == true is not a subtype of a > 0", 34,
+                "#ternary_condition == #ready_result && #ternary_condition == true is not a subtype of a < 0", 43,
                 "!#try_branch && !#catch_branch is not a subtype of a > 0", 48,
                 "x == #read_result - 1 is not a subtype of x > 0", 54,
                 "#if_condition == #operation_result && #if_condition && x == 0 is not a subtype of x > 0", 58,
