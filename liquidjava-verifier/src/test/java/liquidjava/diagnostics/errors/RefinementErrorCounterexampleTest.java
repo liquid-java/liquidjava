@@ -45,10 +45,10 @@ class RefinementErrorCounterexampleTest {
     @Test
     void omitsUnmentionedPathBinderAndListsGeneratedNamesLast() {
         RefinementError error = error("t >= 0",
-                vc("∀#read_result_1:int. true", "∀port:int. true", "∀#if_condition_2:boolean. port > 0",
-                        "∀t:int. t == #read_result_1 + port", "true"),
-                "#if_condition_2=false", "t=-1", "#read_result_1=-2", "port=1");
-        assertEquals(List.of(pair("t", "-1"), pair("port", "1"), pair("#read_result_1", "-2")),
+                vc("∀##read_result_1:int. true", "∀port:int. true", "∀##if_condition_2:boolean. port > 0",
+                        "∀t:int. t == ##read_result_1 + port", "true"),
+                "##if_condition_2=false", "t=-1", "##read_result_1=-2", "port=1");
+        assertEquals(List.of(pair("t", "-1"), pair("port", "1"), pair("##read_result_1", "-2")),
                 error.getCounterexample().assignments());
     }
 
@@ -91,7 +91,7 @@ class RefinementErrorCounterexampleTest {
     void splitsNegatedDisjunctionsSoEachGuardLinksOnlyItsOwnVariables() {
         RefinementError error = error("t >= 0",
                 vc("∀port:int. true", "∀retries:int. true", "∀t:int. true",
-                        "∀#if_condition_1:boolean. !(port < 0 || retries < 0 || t > 100)", "true"),
+                        "∀##if_condition_1:boolean. !(port < 0 || retries < 0 || t > 100)", "true"),
                 "port=0", "retries=0", "t=-1");
         assertEquals(List.of(pair("t", "-1")), error.getCounterexample().assignments());
     }
@@ -100,7 +100,7 @@ class RefinementErrorCounterexampleTest {
     void splitsNestedConjunctionsAndDoubleNegations() {
         RefinementError error = error("t >= 0",
                 vc("∀port:int. true", "∀retries:int. true", "∀backoff:int. true", "∀t:int. true",
-                        "∀#if_condition_1:boolean. !(port < 0 || !!(retries > 3 && backoff > 1) || t > 100)", "true"),
+                        "∀##if_condition_1:boolean. !(port < 0 || !!(retries > 3 && backoff > 1) || t > 100)", "true"),
                 "port=0", "retries=0", "backoff=0", "t=-1");
         assertEquals(List.of(pair("t", "-1")), error.getCounterexample().assignments());
     }
@@ -109,7 +109,7 @@ class RefinementErrorCounterexampleTest {
     void keepsAGuardThatRelatesExpectedToAnotherVariable() {
         RefinementError error = error("t >= 0",
                 vc("∀port:int. true", "∀retries:int. true", "∀t:int. true",
-                        "∀#if_condition_1:boolean. !(port < 0 || retries > t)", "true"),
+                        "∀##if_condition_1:boolean. !(port < 0 || retries > t)", "true"),
                 "port=0", "retries=-2", "t=-1");
         assertEquals(List.of(pair("t", "-1"), pair("retries", "-2")), error.getCounterexample().assignments());
     }

@@ -11,8 +11,9 @@ import spoon.reflect.code.CtUnaryOperator;
 
 /**
  * Names of the values the verifier introduces, such as path conditions and call results. Each is written
- * {@code #<what the value is>_<counter>}, so that error messages say what the value stands for; the counter keeps it
- * unique and {@code #} keeps it apart from the variables of the program.
+ * {@code ##<what the value is>_<counter>}, so that error messages say what the value stands for. The counter keeps it
+ * unique, and the second {@code #} keeps it apart from the instances of program variables,
+ * {@code #<variable>_<counter>}, as a Java name cannot start with {@code #}.
  */
 public final class GeneratedNames {
     public static final String IF_CONDITION = "if_condition";
@@ -28,27 +29,26 @@ public final class GeneratedNames {
     private static final String OPERATION_RESULT = "operation" + RESULT;
     private static final String EXPRESSION_VALUE = "expression" + VALUE;
 
-    private static final Pattern GENERATED = Pattern
-            .compile("^#(" + NEW + "\\w+|\\w+_(condition|branch|length|result|value))_[0-9]+$");
+    private static final String PREFIX = "##";
     private static final Pattern NOT_IN_IDENTIFIER = Pattern.compile("[^A-Za-z0-9_]");
 
     private GeneratedNames() {
     }
 
     public static String of(String description, int counter) {
-        return String.format("#%s_%d", NOT_IN_IDENTIFIER.matcher(description).replaceAll("_"), counter);
+        return String.format(PREFIX + "%s_%d", NOT_IN_IDENTIFIER.matcher(description).replaceAll("_"), counter);
     }
 
     /**
-     * Names the value of an expression after what it is: {@code #size_result_3} for a call to {@code size},
-     * {@code #count_value_3} for a read of field {@code count}, {@code #new_File_3} for a new {@code File}
+     * Names the value of an expression after what it is: {@code ##size_result_3} for a call to {@code size},
+     * {@code ##count_value_3} for a read of field {@code count}, {@code ##new_File_3} for a new {@code File}
      */
     public static String valueOf(CtExpression<?> expression, int counter) {
         return of(describe(expression), counter);
     }
 
     public static boolean isGenerated(String name) {
-        return GENERATED.matcher(name).matches();
+        return name.startsWith(PREFIX);
     }
 
     private static String describe(CtExpression<?> expression) {
