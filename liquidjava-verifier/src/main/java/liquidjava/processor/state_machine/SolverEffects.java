@@ -2,6 +2,8 @@ package liquidjava.processor.state_machine;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -56,8 +58,14 @@ final class SolverEffects implements CallVariant.Effects {
     /** The effects with any arguments, whose entries a condition on the result does not change, or null */
     private final CallVariant.Effects any;
 
-    private final Map<Integer, Map<State, CallVariant.Entry>> entries = new HashMap<>();
+    /** By state refinement, then by the states before the call in the state sets its {@code from} names */
+    private final Map<Integer, Map<List<String>, CallVariant.Entry>> entries = new HashMap<>();
     private final Map<Integer, Map<State, Optional<Set<State>>>> afters = new HashMap<>();
+    /**
+     * By state refinement, then by the states before the call in the sets its {@code to} names for {@code old(this)}:
+     * the states it can lead to in the sets it names
+     */
+    private final Map<Integer, Map<List<String>, Set<List<String>>>> reachedBefore = new HashMap<>();
 
     /**
      * @param changes
@@ -99,13 +107,17 @@ final class SolverEffects implements CallVariant.Effects {
             return CallVariant.Entry.HOLDS; // no state refinement: allowed in every state
         if (onResult && any != null)
             return any.entry(index, state); // the result is not known before the call
-        return entries.computeIfAbsent(index, i -> new HashMap<>()).computeIfAbsent(state, s -> {
+        // the states of the other sets are about other ghost functions, so they cannot change the answer
+        Predicate from = changes.get(index).getFrom();
+        List<String> named = namedSets(from).stream().map(state.names()::get).toList();
+        return entries.computeIfAbsent(index, i -> new HashMap<>()).computeIfAbsent(named, n -> {
             Optional<CallVariant.Entry> entry = withScope(() -> {
-                Predicate before = before(s);
-                Predicate from = changes.get(index).getFrom().substituteVariable(Keys.THIS, BEFORE);
-                if (scope.solver().implies(before, from))
+                Predicate before = before(state);
+                Predicate fromBefore = from.substituteVariable(Keys.THIS, BEFORE);
+                if (scope.solver().implies(before, fromBefore))
                     return CallVariant.Entry.HOLDS;
-                return scope.solver().compatible(before, from) ? CallVariant.Entry.UNDECIDED : CallVariant.Entry.FAILS;
+                return scope.solver().compatible(before, fromBefore) ? CallVariant.Entry.UNDECIDED
+                        : CallVariant.Entry.FAILS;
             });
             return entry.orElse(CallVariant.Entry.UNDECIDED);
         });
@@ -132,11 +144,23 @@ final class SolverEffects implements CallVariant.Effects {
             ObjectState change = changes.get(index);
             if (!change.hasTo())
                 return Set.of(state);
-            Predicate to = change.getTo().substituteVariable(Keys.THIS, AFTER).changeOldMentions(BEFORE, AFTER);
-            Predicate known = Predicate.createConjunction(before(state), to);
-            if (onResult)
-                known = Predicate.createConjunction(known, condition);
-            Set<State> next = possibleStates(candidates, known, AFTER);
+            List<Integer> named = namedSets(change.getTo()).stream().sorted().toList();
+            Set<State> kept = Set.copyOf(StateMachine.keeping(candidates, state, Set.copyOf(named)));
+            // where it leads in the sets it names depends only on the state before in those it names for old(this)
+            List<String> before = StateMachine.namedSetsBefore(change.getTo(), scope.stateSets()).stream().sorted()
+                    .map(state.names()::get).toList();
+            Map<List<String>, Set<List<String>>> reached = reachedBefore.computeIfAbsent(index, i -> new HashMap<>());
+            if (!reached.containsKey(before)) {
+                Predicate to = change.getTo().substituteVariable(Keys.THIS, AFTER).changeOldMentions(BEFORE, AFTER);
+                Predicate known = Predicate.createConjunction(before(state), to);
+                if (onResult)
+                    known = Predicate.createConjunction(known, condition);
+                reached.put(before, possibleStates(kept, known, AFTER).stream()
+                        .map(c -> named.stream().map(c.names()::get).toList()).collect(Collectors.toSet()));
+            }
+            Set<State> next = scope.states().stream().filter(kept::contains)
+                    .filter(c -> reached.get(before).contains(named.stream().map(c.names()::get).toList()))
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
             // no state at all: the condition contradicts the refinement here, so nothing can be claimed
             return next.isEmpty() && !onResult ? null : next;
         });
@@ -168,6 +192,13 @@ final class SolverEffects implements CallVariant.Effects {
             return true;
         }).toList();
         return scope.solver().possibleStates(combined, known, variable);
+    }
+
+    /** The state sets that {@code predicate} or this variant's condition may name a state of */
+    private Set<Integer> namedSets(Predicate predicate) {
+        Set<Integer> named = new HashSet<>(StateMachine.namedSets(predicate, scope.stateSets()));
+        named.addAll(StateMachine.namedSets(condition, scope.stateSets()));
+        return named;
     }
 
     /** What is known before the call in {@code state} */

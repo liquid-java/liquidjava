@@ -12,10 +12,16 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import liquidjava.processor.context.ObjectState;
 import liquidjava.processor.context.RefinedFunction;
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.ast.AliasInvocation;
+import liquidjava.rj_language.ast.Expression;
+import liquidjava.rj_language.ast.FunctionInvocation;
+import liquidjava.utils.Utils;
+import liquidjava.utils.constants.Keys;
 
 /**
  * The typestate of a class as a finite state machine, built by {@link StateMachineBuilder}
@@ -256,6 +262,60 @@ public record StateMachine(List<State> states, List<RefinedFunction> methods, Li
     /** {@code subset} in declaration order */
     public Set<State> ordered(Collection<State> subset) {
         return states.stream().filter(subset::contains).collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    /**
+     * Whether {@code predicate} names one of {@code states}, by its simple name, or calls an alias, which may name one
+     * that cannot be seen without expanding it
+     */
+    public static boolean mayName(Predicate predicate, Set<String> states) {
+        return mayName(predicate.getExpression(), states, false);
+    }
+
+    /**
+     * The state sets, as indexes into {@link State#names()}, that {@code predicate} {@link #mayName may name} a state
+     * of
+     *
+     * @param stateSets
+     *            the states of each state set on its own, in the order the sets are declared
+     */
+    static Set<Integer> namedSets(Predicate predicate, List<List<State>> stateSets) {
+        return namedSets(predicate, stateSets, false);
+    }
+
+    /** Like {@link #namedSets}, but only the sets it may name a state of for {@code old(this)} */
+    static Set<Integer> namedSetsBefore(Predicate predicate, List<List<State>> stateSets) {
+        return namedSets(predicate, stateSets, true);
+    }
+
+    private static Set<Integer> namedSets(Predicate predicate, List<List<State>> stateSets, boolean onOld) {
+        return IntStream.range(0, stateSets.size())
+                .filter(k -> mayName(predicate.getExpression(),
+                        stateSets.get(k).stream().map(s -> s.names().get(0)).collect(Collectors.toSet()), onOld))
+                .boxed().collect(Collectors.toSet());
+    }
+
+    /**
+     * The {@code candidates} in the same state as {@code before} in every state set but those in {@code changed}: the
+     * verifier keeps the state of a set that a state refinement's {@code to} does not name
+     */
+    static List<State> keeping(Collection<State> candidates, State before, Set<Integer> changed) {
+        return candidates.stream().filter(c -> IntStream.range(0, before.names().size())
+                .allMatch(k -> changed.contains(k) || c.names().get(k).equals(before.names().get(k)))).toList();
+    }
+
+    private static boolean mayName(Expression expression, Set<String> states, boolean onOld) {
+        if (expression instanceof AliasInvocation)
+            return true;
+        if (expression instanceof FunctionInvocation f && states.contains(Utils.getSimpleName(f.getName()))
+                && (!onOld || invokesOld(f)))
+            return true;
+        return expression.getChildren().stream().anyMatch(e -> mayName(e, states, onOld));
+    }
+
+    private static boolean invokesOld(Expression expression) {
+        return expression instanceof FunctionInvocation f && Keys.OLD.equals(f.getName())
+                || expression.getChildren().stream().anyMatch(StateMachine::invokesOld);
     }
 
     private Optional<Transition> transition(State from, RefinedFunction method) {
