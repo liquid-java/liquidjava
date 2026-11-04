@@ -26,7 +26,9 @@ public record Hint(Kind kind, String message) {
         /** The object is in a state where no call with a state refinement is allowed */
         FINAL_STATE,
         /** The object can be in any state: the state the failing call needs, and the constructors that create it */
-        NEEDED_STATE
+        NEEDED_STATE,
+        /** A call whose result, checked right before the failing call, puts the object in a state that allows it */
+        GUARD
     }
 
     public static Hint general(String message) {

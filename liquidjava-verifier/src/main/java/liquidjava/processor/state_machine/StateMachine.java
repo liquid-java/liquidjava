@@ -2,6 +2,7 @@ package liquidjava.processor.state_machine;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -14,6 +15,7 @@ import java.util.stream.Collectors;
 
 import liquidjava.processor.context.ObjectState;
 import liquidjava.processor.context.RefinedFunction;
+import liquidjava.rj_language.Predicate;
 
 /**
  * The typestate of a class as a finite state machine, built by {@link StateMachineBuilder}
@@ -29,9 +31,12 @@ import liquidjava.processor.context.RefinedFunction;
  * @param complete
  *            whether every method that can change the state of the object is in {@code methods}; only then can the
  *            machine tell that a state cannot be reached or that no call is allowed
+ * @param variants
+ *            the ways to call the methods whose state refinements also depend on their arguments or result, and the
+ *            boolean methods whose result tells which state the object is in
  */
 public record StateMachine(List<State> states, List<RefinedFunction> methods, List<Transition> transitions,
-        Map<RefinedFunction, Set<State>> constructors, boolean complete) {
+        Map<RefinedFunction, Set<State>> constructors, boolean complete, List<CallVariant> variants) {
 
     /** How many sets of states a search visits before giving up */
     private static final int MAX_SEARCHED = 1000;
@@ -41,6 +46,12 @@ public record StateMachine(List<State> states, List<RefinedFunction> methods, Li
         methods = List.copyOf(methods);
         transitions = List.copyOf(transitions);
         constructors = Collections.unmodifiableMap(new LinkedHashMap<>(constructors));
+        variants = List.copyOf(variants);
+    }
+
+    public StateMachine(List<State> states, List<RefinedFunction> methods, List<Transition> transitions,
+            Map<RefinedFunction, Set<State>> constructors, boolean complete) {
+        this(states, methods, transitions, constructors, complete, List.of());
     }
 
     public boolean models(RefinedFunction method) {
@@ -59,9 +70,103 @@ public record StateMachine(List<State> states, List<RefinedFunction> methods, Li
         return preservesState || calls.stream().map(Transition::change).distinct().count() <= 1;
     }
 
+    /**
+     * Whether {@code variant} can be called when the object can be in any of {@code current}. Like in the verifier, the
+     * state refinement applied is the first whose {@code from} holds in all of them, and a method that keeps the state
+     * needs each of them to satisfy some {@code from}. If the machine cannot tell, the call is not allowed.
+     */
+    public boolean allows(Set<State> current, CallVariant variant) {
+        if (variant.effects() == null)
+            return allows(current, variant.method());
+        return applied(current, variant.effects()).isPresent();
+    }
+
+    /**
+     * The states the object can be in after calling {@code variant}, which must be allowed in all of {@code current}
+     */
+    public Set<State> after(Set<State> current, CallVariant variant) {
+        if (variant.effects() == null)
+            return after(current, variant.method());
+        CallVariant.Effects effects = variant.effects();
+        List<Integer> applied = applied(current, effects).orElseThrow();
+        return ordered(current.stream().flatMap(s -> applied.stream()
+                .filter(i -> effects.entry(i, s) == CallVariant.Entry.HOLDS).flatMap(i -> effects.after(i, s).stream()))
+                .toList());
+    }
+
+    /** The calls whose result, checked right after them, tells which state the object is in */
+    public List<CallVariant> guards() {
+        return variants.stream().filter(v -> v.kind() == CallVariant.Kind.RESULT).toList();
+    }
+
+    /** The indexes of the state refinements applied to a call made in any of {@code current}, if it is allowed */
+    private Optional<List<Integer>> applied(Set<State> current, CallVariant.Effects effects) {
+        if (current.isEmpty())
+            return Optional.empty();
+        List<Integer> indexes = new ArrayList<>();
+        for (int i = 0; i < effects.refinements(); i++)
+            indexes.add(i);
+        List<Integer> applied;
+        if (indexes.stream().noneMatch(effects::changesState)) {
+            boolean everyState = current.stream()
+                    .allMatch(s -> indexes.stream().anyMatch(i -> effects.entry(i, s) == CallVariant.Entry.HOLDS));
+            if (!everyState)
+                return Optional.empty();
+            applied = indexes;
+        } else {
+            Optional<Integer> first = firstApplying(current, effects);
+            if (first.isEmpty())
+                return Optional.empty();
+            applied = List.of(first.get());
+        }
+        // the states after the call must be known too
+        for (State s : current)
+            for (int i : applied)
+                if (effects.entry(i, s) == CallVariant.Entry.HOLDS && effects.after(i, s) == null)
+                    return Optional.empty();
+        return Optional.of(applied);
+    }
+
+    private static Optional<Integer> firstApplying(Set<State> current, CallVariant.Effects effects) {
+        for (int i = 0; i < effects.refinements(); i++) {
+            int index = i;
+            List<CallVariant.Entry> entries = current.stream().map(s -> effects.entry(index, s)).toList();
+            if (entries.contains(CallVariant.Entry.UNDECIDED))
+                return Optional.empty(); // whether the verifier applies it depends on more than the state
+            if (entries.stream().allMatch(CallVariant.Entry.HOLDS::equals))
+                return Optional.of(i);
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * The calls a sequence can be made of when the object can be in any of {@code current}: the methods in the machine,
+     * and the others with any arguments or with arguments meeting a condition that changes where they lead
+     */
+    private List<CallVariant> steps(Set<State> current) {
+        List<CallVariant> steps = new ArrayList<>();
+        for (RefinedFunction method : methods)
+            if (allows(current, method))
+                steps.add(new CallVariant(method, CallVariant.Kind.ANY, new Predicate(), null));
+        for (CallVariant variant : variants) {
+            if (variant.kind() == CallVariant.Kind.RESULT || !allows(current, variant))
+                continue;
+            Set<State> reached = after(current, variant);
+            boolean sameAsAnyArguments = variant.kind() == CallVariant.Kind.ARGUMENTS && variants.stream()
+                    .anyMatch(v -> v.method().equals(variant.method()) && v.kind() == CallVariant.Kind.ANY
+                            && allows(current, v) && after(current, v).equals(reached));
+            if (!reached.isEmpty() && !sameAsAnyArguments)
+                steps.add(variant);
+        }
+        return steps;
+    }
+
     /** The methods that can be called when the object can be in any of {@code current} */
     public List<RefinedFunction> allowedIn(Set<State> current) {
-        return methods.stream().filter(m -> allows(current, m)).toList();
+        List<RefinedFunction> allowed = new ArrayList<>(methods.stream().filter(m -> allows(current, m)).toList());
+        variants.stream().filter(v -> v.kind() == CallVariant.Kind.ANY && allows(current, v)).map(CallVariant::method)
+                .filter(m -> !allowed.contains(m)).forEach(allowed::add);
+        return allowed;
     }
 
     /** The states where {@code method} can be called */
@@ -75,30 +180,36 @@ public record StateMachine(List<State> states, List<RefinedFunction> methods, Li
     }
 
     /**
-     * The shortest sequences of calls that take an object in any of {@code current} to where {@code call} is allowed
+     * The shortest sequences of calls that take an object in any of {@code current} to where {@code call} is allowed. A
+     * call of a method whose state refinements depend on its arguments has the condition on them that the sequence
+     * needs, if any; a sequence that needs none is preferred.
      *
      * @return at most {@code limit} sequences, all of the same length; none if there is no such sequence; nothing if
      *         the search gave up
      */
-    public Optional<List<List<RefinedFunction>>> shortestPaths(Set<State> current, RefinedFunction call, int limit) {
-        Map<Set<State>, List<List<RefinedFunction>>> level = Map.of(current, List.of(List.of()));
+    public Optional<List<List<CallVariant>>> shortestPaths(Set<State> current, RefinedFunction call, int limit) {
+        Map<Set<State>, List<List<CallVariant>>> level = Map.of(current, List.of(List.of()));
         Set<Set<State>> visited = new HashSet<>(level.keySet());
         while (!level.isEmpty()) {
-            Map<Set<State>, List<List<RefinedFunction>>> next = new LinkedHashMap<>();
+            Map<Set<State>, List<List<CallVariant>>> next = new LinkedHashMap<>();
             level.forEach((states, paths) -> {
-                for (RefinedFunction method : allowedIn(states)) {
-                    Set<State> reached = after(states, method);
+                for (CallVariant step : steps(states)) {
+                    Set<State> reached = after(states, step);
                     if (visited.contains(reached))
                         continue;
-                    List<List<RefinedFunction>> reachedPaths = next.computeIfAbsent(reached, k -> new ArrayList<>());
-                    paths.stream().limit(limit - reachedPaths.size()).map(path -> append(path, method))
-                            .forEach(reachedPaths::add);
+                    List<List<CallVariant>> reachedPaths = next.computeIfAbsent(reached, k -> new ArrayList<>());
+                    paths.stream().map(path -> append(path, step)).forEach(reachedPaths::add);
                 }
             });
-            List<List<RefinedFunction>> found = next.entrySet().stream().filter(e -> allows(e.getKey(), call))
-                    .flatMap(e -> e.getValue().stream()).limit(limit).toList();
-            if (!found.isEmpty())
-                return Optional.of(found);
+            // capped only once every path to a set is known, so that paths needing no arguments are the ones kept
+            next.replaceAll((states, paths) -> paths.stream().sorted(Comparator.comparingLong(StateMachine::conditions))
+                    .limit(limit).toList());
+            List<List<CallVariant>> found = next.entrySet().stream().filter(e -> allows(e.getKey(), call))
+                    .flatMap(e -> e.getValue().stream()).toList();
+            if (!found.isEmpty()) {
+                List<List<CallVariant>> unconditioned = found.stream().filter(p -> conditions(p) == 0).toList();
+                return Optional.of((unconditioned.isEmpty() ? found : unconditioned).stream().limit(limit).toList());
+            }
             visited.addAll(next.keySet());
             if (visited.size() > MAX_SEARCHED)
                 return Optional.empty();
@@ -151,8 +262,13 @@ public record StateMachine(List<State> states, List<RefinedFunction> methods, Li
         return transitions.stream().filter(t -> t.from().equals(from) && t.method().equals(method)).findFirst();
     }
 
-    private static List<RefinedFunction> append(List<RefinedFunction> path, RefinedFunction method) {
-        List<RefinedFunction> extended = new ArrayList<>(path);
+    /** The steps of {@code path} that need arguments meeting a condition */
+    private static long conditions(List<CallVariant> path) {
+        return path.stream().filter(v -> v.kind() == CallVariant.Kind.ARGUMENTS).count();
+    }
+
+    private static List<CallVariant> append(List<CallVariant> path, CallVariant method) {
+        List<CallVariant> extended = new ArrayList<>(path);
         extended.add(method);
         return extended;
     }

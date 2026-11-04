@@ -5,7 +5,7 @@ import liquidjava.specification.StateRefinement;
 import liquidjava.specification.StateSet;
 
 // Issue #454: with an unknown state, redo() needs redoable, and the only call that leads there, undo(), needs
-// undoable, which is just as unknown
+// undoable, which is just as unknown; canRedo() is the check that decides it
 @ExternalRefinementsFor("javax.swing.undo.UndoManager")
 @StateSet({"undoable", "notUndoable"})
 @StateSet({"redoable", "notRedoable"})
