@@ -18,6 +18,7 @@ import liquidjava.processor.state_machine.CallVariant;
 import liquidjava.processor.state_machine.DecidingArgument;
 import liquidjava.processor.state_machine.State;
 import liquidjava.processor.state_machine.StateMachine;
+import liquidjava.rj_language.Predicate;
 import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Keys;
 import spoon.reflect.reference.CtExecutableReference;
@@ -143,7 +144,10 @@ public final class StateHints {
      */
     private List<Hint> guard(Set<State> current, RefinedFunction call) {
         List<CallVariant> guards = new ArrayList<>();
+        boolean anyCombination = anyCombination(current);
         for (CallVariant guard : machine.guards()) {
+            if (anyCombination && !namesCheckedState(guard.method()))
+                continue;
             if (!machine.allows(current, guard))
                 continue;
             Set<State> reached = machine.after(current, guard);
@@ -160,6 +164,33 @@ public final class StateHints {
         String message = String.format("Guard this call with if (%s)%s: when it returns %s, %s is %s", check, arguments,
                 !negated, receiver, needed());
         return List.of(new Hint(Kind.GUARD, message));
+    }
+
+    /**
+     * Whether the receiver can be in any combination of the states {@code current} has in each state set. Then a call
+     * that names no state of the sets the failing call checks leaves them as they were, whatever it returns, so the
+     * failing call stays disallowed after it
+     */
+    private boolean anyCombination(Set<State> current) {
+        long combinations = 1;
+        for (int set = 0; set < current.iterator().next().names().size(); set++) {
+            int index = set;
+            combinations *= current.stream().map(s -> s.names().get(index)).distinct().count();
+        }
+        return combinations == current.size();
+    }
+
+    /**
+     * Whether a state refinement or the return refinement of {@code method} names a state of a set the failing call
+     * checks, or an alias
+     */
+    private boolean namesCheckedState(RefinedFunction method) {
+        Set<String> checked = machine.states().stream().flatMap(s -> checkedSets.stream().map(s.names()::get))
+                .collect(Collectors.toSet());
+        Stream<Predicate> refinements = Stream.concat(
+                method.getAllStates().stream().flatMap(o -> Stream.of(o.getFrom(), o.getTo())),
+                Stream.ofNullable(method.getRefReturn()));
+        return refinements.anyMatch(p -> StateMachine.mayName(p, checked));
     }
 
     private Hint callSequence(Set<State> current, List<CallVariant> sequence, String from) {

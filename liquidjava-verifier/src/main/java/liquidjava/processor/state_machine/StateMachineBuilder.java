@@ -3,8 +3,10 @@ package liquidjava.processor.state_machine;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -509,32 +511,68 @@ public class StateMachineBuilder {
         if (!canModel(method))
             return Optional.empty();
         List<Transition> transitions = new ArrayList<>();
+        List<List<State>> sets = stateSets();
+        List<ObjectState> changes = method.getAllStates();
+        // whether a from holds depends only on the state sets it names: the others are other ghost functions
+        List<Map<List<String>, CallVariant.Entry>> entries = changes.stream()
+                .map(c -> new HashMap<List<String>, CallVariant.Entry>()).collect(Collectors.toList());
+        List<Map<List<String>, Set<List<String>>>> afters = changes.stream()
+                .map(c -> new HashMap<List<String>, Set<List<String>>>()).collect(Collectors.toList());
         for (State state : states) {
             Predicate current = state.predicate().substituteVariable(Keys.THIS, BEFORE);
-            for (ObjectState change : method.getAllStates()) {
+            for (int i = 0; i < changes.size(); i++) {
+                ObjectState change = changes.get(i);
                 if (!change.hasFrom())
                     continue;
-                Predicate from = change.getFrom().substituteVariable(Keys.THIS, BEFORE);
-                if (solver.implies(current, from)) {
+                List<String> named = StateMachine.namedSets(change.getFrom(), sets).stream().map(state.names()::get)
+                        .toList();
+                CallVariant.Entry entry = entries.get(i).get(named);
+                if (entry == null) {
+                    entry = entry(current, change.getFrom().substituteVariable(Keys.THIS, BEFORE));
+                    entries.get(i).put(named, entry);
+                }
+                if (entry == CallVariant.Entry.HOLDS) {
                     // like the verifier, the first state change whose precondition holds is the one applied
-                    Set<State> next = statesAfter(change, state, current);
+                    Set<State> next = statesAfter(change, state, current, sets, afters.get(i));
                     if (next.isEmpty())
                         return Optional.empty();
                     transitions.add(new Transition(state, method, change, next));
                     break;
                 }
-                if (solver.compatible(current, from))
+                if (entry == CallVariant.Entry.UNDECIDED)
                     return Optional.empty(); // allowed only sometimes in this state
             }
         }
         return Optional.of(transitions);
     }
 
-    private Set<State> statesAfter(ObjectState change, State state, Predicate current) throws LJError {
+    private CallVariant.Entry entry(Predicate current, Predicate from) throws LJError {
+        if (solver.implies(current, from))
+            return CallVariant.Entry.HOLDS;
+        return solver.compatible(current, from) ? CallVariant.Entry.UNDECIDED : CallVariant.Entry.FAILS;
+    }
+
+    /**
+     * The states {@code change} can lead to from {@code state}. The verifier keeps the state of the sets its {@code to}
+     * does not name, and the states it can lead to in the others depend only on the state before in the sets it names
+     * for {@code old(this)}, so they are asked once for each and kept in {@code known}
+     */
+    private Set<State> statesAfter(ObjectState change, State state, Predicate current, List<List<State>> sets,
+            Map<List<String>, Set<List<String>>> known) throws LJError {
         if (!change.hasTo())
             return Set.of(state);
-        Predicate to = change.getTo().substituteVariable(Keys.THIS, AFTER).changeOldMentions(BEFORE, AFTER);
-        return solver.possibleStates(states, Predicate.createConjunction(current, to), AFTER);
+        List<Integer> named = StateMachine.namedSets(change.getTo(), sets).stream().sorted().toList();
+        List<State> candidates = StateMachine.keeping(states, state, Set.copyOf(named));
+        List<String> before = StateMachine.namedSetsBefore(change.getTo(), sets).stream().sorted()
+                .map(state.names()::get).toList();
+        if (!known.containsKey(before)) {
+            Predicate to = change.getTo().substituteVariable(Keys.THIS, AFTER).changeOldMentions(BEFORE, AFTER);
+            known.put(before, solver.possibleStates(candidates, Predicate.createConjunction(current, to), AFTER)
+                    .stream().map(s -> named.stream().map(s.names()::get).toList()).collect(Collectors.toSet()));
+        }
+        Set<List<String>> after = known.get(before);
+        return candidates.stream().filter(c -> after.contains(named.stream().map(c.names()::get).toList()))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     /** The states {@code constructor} can create the object in, or nothing if they depend on its arguments */

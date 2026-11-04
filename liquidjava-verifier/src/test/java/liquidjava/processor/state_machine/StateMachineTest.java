@@ -15,6 +15,8 @@ import org.junit.jupiter.api.Test;
 
 import liquidjava.processor.context.RefinedFunction;
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.ast.AliasInvocation;
+import liquidjava.utils.constants.Keys;
 
 class StateMachineTest {
 
@@ -23,6 +25,9 @@ class StateMachineTest {
     private static final State OPEN_UNLOCKED = state("open", "unlocked");
     private static final State CLOSED_LOCKED = state("closed", "locked");
     private static final State CLOSED_UNLOCKED = state("closed", "unlocked");
+    private static final List<List<State>> SETS = List.of(List.of(state("open"), state("closed")),
+            List.of(state("locked"), state("unlocked")));
+    private static final Predicate THIS = Predicate.createVar(Keys.THIS);
     private static final StateMachine MACHINE = machine(
             List.of(OPEN_LOCKED, OPEN_UNLOCKED, CLOSED_LOCKED, CLOSED_UNLOCKED));
 
@@ -137,6 +142,41 @@ class StateMachineTest {
         after.put(A, null);
         CallVariant call = variant(new Effects(true, after));
         assertFalse(machine(ABC, call).allows(Set.of(A), call));
+    }
+
+    @Test
+    void setsNamedAreThoseWithAStateInThePredicate() {
+        Predicate openAndPositive = Predicate.createConjunction(inState("open", THIS),
+                Predicate.createInvocation("size", THIS));
+        assertEquals(Set.of(0), StateMachine.namedSets(openAndPositive, SETS));
+        assertEquals(Set.of(), StateMachine.namedSets(new Predicate(), SETS));
+    }
+
+    @Test
+    void aliasMayNameEverySet() {
+        Predicate alias = new Predicate(new AliasInvocation("Ready", List.of(THIS.getExpression())));
+        assertEquals(Set.of(0, 1), StateMachine.namedSets(alias, SETS));
+        assertEquals(Set.of(0, 1), StateMachine.namedSetsBefore(alias, SETS));
+    }
+
+    @Test
+    void setsNamedBeforeAreThoseNamedForOld() {
+        // locked(this) && open(old(this))
+        Predicate to = Predicate.createConjunction(inState("locked", THIS),
+                inState("open", Predicate.createInvocation(Keys.OLD, THIS)));
+        assertEquals(Set.of(0, 1), StateMachine.namedSets(to, SETS));
+        assertEquals(Set.of(0), StateMachine.namedSetsBefore(to, SETS));
+    }
+
+    @Test
+    void candidatesKeepTheStateOfSetsNotChanged() {
+        assertEquals(List.of(OPEN_LOCKED, OPEN_UNLOCKED),
+                StateMachine.keeping(MACHINE.states(), OPEN_LOCKED, Set.of(1)));
+        assertEquals(List.of(OPEN_LOCKED), StateMachine.keeping(MACHINE.states(), OPEN_LOCKED, Set.of()));
+    }
+
+    private static Predicate inState(String state, Predicate object) {
+        return Predicate.createInvocation(state, object);
     }
 
     /** Effects given by hand: the states where each refinement's from holds, and the states after the call from each */
