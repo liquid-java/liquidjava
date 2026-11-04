@@ -876,13 +876,21 @@ public class AuxStateHandler {
         }
     }
 
-    /** Hints on how to fix a call to {@code function} made in a state that does not allow it */
+    /**
+     * Hints on how to fix a call to {@code function} made in a state that does not allow it. Best effort, like
+     * {@link #receiverStates}: the machine asks the solver about some calls only when a hint needs them
+     */
     private static List<Hint> stateHints(ReceiverStates states, RefinedFunction function, ErrorCategory category,
             boolean checked, CtElement invocation) {
         Optional<String> receiver = receiverOf(invocation);
         if (receiver.isEmpty() || !StateMachineBuilder.canModel(function))
             return List.of();
-        return StateHints.forCall(states.machine(), function, states.current(), receiver.get(), category, checked);
+        try {
+            return StateHints.forCall(states.machine(), function, states.current(), receiver.get(), category, checked);
+        } catch (RuntimeException e) {
+            DebugLog.warn("Could not compute the state hints: " + e.getMessage());
+            return List.of();
+        }
     }
 
     /**

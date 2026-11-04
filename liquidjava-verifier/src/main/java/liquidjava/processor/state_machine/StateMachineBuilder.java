@@ -7,6 +7,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -17,10 +18,17 @@ import liquidjava.processor.context.Context;
 import liquidjava.processor.context.GhostState;
 import liquidjava.processor.context.ObjectState;
 import liquidjava.processor.context.RefinedFunction;
+import liquidjava.processor.context.Variable;
 import liquidjava.processor.refinement_checker.TypeChecker;
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.ast.BinaryExpression;
+import liquidjava.rj_language.ast.Expression;
+import liquidjava.rj_language.ast.FunctionInvocation;
+import liquidjava.rj_language.ast.Ite;
+import liquidjava.rj_language.ast.UnaryExpression;
 import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Keys;
+import liquidjava.utils.constants.Types;
 import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtMethod;
@@ -33,9 +41,11 @@ import spoon.reflect.reference.CtTypeReference;
 /**
  * Builds the {@link StateMachine} of a class from its {@code @StateSet}s and {@code @StateRefinement}s, and those of
  * its supertypes, which it inherits. Every transition is proven by the SMT solver, so the machine never contains a call
- * that would not verify. Methods whose state refinements mention anything besides the states of {@code this}
- * (parameters, return values, other ghosts) are left out, and the machine is then marked incomplete, as it is when a
- * subclass has state refinements of its own or an inherited refinement may not be the one the verifier applies.
+ * that would not verify. Methods whose state refinements also mention their parameters or result are kept as
+ * {@link CallVariant}s, whose effects the solver works out only when a hint needs them, and boolean methods whose
+ * return refinement relates their result to the state are kept as checks of that result. The machine is incomplete if a
+ * method has variants or is left out because its refinements mention anything else, as it is when a subclass has state
+ * refinements of its own or an inherited refinement may not be the one the verifier applies.
  */
 public class StateMachineBuilder {
 
@@ -43,17 +53,25 @@ public class StateMachineBuilder {
     private static final int MAX_STATES = 16;
 
     // two objects of the class, before and after a call, that the rest of the program knows nothing about
-    private static final String BEFORE = "#state_before";
-    private static final String AFTER = "#state_after";
+    private static final String BEFORE = SolverEffects.BEFORE;
+    private static final String AFTER = SolverEffects.AFTER;
+    // the parameters and result of a call, under names nothing else uses
+    private static final String ARGUMENT = "#argument_";
+    private static final String RESULT = "#result";
 
     private final TypeChecker tc;
     private final StateSolver solver;
     private final List<State> states;
+    private final List<GhostState> ghostStates;
+    private final CtElement element;
 
-    private StateMachineBuilder(TypeChecker tc, StateSolver solver, List<State> states) {
+    private StateMachineBuilder(TypeChecker tc, StateSolver solver, List<State> states, List<GhostState> ghostStates,
+            CtElement element) {
         this.tc = tc;
         this.solver = solver;
         this.states = states;
+        this.ghostStates = ghostStates;
+        this.element = element;
     }
 
     /** Whether the transitions of {@code function} can be part of a machine: they only depend on the state of this */
@@ -74,7 +92,8 @@ public class StateMachineBuilder {
             throws LJError {
         CtTypeReference<?> type = tc.getFactory().Type().createReference(className);
         List<CtTypeReference<?>> supertypes = supertypesOf(type);
-        List<State> states = statesOf(ghostStatesOf(tc.getContext(), type, supertypes), false);
+        List<GhostState> ghostStates = ghostStatesOf(tc.getContext(), type, supertypes);
+        List<State> states = statesOf(ghostStates, false);
         if (states.isEmpty() || states.size() > MAX_STATES)
             return Optional.empty();
         Context context = tc.getContext();
@@ -82,7 +101,8 @@ public class StateMachineBuilder {
         try {
             context.addVarToContext(BEFORE, type, new Predicate(), element);
             context.addVarToContext(AFTER, type, new Predicate(), element);
-            return Optional.of(new StateMachineBuilder(tc, solver, states).build(type, supertypes));
+            StateMachineBuilder builder = new StateMachineBuilder(tc, solver, states, ghostStates, element);
+            return Optional.of(builder.build(type, supertypes));
         } finally {
             context.exitContext();
         }
@@ -173,6 +193,14 @@ public class StateMachineBuilder {
         return combinations;
     }
 
+    /** The states of each state set of the class on its own, in the order the sets are declared */
+    private List<List<State>> stateSets() {
+        return ghostStates.stream().filter(g -> g.getParent() != null)
+                .collect(Collectors.groupingBy(g -> g.getParent().getQualifiedName(), LinkedHashMap::new,
+                        Collectors.mapping(StateMachineBuilder::inState, Collectors.toList())))
+                .values().stream().toList();
+    }
+
     private static State inState(GhostState ghostState) {
         return new State(List.of(ghostState.getName()),
                 Predicate.createInvocation(ghostState.getQualifiedName(), Predicate.createVar(Keys.THIS)));
@@ -196,9 +224,11 @@ public class StateMachineBuilder {
         List<RefinedFunction> methods = new ArrayList<>();
         List<Transition> transitions = new ArrayList<>();
         Map<RefinedFunction, Set<State>> constructors = new LinkedHashMap<>();
+        List<CallVariant> variants = new ArrayList<>();
         boolean complete = !subclassChangesState(className, type, inherited);
         for (RefinedFunction function : tc.getContext().getCtxFunctions()) {
-            if (!function.hasStateChange())
+            boolean query = !function.hasStateChange() && isQuery(function);
+            if (!function.hasStateChange() && !query)
                 continue;
             boolean constructor = CtExecutableReference.CONSTRUCTOR_NAME.equals(function.getName());
             boolean own = className.equals(function.getTargetClass());
@@ -216,7 +246,17 @@ public class StateMachineBuilder {
             boolean applies = own ? appliesToOwnType(function, type, supertypes)
                     : resolvesTo(function, type, supertypes) && publiclyInherited(function);
             if (!applies) {
+                if (!query)
+                    complete = false;
+                continue;
+            }
+            if (query) {
+                variants.addAll(queryVariants(function, type));
+                continue;
+            }
+            if (!canModel(function)) {
                 complete = false;
+                variants.addAll(variantsOf(function, type));
                 continue;
             }
             Optional<List<Transition>> calls = transitionsOf(function);
@@ -227,7 +267,141 @@ public class StateMachineBuilder {
                 complete = false;
             }
         }
-        return new StateMachine(states, methods, transitions, constructors, complete);
+        return new StateMachine(states, methods, transitions, constructors, complete, variants);
+    }
+
+    /**
+     * Whether {@code function} is a boolean method without state refinements whose return refinement relates its result
+     * to the states of this, e.g. {@code _ == true --> hasMore(this)}
+     */
+    private boolean isQuery(RefinedFunction function) {
+        Predicate ret = function.getRefReturn();
+        if (ret == null || !returnsBoolean(function)
+                || CtExecutableReference.CONSTRUCTOR_NAME.equals(function.getName()))
+            return false;
+        List<String> names = ret.getVariableNames();
+        return names.contains(Keys.WILDCARD) && !ret.getStateInvocations(ghostStates).isEmpty()
+                && names.stream().allMatch(n -> n.equals(Keys.THIS) || n.equals(Keys.WILDCARD));
+    }
+
+    /** The checks of the result of a query: true and false */
+    private List<CallVariant> queryVariants(RefinedFunction function, CtTypeReference<?> type) {
+        SolverEffects.Scope scope = new SolverEffects.Scope(tc, solver, states, stateSets(), type,
+                Map.of(RESULT, function.getType()), element);
+        Predicate ret = function.getRefReturn().substituteVariable(Keys.WILDCARD, RESULT);
+        return resultConditions().stream().map(c -> new CallVariant(function, CallVariant.Kind.RESULT, c,
+                SolverEffects.ofQuery(scope, ret, c.substituteVariable(Keys.WILDCARD, RESULT)))).toList();
+    }
+
+    /**
+     * The ways to call {@code function}, whose state refinements also mention its parameters or result: with any
+     * arguments; with arguments that meet each condition on them that its refinements test, and with arguments that do
+     * not; and, for a boolean result its refinements mention, checking that the result is true or false. Nothing if the
+     * refinements mention anything else.
+     */
+    private List<CallVariant> variantsOf(RefinedFunction function, CtTypeReference<?> type) {
+        Map<String, String> renamed = new LinkedHashMap<>();
+        Map<String, CtTypeReference<?>> free = new LinkedHashMap<>();
+        for (Variable parameter : function.getArguments()) {
+            renamed.put(parameter.getName(), ARGUMENT + parameter.getName());
+            free.put(ARGUMENT + parameter.getName(), parameter.getType());
+        }
+        if (returnsValue(function)) {
+            renamed.put(Keys.WILDCARD, RESULT);
+            free.put(RESULT, function.getType());
+        }
+        List<ObjectState> changes = function.getAllStates().stream().filter(ObjectState::hasFrom).toList();
+        List<Predicate> predicates = changes.stream().flatMap(c -> Stream.of(c.getFrom(), c.getTo()))
+                .filter(Objects::nonNull).toList();
+        Set<String> known = new HashSet<>(renamed.keySet());
+        known.add(Keys.THIS);
+        if (!predicates.stream().flatMap(p -> p.getVariableNames().stream()).allMatch(known::contains))
+            return List.of();
+
+        List<ObjectState> renamedChanges = changes.stream()
+                .map(c -> new ObjectState(rename(c.getFrom(), renamed), c.hasTo() ? rename(c.getTo(), renamed) : null))
+                .toList();
+        SolverEffects.Scope scope = new SolverEffects.Scope(tc, solver, states, stateSets(), type, free, element);
+        SolverEffects any = new SolverEffects(scope, renamedChanges, new Predicate(), false, null);
+        List<CallVariant> variants = new ArrayList<>();
+        variants.add(new CallVariant(function, CallVariant.Kind.ANY, new Predicate(), any));
+        Set<String> parameters = function.getArguments().stream().map(Variable::getName).collect(Collectors.toSet());
+        for (Predicate condition : argumentConditions(predicates, parameters))
+            variants.add(new CallVariant(function, CallVariant.Kind.ARGUMENTS, condition,
+                    new SolverEffects(scope, renamedChanges, rename(condition, renamed), false, null)));
+        boolean resultMentioned = predicates.stream().anyMatch(p -> p.getVariableNames().contains(Keys.WILDCARD));
+        if (returnsBoolean(function) && resultMentioned)
+            for (Predicate condition : resultConditions())
+                variants.add(new CallVariant(function, CallVariant.Kind.RESULT, condition,
+                        new SolverEffects(scope, renamedChanges, rename(condition, renamed), true, any)));
+        return variants;
+    }
+
+    private static List<Predicate> resultConditions() {
+        Predicate result = Predicate.createVar(Keys.WILDCARD);
+        return List.of(result, result.negate());
+    }
+
+    /**
+     * The conditions on the parameters that {@code predicates} test, and their negations: the conditions of
+     * {@code c ? a : b}, the left sides of {@code -->} and the operands of {@code &&} that mention parameters and
+     * nothing else
+     */
+    private static List<Predicate> argumentConditions(List<Predicate> predicates, Set<String> parameters) {
+        List<Expression> tested = new ArrayList<>();
+        predicates.forEach(p -> collectTested(p.getExpression(), tested));
+        Map<String, Predicate> conditions = new LinkedHashMap<>();
+        for (Expression condition : tested) {
+            List<String> mentioned = new ArrayList<>();
+            condition.getVariableNames(mentioned);
+            if (mentioned.isEmpty() || !parameters.containsAll(mentioned) || invokesFunction(condition))
+                continue;
+            for (Expression e : List.of(condition.clone(), negation(condition)))
+                conditions.putIfAbsent(e.toString(), new Predicate(e));
+        }
+        return List.copyOf(conditions.values());
+    }
+
+    private static void collectTested(Expression e, List<Expression> tested) {
+        if (e instanceof Ite ite)
+            tested.add(ite.getCondition());
+        else if (e instanceof BinaryExpression b && (b.getOperator().equals("-->") || b.getOperator().equals("&&")))
+            tested.add(b.getFirstOperand());
+        if (e instanceof BinaryExpression b && b.getOperator().equals("&&"))
+            tested.add(b.getSecondOperand());
+        e.getChildren().forEach(child -> collectTested(child, tested));
+    }
+
+    private static boolean invokesFunction(Expression e) {
+        return e instanceof FunctionInvocation
+                || e.getChildren().stream().anyMatch(StateMachineBuilder::invokesFunction);
+    }
+
+    private static final Map<String, String> NEGATED_COMPARISONS = Map.of("==", "!=", "!=", "==", "<", ">=", ">=", "<",
+            ">", "<=", "<=", ">");
+
+    /** The negation of {@code e}, written without {@code !} when it is a comparison or a negation */
+    private static Expression negation(Expression e) {
+        if (e instanceof BinaryExpression b && NEGATED_COMPARISONS.containsKey(b.getOperator()))
+            return new BinaryExpression(b.getFirstOperand().clone(), NEGATED_COMPARISONS.get(b.getOperator()),
+                    b.getSecondOperand().clone());
+        if (e instanceof UnaryExpression u && u.getOp().equals("!"))
+            return u.getExpression().clone();
+        return new UnaryExpression("!", e.clone());
+    }
+
+    private static Predicate rename(Predicate p, Map<String, String> renamed) {
+        for (Map.Entry<String, String> e : renamed.entrySet())
+            p = p.substituteVariable(e.getKey(), e.getValue());
+        return p;
+    }
+
+    private static boolean returnsBoolean(RefinedFunction function) {
+        return function.getType() != null && Types.BOOLEAN.equals(function.getType().toString());
+    }
+
+    private static boolean returnsValue(RefinedFunction function) {
+        return function.getType() != null && !"void".equals(function.getType().toString());
     }
 
     /** Whether a subclass has state refinements of its own, which the machine does not include */

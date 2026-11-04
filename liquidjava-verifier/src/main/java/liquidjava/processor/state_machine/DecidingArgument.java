@@ -26,7 +26,7 @@ import spoon.reflect.reference.CtTypeReference;
 
 /**
  * An earlier call whose arguments decided the state that a failing call does not allow, with argument values for which
- * the failing call would have been allowed
+ * the failing call is allowed whatever else holds
  *
  * @param call
  *            the deciding call
@@ -94,20 +94,31 @@ public record DecidingArgument(StateChange call, Map<String, String> values) {
                 to = to.changeOldMentions(call.previous().get().getName(), OBJECT);
 
             Map<String, String> free = new LinkedHashMap<>(); // fresh name -> name shown
+            Map<String, CtTypeReference<?>> types = new LinkedHashMap<>(); // fresh name -> type
             RefinedFunction function = call.function();
             for (Variable parameter : function.getArguments())
-                to = leaveFree(context, to, parameter.getName(), parameter.getType(), parameter.getName(), free,
+                to = leaveFree(context, to, parameter.getName(), parameter.getType(), parameter.getName(), free, types,
                         invocation);
             boolean returnsValue = function.getType() != null && !"void".equals(function.getType().toString());
-            to = returnsValue ? leaveFree(context, to, Keys.WILDCARD, function.getType(), RESULT, free, invocation)
+            to = returnsValue
+                    ? leaveFree(context, to, Keys.WILDCARD, function.getType(), RESULT, free, types, invocation)
                     : to.substituteVariable(Keys.WILDCARD, OBJECT);
 
             Predicate before = call.previous().map(VariableInstance::getRefinement).orElse(new Predicate());
+            Predicate after = Predicate.createConjunction(before, to);
             Predicate allowed = required.stream().map(p -> p.substituteVariable(Keys.THIS, OBJECT))
                     .reduce(Predicate.createLit("false", Types.BOOLEAN), Predicate::createDisjunction);
-            Optional<Counterexample> witness = new StateSolver(tc, invocation.getPosition())
-                    .witness(Predicate.createConjunction(before, to), allowed);
-            return witness.map(model -> model.assignments().stream().filter(a -> free.containsKey(a.first())).collect(
+            StateSolver solver = new StateSolver(tc, invocation.getPosition());
+            Optional<Counterexample> witness = solver.witness(after, allowed);
+            if (witness.isEmpty())
+                return Optional.empty();
+            List<Pair<String, String>> values = witness.get().assignments().stream()
+                    .filter(a -> free.containsKey(a.first())).toList();
+            // the values must allow the call whatever else holds, not only in the solver's example
+            Optional<Predicate> pinned = pinned(values, types);
+            if (pinned.isEmpty() || !solver.implies(Predicate.createConjunction(after, pinned.get()), allowed))
+                return Optional.empty();
+            return Optional.of(values.stream().collect(
                     Collectors.toMap(a -> free.get(a.first()), Pair::second, (a, b) -> a, LinkedHashMap::new)));
         } finally {
             context.exitContext();
@@ -116,12 +127,31 @@ public record DecidingArgument(StateChange call, Map<String, String> values) {
 
     /** Renames {@code name} in {@code predicate} to a fresh variable with no refinement, if it is mentioned */
     private static Predicate leaveFree(Context context, Predicate predicate, String name, CtTypeReference<?> type,
-            String shownAs, Map<String, String> free, CtElement invocation) {
+            String shownAs, Map<String, String> free, Map<String, CtTypeReference<?>> types, CtElement invocation) {
         if (!predicate.getVariableNames().contains(name))
             return predicate;
         String fresh = "#" + shownAs;
         context.addVarToContext(fresh, type, new Predicate(), invocation);
         free.put(fresh, shownAs);
+        types.put(fresh, type);
         return predicate.substituteVariable(name, fresh);
+    }
+
+    /** That each variable has its value, or nothing if a value cannot be written as a literal */
+    private static Optional<Predicate> pinned(List<Pair<String, String>> values,
+            Map<String, CtTypeReference<?>> types) {
+        Predicate pinned = new Predicate();
+        for (Pair<String, String> value : values) {
+            // the solver writes negative numbers as (- n)
+            String literal = value.second().replaceAll("^\\(-\\s*(.*)\\)$", "-$1");
+            try {
+                Predicate equals = Predicate.createEquals(Predicate.createVar(value.first()),
+                        Predicate.createLit(literal, types.get(value.first()).toString()));
+                pinned = Predicate.createConjunction(pinned, equals);
+            } catch (IllegalArgumentException e) {
+                return Optional.empty();
+            }
+        }
+        return Optional.of(pinned);
     }
 }
