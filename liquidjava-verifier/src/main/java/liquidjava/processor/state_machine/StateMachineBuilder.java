@@ -400,7 +400,7 @@ public class StateMachineBuilder {
         return function.getType() != null && Types.BOOLEAN.equals(function.getType().toString());
     }
 
-    private static boolean returnsValue(RefinedFunction function) {
+    static boolean returnsValue(RefinedFunction function) {
         return function.getType() != null && !"void".equals(function.getType().toString());
     }
 

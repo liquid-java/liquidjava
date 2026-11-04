@@ -124,17 +124,16 @@ final class SolverEffects implements CallVariant.Effects {
 
     private Optional<Set<State>> computeAfter(int index, State state, Set<State> candidates) {
         return withScope(() -> {
-            State s = state;
             if (query != null) {
-                Predicate known = Predicate.createConjunction(before(s),
+                Predicate known = Predicate.createConjunction(before(state),
                         Predicate.createConjunction(query.substituteVariable(Keys.THIS, BEFORE), condition));
-                return possibleStates(Set.of(s), known, BEFORE);
+                return possibleStates(Set.of(state), known, BEFORE);
             }
             ObjectState change = changes.get(index);
             if (!change.hasTo())
-                return Set.of(s);
+                return Set.of(state);
             Predicate to = change.getTo().substituteVariable(Keys.THIS, AFTER).changeOldMentions(BEFORE, AFTER);
-            Predicate known = Predicate.createConjunction(before(s), to);
+            Predicate known = Predicate.createConjunction(before(state), to);
             if (onResult)
                 known = Predicate.createConjunction(known, condition);
             Set<State> next = possibleStates(candidates, known, AFTER);

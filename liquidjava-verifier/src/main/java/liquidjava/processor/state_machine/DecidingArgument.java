@@ -99,8 +99,7 @@ public record DecidingArgument(StateChange call, Map<String, String> values) {
             for (Variable parameter : function.getArguments())
                 to = leaveFree(context, to, parameter.getName(), parameter.getType(), parameter.getName(), free, types,
                         invocation);
-            boolean returnsValue = function.getType() != null && !"void".equals(function.getType().toString());
-            to = returnsValue
+            to = StateMachineBuilder.returnsValue(function)
                     ? leaveFree(context, to, Keys.WILDCARD, function.getType(), RESULT, free, types, invocation)
                     : to.substituteVariable(Keys.WILDCARD, OBJECT);
 

@@ -13,7 +13,7 @@ public class ErrorStateHintGuards {
         c.send(); // Expect: State Refinement Error
     }
 
-    // known state with no sequence of calls to the needed state: the check, with its parameter
+    // known state with no sequence of calls to the needed state: the check, with its parameters for the caller to fill in
     static void withParameter() {
         GuardLock l = new GuardLock();
         l.unlock(); // Expect: State Refinement Error

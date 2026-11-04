@@ -84,8 +84,10 @@ public final class StateHints {
     /** The earlier call whose arguments decided the receiver's state, and values that would allow the call */
     public static Hint decidingArgument(DecidingArgument deciding, String receiver) {
         RefinedFunction function = deciding.call().function();
-        String call = CtExecutableReference.CONSTRUCTOR_NAME.equals(function.getName()) ? constructor(function)
-                : receiver + "." + signature(function);
+        // the values name the parameters, so the call shows their names
+        String call = CtExecutableReference.CONSTRUCTOR_NAME.equals(function.getName())
+                ? "new " + Utils.getSimpleName(function.getTargetClass()) + namedParameters(function)
+                : receiver + "." + declaration(function);
         String values = deciding.values().isEmpty() ? "other arguments" : deciding.values().entrySet().stream()
                 .map(e -> e.getKey() + " == " + e.getValue()).collect(Collectors.joining(" and "));
         return new Hint(Kind.DECIDING_ARGUMENT,
@@ -152,9 +154,11 @@ public final class StateHints {
             return List.of();
         CallVariant guard = guards.get(0);
         boolean negated = guard.negatedResult();
-        String check = (negated ? "!" : "") + invocation(guard.method());
-        String message = String.format("Guard this call with if (%s): when it returns %s, %s is %s", check, !negated,
-                receiver, needed());
+        String check = (negated ? "!" : "") + guardCall(guard.method());
+        String arguments = guard.method().getArguments().isEmpty() ? ""
+                : ", filling in the arguments of " + declaration(guard.method());
+        String message = String.format("Guard this call with if (%s)%s: when it returns %s, %s is %s", check, arguments,
+                !negated, receiver, needed());
         return List.of(new Hint(Kind.GUARD, message));
     }
 
@@ -208,20 +212,32 @@ public final class StateHints {
         return receiver + "." + signature(method);
     }
 
-    /** A call as written in code, with the parameters' names as its arguments, e.g. {@code l.tryLock(timeout)} */
-    private String invocation(RefinedFunction method) {
-        return receiver + "." + Utils.getSimpleName(method.getName())
-                + method.getArguments().stream().map(Variable::getName).collect(Collectors.joining(", ", "(", ")"));
+    /**
+     * A call as written in code, with {@code ...} for arguments the caller must supply, e.g. {@code l.tryLock(...)}:
+     * the parameters' names are not in scope where the call is made
+     */
+    private String guardCall(RefinedFunction method) {
+        String arguments = method.getArguments().isEmpty() ? "()" : "(...)";
+        return receiver + "." + Utils.getSimpleName(method.getName()) + arguments;
+    }
+
+    /**
+     * A method with its parameters' types and names, e.g. {@code tryLock(long timeout)}, for hints that mention the
+     * parameters by name
+     */
+    private static String declaration(RefinedFunction method) {
+        return Utils.getSimpleName(method.getName()) + namedParameters(method);
     }
 
     /**
      * A step of a sequence, with the condition on its arguments if it has one, e.g.
-     * {@code p.setMode(int) with mode == 2}
+     * {@code p.setMode(int mode) with mode == 2}
      */
     private String call(CallVariant step) {
-        String condition = step.kind() == CallVariant.Kind.ARGUMENTS
-                ? " with " + step.condition().getExpression().toDisplayString() : "";
-        return call(step.method()) + condition;
+        if (step.kind() != CallVariant.Kind.ARGUMENTS)
+            return call(step.method());
+        return receiver + "." + declaration(step.method()) + " with "
+                + step.condition().getExpression().toDisplayString();
     }
 
     /** A method as shown in hints, e.g. {@code open(int)} */
@@ -231,6 +247,11 @@ public final class StateHints {
 
     private static String constructor(RefinedFunction constructor) {
         return "new " + Utils.getSimpleName(constructor.getTargetClass()) + parameters(constructor);
+    }
+
+    private static String namedParameters(RefinedFunction function) {
+        return function.getArguments().stream().map(v -> v.getType().getSimpleName() + " " + v.getName())
+                .collect(Collectors.joining(", ", "(", ")"));
     }
 
     private static String parameters(RefinedFunction function) {

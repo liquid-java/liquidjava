@@ -2,6 +2,7 @@ package liquidjava.processor.state_machine;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -197,15 +198,16 @@ public record StateMachine(List<State> states, List<RefinedFunction> methods, Li
                     if (visited.contains(reached))
                         continue;
                     List<List<CallVariant>> reachedPaths = next.computeIfAbsent(reached, k -> new ArrayList<>());
-                    paths.stream().limit(limit - reachedPaths.size()).map(path -> append(path, step))
-                            .forEach(reachedPaths::add);
+                    paths.stream().map(path -> append(path, step)).forEach(reachedPaths::add);
                 }
             });
+            // capped only once every path to a set is known, so that paths needing no arguments are the ones kept
+            next.replaceAll((states, paths) -> paths.stream().sorted(Comparator.comparingLong(StateMachine::conditions))
+                    .limit(limit).toList());
             List<List<CallVariant>> found = next.entrySet().stream().filter(e -> allows(e.getKey(), call))
                     .flatMap(e -> e.getValue().stream()).toList();
             if (!found.isEmpty()) {
-                List<List<CallVariant>> unconditioned = found.stream()
-                        .filter(p -> p.stream().noneMatch(v -> v.kind() == CallVariant.Kind.ARGUMENTS)).toList();
+                List<List<CallVariant>> unconditioned = found.stream().filter(p -> conditions(p) == 0).toList();
                 return Optional.of((unconditioned.isEmpty() ? found : unconditioned).stream().limit(limit).toList());
             }
             visited.addAll(next.keySet());
@@ -258,6 +260,11 @@ public record StateMachine(List<State> states, List<RefinedFunction> methods, Li
 
     private Optional<Transition> transition(State from, RefinedFunction method) {
         return transitions.stream().filter(t -> t.from().equals(from) && t.method().equals(method)).findFirst();
+    }
+
+    /** The steps of {@code path} that need arguments meeting a condition */
+    private static long conditions(List<CallVariant> path) {
+        return path.stream().filter(v -> v.kind() == CallVariant.Kind.ARGUMENTS).count();
     }
 
     private static List<CallVariant> append(List<CallVariant> path, CallVariant method) {

@@ -55,7 +55,7 @@ class TestStateHints {
     @Test
     void transitionDependingOnArgumentsIsSuggestedWithItsConditionButPreventsClaimingStateIsFinal() {
         assertHints("ErrorStateHintIncomplete.java", new Hint(Kind.CALL_SEQUENCE,
-                "Call f.reopen(int) with attempts > 0 before this call to move f from closed to open"));
+                "Call f.reopen(int attempts) with attempts > 0 before this call to move f from closed to open"));
     }
 
     @Test
@@ -244,13 +244,13 @@ class TestStateHints {
     @Test
     void argumentThatDecidedTheStateIsShownWithAValueThatWouldWork() {
         assertHints("ErrorArgumentPicksTheState.java", new Hint(Kind.DECIDING_ARGUMENT,
-                "buffer.reset(boolean) on line 20 decides the state of buffer: with keep == true, this call would be allowed"));
+                "buffer.reset(boolean keep) on line 20 decides the state of buffer: with keep == true, this call would be allowed"));
     }
 
     @Test
     void deciderIsTheLastCallThatChangedTheCheckedStateSet() {
         assertHints("ErrorArgumentPicksTheStateEarlier.java", new Hint(Kind.DECIDING_ARGUMENT,
-                "param.setTilingMode(int) on line 25 decides the state of param: with mode == 2, this call would be allowed"));
+                "param.setTilingMode(int mode) on line 25 decides the state of param: with mode == 2, this call would be allowed"));
     }
 
     @Test
@@ -262,7 +262,8 @@ class TestStateHints {
                                 + "Objects created with new GuardChannel() start in such a state"),
                 new Hint(Kind.GUARD, "Guard this call with if (!c.isClosed()): when it returns false, c is open"));
         assertHints(errors.get(1),
-                new Hint(Kind.GUARD, "Guard this call with if (l.tryLock(timeout)): when it returns true, l is locked"),
+                new Hint(Kind.GUARD, "Guard this call with if (l.tryLock(...)), "
+                        + "filling in the arguments of tryLock(long timeout): when it returns true, l is locked"),
                 new Hint(Kind.AVAILABLE_CALLS, "In state unlocked, l can call: tryLock(long) (and possibly others)"));
         assertHints(errors.get(2),
                 new Hint(Kind.NEEDED_STATE, "The state of p is unknown here, and this call needs it to be ready"));
@@ -291,14 +292,13 @@ class TestStateHints {
         List<StateRefinementError> errors = errors("ErrorStateHintArgumentConditions.java", 7);
         assertHints(errors.get(0),
                 new Hint(Kind.CALL_SEQUENCE,
-                        "Call r.set(int, int) with lo < hi before this call to move r from low to high"),
+                        "Call r.set(int lo, int hi) with lo < hi before this call to move r from low to high"),
                 new Hint(Kind.AVAILABLE_CALLS, "In state low, r can call: set(int, int) (and possibly others)"));
         assertHints(errors.get(1), new Hint(Kind.CALL_SEQUENCE,
-                "Call chain.pick(int) with k == 1, then chain.next() before this call to move chain from a to c"),
+                "Call chain.pick(int k) with k == 1, then chain.next() before this call to move chain from a to c"),
                 new Hint(Kind.AVAILABLE_CALLS, "In state a, chain can call: pick(int) (and possibly others)"));
-        assertHints(errors.get(2),
-                new Hint(Kind.CALL_SEQUENCE,
-                        "Call l.setLimit(int) with limit <= 0 before this call to move l from bounded to unbounded"),
+        assertHints(errors.get(2), new Hint(Kind.CALL_SEQUENCE,
+                "Call l.setLimit(int limit) with limit <= 0 before this call to move l from bounded to unbounded"),
                 new Hint(Kind.AVAILABLE_CALLS, "In state bounded, l can call: setLimit(int) (and possibly others)"));
         // no condition, and no value of the earlier call's argument, is claimed to allow the call
         for (StateRefinementError error : errors.subList(3, 5))
@@ -313,7 +313,7 @@ class TestStateHints {
     @Test
     void callWhoseStateDependsOnItsArgumentIsSuggestedWithTheCondition() {
         assertHints("classes/state_hint_compression_mode_error", new Hint(Kind.CALL_SEQUENCE,
-                "Call wParam.setCompressionMode(int) with mode == 2 before this call to move wParam from startCompression to compressionExplicit"),
+                "Call wParam.setCompressionMode(int mode) with mode == 2 before this call to move wParam from startCompression to compressionExplicit"),
                 new Hint(Kind.AVAILABLE_CALLS,
                         "In state startCompression, wParam can call: setCompressionMode(int) (and possibly others)"));
     }
