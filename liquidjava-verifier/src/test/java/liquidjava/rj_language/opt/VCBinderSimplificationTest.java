@@ -30,7 +30,7 @@ class VCBinderSimplificationTest {
 
     @Test
     void removesFreshPathBinderWhenVariableIsUnusedDownstream() {
-        assertSimplificationSteps(binderSimplification, vc("∀#if_condition_1:boolean. #if_condition_1", "y > 0"),
+        assertSimplificationSteps(binderSimplification, vc("∀##if_condition_1:boolean. ##if_condition_1", "y > 0"),
                 step("y > 0"));
     }
 

@@ -10,14 +10,14 @@ class GeneratedNamesTest {
 
     @Test
     void namesTheValueAfterWhatItIs() {
-        assertEquals("#if_condition_7", GeneratedNames.of(GeneratedNames.IF_CONDITION, 7));
-        assertEquals("#catch_branch_12", GeneratedNames.of(GeneratedNames.CATCH_BRANCH, 12));
+        assertEquals("##if_condition_7", GeneratedNames.of(GeneratedNames.IF_CONDITION, 7));
+        assertEquals("##catch_branch_12", GeneratedNames.of(GeneratedNames.CATCH_BRANCH, 12));
     }
 
     @Test
     void replacesCharactersTheRefinementLanguageDoesNotAccept() {
-        assertEquals("#new_Map_Entry_3", GeneratedNames.of("new_Map$Entry", 3));
-        assertEquals("#t_ma_result_4", GeneratedNames.of("tæma_result", 4));
+        assertEquals("##new_Map_Entry_3", GeneratedNames.of("new_Map$Entry", 3));
+        assertEquals("##t_ma_result_4", GeneratedNames.of("tæma_result", 4));
     }
 
     @Test
@@ -31,7 +31,8 @@ class GeneratedNamesTest {
     @Test
     void doesNotTakeProgramVariablesForGeneratedNames() {
         assertFalse(GeneratedNames.isGenerated("#x_3"));
-        assertFalse(GeneratedNames.isGenerated("#condition_3"));
+        assertFalse(GeneratedNames.isGenerated("#if_condition_3"));
+        assertFalse(GeneratedNames.isGenerated("#read_result_3"));
         assertFalse(GeneratedNames.isGenerated("#ret_3"));
         assertFalse(GeneratedNames.isGenerated("#this_3"));
         assertFalse(GeneratedNames.isGenerated("if_condition"));
