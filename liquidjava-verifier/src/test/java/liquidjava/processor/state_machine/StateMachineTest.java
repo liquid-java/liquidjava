@@ -83,6 +83,10 @@ class StateMachineTest {
         // each set has the same states on both sides, only how they are combined changed
         assertEquals(Set.of(0, 1),
                 MACHINE.stateSetsChanged(Set.of(OPEN_LOCKED, CLOSED_UNLOCKED), Set.of(OPEN_UNLOCKED, CLOSED_LOCKED)));
+        // the third set changed, and so did how the first two are combined
+        List<State> before = List.of(state("a", "x", "old"), state("b", "y", "old"));
+        List<State> after = List.of(state("a", "y", "new"), state("b", "x", "new"));
+        assertEquals(Set.of(0, 1, 2), machine(before).stateSetsChanged(before, after));
     }
 
     @Test

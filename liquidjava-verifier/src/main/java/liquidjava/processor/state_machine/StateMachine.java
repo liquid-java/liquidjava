@@ -258,19 +258,23 @@ public record StateMachine(List<State> states, List<RefinedFunction> methods, Li
 
     /**
      * The state sets, as indexes into {@link State#names()}, whose states in {@code after} differ from those in
-     * {@code before}; every set if no set differs on its own, since then only their combination changed
+     * {@code before}. Every set if the other sets, taken together, differ too: then how the states of different sets
+     * are combined changed, which naming the changed sets alone would hide.
      */
     public Set<Integer> stateSetsChanged(Collection<State> before, Collection<State> after) {
         Set<Integer> every = IntStream.range(0, states.get(0).names().size()).boxed()
                 .collect(Collectors.toCollection(TreeSet::new));
-        Set<Integer> changed = every.stream().filter(k -> !statesIn(before, k).equals(statesIn(after, k)))
+        Set<Integer> changed = every.stream()
+                .filter(k -> !statesIn(before, Set.of(k)).equals(statesIn(after, Set.of(k))))
                 .collect(Collectors.toCollection(TreeSet::new));
-        return changed.isEmpty() ? every : changed;
+        Set<Integer> kept = every.stream().filter(k -> !changed.contains(k)).collect(Collectors.toSet());
+        return !changed.isEmpty() && statesIn(before, kept).equals(statesIn(after, kept)) ? changed : every;
     }
 
-    /** The states of the set {@code k} that {@code subset} has */
-    private static Set<String> statesIn(Collection<State> subset, int k) {
-        return subset.stream().map(s -> s.names().get(k)).collect(Collectors.toSet());
+    /** The states of the sets {@code sets} that {@code subset} has, combined as in its states */
+    private static Set<List<String>> statesIn(Collection<State> subset, Set<Integer> sets) {
+        return subset.stream().map(s -> sets.stream().sorted().map(s.names()::get).toList())
+                .collect(Collectors.toSet());
     }
 
     /**
