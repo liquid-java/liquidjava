@@ -16,6 +16,7 @@ import liquidjava.processor.refinement_checker.TypeChecker;
 import liquidjava.processor.refinement_checker.object_checkers.AuxHierarchyRefinementsPassage;
 import liquidjava.processor.refinement_checker.object_checkers.AuxStateHandler;
 import liquidjava.rj_language.Predicate;
+import liquidjava.utils.GeneratedNames;
 import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Formats;
 import liquidjava.utils.constants.Keys;
@@ -330,7 +331,7 @@ public class MethodsFunctionsChecker {
         return true;
     }
 
-    private Map<String, String> checkInvocationRefinements(CtElement invocation, List<CtExpression<?>> arguments,
+    private Map<String, String> checkInvocationRefinements(CtExpression<?> invocation, List<CtExpression<?>> arguments,
             CtExpression<?> target, String methodName, String className, List<CtTypeReference<?>> paramTypes)
             throws LJError {
         // -- Part 1: Check if the invocation is possible
@@ -373,11 +374,11 @@ public class MethodsFunctionsChecker {
      * matches the post-call VariableInstance. Returns {@code null} for void methods. When the function has no
      * refinements to check, the (empty) instance is registered eagerly.
      */
-    private String prepareReturnInstance(CtElement invocation, RefinedFunction f) {
+    private String prepareReturnInstance(CtExpression<?> invocation, RefinedFunction f) {
         CtTypeReference<?> retType = f.getType();
         if (retType == null || "void".equals(retType.toString()))
             return null;
-        String returnViName = String.format(Formats.INSTANCE, f.getName(), rtc.getContext().getCounter());
+        String returnViName = GeneratedNames.valueOf(invocation, rtc.getContext().getCounter());
         invocation.putMetadata(Keys.RETURN_VAR_NAME, returnViName);
         if (f.allRefinementsTrue())
             rtc.getContext().addInstanceToContext(returnViName, retType, new Predicate(), invocation);
@@ -388,7 +389,7 @@ public class MethodsFunctionsChecker {
      * Part 2 of an invocation check: applies the function's return refinement to the context, substituting argument and
      * target variables and registering the resulting return-value instance.
      */
-    private void applyReturnRefinement(CtElement invocation, RefinedFunction f, Map<String, String> map,
+    private void applyReturnRefinement(CtExpression<?> invocation, RefinedFunction f, Map<String, String> map,
             String returnViName) {
         Predicate methodRef = f.getRefReturn();
         if (methodRef == null)
@@ -410,7 +411,7 @@ public class MethodsFunctionsChecker {
         }
 
         String viName = returnViName != null ? returnViName
-                : String.format(Formats.INSTANCE, f.getName(), rtc.getContext().getCounter());
+                : GeneratedNames.valueOf(invocation, rtc.getContext().getCounter());
         VariableInstance vi = (VariableInstance) rtc.getContext().addInstanceToContext(viName, f.getType(),
                 methodRef.substituteVariable(Keys.WILDCARD, viName), invocation); // TODO REVIEW!!
         if (varName != null && f.hasStateChange() && equalsThis)
