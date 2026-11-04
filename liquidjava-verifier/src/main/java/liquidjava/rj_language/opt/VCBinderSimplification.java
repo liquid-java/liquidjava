@@ -57,8 +57,17 @@ public class VCBinderSimplification implements VCSimplificationPass {
         if (next == null)
             return null;
 
+        return withNext(implication, next);
+    }
+
+    /**
+     * Copies a VC node followed by its simplified suffix, leaving out a suffix that became just true
+     */
+    private VCImplication withNext(VCImplication implication, VCImplication next) {
         VCImplication result = copyWithRefinement(implication, implication.getRefinement().clone());
-        result.setNext(next);
+        // P => true -> P, so a trailing true row does not read as the value of the row above
+        if (!isPlainTrue(next))
+            result.setNext(next);
         return result;
     }
 
@@ -117,6 +126,14 @@ public class VCBinderSimplification implements VCSimplificationPass {
      */
     private boolean isTrueBinder(VCImplication implication) {
         return implication.hasBinder() && isTrue(implication.getRefinement().getExpression());
+    }
+
+    /**
+     * Checks whether a VC node is a last implication without binder refined with true
+     */
+    private boolean isPlainTrue(VCImplication implication) {
+        return !implication.hasBinder() && !implication.hasNext()
+                && isTrue(implication.getRefinement().getExpression());
     }
 
     /**

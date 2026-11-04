@@ -105,6 +105,22 @@ class VCBinderSimplificationTest {
     }
 
     @Test
+    void removesLastTrueBinderWithoutLeavingTrue() {
+        assertSimplificationSteps(binderSimplification, vc("∀p:boolean. p || q", "∀x:Object. true"), step("p || q"));
+    }
+
+    @Test
+    void removesLastTrueBinderAfterNestedConditionsWithoutLeavingTrue() {
+        assertSimplificationSteps(binderSimplification, vc("∀p:boolean. p", "∀q:boolean. !q", "∀x:Object. true"),
+                step("p", "!q"));
+    }
+
+    @Test
+    void collapsedFalseBinderLeavesNoTrueAfterAnotherRow() {
+        assertSimplificationSteps(binderSimplification, vc("∀x:int. x > 0", "∀y:int. false", "z > 0"), step("x > 0"));
+    }
+
+    @Test
     void trueBinderWithoutSuffixBecomesPlainTrue() {
         assertSimplificationSteps(binderSimplification, vc("∀x:int. true"), step("true"));
     }
