@@ -59,13 +59,14 @@ public record AliasExpansion(String invocation, String expansion, String alias, 
         Map<String, Expression> bodies = new LinkedHashMap<>();
         for (AliasInvocation invocation : invocations) {
             AliasWrapper alias = aliases.get(invocation.getName());
-            String shown = invocation.toDisplayString();
-            if (alias == null || expanding.contains(alias.getName()) || expansions.containsKey(shown))
+            // keyed by the invocation itself, since different names can display the same
+            String key = invocation.toString();
+            if (alias == null || expanding.contains(alias.getName()) || expansions.containsKey(key))
                 continue;
             Expression body = substituteArguments(alias, invocation.getArgs());
-            expansions.put(shown, new AliasExpansion(shown, body.toDisplayString(), alias.getName(),
-                    alias.getVarNames(), alias.getDefinition(), alias.getPosition()));
-            bodies.put(shown, body);
+            expansions.put(key, new AliasExpansion(invocation.toDisplayString(), body.toDisplayString(),
+                    alias.getName(), alias.getVarNames(), alias.getDefinition(), alias.getPosition()));
+            bodies.put(key, body);
         }
         for (Map.Entry<String, Expression> body : bodies.entrySet()) {
             Set<String> inner = new HashSet<>(expanding);
