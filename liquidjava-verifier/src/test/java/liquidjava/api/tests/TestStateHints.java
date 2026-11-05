@@ -333,6 +333,13 @@ class TestStateHints {
     }
 
     @Test
+    void foundOfTheStudysUndoManagerOmitsTheResultsOfOtherCalls() {
+        StateRefinementError error = errors("classes/state_hint_study_undo_manager_error", 2).get(0);
+        assertEquals("expected redoable(undoManager) but could not prove it",
+                error.getMessage().replaceAll("[⁰¹²³⁴⁵⁶⁷⁸⁹]", ""));
+    }
+
+    @Test
     void classWithoutStateSetKeepsTheGeneralHint() {
         assertHints("ErrorUnconstrainedStateRefinement.java", Hint.general(
                 "No state information is known for this object. Make sure its state is initialized and available at this point."));

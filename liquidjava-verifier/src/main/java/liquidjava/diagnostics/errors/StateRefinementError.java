@@ -9,6 +9,8 @@ import liquidjava.diagnostics.categories.ErrorCategory;
 import liquidjava.diagnostics.hints.Hint;
 import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.ast.Expression;
+import liquidjava.rj_language.ast.FunctionInvocation;
 import liquidjava.rj_language.opt.VCSimplificationResult;
 import spoon.reflect.cu.SourcePosition;
 
@@ -27,11 +29,7 @@ public class StateRefinementError extends LJError {
     public StateRefinementError(SourcePosition position, SourcePosition declarationPosition, Predicate expected,
             VCSimplificationResult found, TranslationTable translationTable, String customMessage, List<Hint> hints,
             ErrorCategory category, StateErrorContext context) {
-        super("State Refinement Error",
-                String.format("found %s but expected %s",
-                        found.getImplication().toPredicate().getExpression().toDisplayString(),
-                        expected.getExpression().toDisplayString()),
-                position, translationTable, customMessage);
+        super("State Refinement Error", message(expected, found), position, translationTable, customMessage);
         this.declarationPosition = declarationPosition;
         this.expected = expected;
         this.found = found;
@@ -41,6 +39,22 @@ public class StateRefinementError extends LJError {
         if (hints.isEmpty() && isTrue(found.getImplication().toPredicate().getExpression()))
             addHint(Hint.general(
                     "No state information is known for this object. Make sure its state is initialized and available at this point."));
+    }
+
+    // Only the facts of found about the objects of expected, and only when one of them tells a state: an alias or a
+    // guard on another value says nothing about the state expected needs
+    private static String message(Predicate expected, VCSimplificationResult found) {
+        Expression shown = RefinementError.linkedToExpected(found.getImplication().toPredicate().getExpression(),
+                expected.getExpression());
+        if (!appliesGhost(shown))
+            return String.format("expected %s but could not prove it", expected.getExpression().toDisplayString());
+        return String.format("found %s but expected %s", shown.toDisplayString(),
+                expected.getExpression().toDisplayString());
+    }
+
+    private static boolean appliesGhost(Expression expression) {
+        return expression instanceof FunctionInvocation
+                || expression.getChildren().stream().anyMatch(StateRefinementError::appliesGhost);
     }
 
     @Override
