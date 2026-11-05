@@ -174,7 +174,7 @@ class RefinementErrorCounterexampleTest {
         Counterexample counterexample = new Counterexample(
                 Arrays.stream(assignments).map(a -> a.split("=")).map(parts -> pair(parts[0], parts[1])).toList());
         return new RefinementError(null, null, new Predicate(RefinementsParser.createAST(expected, "")),
-                found.simplify(), new TranslationTable(), counterexample, null);
+                found.simplify(), new TranslationTable(), counterexample, null, List.of());
     }
 
     private static Pair<String, String> pair(String name, String value) {

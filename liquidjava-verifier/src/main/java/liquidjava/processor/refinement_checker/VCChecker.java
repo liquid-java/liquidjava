@@ -85,7 +85,7 @@ public class VCChecker {
         if (result.isError()) {
             throw new RefinementError(element.getPosition(), declarationPosition, expectedType,
                     implBeforeChange.simplify(NeededVariables.forRefinementError(expectedType)), map,
-                    result.getCounterexample(), customMessage);
+                    result.getCounterexample(), customMessage, context.getAliases());
         }
     }
 
@@ -445,7 +445,8 @@ public class VCChecker {
         TranslationTable map = new TranslationTable();
         VCImplication premises = buildPremiseChain(map, expected, found);
         throw new RefinementError(position, declarationPosition, expected,
-                premises.simplify(NeededVariables.forRefinementError(expected)), map, counterexample, customMessage);
+                premises.simplify(NeededVariables.forRefinementError(expected)), map, counterexample, customMessage,
+                context.getAliases());
     }
 
     /** What a state refinement error shows as found: what is known about the variables of both predicates */

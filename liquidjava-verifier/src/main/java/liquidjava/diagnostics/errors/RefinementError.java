@@ -3,13 +3,17 @@ package liquidjava.diagnostics.errors;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import liquidjava.diagnostics.AliasExpansion;
 import liquidjava.diagnostics.TranslationTable;
 import liquidjava.diagnostics.categories.ErrorCategory;
 import liquidjava.diagnostics.hints.Hint;
+import liquidjava.processor.context.AliasWrapper;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Enum;
@@ -41,13 +45,21 @@ public class RefinementError extends LJError {
     private final VCSimplificationResult found;
     private final Counterexample counterexample;
     private final SourcePosition declarationPosition;
+    private final List<AliasExpansion> foundAliases;
+    private final List<AliasExpansion> expectedAliases;
+    private final List<String> aliasDeclarations;
 
     public RefinementError(SourcePosition position, SourcePosition declarationPosition, Predicate expected,
             VCSimplificationResult found, TranslationTable translationTable, Counterexample counterexample,
-            String customMessage) {
+            String customMessage, List<AliasWrapper> aliases) {
         super("Refinement Error", message(expected, found), position, translationTable, customMessage);
         this.expected = expected;
         this.found = found;
+        Expression foundExpression = found.getImplication().toPredicate().getExpression();
+        this.foundAliases = AliasExpansion.of(foundExpression, aliases);
+        this.expectedAliases = AliasExpansion.of(expected.getExpression(), aliases);
+        this.aliasDeclarations = aliasDeclarations(linkedToExpected(foundExpression, expected.getExpression()),
+                expected.getExpression(), aliases);
         this.counterexample = filterCounterexample(counterexample);
         this.declarationPosition = declarationPosition;
         if (!this.counterexample.isEmpty()) {
@@ -73,6 +85,16 @@ public class RefinementError extends LJError {
                 expected.getExpression().toDisplayString());
     }
 
+    // Each alias the message uses once, with those their definitions use, as declared
+    private static List<String> aliasDeclarations(Expression shownFound, Expression expected,
+            List<AliasWrapper> aliases) {
+        Map<String, String> declarations = new LinkedHashMap<>();
+        for (Expression shown : List.of(shownFound, expected))
+            for (AliasExpansion expansion : AliasExpansion.of(shown, aliases))
+                declarations.putIfAbsent(expansion.alias(), expansion.declaration());
+        return new ArrayList<>(declarations.values());
+    }
+
     /** Unknown when what was found says nothing about the values the expected refinement constrains */
     private static ErrorCategory categoryOf(Predicate expected, VCSimplificationResult found) {
         List<String> foundVariables = found.getImplication().toPredicate().getVariableNames();
@@ -95,6 +117,22 @@ public class RefinementError extends LJError {
 
     public VCSimplificationResult getFound() {
         return found;
+    }
+
+    /** The alias invocations in found and what they stand for */
+    public List<AliasExpansion> getFoundAliases() {
+        return foundAliases;
+    }
+
+    /** The alias invocations in expected and what they stand for */
+    public List<AliasExpansion> getExpectedAliases() {
+        return expectedAliases;
+    }
+
+    /** A where line declaring each alias the message uses */
+    @Override
+    public List<String> getMessageNotes() {
+        return aliasDeclarations.stream().map(declaration -> "where " + declaration).toList();
     }
 
     // Keeps the counterexample assignments to the terms of expected and of the found facts linked to them, except

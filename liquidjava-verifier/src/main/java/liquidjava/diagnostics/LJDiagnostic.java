@@ -70,6 +70,11 @@ public class LJDiagnostic extends RuntimeException {
         return null;
     }
 
+    /** Lines printed under the message that explain it, such as what the names it uses mean */
+    public List<String> getMessageNotes() {
+        return List.of();
+    }
+
     public void setPosition(SourcePosition pos) {
         if (pos == null || pos.getFile() == null)
             return;
@@ -108,6 +113,8 @@ public class LJDiagnostic extends RuntimeException {
         // title
         sb.append("\n").append(accentColor).append(title).append(": ").append(Colors.RESET).append(message)
                 .append("\n");
+        for (String note : getMessageNotes())
+            sb.append("  ").append(note).append("\n");
 
         // snippet
         String snippet = getSnippet();
