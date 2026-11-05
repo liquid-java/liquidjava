@@ -65,4 +65,9 @@ public class AliasDTO {
     public Expression getExpression() {
         return expression;
     }
+
+    /** The definition as written in the alias declaration, or null when built from an expression */
+    public String getRef() {
+        return ref;
+    }
 }

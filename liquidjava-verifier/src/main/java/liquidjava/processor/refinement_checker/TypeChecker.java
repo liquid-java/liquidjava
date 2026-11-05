@@ -339,7 +339,7 @@ public abstract class TypeChecker extends CtScanner {
                     throw new InvalidRefinementError(position, "Refinement alias must return a boolean expression",
                             ref);
                 }
-                AliasWrapper aw = new AliasWrapper(a, factory, klass, path);
+                AliasWrapper aw = new AliasWrapper(a, factory, klass, path, position);
                 context.addAlias(aw);
             }
         } catch (LJError e) {
