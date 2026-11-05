@@ -6,6 +6,7 @@ import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Enum;
 import liquidjava.rj_language.ast.LiteralInt;
+import liquidjava.rj_language.ast.Var;
 import org.junit.jupiter.api.Test;
 
 class VCFoldingTest {
@@ -120,7 +121,7 @@ class VCFoldingTest {
         VCImplication implication = new VCImplication(
                 new Predicate(new BinaryExpression(limit, "==", new LiteralInt(3))));
 
-        assertSimplificationSteps(folding, implication, step("3 == 3"), step("true"));
+        assertSimplificationSteps(folding, implication, step("true"));
     }
 
     @Test
@@ -131,6 +132,15 @@ class VCFoldingTest {
         VCImplication implication = new VCImplication(
                 new Predicate(new BinaryExpression(arithmetic, "==", new LiteralInt(5))));
 
-        assertSimplificationSteps(folding, implication, step("3 + 2 == 5"), step("5 == 5"), step("true"));
+        assertSimplificationSteps(folding, implication, step("5 == 5"), step("true"));
+    }
+
+    @Test
+    void keepsResolvedEnumNameWhenNothingFolds() {
+        Enum mode = new Enum("ImageWriteParam", "MODE_EXPLICIT");
+        mode.setResolvedLiteral(new LiteralInt(2));
+        VCImplication implication = new VCImplication(new Predicate(new BinaryExpression(new Var("x"), "==", mode)));
+
+        assertSimplificationSteps(folding, implication, step("x == ImageWriteParam.MODE_EXPLICIT"));
     }
 }
