@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import liquidjava.diagnostics.TranslationTable;
 import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.opt.VCSimplificationResult;
 import liquidjava.rj_language.parsing.RefinementsParser;
 import liquidjava.smt.Counterexample;
 import liquidjava.utils.Pair;
@@ -112,6 +113,38 @@ class RefinementErrorCounterexampleTest {
                         "∀##if_condition_1:boolean. !(port < 0 || retries > t)", "true"),
                 "port=0", "retries=-2", "t=-1");
         assertEquals(List.of(pair("t", "-1"), pair("retries", "-2")), error.getCounterexample().assignments());
+    }
+
+    @Test
+    void messageSaysExpectedCouldNotBeProvedWhenFoundOnlyGuardsOtherVariables() {
+        RefinementError error = error("timeout >= 0", vc("∀port:int. true", "∀timeout:int. true",
+                "∀##if_condition_1:boolean. !(port < 0 || port > 65535)", "true"), "port=0", "timeout=-1");
+        assertEquals("expected timeout >= 0 but could not prove it", error.getMessage());
+    }
+
+    @Test
+    void messageKeepsOnlyTheGuardsLinkedToExpected() {
+        RefinementError error = error("t >= 0",
+                vc("∀port:int. true", "∀retries:int. true", "∀t:int. true",
+                        "∀##if_condition_1:boolean. !(port < 0 || retries > t)", "true"),
+                "port=0", "retries=-2", "t=-1");
+        assertEquals("!(retries > t) is not a subtype of t >= 0", error.getMessage());
+    }
+
+    @Test
+    void messageKeepsFoundAsWrittenWhenEveryFactIsLinked() {
+        RefinementError error = error("x >= 0", vc("∀x:int. !(x < 0 || x > 5)", "true"), "x=-1");
+        assertEquals("!(x < 0 || x > 5) is not a subtype of x >= 0", error.getMessage());
+    }
+
+    @Test
+    void stateMessageKeepsAStateReachingExpectedThroughAnAlias() {
+        StateRefinementError error = new StateRefinementError(null, null,
+                new Predicate(RefinementsParser.createAST("full(box)", "")),
+                new VCSimplificationResult(
+                        vc("∀b1:Object. empty(b1)", "∀x:int. x > 0", "∀box:Object. box == b1", "true")),
+                new TranslationTable(), null, List.of(), null, null);
+        assertEquals("found empty(b1) && box == b1 but expected full(box)", error.getMessage());
     }
 
     @Test

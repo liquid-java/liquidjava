@@ -16,6 +16,7 @@ import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Enum;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.FunctionInvocation;
+import liquidjava.rj_language.ast.LiteralBoolean;
 import liquidjava.rj_language.ast.UnaryExpression;
 import liquidjava.rj_language.ast.Var;
 import liquidjava.rj_language.ast.formatter.VariableFormatter;
@@ -43,11 +44,7 @@ public class RefinementError extends LJError {
     public RefinementError(SourcePosition position, SourcePosition declarationPosition, Predicate expected,
             VCSimplificationResult found, TranslationTable translationTable, Counterexample counterexample,
             String customMessage) {
-        super("Refinement Error",
-                String.format("%s is not a subtype of %s",
-                        found.getImplication().toPredicate().getExpression().toDisplayString(),
-                        expected.getExpression().toDisplayString()),
-                position, translationTable, customMessage);
+        super("Refinement Error", message(expected, found), position, translationTable, customMessage);
         this.expected = expected;
         this.found = found;
         this.counterexample = filterCounterexample(counterexample);
@@ -62,6 +59,32 @@ public class RefinementError extends LJError {
         if (isTrue(found.getImplication().toPredicate().getExpression()))
             addHint(Hint.general(
                     "Not enough information to prove the expected refinement. Add a refinement or condition to constrain it."));
+    }
+
+    // Only the facts of found about the values expected constrains; path conditions about other values stay in the
+    // derivation
+    private static String message(Predicate expected, VCSimplificationResult found) {
+        Expression shown = linkedToExpected(found.getImplication().toPredicate().getExpression(),
+                expected.getExpression());
+        if (isTrue(shown))
+            return String.format("expected %s but could not prove it", expected.getExpression().toDisplayString());
+        return String.format("%s is not a subtype of %s", shown.toDisplayString(),
+                expected.getExpression().toDisplayString());
+    }
+
+    /**
+     * The facts of found linked to the terms of expected, as a conjunction, or true when there are none; found as
+     * written when every fact is linked
+     */
+    static Expression linkedToExpected(Expression found, Expression expected) {
+        List<Expression> facts = factsOf(found);
+        Set<String> linked = linkedTerms(facts, termsOf(expected));
+        List<Expression> linkedFacts = facts.stream().filter(fact -> termsOf(fact).stream().anyMatch(linked::contains))
+                .toList();
+        if (linkedFacts.size() == facts.size())
+            return found;
+        return linkedFacts.stream().reduce((first, second) -> new BinaryExpression(first, "&&", second))
+                .orElse(new LiteralBoolean(true));
     }
 
     /** Unknown when what was found says nothing about the values the expected refinement constrains */
