@@ -34,24 +34,25 @@ public class VCBinderSimplification implements VCSimplificationPass {
     @Override
     public VCImplication apply(VCImplication implication) {
         VCImplication cloned = implication.clone();
-        VCImplication simplified = simplify(cloned, needed.trueBindersToKeep(cloned));
+        VCImplication simplified = simplify(cloned, needed.trueBindersToKeep(cloned), needed.unlinkedBinders(cloned));
         return simplified == null ? cloned : simplified;
     }
 
     /**
      * Simplifies the first applicable binder in a VC chain
      */
-    private VCImplication simplify(VCImplication implication, Set<String> keptTrueBinders) {
+    private VCImplication simplify(VCImplication implication, Set<String> keptTrueBinders,
+            Set<String> unlinkedBinders) {
         if (implication == null)
             return null;
 
         if (isFalseBinder(implication))
             return collapseFalseBinder(implication);
 
-        if (isRemovableBinder(implication, keptTrueBinders))
+        if (isRemovableBinder(implication, keptTrueBinders, unlinkedBinders))
             return removeBinder(implication);
 
-        VCImplication next = simplify(implication.getNext(), keptTrueBinders);
+        VCImplication next = simplify(implication.getNext(), keptTrueBinders, unlinkedBinders);
         if (next == null)
             return null;
 
@@ -87,14 +88,17 @@ public class VCBinderSimplification implements VCSimplificationPass {
     /**
      * Checks whether a binder can be removed without changing the VC conclusion or hiding what explains the error. A
      * binder refined only by true states no fact, so it is removed even when a later implication uses its variable,
-     * unless the error needs it
+     * unless the error needs it. A generated path condition that expected does not depend on is removed too
      */
-    private boolean isRemovableBinder(VCImplication implication, Set<String> keptTrueBinders) {
+    private boolean isRemovableBinder(VCImplication implication, Set<String> keptTrueBinders,
+            Set<String> unlinkedBinders) {
         if (!implication.hasBinder())
             return false;
 
         if (isTrueBinder(implication))
             return !keptTrueBinders.contains(implication.getName());
+        if (isGeneratedBooleanBinder(implication) && unlinkedBinders.contains(implication.getName()))
+            return true;
         return !containsVar(implication.getNext(), implication.getName()) && isUnusedFreshPathBinder(implication);
     }
 
@@ -102,12 +106,19 @@ public class VCBinderSimplification implements VCSimplificationPass {
      * Checks for a generated boolean path binder refined exactly by itself
      */
     private boolean isUnusedFreshPathBinder(VCImplication implication) {
-        if (!implication.hasNext() || !GeneratedNames.isGenerated(implication.getName())
-                || !"boolean".equals(implication.getType().getQualifiedName()))
+        if (!implication.hasNext() || !isGeneratedBooleanBinder(implication))
             return false;
 
         return implication.getRefinement().getExpression()instanceof Var var
                 && implication.getName().equals(var.getName());
+    }
+
+    /**
+     * Checks for a binder of a generated boolean, such as a path condition
+     */
+    private boolean isGeneratedBooleanBinder(VCImplication implication) {
+        return GeneratedNames.isGenerated(implication.getName())
+                && "boolean".equals(implication.getType().getQualifiedName());
     }
 
     /**

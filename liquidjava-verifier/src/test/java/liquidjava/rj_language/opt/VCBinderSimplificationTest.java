@@ -122,6 +122,34 @@ class VCBinderSimplificationTest {
     }
 
     @Test
+    void removesPathConditionsExpectedDoesNotDependOn() {
+        assertSimplificationSteps(forStateError("redoable(u)"),
+                vc("∀##if_condition_1:boolean. !a", "∀##if_condition_2:boolean. !(b || c)", "∀u:Object. u == g"),
+                step("!(b || c)", "u == g"), step("u == g"));
+    }
+
+    @Test
+    void keepsPathConditionExpectedDependsOnThroughAnotherRow() {
+        assertSimplificationSteps(forRefinementError("y > 0"),
+                vc("∀##if_condition_1:boolean. x > 5", "∀##if_condition_2:boolean. !c", "∀y:int. y == x - 10"),
+                step("x > 5", "y == x - 10"));
+    }
+
+    @Test
+    void keepsPathConditionAnotherRowMentions() {
+        assertSimplificationSteps(forStateError("open(f)"),
+                vc("∀##if_condition_1:boolean. p", "∀##if_condition_2:boolean. q",
+                        "∀f:Object. ##if_condition_1 ? open(f) : created(f)"),
+                step("p", "#if_condition¹ ? open(f) : created(f)"));
+    }
+
+    @Test
+    void keepsPathConditionsExpectedNames() {
+        assertSimplificationSteps(forRefinementError("##if_condition_1 || f(1) > 1"), vc("∀##if_condition_1:boolean. p",
+                "∀##if_condition_2:boolean. f(1) > 0", "∀##if_condition_3:boolean. q"), step("p", "f(1) > 0"));
+    }
+
+    @Test
     void trueBinderWithoutSuffixBecomesPlainTrue() {
         assertSimplificationSteps(binderSimplification, vc("∀x:int. true"), step("true"));
     }

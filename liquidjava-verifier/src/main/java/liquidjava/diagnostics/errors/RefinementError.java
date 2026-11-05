@@ -3,7 +3,6 @@ package liquidjava.diagnostics.errors;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -15,9 +14,6 @@ import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Enum;
 import liquidjava.rj_language.ast.Expression;
-import liquidjava.rj_language.ast.FunctionInvocation;
-import liquidjava.rj_language.ast.LiteralBoolean;
-import liquidjava.rj_language.ast.UnaryExpression;
 import liquidjava.rj_language.ast.Var;
 import liquidjava.rj_language.ast.formatter.VariableFormatter;
 import liquidjava.rj_language.opt.VCSimplificationResult;
@@ -27,7 +23,12 @@ import liquidjava.utils.Pair;
 import liquidjava.utils.Utils;
 import spoon.reflect.cu.SourcePosition;
 
+import static liquidjava.rj_language.opt.VCSimplificationUtils.factsOf;
 import static liquidjava.rj_language.opt.VCSimplificationUtils.isTrue;
+import static liquidjava.rj_language.opt.VCSimplificationUtils.linkedTerms;
+import static liquidjava.rj_language.opt.VCSimplificationUtils.linkedToExpected;
+import static liquidjava.rj_language.opt.VCSimplificationUtils.termName;
+import static liquidjava.rj_language.opt.VCSimplificationUtils.termsOf;
 
 /**
  * Error indicating that a refinement constraint either was violated or cannot be proven
@@ -70,21 +71,6 @@ public class RefinementError extends LJError {
             return String.format("expected %s but could not prove it", expected.getExpression().toDisplayString());
         return String.format("%s is not a subtype of %s", shown.toDisplayString(),
                 expected.getExpression().toDisplayString());
-    }
-
-    /**
-     * The facts of found linked to the terms of expected, as a conjunction, or true when there are none; found as
-     * written when every fact is linked
-     */
-    static Expression linkedToExpected(Expression found, Expression expected) {
-        List<Expression> facts = factsOf(found);
-        Set<String> linked = linkedTerms(facts, termsOf(expected));
-        List<Expression> linkedFacts = facts.stream().filter(fact -> termsOf(fact).stream().anyMatch(linked::contains))
-                .toList();
-        if (linkedFacts.size() == facts.size())
-            return found;
-        return linkedFacts.stream().reduce((first, second) -> new BinaryExpression(first, "&&", second))
-                .orElse(new LiteralBoolean(true));
     }
 
     /** Unknown when what was found says nothing about the values the expected refinement constrains */
@@ -138,47 +124,6 @@ public class RefinementError extends LJError {
                 .toList());
     }
 
-    // Conjuncts of found, also splitting negated disjunctions (!(a || b) is !a && !b) and dropping double negations, so
-    // each fact links only the terms it relates
-    private static List<Expression> factsOf(Expression expression) {
-        List<Expression> facts = new ArrayList<>();
-        if (expression instanceof BinaryExpression binary && "&&".equals(binary.getOperator())) {
-            facts.addAll(factsOf(binary.getFirstOperand()));
-            facts.addAll(factsOf(binary.getSecondOperand()));
-        } else if (expression instanceof UnaryExpression not && "!".equals(not.getOp())
-                && not.getExpression()instanceof BinaryExpression binary && "||".equals(binary.getOperator())) {
-            facts.addAll(factsOf(new UnaryExpression("!", binary.getFirstOperand())));
-            facts.addAll(factsOf(new UnaryExpression("!", binary.getSecondOperand())));
-        } else if (expression instanceof UnaryExpression not && "!".equals(not.getOp())
-                && not.getExpression()instanceof UnaryExpression inner && "!".equals(inner.getOp())) {
-            facts.addAll(factsOf(inner.getExpression()));
-        } else {
-            facts.add(expression);
-        }
-        return facts;
-    }
-
-    // Terms of expected plus those of every fact sharing a term with them, directly or through other facts. The
-    // remaining facts constrain other values only, so any values satisfying them make the same counterexample
-    private static Set<String> linkedTerms(List<Expression> facts, List<String> expectedTerms) {
-        Set<String> linked = new HashSet<>(expectedTerms);
-        List<List<String>> unlinked = facts.stream().map(RefinementError::termsOf)
-                .collect(Collectors.toCollection(ArrayList::new));
-        boolean changed = true;
-        while (changed) {
-            changed = false;
-            for (Iterator<List<String>> it = unlinked.iterator(); it.hasNext();) {
-                List<String> terms = it.next();
-                if (terms.stream().anyMatch(linked::contains)) {
-                    linked.addAll(terms);
-                    it.remove();
-                    changed = true;
-                }
-            }
-        }
-        return linked;
-    }
-
     // Whether a fact of found is term == value, which the counterexample would only repeat
     private static boolean isKnown(Pair<String, String> assignment, List<Expression> facts) {
         return facts.stream()
@@ -208,33 +153,5 @@ public class RefinementError extends LJError {
         if (expectedTerms.contains(term))
             return foundTerms.contains(term) ? 1 : 0;
         return GeneratedNames.isGenerated(term) ? 3 : 2;
-    }
-
-    // Variables and ghost applications of an expression, named as in the SMT model
-    private static List<String> termsOf(Expression expression) {
-        List<String> terms = new ArrayList<>();
-        expression.getVariableNames(terms);
-        addGhostApplications(expression, terms);
-        return terms;
-    }
-
-    private static void addGhostApplications(Expression expression, List<String> terms) {
-        String term = expression instanceof FunctionInvocation ? termName(expression) : null;
-        if (term != null && !terms.contains(term))
-            terms.add(term);
-        for (Expression child : expression.getChildren())
-            addGhostApplications(child, terms);
-    }
-
-    // Name of a variable, or of a ghost application over variables, as in the SMT model; null for other expressions
-    private static String termName(Expression expression) {
-        if (expression instanceof Var var)
-            return var.getName();
-        if (expression instanceof FunctionInvocation invocation
-                && invocation.getArgs().stream().allMatch(Var.class::isInstance)) {
-            String args = invocation.getArgs().stream().map(Expression::toString).collect(Collectors.joining(", "));
-            return Utils.getSimpleName(invocation.getName()) + "(" + args + ")";
-        }
-        return null;
     }
 }
