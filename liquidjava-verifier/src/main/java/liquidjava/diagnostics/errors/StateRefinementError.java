@@ -1,6 +1,7 @@
 package liquidjava.diagnostics.errors;
 
 import static liquidjava.rj_language.opt.VCSimplificationUtils.isTrue;
+import static liquidjava.rj_language.opt.VCSimplificationUtils.linkedToExpected;
 
 import java.util.List;
 
@@ -44,7 +45,7 @@ public class StateRefinementError extends LJError {
     // Only the facts of found about the objects of expected, and only when one of them tells a state: an alias or a
     // guard on another value says nothing about the state expected needs
     private static String message(Predicate expected, VCSimplificationResult found) {
-        Expression shown = RefinementError.linkedToExpected(found.getImplication().toPredicate().getExpression(),
+        Expression shown = linkedToExpected(found.getImplication().toPredicate().getExpression(),
                 expected.getExpression());
         if (!appliesGhost(shown))
             return String.format("expected %s but could not prove it", expected.getExpression().toDisplayString());
