@@ -25,6 +25,10 @@ public final class VariableFormatter {
 
         String baseName = matcher.group(1);
         String counter = matcher.group(2);
+        // the counter tells apart calls written alike, which can return different values
+        String argument = ArgumentDisplayNames.argumentCode(name);
+        if (argument != null)
+            return argument + toSuperscript(counter);
         String receiver = FieldDisplayNames.writeReceiver(name);
         if (receiver != null && isField(baseName))
             return (receiver.isEmpty() ? "" : receiver + ".") + fieldOf(baseName) + toSuperscript(counter);

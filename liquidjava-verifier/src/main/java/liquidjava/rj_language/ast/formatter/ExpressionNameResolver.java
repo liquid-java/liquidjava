@@ -22,8 +22,8 @@ final class ExpressionNameResolver {
 
     public String resolveVariable(String name) {
         String formatted = VariableFormatter.format(name);
-        // a field is always written as in code, as its binder and the counterexample write it
-        if (VariableFormatter.isField(name))
+        // a field or call argument is always written as in code, as its binder and the counterexample write it
+        if (VariableFormatter.isField(name) || ArgumentDisplayNames.argumentCode(name) != null)
             return formatted;
         return isAmbiguous(name, variables, ExpressionNameResolver::getVariableSimpleName) ? formatted
                 : Utils.getSimpleName(formatted);
