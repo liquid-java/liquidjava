@@ -31,6 +31,11 @@ public class PlacementInCode {
         return annotationPosition;
     }
 
+    /** The line of this placement, or null when it is not in code */
+    public Integer getLine() {
+        return position == null || !position.isValidPosition() ? null : position.getLine();
+    }
+
     public static PlacementInCode createPlacement(CtElement elem) {
         CtElement elemCopy = elem.clone();
         // cleanup annotations

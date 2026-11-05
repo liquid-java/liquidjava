@@ -39,7 +39,6 @@ class TestAliasExpansions {
 
     private static void assertExpansion(List<AliasExpansion> expansions, String invocation, String expansion) {
         assertEquals(1, expansions.size());
-        // instance numbers of variables are shown as superscripts
         assertEquals(invocation, expansions.get(0).invocation().replaceAll("[⁰¹²³⁴⁵⁶⁷⁸⁹]", ""));
         assertEquals(expansion, expansions.get(0).expansion().replaceAll("[⁰¹²³⁴⁵⁶⁷⁸⁹]", ""));
     }

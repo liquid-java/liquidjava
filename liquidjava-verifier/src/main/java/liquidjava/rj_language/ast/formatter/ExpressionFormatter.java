@@ -1,6 +1,8 @@
 package liquidjava.rj_language.ast.formatter;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import liquidjava.rj_language.Predicate;
@@ -28,8 +30,8 @@ public class ExpressionFormatter implements ExpressionVisitor<String> {
 
     private final ExpressionNameResolver nameResolver;
 
-    private ExpressionFormatter(Expression expression) {
-        this.nameResolver = ExpressionNameResolver.forExpression(expression);
+    private ExpressionFormatter(Expression expression, DisplayNames names) {
+        this.nameResolver = ExpressionNameResolver.forExpression(expression, names);
     }
 
     public static String format(Predicate predicate) {
@@ -37,7 +39,23 @@ public class ExpressionFormatter implements ExpressionVisitor<String> {
     }
 
     public static String format(Expression expression) {
-        return new ExpressionFormatter(expression).formatExpression(expression);
+        return format(expression, name -> null);
+    }
+
+    /**
+     * Formats an expression on its own, telling apart its variables written alike by the line their values come from
+     */
+    public static String format(Expression expression, Function<String, Integer> lineOf) {
+        List<String> variables = new ArrayList<>();
+        expression.getVariableNames(variables);
+        return format(expression, DisplayNames.of(variables, List.of(), lineOf));
+    }
+
+    /**
+     * Formats an expression of a scope, such as an error, naming its variables as the scope does
+     */
+    public static String format(Expression expression, DisplayNames names) {
+        return new ExpressionFormatter(expression, names).formatExpression(expression);
     }
 
     private String formatExpression(Expression expression) {

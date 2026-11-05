@@ -1,39 +1,54 @@
 package liquidjava.rj_language.ast.formatter;
 
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Formats internal variable names into a cleaner display representation using superscript notation
+ * Formats internal variable names as they are written in code, without the instance counter
  */
 public final class VariableFormatter {
     private static final Pattern INSTACE_VAR_PATTERN = Pattern.compile("^#(.+)_([0-9]+)$");
     // this#<declaring type>.<field>
     private static final Pattern FIELD_PATTERN = Pattern.compile("^this#([\\w.$]+)\\.([\\w$]+)$");
-    private static final char[] SUPERSCRIPT_CHARS = { '⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹' };
 
     public static String format(String name) {
+        return format(name, instance -> "");
+    }
+
+    /**
+     * Formats a name, appending to each variable instance in it the tag that tells it apart from other instances
+     */
+    static String format(String name, Function<String, String> tagOf) {
         if (name == null)
             return null;
 
         if (isApplication(name))
-            return formatApplication(name);
+            return formatApplication(name, tagOf);
 
         Matcher matcher = INSTACE_VAR_PATTERN.matcher(name);
         if (!matcher.matches())
             return formatField(name);
 
         String baseName = matcher.group(1);
-        String counter = matcher.group(2);
-        // the counter tells apart calls written alike, which can return different values
+        // the tag tells apart calls written alike, which can return different values
+        String tag = tagOf.apply(name);
         String argument = ArgumentDisplayNames.argumentCode(name);
         if (argument != null)
-            return argument + toSuperscript(counter);
+            return argument + tag;
         String receiver = FieldDisplayNames.writeReceiver(name);
         if (receiver != null && isField(baseName))
-            return (receiver.isEmpty() ? "" : receiver + ".") + fieldOf(baseName) + toSuperscript(counter);
+            return (receiver.isEmpty() ? "" : receiver + ".") + fieldOf(baseName) + tag;
         String prefix = isReturn(baseName) ? "#" : "";
-        return prefix + formatField(baseName) + toSuperscript(counter);
+        return prefix + formatField(baseName) + tag;
+    }
+
+    /**
+     * The instance counter of a name, or -1 for a name that is not an instance
+     */
+    static int counterOf(String name) {
+        Matcher matcher = INSTACE_VAR_PATTERN.matcher(name);
+        return matcher.matches() ? Integer.parseInt(matcher.group(2)) : -1;
     }
 
     public static String withoutInstance(String name) {
@@ -73,17 +88,6 @@ public final class VariableFormatter {
         return qualifiedName.substring(start + 1);
     }
 
-    private static String toSuperscript(String number) {
-        StringBuilder sb = new StringBuilder(number.length());
-        for (char c : number.toCharArray()) {
-            int index = c - '0';
-            if (index < 0 || index >= SUPERSCRIPT_CHARS.length)
-                return number;
-            sb.append(SUPERSCRIPT_CHARS[index]);
-        }
-        return sb.toString();
-    }
-
     private static boolean isReturn(String id) {
         return id.equals("ret");
     }
@@ -97,7 +101,7 @@ public final class VariableFormatter {
      * Formats the arguments of a ghost application such as {@code size(#s_2)}, splitting them only at top-level commas
      * so nested applications keep theirs
      */
-    private static String formatApplication(String name) {
+    private static String formatApplication(String name, Function<String, String> tagOf) {
         int open = name.indexOf('(');
         String args = name.substring(open + 1, name.length() - 1);
         StringBuilder formatted = new StringBuilder(name.substring(0, open)).append('(');
@@ -112,7 +116,7 @@ public final class VariableFormatter {
             else if (c == ',' && depth == 0) {
                 if (start > 0)
                     formatted.append(", ");
-                formatted.append(format(args.substring(start, i).trim()));
+                formatted.append(format(args.substring(start, i).trim(), tagOf));
                 start = i + 1;
             }
         }

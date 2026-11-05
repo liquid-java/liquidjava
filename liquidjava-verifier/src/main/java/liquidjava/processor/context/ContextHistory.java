@@ -3,7 +3,9 @@ package liquidjava.processor.context;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import liquidjava.api.CommandLineLauncher;
 import liquidjava.utils.Utils;
@@ -95,5 +97,12 @@ public class ContextHistory {
 
     public Map<String, Set<String>> getFileScopes() {
         return fileScopes;
+    }
+
+    /** The line where the value of a saved variable comes from, or null when unknown */
+    public Integer lineOf(String name) {
+        return Stream.concat(localVars.stream(), globalVars.stream()).filter(v -> v.getName().equals(name))
+                .map(RefinedVariable::getPlacementInCode).filter(Objects::nonNull).map(PlacementInCode::getLine)
+                .filter(Objects::nonNull).findFirst().orElse(null);
     }
 }

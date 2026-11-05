@@ -15,7 +15,8 @@ import liquidjava.diagnostics.Diagnostics;
 import liquidjava.diagnostics.errors.LJError;
 import liquidjava.diagnostics.errors.RefinementError;
 import liquidjava.processor.VCImplication;
-import liquidjava.rj_language.ast.formatter.VariableFormatter;
+import liquidjava.rj_language.ast.formatter.DisplayNames;
+import liquidjava.rj_language.ast.formatter.ExpressionFormatter;
 import liquidjava.rj_language.opt.VCSimplificationResult;
 
 /**
@@ -47,10 +48,9 @@ class TestFoundBinders {
                 steps.add(0, original.getSimplification());
             List<String> originalBinders = original.getBinders().stream().map(b -> b.replaceAll("[0-9]+$", ""))
                     .toList();
-            ERRORS.put(error.getPosition().getLine(),
-                    new Shown(rows(found.getImplication()), plain(error.getMessage()),
-                            error.getCounterexampleStr() == null ? null : plain(error.getCounterexampleStr()),
-                            rows(original.getImplication()), steps, originalBinders));
+            DisplayNames names = error.getDisplayNames();
+            ERRORS.put(error.getPosition().getLine(), new Shown(rows(found.getImplication(), names), error.getMessage(),
+                    error.getCounterexampleStr(), rows(original.getImplication(), names), steps, originalBinders));
         }
     }
 
@@ -105,18 +105,22 @@ class TestFoundBinders {
                 ERRORS.get(48).rows());
     }
 
-    // the rows of Found as the IDE writes them: binder name, then its refinement
-    private static List<String> rows(VCImplication found) {
-        List<String> rows = new ArrayList<>();
-        for (VCImplication current = found; current != null; current = current.getNext()) {
-            String refinement = current.getRefinement().getExpression().toDisplayString();
-            rows.add(plain(current.hasBinder() ? "∀" + VariableFormatter.format(current.getName()) + " " + refinement
-                    : refinement));
-        }
-        return rows;
+    @Test
+    void earlierValuesOfAVariableAreWrittenWithTheirLine() {
+        Shown shown = ERRORS.get(86);
+        assertEquals("b@86 == 8 && b@86 > 0 && b == -b@86 is not a subtype of b > 0", shown.message());
+        assertEquals("Counterexample: b == -8", shown.counterexample());
+        assertEquals(List.of("∀b@85 b@85 == 8", "∀b@86 b@86 == b@85 && b@86 > 0", "∀b b == -b@86"),
+                shown.originalRows());
     }
 
-    private static String plain(String text) {
-        return text.replaceAll("[⁰¹²³⁴⁵⁶⁷⁸⁹]", "");
+    // the rows of Found as the IDE writes them, with the error's names: binder name, then its refinement
+    private static List<String> rows(VCImplication found, DisplayNames names) {
+        List<String> rows = new ArrayList<>();
+        for (VCImplication current = found; current != null; current = current.getNext()) {
+            String refinement = ExpressionFormatter.format(current.getRefinement().getExpression(), names);
+            rows.add(current.hasBinder() ? "∀" + names.get(current.getName()) + " " + refinement : refinement);
+        }
+        return rows;
     }
 }

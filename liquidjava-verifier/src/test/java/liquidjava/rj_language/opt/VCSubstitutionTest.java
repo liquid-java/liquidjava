@@ -45,7 +45,7 @@ class VCSubstitutionTest {
     @Test
     void keepsReturnBinderWhenConclusionIsSeparate() {
         assertSimplificationSteps(substitution, vc("∀x:int. true", "∀#ret_8:int. #ret_8 == x + 1"),
-                step("true", "#ret⁸ == x + 1"));
+                step("true", "#ret == x + 1"));
     }
 
     @Test

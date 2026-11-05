@@ -11,6 +11,8 @@ import liquidjava.processor.context.AliasWrapper;
 import liquidjava.rj_language.ast.AliasInvocation;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.Var;
+import liquidjava.rj_language.ast.formatter.DisplayNames;
+import liquidjava.rj_language.ast.formatter.ExpressionFormatter;
 import spoon.reflect.cu.SourcePosition;
 
 /**
@@ -40,19 +42,19 @@ public record AliasExpansion(String invocation, String expansion, String alias, 
 
     /**
      * The expansions of the alias invocations in an expression, each invocation once in order of appearance, followed
-     * by those of the aliases their definitions use
+     * by those of the aliases their definitions use, naming the variables as the diagnostic does
      */
-    public static List<AliasExpansion> of(Expression expression, List<AliasWrapper> aliases) {
+    public static List<AliasExpansion> of(Expression expression, List<AliasWrapper> aliases, DisplayNames names) {
         Map<String, AliasWrapper> byName = new LinkedHashMap<>();
         for (AliasWrapper alias : aliases)
             byName.put(alias.getName(), alias);
         Map<String, AliasExpansion> expansions = new LinkedHashMap<>();
-        collect(expression, byName, expansions, new HashSet<>());
+        collect(expression, byName, names, expansions, new HashSet<>());
         return new ArrayList<>(expansions.values());
     }
 
     // Expands the invocations under expression, skipping aliases already being expanded so recursive ones end
-    private static void collect(Expression expression, Map<String, AliasWrapper> aliases,
+    private static void collect(Expression expression, Map<String, AliasWrapper> aliases, DisplayNames names,
             Map<String, AliasExpansion> expansions, Set<String> expanding) {
         List<AliasInvocation> invocations = new ArrayList<>();
         invocationsOf(expression, invocations);
@@ -64,14 +66,16 @@ public record AliasExpansion(String invocation, String expansion, String alias, 
             if (alias == null || expanding.contains(alias.getName()) || expansions.containsKey(key))
                 continue;
             Expression body = substituteArguments(alias, invocation.getArgs());
-            expansions.put(key, new AliasExpansion(invocation.toDisplayString(), body.toDisplayString(),
-                    alias.getName(), alias.getVarNames(), alias.getDefinition(), alias.getPosition()));
+            expansions.put(key,
+                    new AliasExpansion(ExpressionFormatter.format(invocation, names),
+                            ExpressionFormatter.format(body, names), alias.getName(), alias.getVarNames(),
+                            alias.getDefinition(), alias.getPosition()));
             bodies.put(key, body);
         }
         for (Map.Entry<String, Expression> body : bodies.entrySet()) {
             Set<String> inner = new HashSet<>(expanding);
             inner.add(expansions.get(body.getKey()).alias());
-            collect(body.getValue(), aliases, expansions, inner);
+            collect(body.getValue(), aliases, names, expansions, inner);
         }
     }
 

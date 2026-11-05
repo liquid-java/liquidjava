@@ -19,7 +19,6 @@ import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Enum;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.Var;
-import liquidjava.rj_language.ast.formatter.VariableFormatter;
 import liquidjava.rj_language.opt.VCSimplificationResult;
 import liquidjava.smt.Counterexample;
 import liquidjava.utils.GeneratedNames;
@@ -52,19 +51,20 @@ public class RefinementError extends LJError {
     public RefinementError(SourcePosition position, SourcePosition declarationPosition, Predicate expected,
             VCSimplificationResult found, TranslationTable translationTable, Counterexample counterexample,
             String customMessage, List<AliasWrapper> aliases) {
-        super("Refinement Error", message(expected, found), position, translationTable, customMessage);
+        super("Refinement Error", ErrorMessage.of(expected.getExpression(), found, translationTable,
+                shown -> !isTrue(shown), "%s is not a subtype of %s"), position, translationTable, customMessage);
         this.expected = expected;
         this.found = found;
         Expression foundExpression = found.getImplication().toPredicate().getExpression();
-        this.foundAliases = AliasExpansion.of(foundExpression, aliases);
-        this.expectedAliases = AliasExpansion.of(expected.getExpression(), aliases);
+        this.foundAliases = AliasExpansion.of(foundExpression, aliases, getDisplayNames());
+        this.expectedAliases = AliasExpansion.of(expected.getExpression(), aliases, getDisplayNames());
         this.aliasDeclarations = aliasDeclarations(linkedToExpected(foundExpression, expected.getExpression()),
                 expected.getExpression(), aliases);
         this.counterexample = filterCounterexample(counterexample);
         this.declarationPosition = declarationPosition;
         if (!this.counterexample.isEmpty()) {
             String counterexampleString = this.counterexample.assignments().stream()
-                    .map(a -> VariableFormatter.format(a.first()) + " == " + a.second())
+                    .map(a -> getDisplayNames().get(a.first()) + " == " + a.second())
                     .collect(Collectors.joining(" && "));
             setCounterexampleStr("Counterexample: " + counterexampleString);
         }
@@ -74,23 +74,11 @@ public class RefinementError extends LJError {
                     "Not enough information to prove the expected refinement. Add a refinement or condition to constrain it."));
     }
 
-    // Only the facts of found about the values expected constrains; path conditions about other values stay in the
-    // derivation
-    private static String message(Predicate expected, VCSimplificationResult found) {
-        Expression shown = linkedToExpected(found.getImplication().toPredicate().getExpression(),
-                expected.getExpression());
-        if (isTrue(shown))
-            return String.format("expected %s but could not prove it", expected.getExpression().toDisplayString());
-        return String.format("%s is not a subtype of %s", shown.toDisplayString(),
-                expected.getExpression().toDisplayString());
-    }
-
     // Each alias the message uses once, with those their definitions use, as declared
-    private static List<String> aliasDeclarations(Expression shownFound, Expression expected,
-            List<AliasWrapper> aliases) {
+    private List<String> aliasDeclarations(Expression shownFound, Expression expected, List<AliasWrapper> aliases) {
         Map<String, String> declarations = new LinkedHashMap<>();
         for (Expression shown : List.of(shownFound, expected))
-            for (AliasExpansion expansion : AliasExpansion.of(shown, aliases))
+            for (AliasExpansion expansion : AliasExpansion.of(shown, aliases, getDisplayNames()))
                 declarations.putIfAbsent(expansion.alias(), expansion.declaration());
         return new ArrayList<>(declarations.values());
     }
@@ -182,10 +170,7 @@ public class RefinementError extends LJError {
 
     // Binders of the VC chain before simplification, which keeps the variables in the order they were introduced
     private List<String> originalBinders() {
-        VCSimplificationResult original = getFound();
-        while (original.getOrigin() != null)
-            original = original.getOrigin();
-        return original.getBinders();
+        return getFound().getOriginal().getBinders();
     }
 
     // 0 for terms of expected found says nothing about, whose values alone break it, 1 for the other terms of

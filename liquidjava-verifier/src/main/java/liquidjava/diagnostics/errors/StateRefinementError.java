@@ -1,7 +1,6 @@
 package liquidjava.diagnostics.errors;
 
 import static liquidjava.rj_language.opt.VCSimplificationUtils.isTrue;
-import static liquidjava.rj_language.opt.VCSimplificationUtils.linkedToExpected;
 
 import java.util.List;
 
@@ -30,7 +29,9 @@ public class StateRefinementError extends LJError {
     public StateRefinementError(SourcePosition position, SourcePosition declarationPosition, Predicate expected,
             VCSimplificationResult found, TranslationTable translationTable, String customMessage, List<Hint> hints,
             ErrorCategory category, StateErrorContext context) {
-        super("State Refinement Error", message(expected, found), position, translationTable, customMessage);
+        super("State Refinement Error", ErrorMessage.of(expected.getExpression(), found, translationTable,
+                StateRefinementError::appliesGhost, "found %s but expected %s"), position, translationTable,
+                customMessage);
         this.declarationPosition = declarationPosition;
         this.expected = expected;
         this.found = found;
@@ -44,15 +45,6 @@ public class StateRefinementError extends LJError {
 
     // Only the facts of found about the objects of expected, and only when one of them tells a state: an alias or a
     // guard on another value says nothing about the state expected needs
-    private static String message(Predicate expected, VCSimplificationResult found) {
-        Expression shown = linkedToExpected(found.getImplication().toPredicate().getExpression(),
-                expected.getExpression());
-        if (!appliesGhost(shown))
-            return String.format("expected %s but could not prove it", expected.getExpression().toDisplayString());
-        return String.format("found %s but expected %s", shown.toDisplayString(),
-                expected.getExpression().toDisplayString());
-    }
-
     private static boolean appliesGhost(Expression expression) {
         return expression instanceof FunctionInvocation
                 || expression.getChildren().stream().anyMatch(StateRefinementError::appliesGhost);

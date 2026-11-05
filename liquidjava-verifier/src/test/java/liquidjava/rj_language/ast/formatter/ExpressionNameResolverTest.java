@@ -2,6 +2,8 @@ package liquidjava.rj_language.ast.formatter;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.List;
+
 import org.junit.jupiter.api.Test;
 
 import liquidjava.rj_language.Predicate;
@@ -15,10 +17,13 @@ class ExpressionNameResolverTest {
         return RefinementsParser.createAST(refinement, prefix);
     }
 
+    private static ExpressionNameResolver resolver(Expression expression) {
+        return ExpressionNameResolver.forExpression(expression, DisplayNames.of(List.of(), List.of(), name -> null));
+    }
+
     @Test
     void stripsQualifiedNamesWhenUnambiguous() {
-        ExpressionNameResolver resolver = ExpressionNameResolver
-                .forExpression(parse("size(this) == size(this)", "java.util.List"));
+        ExpressionNameResolver resolver = resolver(parse("size(this) == size(this)", "java.util.List"));
 
         assertEquals("size", resolver.resolveFunction("java.util.List.size"));
     }
@@ -27,7 +32,7 @@ class ExpressionNameResolverTest {
     void keepsQualifiedNamesForDifferentPrefixes() {
         Expression expression = new BinaryExpression(parse("size(this)", "java.util.ArrayList"), "==",
                 parse("size(this)", "java.util.ArrayDeque"));
-        ExpressionNameResolver resolver = ExpressionNameResolver.forExpression(expression);
+        ExpressionNameResolver resolver = resolver(expression);
 
         assertEquals("java.util.ArrayList.size", resolver.resolveFunction("java.util.ArrayList.size"));
         assertEquals("java.util.ArrayDeque.size", resolver.resolveFunction("java.util.ArrayDeque.size"));
@@ -37,10 +42,10 @@ class ExpressionNameResolverTest {
     void keepsQualifiedNamesForDifferentInstances() {
         Predicate differentInstances = Predicate.createEquals(Predicate.createVar("#java.util.ArrayList.size_1"),
                 Predicate.createVar("#java.util.ArrayDeque.size_2"));
-        ExpressionNameResolver resolver = ExpressionNameResolver.forExpression(differentInstances.getExpression());
+        ExpressionNameResolver resolver = resolver(differentInstances.getExpression());
 
-        assertEquals("java.util.ArrayList.size¹", resolver.resolveVariable("#java.util.ArrayList.size_1"));
-        assertEquals("java.util.ArrayDeque.size²", resolver.resolveVariable("#java.util.ArrayDeque.size_2"));
+        assertEquals("java.util.ArrayList.size", resolver.resolveVariable("#java.util.ArrayList.size_1"));
+        assertEquals("java.util.ArrayDeque.size", resolver.resolveVariable("#java.util.ArrayDeque.size_2"));
     }
 
     @Test
@@ -49,6 +54,6 @@ class ExpressionNameResolverTest {
                 .createEquals(Predicate.createVar("#items_5"), Predicate.createVar("this#shop.Basket.items"))
                 .getExpression();
 
-        assertEquals("items⁵ == this.items", expression.toDisplayString());
+        assertEquals("items == this.items", expression.toDisplayString());
     }
 }

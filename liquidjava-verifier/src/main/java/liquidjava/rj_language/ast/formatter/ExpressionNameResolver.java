@@ -13,15 +13,20 @@ import liquidjava.utils.Utils;
 final class ExpressionNameResolver {
     private final Set<String> variables = new HashSet<>();
     private final Set<String> functions = new HashSet<>();
+    private final DisplayNames names;
 
-    public static ExpressionNameResolver forExpression(Expression expression) {
-        ExpressionNameResolver resolver = new ExpressionNameResolver();
+    private ExpressionNameResolver(DisplayNames names) {
+        this.names = names;
+    }
+
+    public static ExpressionNameResolver forExpression(Expression expression, DisplayNames names) {
+        ExpressionNameResolver resolver = new ExpressionNameResolver(names);
         resolver.collect(expression);
         return resolver;
     }
 
     public String resolveVariable(String name) {
-        String formatted = VariableFormatter.format(name);
+        String formatted = names.get(name);
         // a field or call argument is always written as in code, as its binder and the counterexample write it
         if (VariableFormatter.isField(name) || ArgumentDisplayNames.argumentCode(name) != null)
             return formatted;
