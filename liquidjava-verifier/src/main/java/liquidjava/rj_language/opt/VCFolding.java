@@ -23,9 +23,6 @@ public class VCFolding extends VCExpressionSimplificationPass<Void> {
      * Folds the first foldable expression found
      */
     private Expression fold(Expression expression) {
-        // enum constant -> literal
-        if (expression instanceof Enum en && en.getResolvedLiteral() != null)
-            return en.getResolvedLiteral().clone();
         if (expression instanceof BinaryExpression binary)
             return foldBinary(binary);
         if (expression instanceof UnaryExpression unary)
@@ -51,7 +48,7 @@ public class VCFolding extends VCExpressionSimplificationPass<Void> {
 
         String op = binary.getOperator();
 
-        Expression foldedBinary = foldLiteralBinary(left, right, op);
+        Expression foldedBinary = foldLiteralBinary(valueOf(left), valueOf(right), op);
         if (foldedBinary != null)
             return foldedBinary;
 
@@ -72,17 +69,18 @@ public class VCFolding extends VCExpressionSimplificationPass<Void> {
             return new UnaryExpression(unary.getOp(), foldedOperand);
 
         String op = unary.getOp();
+        Expression value = valueOf(operand);
 
         // !true -> false
         // !false -> true
-        if ("!".equals(op) && operand instanceof LiteralBoolean literal)
+        if ("!".equals(op) && value instanceof LiteralBoolean literal)
             return new LiteralBoolean(!literal.isBooleanTrue());
 
         if ("-".equals(op)) {
             // -(x) -> -x
-            if (operand instanceof LiteralInt literal)
+            if (value instanceof LiteralInt literal)
                 return new LiteralInt(-literal.getValue());
-            if (operand instanceof LiteralReal literal)
+            if (value instanceof LiteralReal literal)
                 return new LiteralReal(-literal.getValue());
         }
 
@@ -97,7 +95,7 @@ public class VCFolding extends VCExpressionSimplificationPass<Void> {
 
         // true ? x : y -> x
         // false ? x : y -> y
-        if (condition instanceof LiteralBoolean literal)
+        if (valueOf(condition)instanceof LiteralBoolean literal)
             return literal.isBooleanTrue() ? ite.getThen().clone() : ite.getElse().clone();
 
         Expression foldedCondition = fold(condition);
@@ -119,6 +117,14 @@ public class VCFolding extends VCExpressionSimplificationPass<Void> {
             return thenExpression;
 
         return new Ite(condition, thenExpression, elseExpression);
+    }
+
+    /**
+     * The value of a static final constant, which only replaces its name when the expression around it folds, so a
+     * constant compared with a variable keeps the name the code or the spec wrote
+     */
+    private Expression valueOf(Expression expression) {
+        return expression instanceof Enum en && en.getResolvedLiteral() != null ? en.getResolvedLiteral() : expression;
     }
 
     /**

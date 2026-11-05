@@ -132,8 +132,11 @@ public class RefinementError extends LJError {
                                 || states(binary.getSecondOperand(), binary.getFirstOperand(), assignment)));
     }
 
-    // An enum constant is written Format.JPG in found, either as such or as a variable, and JPG in the model
+    // An enum constant is written Format.JPG in found, either as such or as a variable, and JPG in the model; a static
+    // final constant keeps its name in found and is its value in the model
     private static boolean states(Expression term, Expression value, Pair<String, String> assignment) {
+        if (value instanceof Enum constant && constant.getResolvedLiteral() != null)
+            value = constant.getResolvedLiteral();
         String valueName = value instanceof Enum constant ? constant.getConstName()
                 : value instanceof Var var ? Utils.getSimpleName(var.getName()) : value.toString();
         return assignment.first().equals(termName(term)) && assignment.second().equals(valueName);
