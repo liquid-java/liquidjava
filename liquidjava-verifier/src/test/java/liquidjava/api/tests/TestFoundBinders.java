@@ -57,16 +57,21 @@ class TestFoundBinders {
     @Test
     void issueReproducerDropsTheTrueFieldRow() {
         Shown shown = ERRORS.get(25);
-        assertEquals(List.of("∀bound bound == size(this.items) && bound >= 0"), shown.rows());
-        assertEquals("bound == size(this.items) && bound >= 0 is not a subtype of bound > 0", shown.message());
+        assertEquals(List.of("∀items.size() items.size() == size(this.items) && items.size() >= 0"), shown.rows());
+    }
+
+    @Test
+    void callArgumentIsWrittenAsTheCallerWroteIt() {
+        Shown shown = ERRORS.get(79);
+        assertEquals("count() >= 0 is not a subtype of count() > 0", shown.message());
+        assertEquals("Counterexample: count() == 0", shown.counterexample());
     }
 
     @Test
     void steppingBackReachesTheOriginalWithTheDroppedRow() {
         Shown shown = ERRORS.get(25);
-        assertEquals(
-                List.of("∀this.items true", "∀items items == this.items", "∀bound bound == size(items) && bound >= 0"),
-                shown.originalRows());
+        assertEquals(List.of("∀this.items true", "∀items items == this.items",
+                "∀items.size() items.size() == size(items) && items.size() >= 0"), shown.originalRows());
         assertEquals(List.of("Substitution", "Binder"), shown.steps());
         assertEquals(List.of("this#testSuite.classes.found_binders_error.Basket.items", "#items_", "#bound_"),
                 shown.originalBinders());

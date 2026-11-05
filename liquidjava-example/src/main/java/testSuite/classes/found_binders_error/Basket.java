@@ -68,4 +68,14 @@ public class Basket {
     void forward(int t) {
         positive(t); // Expect: Refinement Error
     }
+
+    @Refinement("_ >= 0")
+    static int count() {
+        return 0;
+    }
+
+    // a call argument is written as the caller wrote it, not as the callee's parameter
+    int pickByCount() {
+        return random.nextInt(count()); // Expect: Refinement Error
+    }
 }

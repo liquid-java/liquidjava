@@ -16,6 +16,7 @@ import liquidjava.processor.refinement_checker.TypeChecker;
 import liquidjava.processor.refinement_checker.object_checkers.AuxHierarchyRefinementsPassage;
 import liquidjava.processor.refinement_checker.object_checkers.AuxStateHandler;
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.ast.formatter.ArgumentDisplayNames;
 import liquidjava.utils.GeneratedNames;
 import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Formats;
@@ -459,6 +460,10 @@ public class MethodsFunctionsChecker {
             met = Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), met);
         String nVar = String.format(Formats.INSTANCE, fArg.getName(), rtc.getContext().getCounter());
         rtc.getContext().addInstanceToContext(nVar, fArg.getType(), met.substituteVariable(Keys.WILDCARD, nVar), iArg);
+        // a call in the source reads as written; any other argument is refined as equal to its code, which would read
+        // as a tautology
+        if (iArg instanceof CtInvocation && iArg.getPosition().isValidPosition())
+            ArgumentDisplayNames.recordArgument(nVar, iArg.getOriginalSourceFragment().getSourceCode());
         return nVar;
     }
 
