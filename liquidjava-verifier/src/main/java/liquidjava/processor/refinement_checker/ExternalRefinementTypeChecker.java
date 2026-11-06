@@ -119,12 +119,11 @@ public class ExternalRefinementTypeChecker extends TypeChecker {
     }
 
     @Override
-    protected Optional<GhostFunction> createStateGhost(int order, CtElement element) {
+    protected Optional<GhostFunction> createStateGhost(String name, CtElement element) {
         String klass = Utils.getSimpleName(prefix);
         if (klass != null) {
             CtTypeReference<?> ret = factory.Type().INTEGER_PRIMITIVE;
             List<String> params = List.of(klass);
-            String name = String.format("state%d", order);
             GhostFunction gh = new GhostFunction(name, params, ret, factory, prefix);
             return Optional.of(gh);
         }

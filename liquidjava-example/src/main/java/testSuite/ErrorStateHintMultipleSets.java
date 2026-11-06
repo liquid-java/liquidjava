@@ -3,7 +3,7 @@ package testSuite;
 import liquidjava.specification.StateRefinement;
 import liquidjava.specification.StateSet;
 
-@StateSet({"closed", "opened"})
+@StateSet(name = "door", value = {"closed", "opened"})
 @StateSet({"unlocked", "locked"})
 public class ErrorStateHintMultipleSets {
 

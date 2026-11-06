@@ -46,6 +46,20 @@ public @interface StateSet {
     String[] value();
 
     /**
+     * Optional name of the state set, used in messages and usable in predicates as a function that gives the current
+     * state of the set (e.g. {@code redo(this) == old(redo(this))}). It must be a lowercase identifier that is not
+     * already the name of a state, ghost or other state set of the class. Unnamed sets get a generated name.
+     * <p>
+     * <strong>Example:</strong>
+     * <pre>
+     * {@code
+     * @StateSet(name = "redo", value = {"redoable", "notRedoable"})
+     * }
+     * </pre>
+     */
+    String name() default "";
+
+    /**
      * Container annotation used by {@link Repeatable} to support multiple state sets.
      */
     @Retention(RetentionPolicy.RUNTIME)
