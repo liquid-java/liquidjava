@@ -456,7 +456,9 @@ public class MethodsFunctionsChecker {
         Predicate met = (Predicate) iArg.getMetadata(Keys.REFINEMENT);
         if (met == null)
             met = new Predicate();
-        if (!met.getVariableNames().contains(Keys.WILDCARD))
+        // `true` means nothing is known about the argument (e.g. the result of an unrefined call), not that it equals
+        // true
+        if (!met.isBooleanTrue() && !met.getVariableNames().contains(Keys.WILDCARD))
             met = Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), met);
         String nVar = String.format(Formats.INSTANCE, fArg.getName(), rtc.getContext().getCounter());
         rtc.getContext().addInstanceToContext(nVar, fArg.getType(), met.substituteVariable(Keys.WILDCARD, nVar), iArg);
