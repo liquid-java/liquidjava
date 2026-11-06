@@ -3,10 +3,14 @@ package liquidjava.rj_language.opt;
 import static liquidjava.utils.VCTestUtils.*;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import java.util.Map;
+import java.util.Set;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import liquidjava.processor.context.Context;
+import liquidjava.rj_language.parsing.RefinementsParser;
 import liquidjava.utils.TestUtils;
 
 class VCSimplificationTest {
@@ -179,5 +183,26 @@ class VCSimplificationTest {
         TestUtils.addIntVariableToContext("y");
         assertSimplificationSteps(vc("∀x:int. x > 1", "∀cond:boolean. x > 0", "∀y:int. y == x + 1", "y < 0"),
                 step("x > 1", "x > 0", "x + 1 < 0"), step("x > 1", "x + 1 < 0"));
+    }
+
+    // tiling states and state1 are one state set, compression states and state2 another
+    private static VCRelevantFacts relevantTo(String expected) {
+        Map<String, String> stateSets = Map.of("startTiling", "state1", "tilingSet", "state1", "state1", "state1",
+                "compressionSet", "state2", "state2", "state2");
+        return new VCRelevantFacts(RefinementsParser.createAST(expected, ""),
+                name -> stateSets.containsKey(name) ? Set.of(stateSets.get(name)) : Set.of());
+    }
+
+    @Test
+    void relevantStepKeepsEveryStateSetOfAnObjectComparedAsAValue() {
+        assertSimplificationSteps(relevantTo("tilingSet(p)"),
+                vc("∀q:Object. compressionSet(q) && startTiling(p)", "p == q"),
+                step("compressionSet(q) && startTiling(p)", "p == q"));
+    }
+
+    @Test
+    void relevantStepKeepsFactsAnUnknownFunctionTakesTheObjectOf() {
+        assertSimplificationSteps(relevantTo("tilingSet(p)"), vc("compressionSet(p) && ready(p)", "startTiling(p)"),
+                step("compressionSet(p) && ready(p)", "startTiling(p)"));
     }
 }

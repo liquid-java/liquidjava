@@ -11,6 +11,7 @@ import liquidjava.diagnostics.Diagnostics;
 import liquidjava.diagnostics.errors.LJError;
 import liquidjava.diagnostics.errors.StateErrorContext;
 import liquidjava.diagnostics.errors.StateRefinementError;
+import liquidjava.rj_language.opt.VCSimplificationResult;
 
 class TestStateErrorContext {
 
@@ -50,10 +51,25 @@ class TestStateErrorContext {
         assertNull(contextOf("ErrorUnconstrainedStateRefinement.java"));
     }
 
+    @Test
+    void foundEndsWithTheFactsRelevantToTheExpectedStateSet() {
+        StateRefinementError error = errorOf("ErrorArgumentPicksTheStateEarlier.java");
+        assertEquals("found tilingOff(param@25) && state1(param) == state1(param@25) but expected tilingOn(param)",
+                error.getMessage());
+        VCSimplificationResult found = error.getFoundSimplification();
+        assertEquals("Relevant to this requirement", found.getSimplification());
+        // stepping back shows the compression state set again
+        assertTrue(found.getOrigin().getImplication().toString().contains("compressed"));
+    }
+
     private static StateErrorContext contextOf(String test) {
+        return errorOf(test).getContext();
+    }
+
+    private static StateRefinementError errorOf(String test) {
         CommandLineLauncher.launch(TEST_SUITE + test);
         List<LJError> errors = Diagnostics.getInstance().getErrors().stream().toList();
         assertEquals(1, errors.size(), "Expected exactly one error from " + test);
-        return assertInstanceOf(StateRefinementError.class, errors.get(0)).getContext();
+        return assertInstanceOf(StateRefinementError.class, errors.get(0));
     }
 }
