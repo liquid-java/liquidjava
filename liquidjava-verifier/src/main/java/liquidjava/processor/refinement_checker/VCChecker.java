@@ -21,6 +21,9 @@ import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.Ite;
 import liquidjava.rj_language.ast.Var;
 import liquidjava.rj_language.opt.NeededVariables;
+import liquidjava.rj_language.opt.VCRelevantFacts;
+import liquidjava.rj_language.opt.VCSimplification;
+import liquidjava.rj_language.opt.VCSimplificationResult;
 import liquidjava.smt.Counterexample;
 import liquidjava.smt.SMTEvaluator;
 import liquidjava.smt.SMTResult;
@@ -459,9 +462,23 @@ public class VCChecker {
             StateErrorContext context) throws StateRefinementError {
         TranslationTable map = new TranslationTable();
         VCImplication foundState = buildPremiseChain(map, expected, found);
-        throw new StateRefinementError(position, declarationPosition, expected,
-                foundState.simplify(NeededVariables.forStateError(expected)), map, customMessage, hints, category,
-                context);
+        VCSimplificationResult simplified = foundState.simplify(NeededVariables.forStateError(expected));
+        VCSimplificationResult shown = VCSimplification.simplifyOnce(simplified,
+                new VCRelevantFacts(expected.getExpression(), this::ghostFunctionsOf));
+        throw new StateRefinementError(position, declarationPosition, expected, shown, map, customMessage, hints,
+                category, context);
+    }
+
+    /** The ghost functions an invocation name stands for: a state's state set function, or the ghost itself */
+    private Set<String> ghostFunctionsOf(String name) {
+        Set<String> functions = new HashSet<>();
+        for (GhostState state : context.getGhostStates())
+            if (state.matches(name))
+                functions.add(state.getParent() != null ? state.getParent().getName() : state.getName());
+        for (GhostFunction ghost : context.getGhosts())
+            if (ghost.matches(name))
+                functions.add(ghost.getName());
+        return functions;
     }
 
     protected void throwStateConflictError(SourcePosition position, Predicate expected) throws StateConflictError {
