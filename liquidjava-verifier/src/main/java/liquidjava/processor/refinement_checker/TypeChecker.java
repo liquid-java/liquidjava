@@ -3,6 +3,7 @@ package liquidjava.processor.refinement_checker;
 import java.lang.annotation.Annotation;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -200,20 +201,60 @@ public abstract class TypeChecker extends CtScanner {
     @SuppressWarnings("unchecked")
     public void handleStateSetsFromAnnotation(CtElement element) throws LJError {
         int set = 0;
+        Map<GhostFunction, SourcePosition> namedSets = new LinkedHashMap<>();
         for (CtAnnotation<? extends Annotation> ann : element.getAnnotations()) {
             String an = ann.getAnnotationType().getQualifiedName();
             if (an.contentEquals("liquidjava.specification.StateSet")) {
                 set++;
-                createStateSet((CtNewArray<String>) ann.getAllValues().get("value"), set, element);
+                CtExpression<?> nameValue = ann.getValues().get("name");
+                SourcePosition namePosition = nameValue == null ? null : Utils.getAnnotationValuePosition(nameValue);
+                String name = stateSetName(nameValue, namePosition);
+                GhostFunction g = createStateSet((CtNewArray<String>) ann.getAllValues().get("value"),
+                        name != null ? name : String.format("state%d", set), element);
+                if (name != null)
+                    namedSets.put(g, namePosition);
             }
             if (an.contentEquals("liquidjava.specification.Ghost")) {
                 CtLiteral<String> s = (CtLiteral<String>) ann.getAllValues().get("value");
                 createStateGhost(s.getValue(), element, Utils.getAnnotationValuePosition(s));
             }
         }
+        // checked once every set and ghost of the class exists, so the order of the annotations does not matter
+        for (Map.Entry<GhostFunction, SourcePosition> named : namedSets.entrySet())
+            checkStateSetNameIsFree(named.getKey(), named.getValue());
     }
 
-    private void createStateSet(CtNewArray<String> e, int set, CtElement element) throws LJError {
+    /** The name given to a state set, or null when it has none */
+    private static String stateSetName(CtExpression<?> nameValue, SourcePosition position) throws LJError {
+        if (nameValue == null)
+            return null;
+        if (!(nameValue instanceof CtLiteral<?> literal && literal.getValue()instanceof String name))
+            throw new CustomError("State set name must be a string literal", position);
+        if (name.isEmpty())
+            return null;
+        if (!name.matches("[a-z][a-zA-Z0-9_]*") || name.equals(Keys.OLD) || name.equals("true") || name.equals("false"))
+            throw new CustomError(String.format(
+                    "State set name '%s' must be an identifier that starts with a lowercase letter", name), position);
+        return name;
+    }
+
+    /** Reports a named state set whose name is also the name of a state, ghost or other state set of its class */
+    private void checkStateSetNameIsFree(GhostFunction set, SourcePosition position) throws LJError {
+        String name = set.getName();
+        String usedBy = null;
+        for (GhostState gs : context.getGhostState(set.getParentClassName()))
+            if (gs.getPrefix().equals(set.getPrefix()) && gs.getName().equals(name))
+                usedBy = gs.getParent() != null ? "a state" : "a ghost";
+        for (GhostFunction g : context.getGhosts())
+            if (usedBy == null && g != set && g.getPrefix().equals(set.getPrefix()) && g.getName().equals(name))
+                usedBy = context.getGhostStates().stream().anyMatch(gs -> gs.getParent() == g) ? "another state set"
+                        : "a ghost";
+        if (usedBy != null)
+            throw new CustomError(String.format("State set name '%s' is already the name of %s of %s", name, usedBy,
+                    set.getParentClassName()), position);
+    }
+
+    private GhostFunction createStateSet(CtNewArray<String> e, String name, CtElement element) throws LJError {
 
         // if any of the states starts with uppercase, throw error (reserved for alias)
         for (CtExpression<?> ce : e.getElements()) {
@@ -227,7 +268,7 @@ public abstract class TypeChecker extends CtScanner {
             }
         }
 
-        Optional<GhostFunction> og = createStateGhost(set, element);
+        Optional<GhostFunction> og = createStateGhost(name, element);
         if (og.isEmpty()) {
             throw new RuntimeException("Error in creation of GhostFunction");
         }
@@ -252,6 +293,7 @@ public abstract class TypeChecker extends CtScanner {
             }
             order++;
         }
+        return g;
     }
 
     protected GhostDTO getGhostDeclaration(String value, SourcePosition position) throws LJError {
@@ -294,13 +336,12 @@ public abstract class TypeChecker extends CtScanner {
         return getEnclosingType(element).map(CtType::getSimpleName).orElse(null);
     }
 
-    protected Optional<GhostFunction> createStateGhost(int order, CtElement element) {
+    protected Optional<GhostFunction> createStateGhost(String name, CtElement element) {
         Optional<CtType<?>> enclosingType = getEnclosingType(element);
         if (enclosingType.isPresent()) {
             CtType<?> type = enclosingType.get();
             CtTypeReference<?> ret = factory.Type().INTEGER_PRIMITIVE;
             List<String> params = Collections.singletonList(type.getSimpleName());
-            String name = String.format("state%d", order);
             GhostFunction gh = new GhostFunction(name, params, ret, factory, type.getQualifiedName());
             return Optional.of(gh);
         }

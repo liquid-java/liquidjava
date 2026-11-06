@@ -340,6 +340,14 @@ class TestStateHints {
     }
 
     @Test
+    void foundKeepsANamedStateSetByItsName() {
+        StateRefinementError error = errors("ErrorStateHintMultipleSets.java", 1).get(0);
+        assertEquals(
+                "found closed(d@26) && unlocked(d@26) && locked(d) && doorState(d) == doorState(d@26) but expected closed(d) && unlocked(d)",
+                error.getMessage().replaceAll("[⁰¹²³⁴⁵⁶⁷⁸⁹]", ""));
+    }
+
+    @Test
     void classWithoutStateSetKeepsTheGeneralHint() {
         assertHints("ErrorUnconstrainedStateRefinement.java", Hint.general(
                 "No state information is known for this object. Make sure its state is initialized and available at this point."));
