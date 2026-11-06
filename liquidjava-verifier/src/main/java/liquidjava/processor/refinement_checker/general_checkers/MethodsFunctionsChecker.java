@@ -16,6 +16,7 @@ import liquidjava.processor.refinement_checker.TypeChecker;
 import liquidjava.processor.refinement_checker.object_checkers.AuxHierarchyRefinementsPassage;
 import liquidjava.processor.refinement_checker.object_checkers.AuxStateHandler;
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.ast.LiteralBoolean;
 import liquidjava.rj_language.ast.formatter.ArgumentDisplayNames;
 import liquidjava.utils.GeneratedNames;
 import liquidjava.utils.Utils;
@@ -456,9 +457,10 @@ public class MethodsFunctionsChecker {
         Predicate met = (Predicate) iArg.getMetadata(Keys.REFINEMENT);
         if (met == null)
             met = new Predicate();
-        // `true` means nothing is known about the argument (e.g. the result of an unrefined call), not that it equals
-        // true
-        if (!met.isBooleanTrue() && !met.getVariableNames().contains(Keys.WILDCARD))
+        // a bare `true` means nothing is known about the argument (e.g. the result of an unrefined call), not that it
+        // equals true
+        boolean unknown = met.getExpression()instanceof LiteralBoolean b && b.isBooleanTrue();
+        if (!unknown && !met.getVariableNames().contains(Keys.WILDCARD))
             met = Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), met);
         String nVar = String.format(Formats.INSTANCE, fArg.getName(), rtc.getContext().getCounter());
         rtc.getContext().addInstanceToContext(nVar, fArg.getType(), met.substituteVariable(Keys.WILDCARD, nVar), iArg);
