@@ -207,7 +207,8 @@ public abstract class TypeChecker extends CtScanner {
             if (an.contentEquals("liquidjava.specification.StateSet")) {
                 set++;
                 CtExpression<?> nameValue = ann.getValues().get("name");
-                String name = nameValue == null ? null : getStringFromAnnotation(nameValue);
+                String name = nameValue instanceof CtLiteral<?> literal && literal.getValue()instanceof String value
+                        ? value : null;
                 SourcePosition namePosition = nameValue == null ? null : Utils.getAnnotationValuePosition(nameValue);
                 if (nameValue != null && name == null)
                     throw new CustomError("State set name must be a string literal", namePosition);
