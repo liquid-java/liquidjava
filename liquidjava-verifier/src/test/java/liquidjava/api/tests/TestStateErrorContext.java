@@ -57,7 +57,7 @@ class TestStateErrorContext {
         assertEquals("found tilingOff(param@25) && state1(param) == state1(param@25) but expected tilingOn(param)",
                 error.getMessage());
         VCSimplificationResult found = error.getFoundSimplification();
-        assertEquals("Relevant to this requirement", found.getSimplification());
+        assertEquals("Relevant to Expected", found.getSimplification());
         // stepping back shows the compression state set again
         assertTrue(found.getOrigin().getImplication().toString().contains("compressed"));
     }

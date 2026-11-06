@@ -47,7 +47,7 @@ public class VCRelevantFacts implements VCSimplificationPass {
 
     @Override
     public String getName() {
-        return "Relevant to this requirement";
+        return "Relevant to Expected";
     }
 
     @Override
