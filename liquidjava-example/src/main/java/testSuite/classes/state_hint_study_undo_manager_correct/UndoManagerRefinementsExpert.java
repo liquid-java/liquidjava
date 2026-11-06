@@ -81,7 +81,8 @@ public interface UndoManagerRefinementsExpert {
     // Queries: they never change the manager, they tell the verifier which state it is in. When it is
     // already known to be undoable / redoable the answer is true; otherwise (not known, or a field whose
     // state is unknown) the answer decides.
-    // canUndo() keeps its set by name when it returns false.
+    // When canUndo() returns false it keeps the undo set by name.
+    @StateRefinement(from="undoable(this)", to="return && undoable(this)")
     @StateRefinement(to="return ? undoable(this) : undo(this) == undo(old(this))")
     boolean canUndo();
 

@@ -27,11 +27,11 @@ public class EditCommand {
         }
     }
 
-    // canUndo() keeps the undo set when it returns false, so the edit added before can still be undone
+    // When canUndo() returns false its spec keeps the undo set by name, so the manager is still notUndoable
     static void undoAfterAsking(javax.swing.undo.UndoableEdit edit) {
         UndoManager undoManager = new UndoManager();
-        undoManager.addEdit(edit);
-        undoManager.canUndo();
+        if (!undoManager.canUndo())
+            undoManager.addEdit(edit);
         undoManager.undo();
     }
 }
