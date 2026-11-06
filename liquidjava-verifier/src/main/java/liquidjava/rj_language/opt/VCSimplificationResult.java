@@ -41,6 +41,13 @@ public final class VCSimplificationResult {
     }
 
     /**
+     * Returns the original VC chain this result was simplified from, or this result if it is the original
+     */
+    public VCSimplificationResult getOriginal() {
+        return origin == null ? this : origin.getOriginal();
+    }
+
+    /**
      * Returns the name of the simplification pass that produced this result or null for the original VC chain
      */
     public String getSimplification() {

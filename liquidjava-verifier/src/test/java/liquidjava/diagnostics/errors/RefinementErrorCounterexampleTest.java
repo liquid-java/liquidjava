@@ -65,7 +65,7 @@ class RefinementErrorCounterexampleTest {
         RefinementError error = error("size(#s_3) > 0", vc("∀port:int. port > 0", "true"), "port=1", "size(#s_3)=0",
                 "length(#a_1)=4");
         assertEquals(List.of(pair("size(#s_3)", "0")), error.getCounterexample().assignments());
-        assertEquals("Counterexample: size(s³) == 0", error.getCounterexampleStr());
+        assertEquals("Counterexample: size(s) == 0", error.getCounterexampleStr());
     }
 
     @Test
@@ -159,7 +159,7 @@ class RefinementErrorCounterexampleTest {
         RefinementError error = error("at(#l_1, #i_2) > 0 && #i_2 > 0", vc("∀#i_2:int. at(#l_1, #i_2) == 0", "true"),
                 "at(#l_1, #i_2)=0", "#i_2=0");
         assertEquals(List.of(pair("#i_2", "0")), error.getCounterexample().assignments());
-        assertEquals("Counterexample: i² == 0", error.getCounterexampleStr());
+        assertEquals("Counterexample: i == 0", error.getCounterexampleStr());
     }
 
     @Test
@@ -167,7 +167,7 @@ class RefinementErrorCounterexampleTest {
         RefinementError error = error("at(#l_1, #i_2) > 0", vc("∀#i_2:int. #i_2 > 0", "true"), "at(#l_1, #i_2)=0",
                 "#i_2=1");
         assertEquals(List.of(pair("at(#l_1, #i_2)", "0"), pair("#i_2", "1")), error.getCounterexample().assignments());
-        assertEquals("Counterexample: at(l¹, i²) == 0 && i² == 1", error.getCounterexampleStr());
+        assertEquals("Counterexample: at(l, i) == 0 && i == 1", error.getCounterexampleStr());
     }
 
     private static RefinementError error(String expected, VCImplication found, String... assignments) {

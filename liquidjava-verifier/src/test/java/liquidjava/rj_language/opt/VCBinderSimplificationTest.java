@@ -140,7 +140,7 @@ class VCBinderSimplificationTest {
         assertSimplificationSteps(forStateError("open(f)"),
                 vc("∀##if_condition_1:boolean. p", "∀##if_condition_2:boolean. q",
                         "∀f:Object. ##if_condition_1 ? open(f) : created(f)"),
-                step("p", "#if_condition¹ ? open(f) : created(f)"));
+                step("p", "#if_condition ? open(f) : created(f)"));
     }
 
     @Test

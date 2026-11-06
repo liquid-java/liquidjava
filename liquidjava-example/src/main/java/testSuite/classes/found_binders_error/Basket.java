@@ -78,4 +78,11 @@ public class Basket {
     int pickByCount() {
         return random.nextInt(count()); // Expect: Refinement Error
     }
+
+    // the earlier values of a variable are written with the line they come from
+    void negate() {
+        @Refinement("_ > 0")
+        int b = 8;
+        b = -b; // Expect: Refinement Error
+    }
 }
