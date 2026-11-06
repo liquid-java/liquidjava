@@ -668,8 +668,9 @@ public class RefinementTypeChecker extends TypeChecker {
      */
     private boolean visitCases(CtAbstractSwitch<?> switchElement, List<CtCase<?>> cases, List<CaseEntry> entries,
             int index, String selectorName, boolean hasDefault, Set<CtCase<?>> checked) {
+        // no label matches and there is no default case: a switch expression then throws
         if (index == entries.size())
-            return true; // no label matches and there is no default case
+            return !(switchElement instanceof CtSwitchExpression<?, ?>);
         CaseEntry entry = entries.get(index);
         if (hasDefault && index == entries.size() - 1)
             return visitCasesFrom(switchElement, cases, entry.start(), checked);

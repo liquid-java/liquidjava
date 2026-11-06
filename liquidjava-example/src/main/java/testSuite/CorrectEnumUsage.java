@@ -76,4 +76,20 @@ class CorrectEnumUsage {
 			default -> false;
 		};
 	}
+
+	// A switch expression that matches no label throws: it does not reach the code after it
+	public static void captureOnThread(Thread.State state) {
+		CorrectEnumUsage st = new CorrectEnumUsage();
+		boolean running = switch (state) {
+			case NEW, RUNNABLE, BLOCKED -> {
+				st.setMode(Mode.Photo);
+				yield true;
+			}
+			case WAITING, TIMED_WAITING, TERMINATED -> {
+				st.setMode(Mode.Photo);
+				yield false;
+			}
+		};
+		st.takePhoto();
+	}
 }
