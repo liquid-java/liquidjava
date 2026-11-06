@@ -30,4 +30,33 @@ class ErrorEnumUsage {
 		st.setMode(Mode.Video);
 		st.takePhoto(); // Expect: State Refinement Error
 	}
+
+	// Video is not in photoMode: only Photo falls through to it
+	public static void capture(Mode mode) {
+		ErrorEnumUsage st = new ErrorEnumUsage();
+		switch (mode) {
+			case Photo:
+				st.setMode(Mode.Photo);
+			case Video:
+				st.takePhoto(); // Expect: State Refinement Error
+				break;
+			default:
+				break;
+		}
+	}
+
+	// The break inside the if leaves the switch before setMode
+	public static void captureUnlessSkipped(Mode mode, boolean skip) {
+		ErrorEnumUsage st = new ErrorEnumUsage();
+		switch (mode) {
+			case Video:
+				if (skip)
+					break;
+				st.setMode(Mode.Photo);
+				break;
+			default:
+				st.setMode(Mode.Photo);
+		}
+		st.takePhoto(); // Expect: State Refinement Error
+	}
 }
