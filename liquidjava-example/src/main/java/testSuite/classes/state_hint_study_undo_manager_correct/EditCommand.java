@@ -26,6 +26,14 @@ public class EditCommand {
             default -> { }
         }
     }
+
+    // canUndo() keeps the undo set when it returns false, so the edit added before can still be undone
+    static void undoAfterAsking(javax.swing.undo.UndoableEdit edit) {
+        UndoManager undoManager = new UndoManager();
+        undoManager.addEdit(edit);
+        undoManager.canUndo();
+        undoManager.undo();
+    }
 }
 
 enum StandardActions {

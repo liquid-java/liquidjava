@@ -16,9 +16,9 @@ import liquidjava.specification.StateSet;
 // JDK 21: after end() the manager is one CompoundEdit, and undo/redo alternate over all edits at
 // once (AbstractUndoableEdit.hasBeenDone), so end() makes it undoable and not redoable.
 @ExternalRefinementsFor("javax.swing.undo.UndoManager")
-@StateSet({"start", "canEdit", "end"})
-@StateSet({"undoable", "notUndoable"})
-@StateSet({"redoable", "notRedoable"})
+@StateSet(name="phase", value={"start", "canEdit", "end"})
+@StateSet(name="undo", value={"undoable", "notUndoable"})
+@StateSet(name="redo", value={"redoable", "notRedoable"})
 public interface UndoManagerRefinementsExpert {
 
     @StateRefinement(to="start(this) && notUndoable(this) && notRedoable(this)")
@@ -81,8 +81,8 @@ public interface UndoManagerRefinementsExpert {
     // Queries: they never change the manager, they tell the verifier which state it is in. When it is
     // already known to be undoable / redoable the answer is true; otherwise (not known, or a field whose
     // state is unknown) the answer decides.
-    @StateRefinement(from="undoable(this)", to="return && undoable(this)")
-    @StateRefinement(to="return ? undoable(this) : notUndoable(this)")
+    // canUndo() keeps its set by name when it returns false.
+    @StateRefinement(to="return ? undoable(this) : undo(this) == undo(old(this))")
     boolean canUndo();
 
     @StateRefinement(from="redoable(this)", to="return && redoable(this)")
