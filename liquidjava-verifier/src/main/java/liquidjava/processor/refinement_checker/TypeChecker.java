@@ -207,18 +207,8 @@ public abstract class TypeChecker extends CtScanner {
             if (an.contentEquals("liquidjava.specification.StateSet")) {
                 set++;
                 CtExpression<?> nameValue = ann.getValues().get("name");
-                String name = nameValue instanceof CtLiteral<?> literal && literal.getValue()instanceof String value
-                        ? value : null;
                 SourcePosition namePosition = nameValue == null ? null : Utils.getAnnotationValuePosition(nameValue);
-                if (nameValue != null && name == null)
-                    throw new CustomError("State set name must be a string literal", namePosition);
-                if (name != null && name.isEmpty())
-                    name = null;
-                if (name != null && (!name.matches("[a-z][a-zA-Z0-9_]*") || name.equals(Keys.OLD) || name.equals("true")
-                        || name.equals("false")))
-                    throw new CustomError(String.format(
-                            "State set name '%s' must be an identifier that starts with a lowercase letter", name),
-                            namePosition);
+                String name = stateSetName(nameValue, namePosition);
                 GhostFunction g = createStateSet((CtNewArray<String>) ann.getAllValues().get("value"),
                         name != null ? name : String.format("state%d", set), element);
                 if (name != null)
@@ -232,6 +222,20 @@ public abstract class TypeChecker extends CtScanner {
         // checked once every set and ghost of the class exists, so the order of the annotations does not matter
         for (Map.Entry<GhostFunction, SourcePosition> named : namedSets.entrySet())
             checkStateSetNameIsFree(named.getKey(), named.getValue());
+    }
+
+    /** The name given to a state set, or null when it has none */
+    private static String stateSetName(CtExpression<?> nameValue, SourcePosition position) throws LJError {
+        if (nameValue == null)
+            return null;
+        if (!(nameValue instanceof CtLiteral<?> literal && literal.getValue()instanceof String name))
+            throw new CustomError("State set name must be a string literal", position);
+        if (name.isEmpty())
+            return null;
+        if (!name.matches("[a-z][a-zA-Z0-9_]*") || name.equals(Keys.OLD) || name.equals("true") || name.equals("false"))
+            throw new CustomError(String.format(
+                    "State set name '%s' must be an identifier that starts with a lowercase letter", name), position);
+        return name;
     }
 
     /** Reports a named state set whose name is also the name of a state, ghost or other state set of its class */
