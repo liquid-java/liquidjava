@@ -209,6 +209,8 @@ public abstract class TypeChecker extends CtScanner {
                 CtExpression<?> nameValue = ann.getValues().get("name");
                 String name = nameValue == null ? null : getStringFromAnnotation(nameValue);
                 SourcePosition namePosition = nameValue == null ? null : Utils.getAnnotationValuePosition(nameValue);
+                if (nameValue != null && name == null)
+                    throw new CustomError("State set name must be a string literal", namePosition);
                 if (name != null && name.isEmpty())
                     name = null;
                 if (name != null && (!name.matches("[a-z][a-zA-Z0-9_]*") || name.equals(Keys.OLD) || name.equals("true")
