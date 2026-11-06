@@ -325,11 +325,11 @@ class TestStateHints {
                         "The state of undoManager is unknown here, and this call needs it to be redoable"),
                 new Hint(Kind.GUARD,
                         "Guard this call with if (undoManager.canRedo()): when it returns true, undoManager is redoable"));
-        assertHints(errors.get(1), new Hint(Kind.GUARD,
-                "Guard this call with if (undoManager.canUndo()): when it returns true, undoManager is undoable"),
-                new Hint(Kind.AVAILABLE_CALLS,
-                        "In state undoable and notRedoable or notUndoable and notRedoable, undoManager can call: "
-                                + "canUndo(), canRedo() (and possibly others)"));
+        assertHints(errors.get(1),
+                new Hint(Kind.NEEDED_STATE,
+                        "The state of undoManager is unknown here, and this call needs it to be undoable"),
+                new Hint(Kind.GUARD,
+                        "Guard this call with if (undoManager.canUndo()): when it returns true, undoManager is undoable"));
     }
 
     @Test

@@ -5,6 +5,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
@@ -29,13 +30,17 @@ import liquidjava.utils.constants.Keys;
 import liquidjava.utils.constants.Types;
 
 import org.apache.commons.lang3.NotImplementedException;
+import spoon.reflect.code.CaseKind;
 import spoon.reflect.code.CtArrayRead;
 import spoon.reflect.code.CtAbstractInvocation;
+import spoon.reflect.code.CtAbstractSwitch;
 import spoon.reflect.code.CtArrayWrite;
 import spoon.reflect.code.CtAssignment;
 import spoon.reflect.code.CtBinaryOperator;
 import spoon.reflect.code.CtBlock;
 import spoon.reflect.code.CtBreak;
+import spoon.reflect.code.CtCFlowBreak;
+import spoon.reflect.code.CtCase;
 import spoon.reflect.code.CtCatchVariable;
 import spoon.reflect.code.CtConditional;
 import spoon.reflect.code.CtContinue;
@@ -57,6 +62,7 @@ import spoon.reflect.code.CtLoop;
 import spoon.reflect.code.CtNewArray;
 import spoon.reflect.code.CtNewClass;
 import spoon.reflect.code.CtOperatorAssignment;
+import spoon.reflect.code.CtPattern;
 import spoon.reflect.code.CtReturn;
 import spoon.reflect.code.CtStatement;
 import spoon.reflect.code.CtSuperAccess;
@@ -71,6 +77,7 @@ import spoon.reflect.code.CtVariableAccess;
 import spoon.reflect.code.CtVariableRead;
 import spoon.reflect.code.CtVariableWrite;
 import spoon.reflect.code.CtWhile;
+import spoon.reflect.code.CtYieldStatement;
 import spoon.reflect.declaration.*;
 import spoon.reflect.factory.Factory;
 import spoon.reflect.reference.CtFieldReference;
@@ -575,6 +582,190 @@ public class RefinementTypeChecker extends TypeChecker {
         context.variablesFinishIfCombination();
     }
 
+    @Override
+    public <S> void visitCtSwitch(CtSwitch<S> switchStatement) {
+        if (!visitSwitch(switchStatement))
+            super.visitCtSwitch(switchStatement);
+    }
+
+    @Override
+    public <T, S> void visitCtSwitchExpression(CtSwitchExpression<T, S> switchExpression) {
+        if (!visitSwitch(switchExpression))
+            super.visitCtSwitchExpression(switchExpression);
+    }
+
+    /**
+     * Checks a switch as the chain of ifs that tests its labels in turn (see visitCtIf): each case is checked from the
+     * state before the switch, knowing that the selector equals one of its labels, and the default case knowing that it
+     * equals none of the others. A case that falls through goes on into the next one. The states of the cases that
+     * reach the end of the switch are joined after it. Pattern and guarded cases are not modelled.
+     *
+     * @return whether the switch was checked, false when it has pattern or guarded cases
+     */
+    private boolean visitSwitch(CtAbstractSwitch<?> switchElement) {
+        List<CtCase<?>> cases = new ArrayList<>(switchElement.getCases());
+        if (cases.stream().anyMatch(c -> c.getGuard() != null
+                || c.getCaseExpressions().stream().anyMatch(label -> label instanceof CtPattern)))
+            return false;
+        CtExpression<?> selector = switchElement.getSelector();
+        scan(selector);
+        // the selector is evaluated once, so the cases compare its value then, not what its variables hold later
+        String selectorName = GeneratedNames.of(GeneratedNames.SWITCH_SELECTOR, context.getCounter());
+        Predicate selectorRefs = getRefinement(selector).substituteVariable(Keys.WILDCARD, selectorName);
+        selectorRefs = snapshotMutableParameters(substituteAllVariablesForLastInstance(selectorRefs), selector);
+        context.addInstanceToContext(selectorName, selector.getType(), selectorRefs, selector);
+
+        // the cases with no statements share the statements of the next case, the default one is tested last
+        List<CaseEntry> entries = new ArrayList<>();
+        CaseEntry defaultEntry = null;
+        List<Predicate> labels = new ArrayList<>();
+        boolean isDefault = false;
+        int start = 0;
+        for (int i = 0; i < cases.size(); i++) {
+            CtCase<?> c = cases.get(i);
+            for (CtExpression<?> label : c.getCaseExpressions()) {
+                scan(label);
+                labels.add(getRefinement(label));
+            }
+            isDefault |= c.getCaseExpressions().isEmpty() || c.getIncludesDefault();
+            if (c.getStatements().isEmpty() && i < cases.size() - 1)
+                continue;
+            CaseEntry entry = new CaseEntry(start, labels);
+            if (isDefault)
+                defaultEntry = entry;
+            else
+                entries.add(entry);
+            labels = new ArrayList<>();
+            isDefault = false;
+            start = i + 1;
+        }
+        if (defaultEntry != null)
+            entries.add(defaultEntry);
+        visitCases(switchElement, cases, entries, 0, selectorName, defaultEntry != null, new HashSet<>());
+        return true;
+    }
+
+    /** A case to which the selector jumps when it equals one of {@code labels}, by their refinements */
+    private record CaseEntry(int start, List<Predicate> labels) {
+        /** That the selector equals one of the labels, or null when a label has no known value */
+        Predicate matches(String selectorName) {
+            Predicate matches = null;
+            for (Predicate label : labels) {
+                if (!label.getVariableNames().contains(Keys.WILDCARD))
+                    return null;
+                Predicate equals = label.substituteVariable(Keys.WILDCARD, selectorName);
+                matches = matches == null ? equals : Predicate.createDisjunction(matches, equals);
+            }
+            return matches;
+        }
+    }
+
+    /**
+     * Checks the entries of a switch from {@code index} on, as an if that tests the one at {@code index} and checks the
+     * others in its else, the last one being the default case if there is one
+     *
+     * @return whether the end of the switch can be reached from here
+     */
+    private boolean visitCases(CtAbstractSwitch<?> switchElement, List<CtCase<?>> cases, List<CaseEntry> entries,
+            int index, String selectorName, boolean hasDefault, Set<CtCase<?>> checked) {
+        // no label matches and there is no default case: a switch expression then throws
+        if (index == entries.size())
+            return !(switchElement instanceof CtSwitchExpression<?, ?>);
+        CaseEntry entry = entries.get(index);
+        if (hasDefault && index == entries.size() - 1)
+            return visitCasesFrom(switchElement, cases, entry.start(), checked);
+
+        String pathVarName = GeneratedNames.of(GeneratedNames.CASE_CONDITION, context.getCounter());
+        // a label with no known value gives no information about which way the test went
+        Predicate matches = entry.matches(selectorName);
+        Predicate branchGuard = matches != null ? matches : Predicate.createVar(pathVarName);
+        RefinedVariable pathVar = context.addInstanceToContext(pathVarName, factory.Type().BOOLEAN_PRIMITIVE,
+                branchGuard, cases.get(entry.start()));
+        keepFreshValues(branchGuard);
+        vcChecker.addPathVariable(pathVar);
+
+        context.variablesNewIfCombination();
+        context.variablesSetBeforeIf();
+        context.enterContext();
+
+        context.enterContext();
+        boolean thenReaches = visitCasesFrom(switchElement, cases, entry.start(), checked);
+        if (thenReaches)
+            context.variablesSetThenIf();
+        context.exitContext();
+
+        context.newRefinementToVariableInContext(pathVarName, branchGuard.negate());
+        context.enterContext();
+        boolean elseReaches = visitCases(switchElement, cases, entries, index + 1, selectorName, hasDefault, checked);
+        if (elseReaches)
+            context.variablesSetElseIf();
+        context.exitContext();
+
+        if (thenReaches == elseReaches) {
+            context.newRefinementToVariableInContext(pathVarName, matches != null ? matches : new Predicate());
+            vcChecker.removePathVariable(pathVar);
+        } else {
+            // keep the guard of the only branch that reaches the end of the switch
+            context.newRefinementToVariableInContext(pathVarName, thenReaches ? branchGuard : branchGuard.negate());
+        }
+        context.exitContext();
+        context.variablesCombineFromIf(branchGuard);
+        context.variablesFinishIfCombination();
+        return thenReaches || elseReaches;
+    }
+
+    /**
+     * Checks the statements of the case at {@code start}, and of the next cases while they fall through. The path
+     * conditions they add are dropped after them.
+     *
+     * @return whether they reach the end of the switch
+     */
+    private boolean visitCasesFrom(CtAbstractSwitch<?> switchElement, List<CtCase<?>> cases, int start,
+            Set<CtCase<?>> checked) {
+        List<RefinedVariable> pathVariables = vcChecker.getPathVariables();
+        List<CtCFlowBreak> exits = new ArrayList<>();
+        int end = start;
+        boolean completes;
+        while (true) {
+            CtCase<?> c = cases.get(end);
+            if (!checked.add(c))
+                removeCheckMetadata(c, List.of()); // checked again after falling through from another case
+            for (CtStatement statement : c.getStatements())
+                scan(statement);
+            exits.addAll(c.getElements(new TypeFilter<>(CtCFlowBreak.class)).stream()
+                    .filter(jump -> leaves(jump, switchElement)).toList());
+            List<CtStatement> statements = c.getStatements();
+            completes = statements.isEmpty() || canCompleteNormally(statements.get(statements.size() - 1));
+            if (!completes || c.getCaseKind() == CaseKind.ARROW || end == cases.size() - 1)
+                break;
+            end++;
+        }
+        List<CtStatement> last = cases.get(end).getStatements();
+        CtStatement lastExit = last.isEmpty() ? null : endingJump(last.get(last.size() - 1));
+        // the states where a break or yield inside a statement leaves the switch are not followed: forget what these
+        // cases change
+        if (exits.stream().anyMatch(jump -> jump != lastExit))
+            for (CtCase<?> c : cases.subList(start, end + 1))
+                for (String name : changedIn(c, switchElement))
+                    forgetChanges(name, new Predicate(), c);
+        vcChecker.restorePathVariables(pathVariables);
+        return completes || !exits.isEmpty();
+    }
+
+    /** Whether {@code jump} is a break or yield that leaves {@code switchElement} */
+    private static boolean leaves(CtCFlowBreak jump, CtAbstractSwitch<?> switchElement) {
+        if (jump instanceof CtBreak breakStatement)
+            return jumpTarget(breakStatement) == switchElement;
+        return jump instanceof CtYieldStatement && jump.getParent(CtSwitchExpression.class) == switchElement;
+    }
+
+    /** The jump that a statement ends with, as the last statement of its blocks */
+    private static CtStatement endingJump(CtStatement statement) {
+        if (statement instanceof CtBlock<?> block)
+            return block.getStatements().isEmpty() ? null : endingJump(block.getLastStatement());
+        return statement instanceof CtCFlowBreak ? statement : null;
+    }
+
     private Predicate snapshotMutableParameters(Predicate predicate, CtExpression<?> condition) {
         // An unchanged parameter can keep its name; a later write must not change this guard's meaning.
         CtExecutable<?> executable = condition.getParent(CtExecutable.class);
@@ -651,7 +842,7 @@ public class RefinementTypeChecker extends TypeChecker {
         if (statement == null || isLeftByLabelledBreak(statement))
             return true;
         if (statement instanceof CtReturn<?> || statement instanceof CtThrow || statement instanceof CtBreak
-                || statement instanceof CtContinue)
+                || statement instanceof CtContinue || statement instanceof CtYieldStatement)
             return false;
         if (statement instanceof CtBlock<?> block) {
             List<CtStatement> statements = block.getStatements();
@@ -804,7 +995,11 @@ public class RefinementTypeChecker extends TypeChecker {
             checkedBefore.addAll(forLoop.getForInit());
         if (loop instanceof CtForEach forEach)
             checkedBefore.add(forEach.getExpression());
-        for (CtElement element : loop.getElements((CtElement e) -> true)) {
+        removeCheckMetadata(loop, checkedBefore);
+    }
+
+    private static void removeCheckMetadata(CtElement checked, List<CtElement> checkedBefore) {
+        for (CtElement element : checked.getElements((CtElement e) -> true)) {
             if (element instanceof CtTypeMember
                     || (element instanceof CtParameter<?> && element.getParent() instanceof CtTypeMember)
                     || checkedBefore.stream().anyMatch(before -> element == before || element.hasParent(before)))
@@ -906,9 +1101,14 @@ public class RefinementTypeChecker extends TypeChecker {
      * if it calls any method or constructor (which may write them)
      */
     private Set<String> changedIn(CtLoop loop) {
+        return changedIn(loop, loop.getBody());
+    }
+
+    /** What {@code element} may change, but the variables declared in {@code scope}, which do not outlive it */
+    private Set<String> changedIn(CtElement element, CtElement scope) {
         List<CtVariableAccess<?>> changed = new ArrayList<>(
-                loop.getElements(new TypeFilter<CtVariableWrite<?>>(CtVariableWrite.class)));
-        List<CtAbstractInvocation<?>> calls = loop
+                element.getElements(new TypeFilter<CtVariableWrite<?>>(CtVariableWrite.class)));
+        List<CtAbstractInvocation<?>> calls = element
                 .getElements(new TypeFilter<CtAbstractInvocation<?>>(CtAbstractInvocation.class));
         Set<String> names = new LinkedHashSet<>();
         for (CtAbstractInvocation<?> call : calls) {
@@ -921,8 +1121,8 @@ public class RefinementTypeChecker extends TypeChecker {
         }
         for (CtVariableAccess<?> access : changed) {
             CtVariable<?> declaration = access.getVariable().getDeclaration();
-            if (declaration != null && declaration.hasParent(loop.getBody()))
-                continue; // declared in the body: a new variable on each iteration
+            if (declaration != null && declaration.hasParent(scope))
+                continue; // e.g. declared in a loop body: a new variable on each iteration
             String name = access.getVariable().getSimpleName();
             names.add(access instanceof CtFieldAccess<?> ? String.format(Formats.THIS, name) : name);
         }

@@ -19,6 +19,8 @@ public final class GeneratedNames {
     public static final String IF_CONDITION = "if_condition";
     public static final String LOOP_CONDITION = "loop_condition";
     public static final String TERNARY_CONDITION = "ternary_condition";
+    public static final String SWITCH_SELECTOR = "switch_selector";
+    public static final String CASE_CONDITION = "case_condition";
     public static final String TRY_BRANCH = "try_branch";
     public static final String CATCH_BRANCH = "catch_branch";
     public static final String ARRAY_LENGTH = "array_length";

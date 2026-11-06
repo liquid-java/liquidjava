@@ -42,4 +42,54 @@ class CorrectEnumUsage {
 		st.setMode(Mode.Video);  // noMode -> videoMode
 		st.takeVideo();
 	}
+
+	// Each case starts from the state before the switch and knows the value of the selector
+	public static void capture(Mode mode) {
+		CorrectEnumUsage st = new CorrectEnumUsage();
+		switch (mode) {
+			case Photo:
+				st.setMode(Mode.Photo);
+				st.takePhoto();
+				break;
+			case Video:
+				st.setMode(mode);
+				st.takeVideo();
+				break;
+			default:
+				break;
+		}
+	}
+
+	public static boolean captureExpression(Mode mode) {
+		CorrectEnumUsage st = new CorrectEnumUsage();
+		return switch (mode) {
+			case Photo -> {
+				st.setMode(Mode.Photo);
+				st.takePhoto();
+				yield true;
+			}
+			case Video -> {
+				st.setMode(Mode.Video);
+				st.takeVideo();
+				yield true;
+			}
+			default -> false;
+		};
+	}
+
+	// A switch expression that matches no label throws: it does not reach the code after it
+	public static void captureOnThread(Thread.State state) {
+		CorrectEnumUsage st = new CorrectEnumUsage();
+		boolean running = switch (state) {
+			case NEW, RUNNABLE, BLOCKED -> {
+				st.setMode(Mode.Photo);
+				yield true;
+			}
+			case WAITING, TIMED_WAITING, TERMINATED -> {
+				st.setMode(Mode.Photo);
+				yield false;
+			}
+		};
+		st.takePhoto();
+	}
 }
