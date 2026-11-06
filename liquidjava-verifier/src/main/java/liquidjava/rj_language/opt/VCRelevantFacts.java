@@ -55,13 +55,13 @@ public class VCRelevantFacts implements VCSimplificationPass {
         List<List<Expression>> rowFacts = new ArrayList<>();
         for (VCImplication row = implication; row != null; row = row.getNext())
             rowFacts.add(factsOf(row.getRefinement().getExpression()));
+        List<Expression> allFacts = rowFacts.stream().flatMap(List::stream).toList();
         Set<String> values = new HashSet<>();
         addSymbols(expected, new HashMap<>(), values);
-        rowFacts.forEach(facts -> facts.forEach(fact -> addSymbols(fact, new HashMap<>(), values)));
+        allFacts.forEach(fact -> addSymbols(fact, new HashMap<>(), values));
 
         Set<String> linked = symbolsOf(expected, values);
-        List<Set<String>> unlinked = new ArrayList<>();
-        rowFacts.forEach(facts -> facts.forEach(fact -> unlinked.add(symbolsOf(fact, values))));
+        List<Set<String>> unlinked = new ArrayList<>(allFacts.stream().map(fact -> symbolsOf(fact, values)).toList());
         boolean changed = true;
         while (changed) {
             changed = false;
@@ -78,7 +78,7 @@ public class VCRelevantFacts implements VCSimplificationPass {
         List<List<Expression>> kept = rowFacts.stream().map(facts -> facts.stream()
                 .filter(fact -> symbolsOf(fact, values).stream().anyMatch(linked::contains)).toList()).toList();
         int relevant = kept.stream().mapToInt(List::size).sum();
-        if (relevant == 0 || relevant == rowFacts.stream().mapToInt(List::size).sum())
+        if (relevant == 0 || relevant == allFacts.size())
             return implication;
         return rebuild(implication, rowFacts.iterator(), kept.iterator());
     }
