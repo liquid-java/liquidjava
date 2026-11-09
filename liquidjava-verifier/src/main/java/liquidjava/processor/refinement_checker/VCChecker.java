@@ -59,8 +59,8 @@ public class VCChecker {
         Predicate expected;
         try {
             List<GhostState> filtered = filterGhostStatesForVariables(list, mainVars, lrv);
-            premises = premisesBeforeChange.changeStatesToRefinements(filtered, s).changeAliasToRefinement(context, f);
-            expected = expectedType.changeStatesToRefinements(filtered, s).changeAliasToRefinement(context, f);
+            premises = premisesBeforeChange.toSolverPredicate(filtered, s, context, f);
+            expected = expectedType.toSolverPredicate(filtered, s, context, f);
             transformChainForDebug(impl, filtered, s, f);
         } catch (LJError e) {
             // add location info to error
@@ -186,14 +186,12 @@ public class VCChecker {
         VCImplication impl = joinPredicates(expectedType, mainVars, lrv, map);
         Predicate premisesJoined = impl.toConjunctions();
         List<GhostState> filtered = filterGhostStatesForVariables(states, mainVars, lrv);
-        Predicate premises = Predicate.createConjunction(premisesJoined, type).changeStatesToRefinements(filtered, s)
-                .changeAliasToRefinement(context, factory);
-        Predicate expected = expectedType.changeStatesToRefinements(filtered, s).changeAliasToRefinement(context,
+        Predicate premises = Predicate.createConjunction(premisesJoined, type).toSolverPredicate(filtered, s, context,
                 factory);
+        Predicate expected = expectedType.toSolverPredicate(filtered, s, context, factory);
         if (!silent) {
             transformChainForDebug(impl, filtered, s, factory);
-            Predicate foundExtra = type.changeStatesToRefinements(filtered, s).changeAliasToRefinement(context,
-                    factory);
+            Predicate foundExtra = type.toSolverPredicate(filtered, s, context, factory);
             DebugLog.smtStart(impl, foundExtra, expected);
         }
 
@@ -250,9 +248,9 @@ public class VCChecker {
     }
 
     /**
-     * Apply the same {@code changeStatesToRefinements} / {@code changeAliasToRefinement} pipeline to each node of a
-     * {@link VCImplication} chain so the structured debug print mirrors the predicates Z3 actually sees. Mutates the
-     * chain in place; safe because {@code joinPredicates} returns a clone.
+     * Apply the same {@code toSolverPredicate} pipeline to each node of a {@link VCImplication} chain so the structured
+     * debug print mirrors the predicates Z3 actually sees. Mutates the chain in place; safe because
+     * {@code joinPredicates} returns a clone.
      */
     private void transformChainForDebug(VCImplication chain, List<GhostState> filtered, String[] s, Factory f) {
         if (!DebugLog.enabled())
@@ -261,8 +259,7 @@ public class VCChecker {
             if (n.getRefinement() == null)
                 continue;
             try {
-                n.setRefinement(
-                        n.getRefinement().changeStatesToRefinements(filtered, s).changeAliasToRefinement(context, f));
+                n.setRefinement(n.getRefinement().toSolverPredicate(filtered, s, context, f));
             } catch (LJError ignored) {
                 // best-effort transformation for debug; leave node as-is on failure
             }

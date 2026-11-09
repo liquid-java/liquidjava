@@ -167,9 +167,8 @@ public abstract class TypeChecker extends CtScanner {
             if (qualifiedClassName != null && !context.hasVariable(Keys.THIS))
                 context.addVarToContext(Keys.THIS, factory.Type().createReference(qualifiedClassName), p, element);
 
-            Predicate refinementPredicate = predicate.changeStatesToRefinements(context.getGhostStates(),
-                    new String[] { Keys.WILDCARD, Keys.THIS });
-            refinementPredicate = refinementPredicate.changeAliasToRefinement(context, factory);
+            Predicate refinementPredicate = predicate.toSolverPredicate(context.getGhostStates(),
+                    new String[] { Keys.WILDCARD, Keys.THIS }, context, factory);
 
             if (new SMTEvaluator().isUnsatisfiable(refinementPredicate, context)) {
                 SourcePosition position = Utils.getLJAnnotationPosition(element, refinement);
