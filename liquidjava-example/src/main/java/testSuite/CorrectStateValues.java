@@ -5,6 +5,11 @@ import liquidjava.specification.RefinementAlias;
 import liquidjava.specification.StateRefinement;
 import liquidjava.specification.StateSet;
 
+// an unrelated set with the same name and other states, in a class whose sets are listed before those of
+// CorrectStateValues
+@StateSet(name = "door", value = {"ajar", "shut"})
+class CorrectStateValueDoor {}
+
 @StateSet(name = "door", value = {"closed", "opened"})
 @StateSet(name = "lock", value = {"unlocked", "locked"})
 @RefinementAlias("Shut(CorrectStateValues d) { door(d) == closed }")
@@ -71,5 +76,18 @@ class CorrectStateValueVariableNames {
         v.check(2);
         v.pick();
         v.needsOn();
+    }
+}
+
+// a subclass uses the set of its superclass, not the unrelated one with the same name
+class CorrectStateValueSubclass extends CorrectStateValues {
+
+    @StateRefinement(from = "door(this) == opened", to = "door(this) == closed")
+    public void shut() {}
+
+    static void test() {
+        CorrectStateValueSubclass s = new CorrectStateValueSubclass();
+        s.open();
+        s.shut();
     }
 }

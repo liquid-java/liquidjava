@@ -51,33 +51,37 @@ public final class StateValues {
         return e;
     }
 
-    /** {@code state(e)} when {@code set} is a state set applied to {@code e} and {@code name} one of its states */
+    /**
+     * {@code state(e)} when {@code set} is a state set applied to {@code e} and {@code name} one of its states, named
+     * as the shorthand written in the same place, so that it is resolved the same way, in a subclass too
+     */
     private static Optional<FunctionInvocation> stateOf(Expression set, Expression name, List<GhostState> states,
             Predicate<String> isVariable) throws LJError {
         if (!(set instanceof FunctionInvocation invocation && invocation.getArgs().size() == 1
                 && name instanceof Var var && !isVariable.test(var.getName())))
             return Optional.empty();
-        Optional<GhostFunction> stateSet = stateSetNamed(invocation.getName(), states);
-        if (stateSet.isEmpty())
-            return Optional.empty();
-        List<GhostState> inSet = states.stream().filter(s -> s.getParent() == stateSet.get()).toList();
-        Optional<GhostState> state = inSet.stream().filter(s -> s.getName().equals(var.getName())).findFirst();
-        if (state.isPresent())
-            return Optional.of(new FunctionInvocation(state.get().getQualifiedName(),
+        List<GhostFunction> sets = states.stream().map(GhostState::getParent).filter(Objects::nonNull).distinct()
+                .filter(s -> s.matches(invocation.getName())).toList();
+        if (sets.stream().anyMatch(s -> !statesOf(s, states, var.getName()).isEmpty()))
+            return Optional.of(new FunctionInvocation(qualifiedLike(invocation.getName(), var.getName()),
                     List.of(invocation.getArgs().get(0).clone())));
-        if (isStateOfAnotherSet(var.getName(), stateSet.get(), states))
-            throw new CustomError(String.format("State '%s' is not a state of '%s' (its states are %s)", var.getName(),
-                    stateSet.get().getName(),
-                    inSet.stream().map(GhostState::getName).collect(Collectors.joining(", "))));
+        for (GhostFunction s : sets)
+            if (isStateOfAnotherSet(var.getName(), s, states))
+                throw new CustomError(String.format("State '%s' is not a state of '%s' (its states are %s)",
+                        var.getName(), s.getName(),
+                        statesOf(s, states, null).stream().map(GhostState::getName).collect(Collectors.joining(", "))));
         return Optional.empty();
     }
 
-    /** The state set {@code name} refers to, preferring the one whose qualified name it is */
-    private static Optional<GhostFunction> stateSetNamed(String name, List<GhostState> states) {
-        List<GhostFunction> sets = states.stream().map(GhostState::getParent).filter(Objects::nonNull).distinct()
-                .filter(set -> set.matches(name)).toList();
-        return sets.stream().filter(set -> set.getQualifiedName().equals(name)).findFirst()
-                .or(() -> sets.stream().findFirst());
+    /** The states of {@code set}, or only those named {@code name} when it is not null */
+    private static List<GhostState> statesOf(GhostFunction set, List<GhostState> states, String name) {
+        return states.stream().filter(s -> s.getParent() == set && (name == null || s.getName().equals(name))).toList();
+    }
+
+    /** {@code state} qualified as {@code setName} is: {@code a.B.phase} gives {@code a.B.open} */
+    private static String qualifiedLike(String setName, String state) {
+        int dot = setName.lastIndexOf('.');
+        return dot < 0 ? state : setName.substring(0, dot + 1) + state;
     }
 
     private static boolean isStateOfAnotherSet(String name, GhostFunction stateSet, List<GhostState> states) {
