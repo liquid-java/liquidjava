@@ -26,6 +26,14 @@ public class EditCommand {
             default -> { }
         }
     }
+
+    // When canUndo() returns false its spec keeps the undo set by name, so the manager is still notUndoable
+    static void undoAfterAsking(javax.swing.undo.UndoableEdit edit) {
+        UndoManager undoManager = new UndoManager();
+        if (!undoManager.canUndo())
+            undoManager.addEdit(edit);
+        undoManager.undo();
+    }
 }
 
 enum StandardActions {
