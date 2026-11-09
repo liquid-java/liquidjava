@@ -24,6 +24,10 @@ import liquidjava.processor.state_machine.StateMachine;
 import liquidjava.processor.state_machine.StateMachineBuilder;
 import liquidjava.processor.state_machine.StateSolver;
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.StateValues;
+import liquidjava.rj_language.ast.Expression;
+import liquidjava.rj_language.ast.FunctionInvocation;
+import liquidjava.rj_language.ast.Var;
 import liquidjava.rj_language.ast.formatter.FieldDisplayNames;
 import liquidjava.rj_language.parsing.RefinementsParser;
 import liquidjava.smt.SMTEvaluator;
@@ -39,8 +43,10 @@ import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.CtAnnotation;
 import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtElement;
+import spoon.reflect.declaration.CtExecutable;
 import spoon.reflect.declaration.CtInterface;
 import spoon.reflect.declaration.CtMethod;
+import spoon.reflect.declaration.CtParameter;
 import spoon.reflect.declaration.CtTypedElement;
 import spoon.reflect.declaration.CtVariable;
 import spoon.reflect.declaration.CtType;
@@ -126,6 +132,7 @@ public abstract class TypeChecker extends CtScanner {
             String prefix = getQualifiedClassName(element);
             Predicate p = prefix == null ? new Predicate(ref.get(), element)
                     : new Predicate(ref.get(), element, prefix);
+            p = readStateValues(p, element, Utils.getLJAnnotationPosition(element, ref.get()));
             if (!p.getExpression().isBooleanExpression()) {
                 SourcePosition position = Utils.getLJAnnotationPosition(element, ref.get());
                 throw new InvalidRefinementError(position, "Refinement predicate must be a boolean expression",
@@ -196,7 +203,8 @@ public abstract class TypeChecker extends CtScanner {
     @SuppressWarnings("unchecked")
     public void registerGhostsAndStateSets(CtElement element) throws LJError {
         int set = 0;
-        Map<GhostFunction, SourcePosition> namedSets = new LinkedHashMap<>();
+        Map<GhostFunction, SourcePosition> stateSets = new LinkedHashMap<>();
+        Map<String, GhostFunction> setOfState = new HashMap<>();
         for (CtAnnotation<? extends Annotation> ann : element.getAnnotations()) {
             String an = ann.getAnnotationType().getQualifiedName();
             if (an.contentEquals("liquidjava.specification.StateSet")) {
@@ -204,10 +212,10 @@ public abstract class TypeChecker extends CtScanner {
                 CtExpression<?> nameValue = ann.getValues().get("name");
                 SourcePosition namePosition = nameValue == null ? null : Utils.getAnnotationValuePosition(nameValue);
                 String name = stateSetName(nameValue, namePosition);
-                GhostFunction g = createStateSet((CtNewArray<String>) ann.getAllValues().get("value"),
-                        name != null ? name : String.format("state%d", set), element);
-                if (name != null)
-                    namedSets.put(g, namePosition);
+                CtNewArray<String> states = (CtNewArray<String>) ann.getAllValues().get("value");
+                GhostFunction g = createStateSet(states, name != null ? name : String.format("state%d", set), element);
+                stateSets.put(g, name != null ? namePosition : Utils.getAnnotationValuePosition(states));
+                checkStatesAreNotInAnotherSet(g, states, setOfState);
             }
             if (an.contentEquals("liquidjava.specification.Ghost")) {
                 CtLiteral<String> s = (CtLiteral<String>) ann.getAllValues().get("value");
@@ -219,9 +227,28 @@ public abstract class TypeChecker extends CtScanner {
                         Utils.getAnnotationValuePosition(rawValue));
             }
         }
-        // checked once every set and ghost of the class exists, so the order of the annotations does not matter
-        for (Map.Entry<GhostFunction, SourcePosition> named : namedSets.entrySet())
-            checkStateSetNameIsFree(named.getKey(), named.getValue());
+        // checked once every set and ghost of the class exists, so the order of the annotations does not matter; a
+        // generated name such as state1 can clash too
+        for (Map.Entry<GhostFunction, SourcePosition> stateSet : stateSets.entrySet())
+            checkStateSetNameIsFree(stateSet.getKey(), stateSet.getValue());
+    }
+
+    /**
+     * Reports a state of {@code set} that another set of its class also has: {@code open(this)} could not tell which of
+     * the two sets it is about
+     */
+    private static void checkStatesAreNotInAnotherSet(GhostFunction set, CtNewArray<String> states,
+            Map<String, GhostFunction> setOfState) throws LJError {
+        for (CtExpression<?> state : states.getElements()) {
+            if (!(state instanceof CtLiteral<?> literal && literal.getValue()instanceof String name))
+                continue;
+            GhostFunction other = setOfState.putIfAbsent(name, set);
+            if (other != null)
+                throw new CustomError(
+                        String.format("State '%s' is in two state sets of %s: %s and %s", name,
+                                set.getParentClassName(), other.getName(), set.getName()),
+                        Utils.getAnnotationValuePosition(literal));
+        }
     }
 
     /** The name given to a state set, or null when it has none */
@@ -361,6 +388,72 @@ public abstract class TypeChecker extends CtScanner {
             context.addGhostFunction(new GhostFunction(f, factory, type.getQualifiedName()));
     }
 
+    /**
+     * {@code p} with each state written as a value of its set, {@code phase(x) == open}, read as the shorthand
+     * {@code open(x)}, in the scope of {@code element}, whose variables keep their meaning
+     */
+    public Predicate readStateValues(Predicate p, CtElement element, SourcePosition position) throws LJError {
+        StateValues values = new StateValues(context.getGhostStates(), name -> isVariableIn(element, name),
+                argument -> typeIn(element, argument).map(type -> set -> isOfType(type, set.getPrefix())));
+        try {
+            return new Predicate(values.toShorthand(p.getExpression()));
+        } catch (LJError e) {
+            if (e.getPosition() == null)
+                e.setPosition(position);
+            throw e;
+        }
+    }
+
+    /**
+     * Whether {@code name} is a variable where {@code element} is: a parameter, _, this, return, or one in the context
+     */
+    private boolean isVariableIn(CtElement element, String name) {
+        if (name.equals(Keys.WILDCARD) || name.equals(Keys.THIS) || name.equals("return") || context.hasVariable(name))
+            return true;
+        CtExecutable<?> executable = element instanceof CtExecutable<?> e ? e : element.getParent(CtExecutable.class);
+        return executable != null && executable.getParameters().stream().anyMatch(p -> p.getSimpleName().equals(name));
+    }
+
+    /** The type of a state's argument where {@code element} is: this, _, a parameter, a variable, or old of one */
+    private Optional<CtTypeReference<?>> typeIn(CtElement element, Expression argument) {
+        if (argument instanceof FunctionInvocation old && old.getName().equals(Keys.OLD) && old.getArgs().size() == 1)
+            return typeIn(element, old.getArgs().get(0));
+        if (!(argument instanceof Var var))
+            return Optional.empty();
+        String name = var.getName();
+        if (name.equals(Keys.THIS))
+            return Optional.ofNullable(getQualifiedClassName(element)).map(c -> factory.Type().createReference(c));
+        if (name.equals(Keys.WILDCARD))
+            return element instanceof CtTypedElement<?> typed ? Optional.ofNullable(typed.getType()) : Optional.empty();
+        CtExecutable<?> executable = element instanceof CtExecutable<?> e ? e : element.getParent(CtExecutable.class);
+        if (executable != null)
+            for (CtParameter<?> parameter : executable.getParameters())
+                if (parameter.getSimpleName().equals(name))
+                    return Optional.ofNullable(parameter.getType());
+        return context.hasVariable(name) ? Optional.ofNullable(context.getVariableByName(name).getType())
+                : Optional.empty();
+    }
+
+    /**
+     * Reads the states written as values of their sets in the body of {@code alias}, declared on class {@code klass} at
+     * {@code path}: only its parameters are variables, typed as they are declared
+     */
+    private StateValues aliasStateValues(AliasDTO alias, String klass, String path) {
+        return new StateValues(context.getGhostStates(), alias.getVarNames()::contains, argument -> {
+            int parameter = argument instanceof Var var ? alias.getVarNames().indexOf(var.getName()) : -1;
+            if (parameter < 0)
+                return Optional.empty();
+            CtTypeReference<?> type = AliasWrapper.parameterType(alias.getVarTypes().get(parameter), factory, klass,
+                    path);
+            return Optional.of(set -> isOfType(type, set.getPrefix()));
+        });
+    }
+
+    /** Whether {@code type} is the class {@code className} or one of its subtypes */
+    private boolean isOfType(CtTypeReference<?> type, String className) {
+        return type.getQualifiedName().equals(className) || type.isSubtypeOf(factory.Type().createReference(className));
+    }
+
     protected void handleAlias(String ref, CtElement element, SourcePosition position) throws LJError {
         try {
             AliasDTO a = RefinementsParser.parseAliasDefinition(ref);
@@ -376,6 +469,7 @@ public abstract class TypeChecker extends CtScanner {
             if (klass != null && path != null) {
                 a.parse(path);
                 a.resolveStaticFinalConstants(element, position);
+                a.readStateValues(aliasStateValues(a, klass, path));
                 if (a.getExpression() != null && !a.getExpression().isBooleanExpression()) {
                     throw new InvalidRefinementError(position, "Refinement alias must return a boolean expression",
                             ref);

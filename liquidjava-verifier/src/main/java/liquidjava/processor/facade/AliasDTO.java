@@ -5,6 +5,7 @@ import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.errors.LJError;
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.StateValues;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.parsing.RefinementsParser;
 import spoon.reflect.cu.SourcePosition;
@@ -47,6 +48,15 @@ public class AliasDTO {
     public void resolveStaticFinalConstants(CtElement context, SourcePosition position) throws LJError {
         if (expression != null) {
             this.expression = Predicate.resolveStaticFinalConstants(expression, context, position);
+        }
+    }
+
+    // Read the states written as values of their sets, phase(x) == open, as the shorthand open(x), with only the
+    // alias's
+    // parameters as variables, so a variable where the alias is used cannot take the place of a state
+    public void readStateValues(StateValues values) throws LJError {
+        if (expression != null) {
+            this.expression = values.toShorthand(expression);
         }
     }
 
