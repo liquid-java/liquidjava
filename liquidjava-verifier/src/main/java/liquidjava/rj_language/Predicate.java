@@ -154,17 +154,19 @@ public class Predicate {
         return RefinementsParser.createAST(ref, prefix);
     }
 
-    public Predicate changeAliasToRefinement(Context context, Factory f) throws LJError {
-        Expression ref = getExpression();
-
+    /**
+     * The predicate the solver checks: aliases expanded first, so that the states their bodies use are replaced too,
+     * then the states replaced by the refinements of their state sets
+     */
+    public Predicate toSolverPredicate(List<GhostState> ghostStates, String[] toChange, Context context, Factory f)
+            throws LJError {
         Map<String, AliasDTO> alias = new HashMap<>();
         for (AliasWrapper aw : context.getAliases()) {
             alias.put(aw.getName(), aw.createAliasDTO());
         }
-
-        ref = ref.changeAlias(alias, context, f);
+        Predicate expanded = new Predicate(getExpression().changeAlias(alias, context, f));
+        Expression ref = expanded.changeStatesToRefinements(ghostStates, toChange).getExpression();
         ref.validateGhostInvocations(context, f);
-
         return new Predicate(ref);
     }
 
