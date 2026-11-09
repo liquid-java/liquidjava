@@ -29,10 +29,13 @@ public class AliasWrapper {
         this.position = position;
         varTypes = new ArrayList<>();
         varNames = a.getVarNames();
-        for (String s : a.getVarTypes()) {
-            CtTypeReference<?> r = Utils.getType(s.equals(klass) ? path : s, factory);
-            varTypes.add(r);
-        }
+        for (String s : a.getVarTypes())
+            varTypes.add(parameterType(s, factory, klass, path));
+    }
+
+    /** The type of an alias parameter written {@code type}, in an alias declared on class {@code klass} at path */
+    public static CtTypeReference<?> parameterType(String type, Factory factory, String klass, String path) {
+        return Utils.getType(type.equals(klass) ? path : type, factory);
     }
 
     public String getName() {

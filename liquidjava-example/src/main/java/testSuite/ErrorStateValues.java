@@ -17,3 +17,7 @@ class ErrorStateValuesSharedState {}
 
 @StateSet({"state1", "open"}) // Expect: Error
 class ErrorStateValuesGeneratedSetName {}
+
+// an unrelated set named door that has a state locked does not make locked a state of the door above
+@StateSet(name = "door", value = {"locked", "free"})
+class ErrorStateValuesOtherDoor {}

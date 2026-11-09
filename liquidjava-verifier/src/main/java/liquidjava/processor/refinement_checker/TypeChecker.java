@@ -25,6 +25,9 @@ import liquidjava.processor.state_machine.StateMachineBuilder;
 import liquidjava.processor.state_machine.StateSolver;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.StateValues;
+import liquidjava.rj_language.ast.Expression;
+import liquidjava.rj_language.ast.FunctionInvocation;
+import liquidjava.rj_language.ast.Var;
 import liquidjava.rj_language.ast.formatter.FieldDisplayNames;
 import liquidjava.rj_language.parsing.RefinementsParser;
 import liquidjava.smt.SMTEvaluator;
@@ -43,6 +46,7 @@ import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtExecutable;
 import spoon.reflect.declaration.CtInterface;
 import spoon.reflect.declaration.CtMethod;
+import spoon.reflect.declaration.CtParameter;
 import spoon.reflect.declaration.CtTypedElement;
 import spoon.reflect.declaration.CtVariable;
 import spoon.reflect.declaration.CtType;
@@ -389,9 +393,10 @@ public abstract class TypeChecker extends CtScanner {
      * {@code open(x)}, in the scope of {@code element}, whose variables keep their meaning
      */
     public Predicate readStateValues(Predicate p, CtElement element, SourcePosition position) throws LJError {
+        StateValues values = new StateValues(context.getGhostStates(), name -> isVariableIn(element, name),
+                (argument, set) -> typeIn(element, argument).map(type -> isOfType(type, set.getPrefix())).orElse(true));
         try {
-            return new Predicate(StateValues.toShorthand(p.getExpression(), context.getGhostStates(),
-                    name -> isVariableIn(element, name)));
+            return new Predicate(values.toShorthand(p.getExpression()));
         } catch (LJError e) {
             if (e.getPosition() == null)
                 e.setPosition(position);
@@ -409,6 +414,44 @@ public abstract class TypeChecker extends CtScanner {
         return executable != null && executable.getParameters().stream().anyMatch(p -> p.getSimpleName().equals(name));
     }
 
+    /** The type of a state's argument where {@code element} is: this, _, a parameter, a variable, or old of one */
+    private Optional<CtTypeReference<?>> typeIn(CtElement element, Expression argument) {
+        if (argument instanceof FunctionInvocation old && old.getName().equals(Keys.OLD) && old.getArgs().size() == 1)
+            return typeIn(element, old.getArgs().get(0));
+        if (!(argument instanceof Var var))
+            return Optional.empty();
+        String name = var.getName();
+        if (name.equals(Keys.THIS))
+            return Optional.ofNullable(getQualifiedClassName(element)).map(c -> factory.Type().createReference(c));
+        if (name.equals(Keys.WILDCARD))
+            return element instanceof CtTypedElement<?> typed ? Optional.ofNullable(typed.getType()) : Optional.empty();
+        CtExecutable<?> executable = element instanceof CtExecutable<?> e ? e : element.getParent(CtExecutable.class);
+        if (executable != null)
+            for (CtParameter<?> parameter : executable.getParameters())
+                if (parameter.getSimpleName().equals(name))
+                    return Optional.ofNullable(parameter.getType());
+        return context.hasVariable(name) ? Optional.ofNullable(context.getVariableByName(name).getType())
+                : Optional.empty();
+    }
+
+    /**
+     * Reads the states written as values of their sets in the body of {@code alias}, declared on class {@code klass} at
+     * {@code path}: only its parameters are variables, typed as they are declared
+     */
+    private StateValues aliasStateValues(AliasDTO alias, String klass, String path) {
+        return new StateValues(context.getGhostStates(), alias.getVarNames()::contains, (argument, set) -> {
+            int parameter = argument instanceof Var var ? alias.getVarNames().indexOf(var.getName()) : -1;
+            return parameter < 0
+                    || isOfType(AliasWrapper.parameterType(alias.getVarTypes().get(parameter), factory, klass, path),
+                            set.getPrefix());
+        });
+    }
+
+    /** Whether {@code type} is the class {@code className} or one of its subtypes */
+    private boolean isOfType(CtTypeReference<?> type, String className) {
+        return type.getQualifiedName().equals(className) || type.isSubtypeOf(factory.Type().createReference(className));
+    }
+
     protected void handleAlias(String ref, CtElement element, SourcePosition position) throws LJError {
         try {
             AliasDTO a = RefinementsParser.parseAliasDefinition(ref);
@@ -424,7 +467,7 @@ public abstract class TypeChecker extends CtScanner {
             if (klass != null && path != null) {
                 a.parse(path);
                 a.resolveStaticFinalConstants(element, position);
-                a.readStateValues(context.getGhostStates());
+                a.readStateValues(aliasStateValues(a, klass, path));
                 if (a.getExpression() != null && !a.getExpression().isBooleanExpression()) {
                     throw new InvalidRefinementError(position, "Refinement alias must return a boolean expression",
                             ref);

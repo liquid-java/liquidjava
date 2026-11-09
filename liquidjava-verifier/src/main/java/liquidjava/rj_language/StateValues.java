@@ -3,6 +3,7 @@ package liquidjava.rj_language;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -22,59 +23,75 @@ import liquidjava.rj_language.ast.Var;
  */
 public final class StateValues {
 
-    private StateValues() {
+    private final List<GhostState> states;
+    private final Predicate<String> isVariable;
+    private final BiPredicate<Expression, GhostFunction> appliesTo;
+
+    /**
+     * @param isVariable
+     *            whether a name is a variable where the spec is written; a variable keeps its meaning
+     * @param appliesTo
+     *            whether a state set can be applied to an argument, by the argument's type; true when it is not known
+     */
+    public StateValues(List<GhostState> states, Predicate<String> isVariable,
+            BiPredicate<Expression, GhostFunction> appliesTo) {
+        this.states = states;
+        this.isVariable = isVariable;
+        this.appliesTo = appliesTo;
     }
 
     /**
      * {@code expression} with each {@code set(e) == state} read as {@code state(e)} and each {@code set(e) != state} as
-     * {@code !state(e)}. A name {@code isVariable} accepts keeps its meaning as a variable
+     * {@code !state(e)}
      *
      * @throws CustomError
      *             when the name is not a variable and is a state of another set of the same class
      */
-    public static Expression toShorthand(Expression expression, List<GhostState> states, Predicate<String> isVariable)
-            throws LJError {
-        return rewrite(expression.clone(), states, isVariable);
+    public Expression toShorthand(Expression expression) throws LJError {
+        return rewrite(expression.clone());
     }
 
-    private static Expression rewrite(Expression e, List<GhostState> states, Predicate<String> isVariable)
-            throws LJError {
+    private Expression rewrite(Expression e) throws LJError {
         if (e instanceof BinaryExpression b && (b.getOperator().equals("==") || b.getOperator().equals("!="))) {
-            Optional<FunctionInvocation> state = stateOf(b.getFirstOperand(), b.getSecondOperand(), states, isVariable);
+            Optional<FunctionInvocation> state = stateOf(b.getFirstOperand(), b.getSecondOperand());
             if (state.isEmpty())
-                state = stateOf(b.getSecondOperand(), b.getFirstOperand(), states, isVariable);
+                state = stateOf(b.getSecondOperand(), b.getFirstOperand());
             if (state.isPresent())
                 return b.getOperator().equals("==") ? state.get() : new UnaryExpression("!", state.get());
         }
         for (int i = 0; i < e.getChildren().size(); i++)
-            e.setChild(i, rewrite(e.getChildren().get(i), states, isVariable));
+            e.setChild(i, rewrite(e.getChildren().get(i)));
         return e;
     }
 
     /**
-     * {@code state(e)} when {@code set} is a state set applied to {@code e} and {@code name} one of its states, named
-     * as the shorthand written in the same place, so that it is resolved the same way, in a subclass too
+     * {@code state(e)} when {@code set} is a state set applied to {@code e} and {@code name} a state of every set of
+     * that name that applies to {@code e}. It is named as the shorthand written in the same place, so that it is
+     * resolved the same way, in a subclass too. When only some of those sets have the state, nothing is read, and the
+     * name stays an unknown variable
      */
-    private static Optional<FunctionInvocation> stateOf(Expression set, Expression name, List<GhostState> states,
-            Predicate<String> isVariable) throws LJError {
+    private Optional<FunctionInvocation> stateOf(Expression set, Expression name) throws LJError {
         if (!(set instanceof FunctionInvocation invocation && invocation.getArgs().size() == 1
                 && name instanceof Var var && !isVariable.test(var.getName())))
             return Optional.empty();
+        Expression argument = invocation.getArgs().get(0);
         List<GhostFunction> sets = states.stream().map(GhostState::getParent).filter(Objects::nonNull).distinct()
-                .filter(s -> s.matches(invocation.getName())).toList();
-        if (sets.stream().anyMatch(s -> !statesOf(s, states, var.getName()).isEmpty()))
+                .filter(s -> s.matches(invocation.getName()) && appliesTo.test(argument, s)).toList();
+        long withState = sets.stream().filter(s -> !statesOf(s, var.getName()).isEmpty()).count();
+        if (withState > 0 && withState == sets.size())
             return Optional.of(new FunctionInvocation(qualifiedLike(invocation.getName(), var.getName()),
-                    List.of(invocation.getArgs().get(0).clone())));
-        for (GhostFunction s : sets)
-            if (isStateOfAnotherSet(var.getName(), s, states))
-                throw new CustomError(String.format("State '%s' is not a state of '%s' (its states are %s)",
-                        var.getName(), s.getName(),
-                        statesOf(s, states, null).stream().map(GhostState::getName).collect(Collectors.joining(", "))));
+                    List.of(argument.clone())));
+        if (withState == 0)
+            for (GhostFunction s : sets)
+                if (isStateOfAnotherSet(var.getName(), s))
+                    throw new CustomError(String.format("State '%s' is not a state of '%s' (its states are %s)",
+                            var.getName(), s.getName(),
+                            statesOf(s, null).stream().map(GhostState::getName).collect(Collectors.joining(", "))));
         return Optional.empty();
     }
 
     /** The states of {@code set}, or only those named {@code name} when it is not null */
-    private static List<GhostState> statesOf(GhostFunction set, List<GhostState> states, String name) {
+    private List<GhostState> statesOf(GhostFunction set, String name) {
         return states.stream().filter(s -> s.getParent() == set && (name == null || s.getName().equals(name))).toList();
     }
 
@@ -84,7 +101,7 @@ public final class StateValues {
         return dot < 0 ? state : setName.substring(0, dot + 1) + state;
     }
 
-    private static boolean isStateOfAnotherSet(String name, GhostFunction stateSet, List<GhostState> states) {
+    private boolean isStateOfAnotherSet(String name, GhostFunction stateSet) {
         return states.stream().anyMatch(s -> s.getName().equals(name) && s.getParent() != null
                 && s.getParent() != stateSet && s.getParent().getPrefix().equals(stateSet.getPrefix()));
     }

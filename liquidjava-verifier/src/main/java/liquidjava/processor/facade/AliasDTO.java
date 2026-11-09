@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.errors.LJError;
-import liquidjava.processor.context.GhostState;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.StateValues;
 import liquidjava.rj_language.ast.Expression;
@@ -52,11 +51,12 @@ public class AliasDTO {
         }
     }
 
-    // Read the states written as values of their sets, phase(x) == open, as the shorthand open(x); only the alias's
-    // parameters are variables, so a variable where the alias is used cannot take the place of a state
-    public void readStateValues(List<GhostState> states) throws LJError {
+    // Read the states written as values of their sets, phase(x) == open, as the shorthand open(x), with only the
+    // alias's
+    // parameters as variables, so a variable where the alias is used cannot take the place of a state
+    public void readStateValues(StateValues values) throws LJError {
         if (expression != null) {
-            this.expression = StateValues.toShorthand(expression, states, varNames::contains);
+            this.expression = values.toShorthand(expression);
         }
     }
 
