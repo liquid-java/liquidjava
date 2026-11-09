@@ -355,6 +355,13 @@ class TestStateHints {
     }
 
     @Test
+    void ghostNamedLikeAStateOfAnotherClassKeepsItsForm() {
+        StateRefinementError error = errors("ErrorStateValueGhostName.java", 1).get(0);
+        assertEquals("found ready(sensor) == false but expected ready(sensor)",
+                error.getMessage().replaceAll("[⁰¹²³⁴⁵⁶⁷⁸⁹]", ""));
+    }
+
+    @Test
     void classWithoutStateSetKeepsTheGeneralHint() {
         assertHints("ErrorUnconstrainedStateRefinement.java", Hint.general(
                 "No state information is known for this object. Make sure its state is initialized and available at this point."));

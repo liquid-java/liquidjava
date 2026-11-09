@@ -464,7 +464,8 @@ public class VCChecker {
         VCSimplificationResult shown = VCSimplification.simplifyOnce(simplified,
                 new VCRelevantFacts(expected.getExpression(), this::ghostFunctionsOf));
         throw new StateRefinementError(position, declarationPosition, expected, shown, map, customMessage, hints,
-                category, context, e -> StateValues.toSetForm(e, this.context.getGhostStates()));
+                category, context,
+                e -> StateValues.toSetForm(e, this.context.getGhostStates(), this.context.getGhosts()));
     }
 
     /** The ghost functions an invocation name stands for: a state's state set function, or the ghost itself */
