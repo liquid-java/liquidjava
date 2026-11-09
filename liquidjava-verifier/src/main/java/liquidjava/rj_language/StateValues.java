@@ -25,9 +25,6 @@ import liquidjava.utils.constants.Formats;
  */
 public final class StateValues {
 
-    /** A name {@link Formats#STATE_SET} generates */
-    private static final String GENERATED_SET_NAME = "state\\d+";
-
     private final List<GhostState> states;
     private final Predicate<String> isVariable;
     private final Function<Expression, Optional<Predicate<GhostFunction>>> setsFor;
@@ -126,7 +123,7 @@ public final class StateValues {
             return Optional.empty();
         List<String> setNames = states.stream().filter(s -> s.getParent() != null && s.matches(invocation.getName()))
                 .map(s -> s.getParent().getName()).distinct().toList();
-        if (setNames.size() != 1 || setNames.get(0).matches(GENERATED_SET_NAME))
+        if (setNames.size() != 1 || setNames.get(0).matches(Formats.STATE_SET_NAMES))
             return Optional.empty();
         FunctionInvocation set = new FunctionInvocation(qualifiedLike(invocation.getName(), setNames.get(0)),
                 List.of(invocation.getArgs().get(0).clone()));

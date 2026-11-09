@@ -263,6 +263,9 @@ public abstract class TypeChecker extends CtScanner {
         if (!name.matches("[a-z][a-zA-Z0-9_]*") || name.equals(Keys.OLD) || name.equals("true") || name.equals("false"))
             throw new CustomError(String.format(
                     "State set name '%s' must be an identifier that starts with a lowercase letter", name), position);
+        if (name.matches(Formats.STATE_SET_NAMES))
+            throw new CustomError(String.format("State set name '%s' is kept for state sets without a name", name),
+                    position);
         return name;
     }
 
