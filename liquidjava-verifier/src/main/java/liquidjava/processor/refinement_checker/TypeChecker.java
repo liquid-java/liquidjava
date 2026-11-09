@@ -213,7 +213,8 @@ public abstract class TypeChecker extends CtScanner {
                 SourcePosition namePosition = nameValue == null ? null : Utils.getAnnotationValuePosition(nameValue);
                 String name = stateSetName(nameValue, namePosition);
                 CtNewArray<String> states = (CtNewArray<String>) ann.getAllValues().get("value");
-                GhostFunction g = createStateSet(states, name != null ? name : String.format("state%d", set), element);
+                GhostFunction g = createStateSet(states, name != null ? name : String.format(Formats.STATE_SET, set),
+                        element);
                 stateSets.put(g, name != null ? namePosition : Utils.getAnnotationValuePosition(states));
                 checkStatesAreNotInAnotherSet(g, states, setOfState);
             }
@@ -262,6 +263,9 @@ public abstract class TypeChecker extends CtScanner {
         if (!name.matches("[a-z][a-zA-Z0-9_]*") || name.equals(Keys.OLD) || name.equals("true") || name.equals("false"))
             throw new CustomError(String.format(
                     "State set name '%s' must be an identifier that starts with a lowercase letter", name), position);
+        if (name.matches(Formats.STATE_SET_NAMES))
+            throw new CustomError(String.format("State set name '%s' is kept for state sets without a name", name),
+                    position);
         return name;
     }
 

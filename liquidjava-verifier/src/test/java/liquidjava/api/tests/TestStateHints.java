@@ -343,7 +343,7 @@ class TestStateHints {
     void foundKeepsANamedStateSetByItsName() {
         StateRefinementError error = errors("ErrorStateHintMultipleSets.java", 1).get(0);
         assertEquals(
-                "found closed(d@26) && locked(d) && doorState(d) == doorState(d@26) but expected closed(d) && unlocked(d)",
+                "found doorState(d@26) == closed && lockState(d) == locked && doorState(d) == doorState(d@26) but expected doorState(d) == closed && lockState(d) == unlocked",
                 error.getMessage().replaceAll("[⁰¹²³⁴⁵⁶⁷⁸⁹]", ""));
     }
 
@@ -352,6 +352,13 @@ class TestStateHints {
         assertHints("ErrorStateValueQuery.java",
                 new Hint(Kind.NEEDED_STATE, "The state of d is unknown here, and this call needs it to be unlocked"),
                 new Hint(Kind.GUARD, "Guard this call with if (d.isUnlocked()): when it returns true, d is unlocked"));
+    }
+
+    @Test
+    void ghostNamedLikeAStateOfAnotherClassKeepsItsForm() {
+        StateRefinementError error = errors("ErrorStateValueGhostName.java", 1).get(0);
+        assertEquals("found ready(sensor) == false but expected ready(sensor)",
+                error.getMessage().replaceAll("[⁰¹²³⁴⁵⁶⁷⁸⁹]", ""));
     }
 
     @Test

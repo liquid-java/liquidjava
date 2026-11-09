@@ -3,6 +3,7 @@ package liquidjava.diagnostics.errors;
 import static liquidjava.rj_language.opt.VCSimplificationUtils.isTrue;
 
 import java.util.List;
+import java.util.function.UnaryOperator;
 
 import liquidjava.diagnostics.TranslationTable;
 import liquidjava.diagnostics.categories.ErrorCategory;
@@ -26,15 +27,20 @@ public class StateRefinementError extends LJError {
     private final SourcePosition declarationPosition;
     private final StateErrorContext context;
 
+    /**
+     * @param display
+     *            rewrites expected and found as the error shows them, here and to the IDE, after the facts to show are
+     *            chosen on them as given
+     */
     public StateRefinementError(SourcePosition position, SourcePosition declarationPosition, Predicate expected,
             VCSimplificationResult found, TranslationTable translationTable, String customMessage, List<Hint> hints,
-            ErrorCategory category, StateErrorContext context) {
+            ErrorCategory category, StateErrorContext context, UnaryOperator<Expression> display) {
         super("State Refinement Error", ErrorMessage.of(expected.getExpression(), found, translationTable,
-                StateRefinementError::appliesGhost, "found %s but expected %s"), position, translationTable,
+                StateRefinementError::appliesGhost, "found %s but expected %s", display), position, translationTable,
                 customMessage);
         this.declarationPosition = declarationPosition;
-        this.expected = expected;
-        this.found = found;
+        this.expected = new Predicate(display.apply(expected.getExpression()));
+        this.found = found.map(display);
         this.context = context;
         hints.forEach(this::addHint);
         setCategory(category);

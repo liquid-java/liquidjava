@@ -5,6 +5,7 @@ import static liquidjava.rj_language.opt.VCSimplificationUtils.linkedToExpected;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
+import java.util.function.UnaryOperator;
 
 import liquidjava.diagnostics.TranslationTable;
 import liquidjava.processor.context.PlacementInCode;
@@ -18,10 +19,11 @@ record ErrorMessage(String text, DisplayNames names) {
 
     /**
      * Writes the facts of found about the values expected constrains and expected in frame, or only expected when
-     * showsFound rejects those facts; path conditions about other values stay in the derivation
+     * showsFound rejects those facts; path conditions about other values stay in the derivation. The facts are chosen
+     * on expected and found as given, and written as display rewrites them
      */
     static ErrorMessage of(Expression expected, VCSimplificationResult found, TranslationTable translationTable,
-            Predicate<Expression> showsFound, String frame) {
+            Predicate<Expression> showsFound, String frame, UnaryOperator<Expression> display) {
         Expression shown = linkedToExpected(found.getImplication().toPredicate().getExpression(), expected);
         // the names of the message first, then those only the original found has, each with the line of its value
         List<String> message = new ArrayList<>();
@@ -34,9 +36,9 @@ record ErrorMessage(String text, DisplayNames names) {
             PlacementInCode placement = translationTable == null ? null : translationTable.get(name);
             return placement == null ? null : placement.getLine();
         });
-        String expectedText = ExpressionFormatter.format(expected, names);
+        String expectedText = ExpressionFormatter.format(display.apply(expected), names);
         String text = showsFound.test(shown)
-                ? String.format(frame, ExpressionFormatter.format(shown, names), expectedText)
+                ? String.format(frame, ExpressionFormatter.format(display.apply(shown), names), expectedText)
                 : String.format("expected %s but could not prove it", expectedText);
         return new ErrorMessage(text, names);
     }

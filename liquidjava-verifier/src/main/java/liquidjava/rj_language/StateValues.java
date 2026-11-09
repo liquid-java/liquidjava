@@ -16,6 +16,8 @@ import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.FunctionInvocation;
 import liquidjava.rj_language.ast.UnaryExpression;
 import liquidjava.rj_language.ast.Var;
+import liquidjava.utils.Utils;
+import liquidjava.utils.constants.Formats;
 
 /**
  * Reads a state written as a value of its state set, {@code phase(e) == open}, as the state shorthand {@code open(e)},
@@ -89,6 +91,49 @@ public final class StateValues {
                             var.getName(), s.getName(),
                             statesOf(s, null).stream().map(GhostState::getName).collect(Collectors.joining(", "))));
         return Optional.empty();
+    }
+
+    /**
+     * {@code expression} with each state of a named set, {@code open(e)}, written as a value of its set,
+     * {@code phase(e) == open}, and {@code !open(e)} as {@code phase(e) != open}, for display. A state keeps the
+     * shorthand when its set has a generated name, such as {@code state1}, when sets with different names have a state
+     * of that name, or when a ghost that is not a state has that name: the name alone does not tell which it is
+     *
+     * @param ghosts
+     *            the ghosts that are not states, and the state set functions
+     */
+    public static Expression toSetForm(Expression expression, List<GhostState> states, List<GhostFunction> ghosts) {
+        return rewriteToSetForm(expression.clone(), states, ghosts);
+    }
+
+    private static Expression rewriteToSetForm(Expression e, List<GhostState> states, List<GhostFunction> ghosts) {
+        if (e instanceof UnaryExpression u && u.getOp().equals("!")) {
+            Optional<BinaryExpression> value = setValue(u.getExpression(), "!=", states, ghosts);
+            if (value.isPresent())
+                return value.get();
+        }
+        Optional<BinaryExpression> value = setValue(e, "==", states, ghosts);
+        if (value.isPresent())
+            return value.get();
+        for (int i = 0; i < e.getChildren().size(); i++)
+            e.setChild(i, rewriteToSetForm(e.getChildren().get(i), states, ghosts));
+        return e;
+    }
+
+    /** {@code set(e) op state} when {@code e} is the state {@code state(e)} of a set with one, given name */
+    private static Optional<BinaryExpression> setValue(Expression e, String op, List<GhostState> states,
+            List<GhostFunction> ghosts) {
+        if (!(e instanceof FunctionInvocation invocation && invocation.getArgs().size() == 1)
+                || ghosts.stream().anyMatch(g -> g.matches(invocation.getName()))
+                || states.stream().anyMatch(s -> s.getParent() == null && s.matches(invocation.getName())))
+            return Optional.empty();
+        List<String> setNames = states.stream().filter(s -> s.getParent() != null && s.matches(invocation.getName()))
+                .map(s -> s.getParent().getName()).distinct().toList();
+        if (setNames.size() != 1 || setNames.get(0).matches(Formats.STATE_SET_NAMES))
+            return Optional.empty();
+        FunctionInvocation set = new FunctionInvocation(qualifiedLike(invocation.getName(), setNames.get(0)),
+                List.of(invocation.getArgs().get(0).clone()));
+        return Optional.of(new BinaryExpression(set, op, new Var(Utils.getSimpleName(invocation.getName()))));
     }
 
     /** The states of {@code set}, or only those named {@code name} when it is not null */

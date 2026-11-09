@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.AliasExpansion;
@@ -51,8 +52,10 @@ public class RefinementError extends LJError {
     public RefinementError(SourcePosition position, SourcePosition declarationPosition, Predicate expected,
             VCSimplificationResult found, TranslationTable translationTable, Counterexample counterexample,
             String customMessage, List<AliasWrapper> aliases) {
-        super("Refinement Error", ErrorMessage.of(expected.getExpression(), found, translationTable,
-                shown -> !isTrue(shown), "%s is not a subtype of %s"), position, translationTable, customMessage);
+        super("Refinement Error",
+                ErrorMessage.of(expected.getExpression(), found, translationTable, shown -> !isTrue(shown),
+                        "%s is not a subtype of %s", UnaryOperator.identity()),
+                position, translationTable, customMessage);
         this.expected = expected;
         this.found = found;
         Expression foundExpression = found.getImplication().toPredicate().getExpression();
