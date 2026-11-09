@@ -36,7 +36,7 @@ public class GhostsFirstChecker extends TypeChecker {
 
     private void register(CtType<?> type) {
         try {
-            handleStateSetsFromAnnotation(type);
+            registerGhostsAndStateSets(type);
         } catch (LJError e) {
             diagnostics.add(e);
         }

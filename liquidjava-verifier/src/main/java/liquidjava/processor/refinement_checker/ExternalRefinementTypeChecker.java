@@ -74,7 +74,7 @@ public class ExternalRefinementTypeChecker extends TypeChecker {
             return;
         this.prefix = target.get().getValue();
         try {
-            handleStateSetsFromAnnotation(intrface);
+            registerGhostsAndStateSets(intrface);
         } catch (LJError e) {
             diagnostics.add(e);
         }

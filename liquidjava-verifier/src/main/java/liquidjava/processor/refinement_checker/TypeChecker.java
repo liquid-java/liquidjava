@@ -195,7 +195,7 @@ public abstract class TypeChecker extends CtScanner {
 
     /** Registers the ghosts and state sets a type declares, then checks the names given to its state sets */
     @SuppressWarnings("unchecked")
-    public void handleStateSetsFromAnnotation(CtElement element) throws LJError {
+    public void registerGhostsAndStateSets(CtElement element) throws LJError {
         int set = 0;
         Map<GhostFunction, SourcePosition> namedSets = new LinkedHashMap<>();
         for (CtAnnotation<? extends Annotation> ann : element.getAnnotations()) {
