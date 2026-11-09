@@ -116,11 +116,6 @@ public abstract class TypeChecker extends CtScanner {
                 String value = getStringFromAnnotation(ann.getValue("value"));
                 ref = Optional.of(value);
 
-            } else if (an.contentEquals("liquidjava.specification.RefinementPredicate")) {
-                CtExpression<String> rawValue = ann.getValue("value");
-                String value = getStringFromAnnotation(rawValue);
-                getGhostFunction(value, element, Utils.getAnnotationValuePosition(rawValue));
-
             } else if (an.contentEquals("liquidjava.specification.RefinementAlias")) {
                 CtExpression<String> rawValue = ann.getValue("value");
                 String value = getStringFromAnnotation(rawValue);
@@ -198,6 +193,7 @@ public abstract class TypeChecker extends CtScanner {
         return Optional.empty();
     }
 
+    /** Registers the ghosts and state sets a type declares, then checks the names given to its state sets */
     @SuppressWarnings("unchecked")
     public void handleStateSetsFromAnnotation(CtElement element) throws LJError {
         int set = 0;
@@ -217,6 +213,11 @@ public abstract class TypeChecker extends CtScanner {
             if (an.contentEquals("liquidjava.specification.Ghost")) {
                 CtLiteral<String> s = (CtLiteral<String>) ann.getAllValues().get("value");
                 createStateGhost(s.getValue(), element, Utils.getAnnotationValuePosition(s));
+            }
+            if (an.contentEquals("liquidjava.specification.RefinementPredicate")) {
+                CtExpression<String> rawValue = ann.getValue("value");
+                getGhostFunction(getStringFromAnnotation(rawValue), element,
+                        Utils.getAnnotationValuePosition(rawValue));
             }
         }
         // checked once every set and ghost of the class exists, so the order of the annotations does not matter

@@ -5,6 +5,7 @@ import liquidjava.diagnostics.errors.LJError;
 import liquidjava.processor.ann_generation.FieldGhostsGeneration;
 import liquidjava.processor.context.Context;
 import liquidjava.processor.refinement_checker.ExternalRefinementTypeChecker;
+import liquidjava.processor.refinement_checker.GhostsFirstChecker;
 import liquidjava.processor.refinement_checker.MethodsFirstChecker;
 import liquidjava.processor.refinement_checker.RefinementTypeChecker;
 import spoon.processing.AbstractProcessor;
@@ -32,7 +33,18 @@ public class RefinementProcessor extends AbstractProcessor<CtPackage> {
     public void process(CtPackage pkg) {
         Context c = Context.getInstance();
         c.reinitializeAllContext();
+        registerGhosts(pkg, c);
         processPackage(pkg, c);
+    }
+
+    /**
+     * Registers the ghosts and state sets of every type of the package and its sub-packages, before any spec is read,
+     * the ghosts of fields included
+     */
+    private void registerGhosts(CtPackage pkg, Context c) {
+        pkg.getTypes().forEach(type -> type.accept(new FieldGhostsGeneration(c, factory)));
+        pkg.getTypes().forEach(type -> type.accept(new GhostsFirstChecker(c, factory)));
+        pkg.getPackages().forEach(subPkg -> registerGhosts(subPkg, c));
     }
 
     private void processPackage(CtPackage pkg, Context c) {
@@ -42,7 +54,6 @@ public class RefinementProcessor extends AbstractProcessor<CtPackage> {
             // the
             // specified super constructor it calls; an override is checked against its supertype's spec), whatever the
             // order of the types in the package.
-            pkg.getTypes().forEach(type -> type.accept(new FieldGhostsGeneration(c, factory)));
             pkg.getTypes().forEach(type -> type.accept(new ExternalRefinementTypeChecker(c, factory)));
             pkg.getTypes().forEach(type -> type.accept(new MethodsFirstChecker(c, factory)));
 

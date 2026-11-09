@@ -1,6 +1,7 @@
 package testSuite;
 
 import liquidjava.specification.Ghost;
+import liquidjava.specification.RefinementPredicate;
 import liquidjava.specification.StateSet;
 
 // A state set name must be a lowercase identifier that no state, ghost or other state set of the class uses
@@ -18,3 +19,7 @@ class ErrorStateSetNameOfAGhost {}
 @StateSet(name = "door", value = {"closed", "opened"}) // Expect: Error
 @StateSet(name = "door", value = {"unlocked", "locked"})
 class ErrorStateSetNameOfAnotherSet {}
+
+@StateSet(name = "size", value = {"empty", "full"}) // Expect: Error
+@RefinementPredicate("int size(ErrorStateSetNameOfARefinementPredicate b)")
+class ErrorStateSetNameOfARefinementPredicate {}

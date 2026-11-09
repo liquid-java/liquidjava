@@ -58,7 +58,6 @@ public class MethodsFirstChecker extends TypeChecker {
             // errors here should not prevent visiting methods, constructors or fields of the class
             try {
                 getRefinementFromAnnotation(ctClass);
-                handleStateSetsFromAnnotation(ctClass);
             } catch (LJError e) {
                 diagnostics.add(e);
             }
@@ -87,7 +86,6 @@ public class MethodsFirstChecker extends TypeChecker {
         // errors here should not prevent visiting the interface's methods
         try {
             getRefinementFromAnnotation(intrface);
-            handleStateSetsFromAnnotation(intrface);
         } catch (LJError e) {
             diagnostics.add(e);
         }

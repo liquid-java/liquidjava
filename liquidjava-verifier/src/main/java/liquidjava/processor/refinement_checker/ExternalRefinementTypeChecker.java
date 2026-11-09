@@ -54,20 +54,37 @@ public class ExternalRefinementTypeChecker extends TypeChecker {
 
     @Override
     public <T> void visitCtInterface(CtInterface<T> intrface) {
-        Optional<CtAnnotation<?>> externalRef = getExternalRefinement(intrface);
-        if (externalRef.isPresent()) {
-            @SuppressWarnings("unchecked")
-            CtLiteral<String> literal = (CtLiteral<String>) externalRef.get().getAllValues().get("value");
-            this.prefix = literal.getValue();
+        Optional<CtLiteral<String>> target = targetOf(intrface);
+        if (target.isPresent()) {
+            this.prefix = target.get().getValue();
             if (!classExists(prefix)) {
                 String message = String.format("Could not find class '%s'", prefix);
-                diagnostics.add(new ExternalClassNotFoundWarning(literal.getPosition(), message, prefix));
+                diagnostics.add(new ExternalClassNotFoundWarning(target.get().getPosition(), message, prefix));
                 return;
             }
             getRefinementFromAnnotation(intrface);
-            handleStateSetsFromAnnotation(intrface);
             super.visitCtInterface(intrface);
         }
+    }
+
+    /** Registers the ghosts and state sets of an external spec under the class it refines, when that class exists */
+    public void registerGhosts(CtInterface<?> intrface) {
+        Optional<CtLiteral<String>> target = targetOf(intrface);
+        if (target.isEmpty() || !classExists(target.get().getValue()))
+            return;
+        this.prefix = target.get().getValue();
+        try {
+            handleStateSetsFromAnnotation(intrface);
+        } catch (LJError e) {
+            diagnostics.add(e);
+        }
+    }
+
+    /** The name of the class an external spec refines, as written in its annotation */
+    @SuppressWarnings("unchecked")
+    private Optional<CtLiteral<String>> targetOf(CtInterface<?> intrface) {
+        return getExternalRefinement(intrface)
+                .map(annotation -> (CtLiteral<String>) annotation.getAllValues().get("value"));
     }
 
     @Override
