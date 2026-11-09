@@ -56,7 +56,7 @@ public class AuxStateHandler {
                     throw new IllegalConstructorTransitionError(Utils.getAnnotationValuePosition(from));
                 }
             }
-            setConstructorStates(f, an, c);
+            setConstructorStates(f, an, c, tc);
         } else if (!inheritSuperConstructorState(c, f, tc)) {
             setDefaultState(f, tc);
         }
@@ -283,7 +283,7 @@ public class AuxStateHandler {
      */
     @SuppressWarnings({ "rawtypes" })
     private static void setConstructorStates(RefinedFunction f, List<CtAnnotation<? extends Annotation>> anns,
-            CtElement element) throws LJError {
+            CtElement element, TypeChecker tc) throws LJError {
         List<ObjectState> l = new ArrayList<>();
         for (CtAnnotation<? extends Annotation> an : anns) {
             Map<String, CtExpression> m = an.getAllValues();
@@ -294,7 +294,8 @@ public class AuxStateHandler {
                 state.setMessage(msg);
 
             if (to != null) {
-                Predicate p = new Predicate(to, element);
+                Predicate p = tc.readStateValues(new Predicate(to, element), element,
+                        Utils.getLJAnnotationPosition(element, to));
                 if (!p.getExpression().isBooleanExpression()) {
                     throw new InvalidRefinementError(Utils.getLJAnnotationPosition(element, to),
                             "State refinement transition must be a boolean expression", to);
@@ -442,6 +443,7 @@ public class AuxStateHandler {
     private static Predicate createStatePredicate(Predicate p, String value, String targetClass, TypeChecker tc,
             CtElement e, boolean isTo) throws LJError {
         SourcePosition position = Utils.getLJAnnotationPosition(e, value);
+        p = tc.readStateValues(p, e, position);
         if (!p.getExpression().isBooleanExpression()) {
             throw new InvalidRefinementError(position, "State refinement transition must be a boolean expression",
                     value);

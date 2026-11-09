@@ -348,6 +348,13 @@ class TestStateHints {
     }
 
     @Test
+    void queryWrittenWithItsStateSetIsOfferedAsAGuard() {
+        assertHints("ErrorStateValueQuery.java",
+                new Hint(Kind.NEEDED_STATE, "The state of d is unknown here, and this call needs it to be unlocked"),
+                new Hint(Kind.GUARD, "Guard this call with if (d.isUnlocked()): when it returns true, d is unlocked"));
+    }
+
+    @Test
     void classWithoutStateSetKeepsTheGeneralHint() {
         assertHints("ErrorUnconstrainedStateRefinement.java", Hint.general(
                 "No state information is known for this object. Make sure its state is initialized and available at this point."));

@@ -4,7 +4,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.errors.LJError;
+import liquidjava.processor.context.GhostState;
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.StateValues;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.parsing.RefinementsParser;
 import spoon.reflect.cu.SourcePosition;
@@ -47,6 +49,14 @@ public class AliasDTO {
     public void resolveStaticFinalConstants(CtElement context, SourcePosition position) throws LJError {
         if (expression != null) {
             this.expression = Predicate.resolveStaticFinalConstants(expression, context, position);
+        }
+    }
+
+    // Read the states written as values of their sets, phase(x) == open, as the shorthand open(x); only the alias's
+    // parameters are variables, so a variable where the alias is used cannot take the place of a state
+    public void readStateValues(List<GhostState> states) throws LJError {
+        if (expression != null) {
+            this.expression = StateValues.toShorthand(expression, states, varNames::contains);
         }
     }
 
