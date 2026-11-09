@@ -91,3 +91,14 @@ class CorrectStateValueSubclass extends CorrectStateValues {
         s.shut();
     }
 }
+
+// a subclass that declares its own set named door uses its states, as the shorthand does
+@StateSet(name = "door", value = {"open", "closed"})
+class CorrectStateValueBase {}
+
+@StateSet(name = "door", value = {"ajar", "shut"})
+class CorrectStateValueChild extends CorrectStateValueBase {
+
+    @StateRefinement(from = "door(this) == shut", to = "door(this) == ajar")
+    public void push() {}
+}

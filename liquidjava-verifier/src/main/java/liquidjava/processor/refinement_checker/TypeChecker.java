@@ -394,7 +394,7 @@ public abstract class TypeChecker extends CtScanner {
      */
     public Predicate readStateValues(Predicate p, CtElement element, SourcePosition position) throws LJError {
         StateValues values = new StateValues(context.getGhostStates(), name -> isVariableIn(element, name),
-                (argument, set) -> typeIn(element, argument).map(type -> isOfType(type, set.getPrefix())).orElse(true));
+                argument -> typeIn(element, argument).map(type -> set -> isOfType(type, set.getPrefix())));
         try {
             return new Predicate(values.toShorthand(p.getExpression()));
         } catch (LJError e) {
@@ -439,11 +439,13 @@ public abstract class TypeChecker extends CtScanner {
      * {@code path}: only its parameters are variables, typed as they are declared
      */
     private StateValues aliasStateValues(AliasDTO alias, String klass, String path) {
-        return new StateValues(context.getGhostStates(), alias.getVarNames()::contains, (argument, set) -> {
+        return new StateValues(context.getGhostStates(), alias.getVarNames()::contains, argument -> {
             int parameter = argument instanceof Var var ? alias.getVarNames().indexOf(var.getName()) : -1;
-            return parameter < 0
-                    || isOfType(AliasWrapper.parameterType(alias.getVarTypes().get(parameter), factory, klass, path),
-                            set.getPrefix());
+            if (parameter < 0)
+                return Optional.empty();
+            CtTypeReference<?> type = AliasWrapper.parameterType(alias.getVarTypes().get(parameter), factory, klass,
+                    path);
+            return Optional.of(set -> isOfType(type, set.getPrefix()));
         });
     }
 

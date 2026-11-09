@@ -3,7 +3,7 @@ package liquidjava.rj_language;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.BiPredicate;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -25,19 +25,19 @@ public final class StateValues {
 
     private final List<GhostState> states;
     private final Predicate<String> isVariable;
-    private final BiPredicate<Expression, GhostFunction> appliesTo;
+    private final Function<Expression, Optional<Predicate<GhostFunction>>> setsFor;
 
     /**
      * @param isVariable
      *            whether a name is a variable where the spec is written; a variable keeps its meaning
-     * @param appliesTo
-     *            whether a state set can be applied to an argument, by the argument's type; true when it is not known
+     * @param setsFor
+     *            the state sets that can be applied to an argument, by its type, or empty when its type is not known
      */
     public StateValues(List<GhostState> states, Predicate<String> isVariable,
-            BiPredicate<Expression, GhostFunction> appliesTo) {
+            Function<Expression, Optional<Predicate<GhostFunction>>> setsFor) {
         this.states = states;
         this.isVariable = isVariable;
-        this.appliesTo = appliesTo;
+        this.setsFor = setsFor;
     }
 
     /**
@@ -65,20 +65,21 @@ public final class StateValues {
     }
 
     /**
-     * {@code state(e)} when {@code set} is a state set applied to {@code e} and {@code name} a state of every set of
-     * that name that applies to {@code e}. It is named as the shorthand written in the same place, so that it is
-     * resolved the same way, in a subclass too. When only some of those sets have the state, nothing is read, and the
-     * name stays an unknown variable
+     * {@code state(e)} when {@code set} is a state set applied to {@code e} and {@code name} a state of a set of that
+     * name that applies to the type of {@code e}, or, when that type is not known, of every set of that name. It is
+     * named as the shorthand written in the same place, so that it is resolved the same way, in a subclass too.
+     * Otherwise nothing is read, and the name stays an unknown variable
      */
     private Optional<FunctionInvocation> stateOf(Expression set, Expression name) throws LJError {
         if (!(set instanceof FunctionInvocation invocation && invocation.getArgs().size() == 1
                 && name instanceof Var var && !isVariable.test(var.getName())))
             return Optional.empty();
         Expression argument = invocation.getArgs().get(0);
+        Optional<Predicate<GhostFunction>> ofType = setsFor.apply(argument);
         List<GhostFunction> sets = states.stream().map(GhostState::getParent).filter(Objects::nonNull).distinct()
-                .filter(s -> s.matches(invocation.getName()) && appliesTo.test(argument, s)).toList();
+                .filter(s -> s.matches(invocation.getName()) && ofType.map(p -> p.test(s)).orElse(true)).toList();
         long withState = sets.stream().filter(s -> !statesOf(s, var.getName()).isEmpty()).count();
-        if (withState > 0 && withState == sets.size())
+        if (withState > 0 && (ofType.isPresent() || withState == sets.size()))
             return Optional.of(new FunctionInvocation(qualifiedLike(invocation.getName(), var.getName()),
                     List.of(argument.clone())));
         if (withState == 0)
