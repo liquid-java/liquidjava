@@ -17,6 +17,7 @@ import liquidjava.diagnostics.hints.Hint;
 import liquidjava.processor.VCImplication;
 import liquidjava.processor.context.*;
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.StateValues;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.Ite;
 import liquidjava.rj_language.ast.Var;
@@ -463,7 +464,7 @@ public class VCChecker {
         VCSimplificationResult shown = VCSimplification.simplifyOnce(simplified,
                 new VCRelevantFacts(expected.getExpression(), this::ghostFunctionsOf));
         throw new StateRefinementError(position, declarationPosition, expected, shown, map, customMessage, hints,
-                category, context);
+                category, context, e -> StateValues.toSetForm(e, this.context.getGhostStates()));
     }
 
     /** The ghost functions an invocation name stands for: a state's state set function, or the ghost itself */

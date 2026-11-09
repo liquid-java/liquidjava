@@ -343,7 +343,7 @@ class TestStateHints {
     void foundKeepsANamedStateSetByItsName() {
         StateRefinementError error = errors("ErrorStateHintMultipleSets.java", 1).get(0);
         assertEquals(
-                "found closed(d@26) && locked(d) && doorState(d) == doorState(d@26) but expected closed(d) && unlocked(d)",
+                "found doorState(d@26) == closed && lockState(d) == locked && doorState(d) == doorState(d@26) but expected doorState(d) == closed && lockState(d) == unlocked",
                 error.getMessage().replaceAll("[⁰¹²³⁴⁵⁶⁷⁸⁹]", ""));
     }
 

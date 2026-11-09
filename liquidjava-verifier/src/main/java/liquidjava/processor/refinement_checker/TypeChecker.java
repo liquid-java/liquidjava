@@ -213,7 +213,8 @@ public abstract class TypeChecker extends CtScanner {
                 SourcePosition namePosition = nameValue == null ? null : Utils.getAnnotationValuePosition(nameValue);
                 String name = stateSetName(nameValue, namePosition);
                 CtNewArray<String> states = (CtNewArray<String>) ann.getAllValues().get("value");
-                GhostFunction g = createStateSet(states, name != null ? name : String.format("state%d", set), element);
+                GhostFunction g = createStateSet(states, name != null ? name : String.format(Formats.STATE_SET, set),
+                        element);
                 stateSets.put(g, name != null ? namePosition : Utils.getAnnotationValuePosition(states));
                 checkStatesAreNotInAnotherSet(g, states, setOfState);
             }

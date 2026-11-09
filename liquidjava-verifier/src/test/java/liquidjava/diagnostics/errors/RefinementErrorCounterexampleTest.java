@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.UnaryOperator;
 
 import org.junit.jupiter.api.Test;
 
@@ -143,7 +144,7 @@ class RefinementErrorCounterexampleTest {
                 new Predicate(RefinementsParser.createAST("full(box)", "")),
                 new VCSimplificationResult(
                         vc("∀b1:Object. empty(b1)", "∀x:int. x > 0", "∀box:Object. box == b1", "true")),
-                new TranslationTable(), null, List.of(), null, null);
+                new TranslationTable(), null, List.of(), null, null, UnaryOperator.identity());
         assertEquals("found empty(b1) && box == b1 but expected full(box)", error.getMessage());
     }
 

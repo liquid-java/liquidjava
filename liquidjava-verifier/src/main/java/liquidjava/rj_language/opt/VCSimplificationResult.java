@@ -2,8 +2,11 @@ package liquidjava.rj_language.opt;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.UnaryOperator;
 
 import liquidjava.processor.VCImplication;
+import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.ast.Expression;
 
 /**
  * Result of simplifying VC implication chain
@@ -63,6 +66,15 @@ public final class VCSimplificationResult {
             if (current.hasBinder())
                 binderNames.add(current.getName());
         return binderNames;
+    }
+
+    /** This result with each refinement of its chain, and of the chains it was simplified from, rewritten by f */
+    public VCSimplificationResult map(UnaryOperator<Expression> f) {
+        VCImplication chain = implication.clone();
+        for (VCImplication row = chain; row != null; row = row.getNext())
+            if (row.getRefinement() != null)
+                row.setRefinement(new Predicate(f.apply(row.getRefinement().getExpression())));
+        return new VCSimplificationResult(chain, origin == null ? null : origin.map(f), simplification);
     }
 
     @Override
