@@ -21,3 +21,18 @@ class ErrorStateValuesGeneratedSetName {}
 // an unrelated set named door that has a state locked does not make locked a state of the door above
 @StateSet(name = "door", value = {"locked", "free"})
 class ErrorStateValuesOtherDoor {}
+
+// the set applied as a method of this, or with this left out, constrains the same state
+@StateSet(name = "door", value = {"shut", "ajar"})
+class ErrorStateValueForms {
+
+    @StateRefinement(to = "door() == shut")
+    public ErrorStateValueForms() {}
+
+    @StateRefinement(from = "this.door() == ajar")
+    public void close() {}
+
+    static void test() {
+        new ErrorStateValueForms().close(); // Expect: State Refinement Error
+    }
+}

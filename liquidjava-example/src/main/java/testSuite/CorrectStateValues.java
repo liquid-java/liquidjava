@@ -21,7 +21,8 @@ public class CorrectStateValues {
     @StateRefinement(from = "door(this) == closed && lock(this) != locked", to = "door(this) == opened")
     public void open() {}
 
-    @StateRefinement(from = "door(this) == opened", to = "door(this) == closed")
+    // the set can also be applied as a method of this, or with this left out
+    @StateRefinement(from = "this.door() == opened", to = "door() == closed")
     public void close() {}
 
     // when it fails, the lock set keeps its value
@@ -30,7 +31,7 @@ public class CorrectStateValues {
         return true;
     }
 
-    @StateRefinement(from = "lock(this) == locked", to = "lock(this) == unlocked")
+    @StateRefinement(from = "locked == this.lock()", to = "lock() != locked")
     public void unlock() {}
 
     // the parameter closed keeps its meaning: the door takes its value
