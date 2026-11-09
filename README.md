@@ -37,21 +37,21 @@ LiquidJava also supports object state modeling via typestates, which allows enfo
 
 ```java
 @ExternalRefinementsFor("java.net.Socket")
-@StateSet({"unconnected", "bound", "connected", "closed"})
+@StateSet(name="connection", value={"unconnected", "bound", "connected", "closed"})
 public interface SocketRefinements {
-    @StateRefinement(to="unconnected(this)")
+    @StateRefinement(to="connection(this) == unconnected")
     public void Socket();
 
-    @StateRefinement(from="unconnected(this)", to="bound(this)")
+    @StateRefinement(from="connection(this) == unconnected", to="connection(this) == bound")
     public void bind(SocketAddress add);
 
-    @StateRefinement(from="bound(this)", to="connected(this)")
+    @StateRefinement(from="connection(this) == bound", to="connection(this) == connected")
     public void connect(SocketAddress add);
 
-    @StateRefinement(from="connected(this)")
+    @StateRefinement(from="connection(this) == connected")
     public void sendUrgentData(int n);
 
-    @StateRefinement(from="!closed(this)", to="closed(this)")
+    @StateRefinement(from="connection(this) != closed", to="connection(this) == closed")
     public void close();
 }
 
@@ -59,6 +59,12 @@ Socket socket = new Socket();
 socket.bind(new InetSocketAddress("localhost", 8080));
 socket.sendUrgentData(1); // State Refinement Error
 socket.close();
+```
+
+A state set can be given a `name`, and a state is then written as a value of its set, `connection(this) == bound`. The shorter form `bound(this)` means the same and is also accepted. A class can have several state sets; a method's `to` keeps unchanged the sets it does not mention. Error messages show the states of named sets in the first form, so they say which set is in which state:
+
+```
+State Refinement Error: found connection(socket) == bound but expected connection(socket) == connected
 ```
 
 Lambda bodies are checked separately from the code that creates them. Creating a lambda does not apply its state
