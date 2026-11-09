@@ -398,7 +398,7 @@ public abstract class TypeChecker extends CtScanner {
      */
     public Predicate readStateValues(Predicate p, CtElement element, SourcePosition position) throws LJError {
         StateValues values = new StateValues(context.getGhostStates(), name -> isVariableIn(element, name),
-                argument -> typeIn(element, argument).map(type -> set -> isOfType(type, set.getPrefix())));
+                argument -> typeIn(element, argument).map(type -> set -> isRelatedTo(type, set.getPrefix())));
         try {
             return new Predicate(values.toShorthand(p.getExpression()));
         } catch (LJError e) {
@@ -449,13 +449,17 @@ public abstract class TypeChecker extends CtScanner {
                 return Optional.empty();
             CtTypeReference<?> type = AliasWrapper.parameterType(alias.getVarTypes().get(parameter), factory, klass,
                     path);
-            return Optional.of(set -> isOfType(type, set.getPrefix()));
+            return Optional.of(set -> isRelatedTo(type, set.getPrefix()));
         });
     }
 
-    /** Whether {@code type} is the class {@code className} or one of its subtypes */
-    private boolean isOfType(CtTypeReference<?> type, String className) {
-        return type.getQualifiedName().equals(className) || type.isSubtypeOf(factory.Type().createReference(className));
+    /**
+     * Whether a value of {@code type} can be of the class {@code className}: it is that class, one of its subtypes or
+     * one of its supertypes
+     */
+    private boolean isRelatedTo(CtTypeReference<?> type, String className) {
+        CtTypeReference<?> klass = factory.Type().createReference(className);
+        return type.getQualifiedName().equals(className) || type.isSubtypeOf(klass) || klass.isSubtypeOf(type);
     }
 
     protected void handleAlias(String ref, CtElement element, SourcePosition position) throws LJError {
