@@ -626,9 +626,14 @@ public abstract class TypeChecker extends CtScanner {
                 category, context, declarationNotes, counterexample(found, expected, position));
     }
 
-    /** A model of what is known where {@code expected} fails, or null if the solver gives none */
+    /**
+     * A model of what is known where {@code expected} fails, or null if the solver gives none or {@code expected} fails
+     * whatever the values: then no value tells why it fails
+     */
     private Counterexample counterexample(Predicate found, Predicate expected, SourcePosition position) {
         try {
+            if (verifyStateSMT(found, expected.negate(), position, true).isOk())
+                return null;
             SMTResult result = verifyStateSMT(found, expected, position, true);
             return result.isError() ? result.getCounterexample() : null;
         } catch (RuntimeException e) {
