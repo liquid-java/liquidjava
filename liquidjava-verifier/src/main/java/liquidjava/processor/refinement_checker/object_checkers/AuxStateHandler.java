@@ -433,9 +433,9 @@ public class AuxStateHandler {
         return state;
     }
 
-    // Where this annotation writes the value, as another annotation of the element may write the same text
+    // Where this annotation writes a literal value, since another annotation of the element may write the same text
     private static SourcePosition valuePosition(CtExpression<?> value, CtElement element, String written) {
-        SourcePosition position = Utils.getAnnotationValuePosition(value);
+        SourcePosition position = value instanceof CtLiteral<?> ? Utils.getAnnotationValuePosition(value) : null;
         return position != null ? position : Utils.getLJAnnotationPosition(element, written);
     }
 
