@@ -27,7 +27,6 @@ import liquidjava.rj_language.ast.Var;
 import liquidjava.rj_language.ast.formatter.ExpressionFormatter;
 import spoon.reflect.cu.SourcePosition;
 
-import static liquidjava.rj_language.opt.VCSimplificationUtils.containsExpression;
 import static liquidjava.rj_language.opt.VCSimplificationUtils.factsOf;
 import static liquidjava.rj_language.opt.VCSimplificationUtils.isTrue;
 
@@ -102,17 +101,24 @@ final class OriginNotes {
         List<Expression> known = factsOf(error.getFound().getOriginal().getImplication().toPredicate().getExpression());
         Expression kept = new LiteralBoolean(true);
         for (Expression fact : facts) {
+            // the ghost on any arguments: an alias of its receiver may be constrained under another name
             boolean definesGhost = ghostDefined(fact).filter(ghost -> isGhost(ghost.getName(), context))
                     .filter(ghost -> facts.stream()
-                            .noneMatch(other -> other != fact && containsExpression(other, ghost)))
-                    .filter(ghost -> !containsExpression(error.getExpected().getExpression(), ghost))
+                            .noneMatch(other -> other != fact && applies(other, ghost.getName())))
+                    .filter(ghost -> !applies(error.getExpected().getExpression(), ghost.getName()))
                     .filter(ghost -> known.stream().noneMatch(
-                            other -> containsExpression(other, ghost) && !definesGhostAs(other, ghost, variable)))
+                            other -> applies(other, ghost.getName()) && !definesGhostAs(other, ghost, variable)))
                     .isPresent();
             if (!definesGhost)
                 kept = isTrue(kept) ? fact : new BinaryExpression(kept, "&&", fact);
         }
         return kept;
+    }
+
+    /** Whether {@code expression} applies the function {@code name}, to any arguments */
+    private static boolean applies(Expression expression, String name) {
+        return expression instanceof FunctionInvocation invocation && invocation.getName().equals(name)
+                || expression.getChildren().stream().anyMatch(child -> applies(child, name));
     }
 
     /** Whether {@code name} is a declared ghost, unlike a built-in such as {@code length}, which may be interpreted */
