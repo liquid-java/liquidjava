@@ -294,9 +294,10 @@ public abstract class TypeChecker extends CtScanner {
      */
     private void warnIfStateSetNameIsAMethod(GhostFunction set, SourcePosition position) {
         String name = set.getName();
+        if (name.matches(Formats.STATE_SET_NAMES))
+            return; // a set without a name, whose name the user did not choose
         CtType<?> type = factory.Type().createReference(set.getPrefix()).getTypeDeclaration();
-        if (name.matches(Formats.STATE_SET_NAMES) || type == null
-                || type.getAllMethods().stream().noneMatch(m -> m.getSimpleName().equals(name)))
+        if (type == null || type.getAllMethods().stream().noneMatch(m -> m.getSimpleName().equals(name)))
             return;
         String state = context.getGhostState(set.getParentClassName()).stream().filter(gs -> gs.getParent() == set)
                 .map(GhostState::getName).findFirst().orElse("...");
