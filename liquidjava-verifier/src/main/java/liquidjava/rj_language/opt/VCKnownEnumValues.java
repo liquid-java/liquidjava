@@ -26,9 +26,9 @@ import spoon.reflect.declaration.CtEnumValue;
 public class VCKnownEnumValues implements VCSimplificationPass {
 
     /**
-     * A fact {@code variable == constant}, or {@code variable != constant} when not {@code equal}
+     * A comparison {@code variable == constant}, or {@code variable != constant} when not {@code equal}
      */
-    private record KnownValue(Expression fact, String variable, String constant, boolean equal) {
+    private record EnumComparison(Expression expression, String variable, String constant, boolean equal) {
     }
 
     /** The enum type of each enum constant, by the name the solver translates the constant from */
@@ -43,40 +43,40 @@ public class VCKnownEnumValues implements VCSimplificationPass {
     }
 
     /**
-     * Decides the comparisons that the first fact deciding any decides
+     * Uses the first fact that decides some comparison to replace those comparisons by their value
      */
     @Override
     public VCImplication apply(VCImplication implication) {
         for (VCImplication row = implication; row != null; row = row.getNext())
             for (Expression fact : factsOf(row.getRefinement().getExpression())) {
-                KnownValue known = knownValue(fact);
+                EnumComparison known = enumComparison(fact);
                 if (known == null)
                     continue;
                 // the last row may be the conclusion, which the other rows cannot assume
                 boolean onlyLastRow = row.getNext() == null && row != implication;
-                VCImplication decided = decide(implication, known, onlyLastRow);
+                VCImplication decided = decideRows(implication, known, onlyLastRow);
                 if (!decided.equals(implication))
                     return decided;
             }
         return implication;
     }
 
-    private VCImplication decide(VCImplication implication, KnownValue known, boolean onlyLastRow) {
+    private VCImplication decideRows(VCImplication implication, EnumComparison known, boolean onlyLastRow) {
         if (implication == null)
             return null;
         Expression expression = implication.getRefinement().getExpression();
         boolean decides = !onlyLastRow || implication.getNext() == null;
         VCImplication result = copyWithRefinement(implication,
                 new Predicate(decides ? decide(expression, known) : expression.clone()));
-        result.setNext(decide(implication.getNext(), known, onlyLastRow));
+        result.setNext(decideRows(implication.getNext(), known, onlyLastRow));
         return result;
     }
 
     // The expression with the comparisons known decides replaced by their value, except for its own fact
-    private Expression decide(Expression expression, KnownValue known) {
-        if (expression == known.fact())
+    private Expression decide(Expression expression, EnumComparison known) {
+        if (expression == known.expression())
             return expression.clone();
-        KnownValue compared = knownValue(expression);
+        EnumComparison compared = enumComparison(expression);
         if (compared != null && compared.variable().equals(known.variable())
                 && enumTypes.get(compared.constant()).equals(enumTypes.get(known.constant()))) {
             boolean sameConstant = compared.constant().equals(known.constant());
@@ -92,7 +92,7 @@ public class VCKnownEnumValues implements VCSimplificationPass {
     }
 
     // A comparison of a variable with an enum constant, either way round, or null
-    private KnownValue knownValue(Expression expression) {
+    private EnumComparison enumComparison(Expression expression) {
         if (!(expression instanceof BinaryExpression binary))
             return null;
         boolean equal = "==".equals(binary.getOperator());
@@ -101,9 +101,9 @@ public class VCKnownEnumValues implements VCSimplificationPass {
         Expression left = binary.getFirstOperand(), right = binary.getSecondOperand();
         String leftConstant = enumConstant(left), rightConstant = enumConstant(right);
         if (left instanceof Var variable && leftConstant == null && rightConstant != null)
-            return new KnownValue(expression, variable.getName(), rightConstant, equal);
+            return new EnumComparison(expression, variable.getName(), rightConstant, equal);
         if (right instanceof Var variable && rightConstant == null && leftConstant != null)
-            return new KnownValue(expression, variable.getName(), leftConstant, equal);
+            return new EnumComparison(expression, variable.getName(), leftConstant, equal);
         return null;
     }
 
