@@ -25,7 +25,7 @@ public class VCSimplification {
         if (implication == null)
             return null;
 
-        List<VCSimplificationPass> passes = passes(needed);
+        List<VCSimplificationPass> passes = passes(implication, needed);
         DebugLog.simplificationStart(implication);
         VCSimplificationResult current = new VCSimplificationResult(implication);
         while (true) {
@@ -42,7 +42,9 @@ public class VCSimplification {
      * Applies one simplification step to a VC chain from all available simplification passes
      */
     public static VCSimplificationResult simplifyOnce(VCSimplificationResult implication) {
-        return simplifyOnce(implication, passes(NeededVariables.NONE));
+        if (implication == null)
+            return null;
+        return simplifyOnce(implication, passes(implication.getImplication(), NeededVariables.NONE));
     }
 
     private static VCSimplificationResult simplifyOnce(VCSimplificationResult implication,
@@ -55,10 +57,10 @@ public class VCSimplification {
         return implication;
     }
 
-    private static List<VCSimplificationPass> passes(NeededVariables needed) {
+    private static List<VCSimplificationPass> passes(VCImplication implication, NeededVariables needed) {
         return List.of(new VCSubstitution(), new VCFunctionSubstitution(), new VCBinderSimplification(needed),
-                new VCFolding(), new VCArithmeticSimplification(), new VCLogicalSimplification(),
-                new VCConstraintSimplification());
+                new VCKnownEnumValues(implication), new VCFolding(), new VCArithmeticSimplification(),
+                new VCLogicalSimplification(), new VCConstraintSimplification());
     }
 
     /**

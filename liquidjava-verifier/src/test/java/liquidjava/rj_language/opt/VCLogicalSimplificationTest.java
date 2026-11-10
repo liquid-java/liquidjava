@@ -24,6 +24,12 @@ class VCLogicalSimplificationTest {
     }
 
     @Test
+    void factorsConjunctsSharedByDisjuncts() {
+        assertSimplificationSteps(simplification, vc("a && c || b && c"), step("c && (a || b)"));
+        assertSimplificationSteps(simplification, vc("c || c && b"), step("c"));
+    }
+
+    @Test
     void simplifiesDoubleNegation() {
         assertSimplificationSteps(simplification, vc("!!x"), step("x"));
     }

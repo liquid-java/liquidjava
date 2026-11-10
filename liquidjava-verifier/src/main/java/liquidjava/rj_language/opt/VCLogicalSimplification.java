@@ -3,6 +3,8 @@ package liquidjava.rj_language.opt;
 import static liquidjava.rj_language.opt.VCSimplificationUtils.isFalse;
 import static liquidjava.rj_language.opt.VCSimplificationUtils.isTrue;
 
+import java.util.List;
+
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.Ite;
@@ -146,7 +148,30 @@ public class VCLogicalSimplification extends VCExpressionSimplificationPass<Void
         // p || p -> p
         if (left.equals(right))
             return left.clone();
-        return null;
+        return factorCommonConjuncts(left, right);
+    }
+
+    /**
+     * Factors the conjuncts both disjuncts share out of a disjunction
+     */
+    private Expression factorCommonConjuncts(Expression left, Expression right) {
+        List<Expression> leftConjuncts = left.getConjuncts(), rightConjuncts = right.getConjuncts();
+        List<Expression> common = leftConjuncts.stream().filter(rightConjuncts::contains).distinct().toList();
+        if (common.isEmpty())
+            return null;
+        List<Expression> leftRest = leftConjuncts.stream().filter(c -> !common.contains(c)).toList();
+        List<Expression> rightRest = rightConjuncts.stream().filter(c -> !common.contains(c)).toList();
+        // c || c && p -> c
+        if (leftRest.isEmpty() || rightRest.isEmpty())
+            return conjunction(common);
+        // c && p || c && q -> c && (p || q)
+        return new BinaryExpression(conjunction(common), "&&",
+                new BinaryExpression(conjunction(leftRest), "||", conjunction(rightRest)));
+    }
+
+    private Expression conjunction(List<Expression> conjuncts) {
+        return conjuncts.stream().map(Expression::clone)
+                .reduce((first, second) -> new BinaryExpression(first, "&&", second)).get();
     }
 
     /**
