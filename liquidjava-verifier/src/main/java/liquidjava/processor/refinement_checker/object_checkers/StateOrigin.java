@@ -28,8 +28,8 @@ import liquidjava.rj_language.ast.Expression;
 import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Formats;
 import liquidjava.utils.constants.Keys;
-import spoon.reflect.code.CtAssignment;
-import spoon.reflect.code.CtConditional;
+import spoon.reflect.code.BinaryOperatorKind;
+import spoon.reflect.code.CtBinaryOperator;
 import spoon.reflect.code.CtConstructorCall;
 import spoon.reflect.code.CtExpression;
 import spoon.reflect.code.CtFieldRead;
@@ -37,6 +37,7 @@ import spoon.reflect.code.CtLambda;
 import spoon.reflect.code.CtLoop;
 import spoon.reflect.code.CtReturn;
 import spoon.reflect.code.CtThisAccess;
+import spoon.reflect.code.CtThrow;
 import spoon.reflect.code.CtInvocation;
 import spoon.reflect.code.CtLocalVariable;
 import spoon.reflect.code.CtVariableRead;
@@ -143,9 +144,10 @@ final class StateOrigin {
     }
 
     /**
-     * Whether another name may hold the receiver, through which its state may change unseen: a local or parameter
-     * copied to another variable, returned, or used in a lambda or a local class. A field, which other code may also
-     * reach, counts as aliased; {@code this} does not
+     * Whether another name may hold the receiver, through which its state may change unseen: a local or parameter used
+     * before the call other than as the receiver of a call or in a comparison, e.g. copied, passed to a method, stored
+     * in an array or used in a lambda or a local class. A field, which other code may also reach, counts as aliased;
+     * {@code this} does not
      */
     private boolean mayBeAliased() {
         CtExpression<?> target = invocation instanceof CtInvocation<?> call ? call.getTarget() : null;
@@ -159,42 +161,53 @@ final class StateOrigin {
             return true;
         return scope.getElements(new TypeFilter<>(CtVariableRead.class)).stream()
                 .filter(use -> use.getVariable().getDeclaration() == variable && mayRunBefore(use, scope))
-                .anyMatch(use -> isCopied(use, scope));
+                .anyMatch(use -> escapes(use, scope));
     }
 
-    /** Whether {@code use} may run before the failing call: it comes earlier, or a loop around both repeats it */
+    /**
+     * Whether {@code use} may run before the failing call: it comes earlier, or a loop around both may repeat it,
+     * unless it is in a return or a throw, which leaves the loop
+     */
     private boolean mayRunBefore(CtElement use, CtExecutable<?> scope) {
         if (use.getPosition().getSourceEnd() < invocation.getPosition().getSourceStart())
             return true;
+        CtElement exit = use.getParent(e -> e instanceof CtReturn<?> || e instanceof CtThrow);
         for (CtLoop loop = invocation.getParent(CtLoop.class); loop != null
                 && loop.hasParent(scope); loop = loop.getParent(CtLoop.class))
-            if (use.hasParent(loop))
+            if (use.hasParent(loop) && (exit == null || !exit.hasParent(loop)))
                 return true;
         return false;
     }
 
-    private static boolean isCopied(CtVariableRead<?> use, CtExecutable<?> scope) {
+    /** Whether the object {@code use} reads may afterwards be reached through it by another name */
+    private static boolean escapes(CtVariableRead<?> use, CtExecutable<?> scope) {
         CtElement parent = use.getParent();
         CtElement nested = use.getParent(e -> e instanceof CtLambda<?> || e instanceof CtClass<?>);
-        return parent instanceof CtLocalVariable<?>
-                || parent instanceof CtAssignment<?, ?> assignment && assignment.getAssignment() == use
-                || parent instanceof CtReturn<?> || parent instanceof CtConditional<?>
-                || nested != null && nested.hasParent(scope);
+        boolean receiver = parent instanceof CtInvocation<?> call && call.getTarget() == use;
+        boolean compared = parent instanceof CtBinaryOperator<?> operator
+                && (operator.getKind() == BinaryOperatorKind.EQ || operator.getKind() == BinaryOperatorKind.NE);
+        return !(receiver || compared) || nested != null && nested.hasParent(scope);
     }
 
     /**
      * The facts of found on the shown sets, about {@code at}: those about the receiver, which has the state of
      * {@code at} in those sets, or else those about {@code at}
      */
-    private Optional<Predicate> foundAbout(VariableInstance at, Predicate shownFound) {
-        return factsOn(shownFound, receiver.getName()).map(f -> f.substituteVariable(receiver.getName(), at.getName()))
-                .or(() -> factsOn(shownFound, at.getName()));
+    private Optional<Predicate> foundAbout(VariableInstance at, Predicate shownFound, Set<GhostFunction> sets) {
+        return factsOn(shownFound, receiver.getName(), sets)
+                .map(f -> f.substituteVariable(receiver.getName(), at.getName()))
+                .or(() -> factsOn(shownFound, at.getName(), sets));
     }
 
-    /** That the shown facts of found were last set by {@code change}, if what it gave {@code after} proves them */
+    /**
+     * That the facts of found on the shown sets {@code change} names were last set by it, if what it gave {@code after}
+     * proves them
+     */
     private Optional<String> lastSetNote(StateChange change, VariableInstance after, Predicate shownFound)
             throws LJError {
-        Optional<Predicate> facts = foundAbout(after, shownFound);
+        Set<GhostFunction> changed = setsOf(List.of(change.change().getTo()), ghostStates).stream()
+                .filter(shown::contains).collect(Collectors.toSet());
+        Optional<Predicate> facts = foundAbout(after, shownFound, changed);
         if (facts.isEmpty() || !implies(after.getRefinement(), facts.get()))
             return Optional.empty();
         return code(change.position()).map(code -> String.format("From: %s, last set at line %d: %s",
@@ -212,8 +225,8 @@ final class StateOrigin {
         if (code.isEmpty())
             return Optional.empty();
         String from = String.format("From: %s = %s, line %d, ", written, code.get(), call.position().getLine());
-        Optional<Predicate> facts = factsOn(call.returned(), Keys.WILDCARD);
-        Optional<Predicate> found = foundAbout(assigned, shownFound);
+        Optional<Predicate> facts = factsOn(call.returned(), Keys.WILDCARD, shown);
+        Optional<Predicate> found = foundAbout(assigned, shownFound, shown);
         if (facts.isPresent())
             return found.isPresent()
                     && implies(facts.get().substituteVariable(Keys.WILDCARD, assigned.getName()), found.get())
@@ -245,8 +258,8 @@ final class StateOrigin {
                 && created.function().getAllStates().size() == 1 && !writtenAfterDeclaration(local)
                 && !changedByAnotherCall(local)))
             return Optional.empty();
-        Optional<Predicate> facts = factsOn(created.change().getTo(), Keys.THIS);
-        Optional<Predicate> found = foundAbout(unknown, shownFound);
+        Optional<Predicate> facts = factsOn(created.change().getTo(), Keys.THIS, shown);
+        Optional<Predicate> found = foundAbout(unknown, shownFound, shown);
         Optional<String> code = code(created.position());
         if (facts.isEmpty() || found.isEmpty() || code.isEmpty()
                 || !implies(found.get(), facts.get().substituteVariable(Keys.THIS, unknown.getName())))
@@ -287,11 +300,11 @@ final class StateOrigin {
      * The facts of {@code predicate} on the shown sets of {@code object} alone, e.g. {@code unmarked(object)}, or empty
      * if it has none
      */
-    private Optional<Predicate> factsOn(Predicate predicate, String object) {
+    private Optional<Predicate> factsOn(Predicate predicate, String object, Set<GhostFunction> sets) {
         return factsOf(predicate.getExpression()).stream().map(Predicate::new)
                 .filter(fact -> fact.getVariableNames().stream().allMatch(object::equals))
                 .filter(fact -> !setsOf(List.of(fact), ghostStates).isEmpty()
-                        && shown.containsAll(setsOf(List.of(fact), ghostStates)))
+                        && sets.containsAll(setsOf(List.of(fact), ghostStates)))
                 .reduce(Predicate::createConjunction);
     }
 
