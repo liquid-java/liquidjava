@@ -34,6 +34,14 @@ class TestOriginNotes {
                 verify("ErrorStateFromReturnedValue.java").getMessageNotes());
     }
 
+    @Test
+    void stateOfAReceiverAnotherNameMayHoldIsNotTraced() {
+        CommandLineLauncher.launch(TEST_SUITE + "ErrorDeferredCallbackState.java");
+        LJError captured = Diagnostics.getInstance().getErrors().stream().filter(e -> e.getPosition().getLine() == 37)
+                .findFirst().orElseThrow();
+        assertEquals(List.of(), captured.getMessageNotes());
+    }
+
     private static LJError verify(String test) {
         CommandLineLauncher.launch(TEST_SUITE + test);
         List<LJError> errors = Diagnostics.getInstance().getErrors().stream().toList();

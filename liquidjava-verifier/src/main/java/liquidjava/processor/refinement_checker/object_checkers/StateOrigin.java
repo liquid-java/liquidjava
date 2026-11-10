@@ -13,6 +13,7 @@ import liquidjava.processor.context.CallResult;
 import liquidjava.processor.context.Context;
 import liquidjava.processor.context.GhostFunction;
 import liquidjava.processor.context.GhostState;
+import liquidjava.processor.context.ObjectState;
 import liquidjava.processor.context.RefinedFunction;
 import liquidjava.processor.context.StateChange;
 import liquidjava.processor.context.VariableInstance;
@@ -27,14 +28,24 @@ import liquidjava.rj_language.ast.Expression;
 import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Formats;
 import liquidjava.utils.constants.Keys;
+import spoon.reflect.code.CtAssignment;
+import spoon.reflect.code.CtConditional;
 import spoon.reflect.code.CtConstructorCall;
+import spoon.reflect.code.CtExpression;
+import spoon.reflect.code.CtFieldRead;
+import spoon.reflect.code.CtLambda;
+import spoon.reflect.code.CtLoop;
+import spoon.reflect.code.CtReturn;
+import spoon.reflect.code.CtThisAccess;
 import spoon.reflect.code.CtInvocation;
 import spoon.reflect.code.CtLocalVariable;
 import spoon.reflect.code.CtVariableRead;
 import spoon.reflect.code.CtVariableWrite;
 import spoon.reflect.cu.SourcePosition;
+import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtExecutable;
+import spoon.reflect.declaration.CtVariable;
 import spoon.reflect.visitor.filter.TypeFilter;
 
 /**
@@ -109,34 +120,85 @@ final class StateOrigin {
                 .collect(Collectors.toSet());
     }
 
+    /**
+     * Walks back from the receiver to what last gave the shown sets their state. The changes crossed leave the shown
+     * sets as they were: a state refinement keeps the sets it does not name
+     */
     private Optional<String> note(Predicate shownFound) throws LJError {
-        Optional<StateChange> change = receiver.getStateChange();
-        if (change.isEmpty())
-            return receiver.getReturnedBy().isPresent() ? returnedNote(receiver.getReturnedBy().get(), shownFound)
-                    : creationNote(receiver, shownFound);
-        VariableInstance after = receiver;
-        // the changes crossed leave the shown sets as they were: a state refinement keeps the sets it does not name
-        while (!setsOf(List.of(change.get().change().getTo()), ghostStates).stream().anyMatch(shown::contains)) {
+        if (mayBeAliased())
+            return Optional.empty();
+        VariableInstance at = receiver;
+        while (true) {
+            Optional<StateChange> change = at.getStateChange();
+            if (change.isEmpty())
+                return at.getReturnedBy().isPresent() ? returnedNote(at.getReturnedBy().get(), at, shownFound)
+                        : creationNote(at, shownFound);
+            if (setsOf(List.of(change.get().change().getTo()), ghostStates).stream().anyMatch(shown::contains))
+                return lastSetNote(change.get(), at, shownFound);
             Optional<VariableInstance> before = change.get().previous();
             if (before.isEmpty())
                 return Optional.empty();
-            after = before.get();
-            change = after.getStateChange();
-            if (change.isEmpty())
-                return creationNote(after, shownFound);
+            at = before.get();
         }
-        return lastSetNote(change.get(), after, shownFound);
+    }
+
+    /**
+     * Whether another name may hold the receiver, through which its state may change unseen: a local or parameter
+     * copied to another variable, returned, or used in a lambda or a local class. A field, which other code may also
+     * reach, counts as aliased; {@code this} does not
+     */
+    private boolean mayBeAliased() {
+        CtExpression<?> target = invocation instanceof CtInvocation<?> call ? call.getTarget() : null;
+        if (target == null || target.isImplicit() || target instanceof CtThisAccess<?>)
+            return false;
+        if (!(target instanceof CtVariableRead<?> read && !(read instanceof CtFieldRead<?>)))
+            return true;
+        CtVariable<?> variable = read.getVariable().getDeclaration();
+        CtExecutable<?> scope = invocation.getParent(CtExecutable.class);
+        if (variable == null || scope == null)
+            return true;
+        return scope.getElements(new TypeFilter<>(CtVariableRead.class)).stream()
+                .filter(use -> use.getVariable().getDeclaration() == variable && mayRunBefore(use, scope))
+                .anyMatch(use -> isCopied(use, scope));
+    }
+
+    /** Whether {@code use} may run before the failing call: it comes earlier, or a loop around both repeats it */
+    private boolean mayRunBefore(CtElement use, CtExecutable<?> scope) {
+        if (use.getPosition().getSourceEnd() < invocation.getPosition().getSourceStart())
+            return true;
+        for (CtLoop loop = invocation.getParent(CtLoop.class); loop != null
+                && loop.hasParent(scope); loop = loop.getParent(CtLoop.class))
+            if (use.hasParent(loop))
+                return true;
+        return false;
+    }
+
+    private static boolean isCopied(CtVariableRead<?> use, CtExecutable<?> scope) {
+        CtElement parent = use.getParent();
+        CtElement nested = use.getParent(e -> e instanceof CtLambda<?> || e instanceof CtClass<?>);
+        return parent instanceof CtLocalVariable<?>
+                || parent instanceof CtAssignment<?, ?> assignment && assignment.getAssignment() == use
+                || parent instanceof CtReturn<?> || parent instanceof CtConditional<?>
+                || nested != null && nested.hasParent(scope);
+    }
+
+    /**
+     * The facts of found on the shown sets, about {@code at}: those about the receiver, which has the state of
+     * {@code at} in those sets, or else those about {@code at}
+     */
+    private Optional<Predicate> foundAbout(VariableInstance at, Predicate shownFound) {
+        return factsOn(shownFound, receiver.getName()).map(f -> f.substituteVariable(receiver.getName(), at.getName()))
+                .or(() -> factsOn(shownFound, at.getName()));
     }
 
     /** That the shown facts of found were last set by {@code change}, if what it gave {@code after} proves them */
     private Optional<String> lastSetNote(StateChange change, VariableInstance after, Predicate shownFound)
             throws LJError {
-        Optional<Predicate> facts = factsOn(shownFound, receiver.getName());
-        if (facts.isEmpty()
-                || !implies(after.getRefinement(), facts.get().substituteVariable(receiver.getName(), after.getName())))
+        Optional<Predicate> facts = foundAbout(after, shownFound);
+        if (facts.isEmpty() || !implies(after.getRefinement(), facts.get()))
             return Optional.empty();
         return code(change.position()).map(code -> String.format("From: %s, last set at line %d: %s",
-                display(facts.get(), receiver.getName()), change.position().getLine(), code));
+                display(facts.get(), after.getName()), change.position().getLine(), code));
     }
 
     /**
@@ -144,17 +206,18 @@ final class StateOrigin {
      * them, or that it says nothing about them when found says nothing either and its return refinement names no state
      * of them and no other value the state could come from
      */
-    private Optional<String> returnedNote(CallResult call, Predicate shownFound) throws LJError {
+    private Optional<String> returnedNote(CallResult call, VariableInstance assigned, Predicate shownFound)
+            throws LJError {
         Optional<String> code = code(call.position());
         if (code.isEmpty())
             return Optional.empty();
-        String assigned = String.format("From: %s = %s, line %d, ", written, code.get(), call.position().getLine());
+        String from = String.format("From: %s = %s, line %d, ", written, code.get(), call.position().getLine());
         Optional<Predicate> facts = factsOn(call.returned(), Keys.WILDCARD);
-        Optional<Predicate> found = factsOn(shownFound, receiver.getName());
+        Optional<Predicate> found = foundAbout(assigned, shownFound);
         if (facts.isPresent())
             return found.isPresent()
-                    && implies(facts.get().substituteVariable(Keys.WILDCARD, receiver.getName()), found.get())
-                            ? Optional.of(assigned + "which returns " + display(facts.get(), Keys.WILDCARD))
+                    && implies(facts.get().substituteVariable(Keys.WILDCARD, assigned.getName()), found.get())
+                            ? Optional.of(from + "which returns " + display(facts.get(), Keys.WILDCARD))
                             : Optional.empty();
         Predicate returned = call.returned();
         // a set declared without a name has a generated one, which the message does not otherwise show
@@ -165,7 +228,7 @@ final class StateOrigin {
                 && !hasAlias(returned.getExpression());
         String sets = shown.stream().map(set -> Utils.getSimpleName(set.getName()) + "(" + written + ")").sorted()
                 .collect(Collectors.joining(", "));
-        return saysNothing ? Optional.of(assigned + "which says nothing about " + sets) : Optional.empty();
+        return saysNothing ? Optional.of(from + "which says nothing about " + sets) : Optional.empty();
     }
 
     /**
@@ -179,16 +242,39 @@ final class StateOrigin {
                 && read.getVariable().getDeclaration()instanceof CtLocalVariable<?> local
                 && local.getDefaultExpression()instanceof CtConstructorCall<?> constructor
                 && constructor.getMetadata(Keys.STATE_CHANGE)instanceof StateChange created
-                && created.function().getAllStates().size() == 1 && !writtenAfterDeclaration(local)))
+                && created.function().getAllStates().size() == 1 && !writtenAfterDeclaration(local)
+                && !changedByAnotherCall(local)))
             return Optional.empty();
         Optional<Predicate> facts = factsOn(created.change().getTo(), Keys.THIS);
-        Optional<Predicate> found = factsOn(shownFound, receiver.getName());
+        Optional<Predicate> found = foundAbout(unknown, shownFound);
         Optional<String> code = code(created.position());
         if (facts.isEmpty() || found.isEmpty() || code.isEmpty()
-                || !implies(found.get(), facts.get().substituteVariable(Keys.THIS, receiver.getName())))
+                || !implies(found.get(), facts.get().substituteVariable(Keys.THIS, unknown.getName())))
             return Optional.empty();
         return Optional.of(String.format("From: %s is created at line %d by %s, which makes it %s", written,
                 created.position().getLine(), code.get(), display(facts.get(), Keys.THIS)));
+    }
+
+    /**
+     * Whether a call on the local other than the failing one, or the failing one if a loop may repeat it, is to a
+     * method that changes the state of an object, so the state may come from that call rather than the constructor
+     */
+    private boolean changedByAnotherCall(CtLocalVariable<?> local) {
+        CtExecutable<?> scope = local.getParent(CtExecutable.class);
+        boolean repeated = invocation.getParent(CtLoop.class) != null
+                && invocation.getParent(CtLoop.class).hasParent(scope);
+        return scope.getElements(new TypeFilter<>(CtInvocation.class)).stream()
+                .filter(call -> call.getTarget()instanceof CtVariableRead<?> read
+                        && read.getVariable().getDeclaration() == local && (call != invocation || repeated))
+                .anyMatch(this::mayChangeState);
+    }
+
+    /** Whether some method with the name and arity of the invoked one changes the state of its receiver */
+    private boolean mayChangeState(CtInvocation<?> call) {
+        String name = call.getExecutable().getSimpleName();
+        int arity = call.getArguments().size();
+        return tc.getContext().getCtxFunctions().stream().anyMatch(f -> Utils.getSimpleName(f.getName()).equals(name)
+                && f.getArguments().size() == arity && f.getAllStates().stream().anyMatch(ObjectState::hasTo));
     }
 
     private static boolean writtenAfterDeclaration(CtLocalVariable<?> local) {
