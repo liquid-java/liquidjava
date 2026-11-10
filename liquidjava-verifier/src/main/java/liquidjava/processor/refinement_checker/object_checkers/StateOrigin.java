@@ -37,6 +37,7 @@ import spoon.reflect.code.CtLambda;
 import spoon.reflect.code.CtLoop;
 import spoon.reflect.code.CtReturn;
 import spoon.reflect.code.CtThisAccess;
+import spoon.reflect.code.CtTargetedExpression;
 import spoon.reflect.code.CtThrow;
 import spoon.reflect.code.CtInvocation;
 import spoon.reflect.code.CtLocalVariable;
@@ -47,6 +48,7 @@ import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtExecutable;
 import spoon.reflect.declaration.CtMethod;
+import spoon.reflect.declaration.CtType;
 import spoon.reflect.declaration.CtVariable;
 import spoon.reflect.visitor.filter.TypeFilter;
 
@@ -145,23 +147,30 @@ final class StateOrigin {
     }
 
     /**
-     * Whether another name may hold the receiver, through which its state may change unseen: a local or parameter used
-     * before the call other than as the receiver of a call or in a comparison, e.g. copied, passed to a method, stored
-     * in an array or used in a lambda or a local class. A field, which other code may also reach, counts as aliased;
-     * {@code this} does not
+     * Whether another name may hold the receiver, through which its state may change unseen, or a method body may
+     * change it: before the call, the receiver is used other than as the target of a call or field access or in a
+     * comparison (copied, passed to a method, stored in an array, used in a lambda or a local class), or a method of
+     * the analyzed code with no state refinement is called on it. A field, which other code may also reach, counts as
+     * aliased
      */
     private boolean mayBeAliased() {
         CtExpression<?> target = invocation instanceof CtInvocation<?> call ? call.getTarget() : null;
-        if (target == null || target.isImplicit() || target instanceof CtThisAccess<?>)
-            return false;
-        if (!(target instanceof CtVariableRead<?> read && !(read instanceof CtFieldRead<?>)))
-            return true;
-        CtVariable<?> variable = read.getVariable().getDeclaration();
         CtExecutable<?> scope = invocation.getParent(CtExecutable.class);
-        if (variable == null || scope == null)
+        if (scope == null)
             return true;
-        return scope.getElements(new TypeFilter<>(CtVariableRead.class)).stream()
-                .filter(use -> use.getVariable().getDeclaration() == variable && mayRunBefore(use, scope))
+        List<CtElement> uses;
+        if (target == null || target.isImplicit() || target instanceof CtThisAccess<?>) {
+            CtType<?> owner = invocation.getParent(CtType.class);
+            uses = scope.getElements(new TypeFilter<>(CtThisAccess.class)).stream()
+                    .filter(use -> use.getParent(CtType.class) == owner).map(CtElement.class::cast).toList();
+        } else if (target instanceof CtVariableRead<?> read && !(read instanceof CtFieldRead<?>)
+                && read.getVariable().getDeclaration() != null) {
+            CtVariable<?> variable = read.getVariable().getDeclaration();
+            uses = scope.getElements(new TypeFilter<>(CtVariableRead.class)).stream()
+                    .filter(use -> use.getVariable().getDeclaration() == variable).map(CtElement.class::cast).toList();
+        } else
+            return true;
+        return uses.stream().filter(use -> mayRunBefore(use, scope))
                 .anyMatch(use -> escapes(use, scope) || callsUnspecifiedBody(use));
     }
 
@@ -169,7 +178,7 @@ final class StateOrigin {
      * Whether {@code use} is the receiver of a call to a method of the analyzed code with no state refinement: the
      * verifier takes it to keep the state, which its body may still change
      */
-    private boolean callsUnspecifiedBody(CtVariableRead<?> use) {
+    private boolean callsUnspecifiedBody(CtElement use) {
         return use.getParent()instanceof CtInvocation<?> call && call != invocation && call.getTarget() == use
                 && call.getExecutable().getDeclaration()instanceof CtMethod<?> method && method.getBody() != null
                 && method.getAnnotations().stream().noneMatch(a -> a.getAnnotationType().getQualifiedName()
@@ -177,11 +186,14 @@ final class StateOrigin {
     }
 
     /**
-     * Whether {@code use} may run before the failing call: it comes earlier, or a loop around both may repeat it,
-     * unless it is in a return or a throw, which leaves the loop
+     * Whether {@code use} may run before the failing call: it comes earlier, is one of its arguments, or a loop around
+     * both may repeat it, unless it is in a return or a throw, which leaves the loop
      */
     private boolean mayRunBefore(CtElement use, CtExecutable<?> scope) {
         if (use.getPosition().getSourceEnd() < invocation.getPosition().getSourceStart())
+            return true;
+        if (invocation instanceof CtInvocation<?> call
+                && call.getArguments().stream().anyMatch(argument -> argument == use || use.hasParent(argument)))
             return true;
         CtElement exit = use.getParent(e -> e instanceof CtReturn<?> || e instanceof CtThrow);
         for (CtLoop loop = invocation.getParent(CtLoop.class); loop != null
@@ -191,14 +203,14 @@ final class StateOrigin {
         return false;
     }
 
-    /** Whether the object {@code use} reads may afterwards be reached through it by another name */
-    private static boolean escapes(CtVariableRead<?> use, CtExecutable<?> scope) {
+    /** Whether the object {@code use} gives may afterwards be reached through it by another name */
+    private static boolean escapes(CtElement use, CtExecutable<?> scope) {
         CtElement parent = use.getParent();
         CtElement nested = use.getParent(e -> e instanceof CtLambda<?> || e instanceof CtClass<?>);
-        boolean receiver = parent instanceof CtInvocation<?> call && call.getTarget() == use;
+        boolean target = parent instanceof CtTargetedExpression<?, ?> targeted && targeted.getTarget() == use;
         boolean compared = parent instanceof CtBinaryOperator<?> operator
                 && (operator.getKind() == BinaryOperatorKind.EQ || operator.getKind() == BinaryOperatorKind.NE);
-        return !(receiver || compared) || nested != null && nested.hasParent(scope);
+        return !(target || compared) || nested != null && nested.hasParent(scope);
     }
 
     /**
