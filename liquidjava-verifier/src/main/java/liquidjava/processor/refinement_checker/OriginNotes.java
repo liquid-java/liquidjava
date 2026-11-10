@@ -128,8 +128,8 @@ final class OriginNotes {
 
     /** Whether {@code name} is a declared ghost, unlike a built-in such as {@code length}, which may be interpreted */
     private static boolean isGhost(String name, Context context) {
-        return context.getGhosts().stream().anyMatch(g -> g.matches(name))
-                || context.getGhostStates().stream().anyMatch(g -> g.getParent() == null && g.matches(name));
+        return !Utils.isBuiltin(name) && (context.getGhosts().stream().anyMatch(g -> g.matches(name))
+                || context.getGhostStates().stream().anyMatch(g -> g.getParent() == null && g.matches(name)));
     }
 
     /** Whether {@code fact} is {@code variable == ghost}, the argument's own definition */
