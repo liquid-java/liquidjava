@@ -14,6 +14,8 @@ import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtExecutable;
 import spoon.reflect.declaration.CtMethod;
 import spoon.reflect.declaration.CtParameter;
+import spoon.reflect.declaration.CtType;
+import liquidjava.utils.Utils;
 
 /**
  * The notes of a refinement error that say where the values its expected refinement is about come from. Each is given
@@ -42,13 +44,31 @@ final class FromNotes {
             // a written parameter has an instance, which expected would name instead
             if (parameter.isEmpty() || !parameter.get().getPosition().isValidPosition()
                     || !(context.getVariableByName(variable)instanceof Variable declared)
-                    || !declared.getMainRefinement().isBooleanTrue())
+                    || !declared.getMainRefinement().isBooleanTrue() || isRefined(parameter.get(), context))
                 return List.of();
             notes.add(String.format("From: %s is a parameter of %s (line %d) with no refinement",
                     error.getDisplayNames().get(variable), signature(method.get()),
                     parameter.get().getPosition().getLine()));
         }
         return notes;
+    }
+
+    /**
+     * Whether the parameter is written with a refinement, even {@code true}, or a specification of its method refines
+     * it, such as an external one, which the method's body is not checked against
+     */
+    private static boolean isRefined(CtParameter<?> parameter, Context context) {
+        if (parameter.getAnnotations().stream()
+                .anyMatch(a -> a.getAnnotationType().getQualifiedName().equals("liquidjava.specification.Refinement")))
+            return true;
+        CtExecutable<?> method = parameter.getParent();
+        int index = method.getParameters().indexOf(parameter);
+        String owner = method.getParent(CtType.class).getQualifiedName();
+        String name = method instanceof CtConstructor<?> ? Utils.getSimpleName(owner) : method.getSimpleName();
+        return context.getCtxFunctions().stream()
+                .filter(f -> owner.equals(f.getTargetClass()) && name.equals(Utils.getSimpleName(f.getName()))
+                        && f.getArguments().size() == method.getParameters().size())
+                .anyMatch(f -> !f.getArguments().get(index).getMainRefinement().isBooleanTrue());
     }
 
     private static Optional<CtExecutable<?>> enclosingMethod(CtElement element) {
