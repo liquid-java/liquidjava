@@ -8,6 +8,7 @@ import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 
 import liquidjava.diagnostics.TranslationTable;
+import liquidjava.diagnostics.Code;
 import liquidjava.processor.context.PlacementInCode;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.formatter.DisplayNames;
@@ -36,9 +37,9 @@ record ErrorMessage(String text, DisplayNames names) {
             PlacementInCode placement = translationTable == null ? null : translationTable.get(name);
             return placement == null ? null : placement.getLine();
         });
-        String expectedText = ExpressionFormatter.format(display.apply(expected), names);
+        String expectedText = Code.of(ExpressionFormatter.format(display.apply(expected), names));
         String text = showsFound.test(shown)
-                ? String.format(frame, ExpressionFormatter.format(display.apply(shown), names), expectedText)
+                ? String.format(frame, Code.of(ExpressionFormatter.format(display.apply(shown), names)), expectedText)
                 : String.format("expected %s but could not prove it", expectedText);
         return new ErrorMessage(text, names);
     }

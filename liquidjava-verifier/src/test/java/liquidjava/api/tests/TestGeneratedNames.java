@@ -33,7 +33,7 @@ class TestGeneratedNames {
                 "#ternary_condition == #ready_result && #ternary_condition == true", 43,
                 "!#try_branch && !#catch_branch", 48, "x == #read_result - 1", 54,
                 "isNull == #operation_result && #if_condition == isNull && #if_condition && x == 0", 58,
-                "found closed(#new_Door) but expected opened(#new_Door)"), messages);
+                "found `closed(#new_Door)` but expected `opened(#new_Door)`"), messages);
     }
 
     private static String originalFound(RefinementError error) {

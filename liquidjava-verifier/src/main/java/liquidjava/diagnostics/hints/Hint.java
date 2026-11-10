@@ -1,14 +1,22 @@
 package liquidjava.diagnostics.hints;
 
+import liquidjava.diagnostics.SourceReference;
+
 /**
  * A suggestion on how to fix a diagnostic
  *
  * @param kind
  *            what the suggestion is about, so clients can show or filter hints separately
  * @param message
- *            the suggestion as shown to the user
+ *            the suggestion as shown to the user, with code marked as {@link liquidjava.diagnostics.Code} marks it
+ * @param reference
+ *            the place in the source the suggestion names, or null
  */
-public record Hint(Kind kind, String message) {
+public record Hint(Kind kind, String message, SourceReference reference) {
+
+    public Hint(Kind kind, String message) {
+        this(kind, message, null);
+    }
 
     public enum Kind {
         /** A suggestion that does not come from a specific analysis */

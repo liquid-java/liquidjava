@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import liquidjava.diagnostics.Code;
+import liquidjava.diagnostics.SourceReference;
 import liquidjava.diagnostics.categories.ErrorCategory;
 import liquidjava.diagnostics.errors.RefinementError;
 import liquidjava.processor.context.Context;
@@ -44,14 +46,14 @@ final class OriginNotes {
      * When nothing is known about the values expected constrains and each is a parameter of the enclosing method that
      * is declared with no refinement, a note per parameter saying so. Nothing is said about the callers
      */
-    static List<String> unrefinedParameters(RefinementError error, CtElement checked, Context context) {
+    static List<SourceReference> unrefinedParameters(RefinementError error, CtElement checked, Context context) {
         Optional<CtExecutable<?>> method = enclosingMethod(checked);
         List<String> variables = error.getExpected().getVariableNames().stream().distinct().toList();
         if (error.getCategory().filter(ErrorCategory.UNKNOWN::equals).isEmpty() || method.isEmpty()
                 || variables.isEmpty())
             return List.of();
 
-        List<String> notes = new ArrayList<>();
+        List<SourceReference> notes = new ArrayList<>();
         for (String variable : variables) {
             Optional<CtParameter<?>> parameter = method.get().getParameters().stream()
                     .filter(p -> p.getSimpleName().equals(variable)).findFirst();
@@ -60,9 +62,11 @@ final class OriginNotes {
                     || !(context.getVariableByName(variable)instanceof Variable declared)
                     || !declared.getMainRefinement().isBooleanTrue() || isRefined(parameter.get(), context))
                 return List.of();
-            notes.add(String.format("Origin: line %d, %s is a parameter of %s with no refinement",
-                    parameter.get().getPosition().getLine(), error.getDisplayNames().get(variable),
-                    signature(method.get())));
+            SourcePosition position = parameter.get().getPosition();
+            String line = "line " + position.getLine();
+            String note = String.format("Origin: %s, %s is a parameter of %s with no refinement", line,
+                    Code.of(error.getDisplayNames().get(variable)), Code.of(signature(method.get())));
+            notes.add(SourceReference.of(note, line, position));
         }
         return notes;
     }
@@ -73,8 +77,8 @@ final class OriginNotes {
      * expects mentions that ghost application: it then constrains no value, so what is left is all the refinement says
      * about the value
      */
-    static List<String> returnedValues(RefinementError error, Context context) {
-        List<String> notes = new ArrayList<>();
+    static List<SourceReference> returnedValues(RefinementError error, Context context) {
+        List<SourceReference> notes = new ArrayList<>();
         for (String variable : error.getExpected().getVariableNames().stream().distinct().toList()) {
             // a call argument, which has no variable of its own and is shown as the call
             if (!(context.getVariableByName(variable)instanceof VariableInstance instance)
@@ -89,11 +93,12 @@ final class OriginNotes {
             if (!namesOnlyCodeVariables(guaranteed, context))
                 continue;
             String value = ExpressionFormatter.format(new Var(variable), error.getDisplayNames());
-            String says = isTrue(guaranteed) ? "guarantees nothing about " + value
-                    : "guarantees only " + ExpressionFormatter.format(
-                            guaranteed.substitute(new Var(Keys.WILDCARD), new Var(variable)), error.getDisplayNames());
-            notes.add(String.format("Origin: %s:%d, %s %s", declared.getFile().getName(), declared.getLine(), value,
-                    says));
+            String says = isTrue(guaranteed) ? "guarantees nothing about " + Code.of(value)
+                    : "guarantees only " + Code.of(ExpressionFormatter.format(
+                            guaranteed.substitute(new Var(Keys.WILDCARD), new Var(variable)), error.getDisplayNames()));
+            String place = declared.getFile().getName() + ":" + declared.getLine();
+            notes.add(SourceReference.of(String.format("Origin: %s, %s %s", place, Code.of(value), says), place,
+                    declared));
         }
         return notes;
     }

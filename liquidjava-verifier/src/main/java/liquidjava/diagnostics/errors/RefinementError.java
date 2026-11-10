@@ -11,6 +11,7 @@ import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.AliasExpansion;
+import liquidjava.diagnostics.Code;
 import liquidjava.diagnostics.TranslationTable;
 import liquidjava.diagnostics.categories.ErrorCategory;
 import liquidjava.processor.context.AliasWrapper;
@@ -68,7 +69,7 @@ public class RefinementError extends LJError {
             String counterexampleString = this.counterexample.assignments().stream()
                     .map(a -> getDisplayNames().get(a.first()) + " == " + a.second())
                     .collect(Collectors.joining(" && "));
-            setCounterexampleStr("Counterexample: " + counterexampleString);
+            setCounterexampleStr("Counterexample: " + Code.of(counterexampleString));
         }
         setCategory(categoryOf(expected, found));
     }
@@ -120,7 +121,7 @@ public class RefinementError extends LJError {
     @Override
     public List<String> getMessageNotes() {
         List<String> notes = new ArrayList<>(
-                aliasDeclarations.stream().map(declaration -> "where " + declaration).toList());
+                aliasDeclarations.stream().map(declaration -> "where " + Code.of(declaration)).toList());
         notes.addAll(super.getMessageNotes());
         return notes;
     }

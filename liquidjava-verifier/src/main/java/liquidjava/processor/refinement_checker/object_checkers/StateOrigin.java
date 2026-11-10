@@ -7,7 +7,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import liquidjava.diagnostics.Code;
 import liquidjava.diagnostics.DebugLog;
+import liquidjava.diagnostics.SourceReference;
 import liquidjava.diagnostics.errors.LJError;
 import liquidjava.processor.context.CallResult;
 import liquidjava.processor.context.Context;
@@ -94,9 +96,9 @@ final class StateOrigin {
      * @param expected
      *            the states the call needs
      */
-    static Optional<String> note(TypeChecker tc, VariableInstance receiver, String written, RefinedFunction failing,
-            List<GhostState> ghostStates, Optional<StateMachine> machine, Set<State> current, Predicate found,
-            Predicate expected, CtElement invocation) throws LJError {
+    static Optional<SourceReference> note(TypeChecker tc, VariableInstance receiver, String written,
+            RefinedFunction failing, List<GhostState> ghostStates, Optional<StateMachine> machine, Set<State> current,
+            Predicate found, Predicate expected, CtElement invocation) throws LJError {
         Set<GhostFunction> checked = setsOf(failing.getFromStates(), ghostStates);
         Set<GhostFunction> wrong = machine.filter(m -> m.models(failing))
                 .map(m -> wrongSets(checked, current, m.statesAllowing(failing), ghostStates)).orElse(Set.of());
@@ -129,7 +131,7 @@ final class StateOrigin {
      * Walks back from the receiver to what last gave the shown sets their state. The changes crossed leave the shown
      * sets as they were: a state refinement keeps the sets it does not name
      */
-    private Optional<String> note(Predicate shownFound) throws LJError {
+    private Optional<SourceReference> note(Predicate shownFound) throws LJError {
         if (mayBeAliased())
             return Optional.empty();
         VariableInstance at = receiver;
@@ -230,7 +232,7 @@ final class StateOrigin {
      * That the facts of found on the shown sets {@code change} names were last set by it, if what it gave {@code after}
      * proves them
      */
-    private Optional<String> lastSetNote(StateChange change, VariableInstance after, Predicate shownFound)
+    private Optional<SourceReference> lastSetNote(StateChange change, VariableInstance after, Predicate shownFound)
             throws LJError {
         Set<GhostFunction> changed = setsOf(List.of(change.change().getTo()), ghostStates).stream()
                 .filter(shown::contains).collect(Collectors.toSet());
@@ -238,8 +240,9 @@ final class StateOrigin {
         if (facts.isEmpty() || !implies(after.getRefinement(), facts.get()))
             return Optional.empty();
         // the call last set these sets, so it is what makes them so
-        return code(change.position()).map(code -> String.format("Origin: line %d, %s makes %s",
-                change.position().getLine(), code, display(facts.get(), after.getName())));
+        String line = "line " + change.position().getLine();
+        return code(change.position()).map(code -> SourceReference.of(String.format("Origin: %s, %s makes %s", line,
+                Code.of(code), Code.of(display(facts.get(), after.getName()))), line, change.position()));
     }
 
     /**
@@ -247,18 +250,22 @@ final class StateOrigin {
      * them, or that it says nothing about them when found says nothing either and its return refinement names no state
      * of them and no other value the state could come from
      */
-    private Optional<String> returnedNote(CallResult call, VariableInstance assigned, Predicate shownFound)
+    private Optional<SourceReference> returnedNote(CallResult call, VariableInstance assigned, Predicate shownFound)
             throws LJError {
         Optional<String> code = code(call.position());
         if (code.isEmpty())
             return Optional.empty();
-        String origin = String.format("Origin: line %d, %s ", call.position().getLine(), code.get());
+        String line = "line " + call.position().getLine();
+        String origin = String.format("Origin: %s, %s ", line, Code.of(code.get()));
         Optional<Predicate> facts = factsOn(call.returned(), Keys.WILDCARD, shown);
         Optional<Predicate> found = foundAbout(assigned, shownFound, shown);
         if (facts.isPresent())
             return found.isPresent()
                     && implies(facts.get().substituteVariable(Keys.WILDCARD, assigned.getName()), found.get())
-                            ? Optional.of(origin + "returns " + display(facts.get(), Keys.WILDCARD)) : Optional.empty();
+                            ? Optional.of(SourceReference.of(
+                                    origin + "returns " + Code.of(display(facts.get(), Keys.WILDCARD)), line,
+                                    call.position()))
+                            : Optional.empty();
         Predicate returned = call.returned();
         // a set declared without a name has a generated one, which the message does not otherwise show
         // a state refinement of the method may give the value its state, as `to = "running(_)"` does
@@ -268,8 +275,10 @@ final class StateOrigin {
                 && returned.getVariableNames().stream().allMatch(Keys.WILDCARD::equals)
                 && !hasAlias(returned.getExpression());
         String sets = shown.stream().map(set -> Utils.getSimpleName(set.getName()) + "(" + written + ")").sorted()
-                .collect(Collectors.joining(", "));
-        return saysNothing ? Optional.of(origin + "says nothing about " + sets) : Optional.empty();
+                .map(Code::of).collect(Collectors.joining(", "));
+        return saysNothing
+                ? Optional.of(SourceReference.of(origin + "says nothing about " + sets, line, call.position()))
+                : Optional.empty();
     }
 
     /**
@@ -277,7 +286,7 @@ final class StateOrigin {
      * constructor makes it in the shown sets, if found still says it is in that state. It is a fact about the
      * constructor only, given when the walk back to the call that last set the state broke, e.g. at a join of branches
      */
-    private Optional<String> creationNote(VariableInstance unknown, Predicate shownFound) throws LJError {
+    private Optional<SourceReference> creationNote(VariableInstance unknown, Predicate shownFound) throws LJError {
         DebugLog.warn("Origin note: no known call gives " + unknown.getName() + " its state, e.g. a join of branches");
         if (!(invocation instanceof CtInvocation<?> call && call.getTarget()instanceof CtVariableRead<?> read
                 && read.getVariable().getDeclaration()instanceof CtLocalVariable<?> local
@@ -293,8 +302,10 @@ final class StateOrigin {
                 || !implies(found.get(), facts.get().substituteVariable(Keys.THIS, unknown.getName())))
             return Optional.empty();
         // not "makes": a later call may have set the state again, which found no longer tells
-        return Optional.of(String.format("Origin: line %d, %s creates %s with %s", created.position().getLine(),
-                code.get(), written, display(facts.get(), Keys.THIS)));
+        String line = "line " + created.position().getLine();
+        return Optional
+                .of(SourceReference.of(String.format("Origin: %s, %s creates %s with %s", line, Code.of(code.get()),
+                        Code.of(written), Code.of(display(facts.get(), Keys.THIS))), line, created.position()));
     }
 
     /**

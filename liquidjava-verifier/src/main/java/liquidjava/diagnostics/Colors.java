@@ -2,6 +2,16 @@ package liquidjava.diagnostics;
 
 // ANSI color codes
 public class Colors {
+
+    /**
+     * Whether colour may mark code: not when NO_COLOR is set (https://no-color.org), nor when the output is not a
+     * terminal
+     */
+    public static boolean enabled() {
+        String noColor = System.getenv("NO_COLOR");
+        return (noColor == null || noColor.isEmpty()) && System.console() != null;
+    }
+
     public static final String RESET = "\u001B[0m";
     public static final String GREY = "\u001B[90m";
     public static final String RED = "\u001B[31m";

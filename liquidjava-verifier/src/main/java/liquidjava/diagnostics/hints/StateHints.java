@@ -12,6 +12,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import liquidjava.diagnostics.categories.ErrorCategory;
+import liquidjava.diagnostics.Code;
+import liquidjava.diagnostics.SourceReference;
 import liquidjava.diagnostics.hints.Hint.Kind;
 import liquidjava.processor.context.RefinedFunction;
 import liquidjava.processor.context.Variable;
@@ -41,6 +43,8 @@ public final class StateHints {
 
     private final StateMachine machine;
     private final String receiver;
+    // the receiver marked as code, for the words of a hint
+    private final String shownReceiver;
     /** The states that allow the failing call, grouped by the state refinement that allows it */
     private final List<Set<State>> goals;
     /** The state sets the failing call checks, as indexes into {@link State#names()} */
@@ -57,6 +61,7 @@ public final class StateHints {
             Function<String, Optional<String>> setNameOf) {
         this.machine = machine;
         this.receiver = receiver;
+        this.shownReceiver = Code.of(receiver);
         this.setNameOf = setNameOf;
         this.asValues = machine.states().stream().flatMap(s -> s.names().stream())
                 .anyMatch(name -> setNameOf.apply(name).isPresent());
@@ -113,10 +118,11 @@ public final class StateHints {
                 ? "new " + Utils.getSimpleName(function.getTargetClass()) + namedParameters(function)
                 : receiver + "." + declaration(function);
         String values = deciding.values().isEmpty() ? "other arguments" : deciding.values().entrySet().stream()
-                .map(e -> e.getKey() + " == " + e.getValue()).collect(Collectors.joining(" and "));
-        return new Hint(Kind.DECIDING_ARGUMENT,
-                String.format("%s on line %d decides the state of %s: with %s, this call would be allowed", call,
-                        deciding.call().position().getLine(), receiver, values));
+                .map(e -> Code.of(e.getKey() + " == " + e.getValue())).collect(Collectors.joining(" and "));
+        String line = "line " + deciding.call().position().getLine();
+        String message = String.format("%s on %s decides the state of %s: with %s, this call would be allowed",
+                Code.of(call), line, Code.of(receiver), values);
+        return new Hint(Kind.DECIDING_ARGUMENT, message, SourceReference.of(message, line, deciding.call().position()));
     }
 
     /**
@@ -128,8 +134,8 @@ public final class StateHints {
      *            whether the state was checked, though the check did not decide it
      */
     private List<Hint> anyState(Set<State> current, RefinedFunction call, boolean checkedElsewhere) {
-        String known = checkedElsewhere ? "What is known here does not decide the state of " + receiver
-                : "The state of " + receiver + " is unknown here";
+        String known = checkedElsewhere ? "What is known here does not decide the state of " + shownReceiver
+                : "The state of " + shownReceiver + " is unknown here";
         String message = known + ", and this call needs " + (asValues ? "" : "it to be ") + needed();
         message += newObjects(call).map(c -> ". Objects created with " + c + " start in such a state").orElse("");
         List<Hint> hints = new ArrayList<>();
@@ -179,9 +185,9 @@ public final class StateHints {
         CallVariant guard = guards.get(0);
         String check = (guard.negatedResult() ? "!" : "") + guardCall(guard.method());
         String arguments = guard.method().getArguments().isEmpty() ? ""
-                : ", filling in the arguments of " + declaration(guard.method());
-        String message = String.format("Guard this call with if (%s)%s; inside it, %s", check, arguments,
-                isIn(needed()));
+                : ", filling in the arguments of " + Code.of(declaration(guard.method()));
+        String message = String.format("Guard this call with %s%s; inside it, %s", Code.of("if (" + check + ")"),
+                arguments, isIn(needed()));
         return List.of(new Hint(Kind.GUARD, message));
     }
 
@@ -231,13 +237,13 @@ public final class StateHints {
             return new Hint(Kind.PATH_DEPENDENT_STATE, String.format(
                     "Depending on the path taken, %s here, and no sequence of calls moves %s from all of them to %s. "
                             + "Make %s reach this line in the same state on every path",
-                    namesHere(current), receiver, needed(), receiver));
+                    namesHere(current), shownReceiver, needed(), shownReceiver));
         if (pathDependent)
             return new Hint(Kind.PATH_DEPENDENT_STATE, String.format(
                     "%s can be in %s here, depending on the path taken, and no sequence of calls moves all of them to %s. "
                             + "Make %s reach this line in the same state on every path",
-                    receiver, namesHere(current), needed(), receiver));
-        String message = String.format("No sequence of calls moves %s from %s to %s", receiver, namesHere(current),
+                    shownReceiver, namesHere(current), needed(), shownReceiver));
+        String message = String.format("No sequence of calls moves %s from %s to %s", shownReceiver, namesHere(current),
                 needed());
         message += newObjects(call).map(c -> ". Create a new object instead with " + c).orElse("");
         return new Hint(Kind.UNREACHABLE_STATE, message);
@@ -246,18 +252,18 @@ public final class StateHints {
     private List<Hint> allowedCalls(Set<State> current) {
         List<RefinedFunction> allowed = machine.allowedIn(current);
         if (!allowed.isEmpty()) {
-            List<String> signatures = allowed.stream().map(StateHints::signature).toList();
+            List<String> signatures = allowed.stream().map(StateHints::signature).map(Code::of).toList();
             String others = machine.complete() ? "" : " (and possibly others)";
             return List.of(new Hint(Kind.AVAILABLE_CALLS, String.format("%s %s, %s can call: %s%s",
-                    asValues ? "When" : "In state", namesHere(current), receiver, list(signatures), others)));
+                    asValues ? "When" : "In state", namesHere(current), shownReceiver, list(signatures), others)));
         }
         boolean noCallsInAnyState = current.stream().allMatch(s -> machine.allowedIn(Set.of(s)).isEmpty());
         if (machine.complete() && noCallsInAnyState)
             return List.of(new Hint(Kind.FINAL_STATE, asValues
                     ? String.format("When %s, none of the methods of %s with state refinements can be called",
-                            namesHere(current), receiver)
+                            namesHere(current), shownReceiver)
                     : String.format("%s is in state %s, where none of its methods with state refinements can be called",
-                            receiver, namesHere(current))));
+                            shownReceiver, namesHere(current))));
         return List.of();
     }
 
@@ -266,7 +272,7 @@ public final class StateHints {
         if (receiver.equals(Keys.THIS))
             return Optional.empty();
         List<String> constructors = machine.constructorsEnabling(call).stream().map(StateHints::constructor).distinct()
-                .toList();
+                .map(Code::of).toList();
         return constructors.isEmpty() ? Optional.empty() : Optional.of(String.join(" or ", constructors));
     }
 
@@ -292,17 +298,18 @@ public final class StateHints {
     }
 
     /**
-     * A step of a sequence, with the condition on its arguments if it has one: as the call with its argument when the
-     * condition gives the only parameter a value, e.g. {@code p.setMode(2)}, and otherwise after the call, e.g.
-     * {@code p.set(int lo, int hi) with lo < hi}
+     * A step of a sequence, marked as code, with the condition on its arguments if it has one: as the call with its
+     * argument when the condition gives the only parameter a value, e.g. {@code p.setMode(2)}, and otherwise after the
+     * call, e.g. {@code p.set(int lo, int hi) with lo < hi}
      */
     private String call(CallVariant step) {
         if (step.kind() != CallVariant.Kind.ARGUMENTS)
-            return call(step.method());
+            return Code.of(call(step.method()));
         Expression condition = step.condition().getExpression();
-        return argumentValue(step.method(), condition)
-                .map(value -> receiver + "." + Utils.getSimpleName(step.method().getName()) + "(" + value + ")")
-                .orElse(receiver + "." + declaration(step.method()) + " with " + condition.toDisplayString());
+        return argumentValue(step.method(), condition).map(
+                value -> Code.of(receiver + "." + Utils.getSimpleName(step.method().getName()) + "(" + value + ")"))
+                .orElse(Code.of(receiver + "." + declaration(step.method())) + " with "
+                        + Code.of(condition.toDisplayString()));
     }
 
     /** The value {@code condition} gives the only parameter of {@code method}, as {@code 2} in {@code mode == 2} */
@@ -346,7 +353,7 @@ public final class StateHints {
 
     /** That the receiver is in {@code states}, e.g. {@code f is open}, or {@code states} if they name the receiver */
     private String isIn(String states) {
-        return (asValues ? "" : receiver + " is ") + states;
+        return (asValues ? "" : shownReceiver + " is ") + states;
     }
 
     /** {@code states} named as briefly as possible, e.g. {@code open or loud} */
@@ -384,9 +391,9 @@ public final class StateHints {
      */
     private String stateName(String state) {
         if (!asValues)
-            return state;
-        return setNameOf.apply(state).map(set -> set + "(" + receiver + ") == " + state)
-                .orElse(state + "(" + receiver + ")");
+            return Code.of(state);
+        return Code.of(setNameOf.apply(state).map(set -> set + "(" + receiver + ") == " + state)
+                .orElse(state + "(" + receiver + ")"));
     }
 
     private static String list(List<String> items) {

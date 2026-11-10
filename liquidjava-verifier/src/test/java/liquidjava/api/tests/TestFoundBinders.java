@@ -63,8 +63,8 @@ class TestFoundBinders {
     @Test
     void callArgumentIsWrittenAsTheCallerWroteIt() {
         Shown shown = ERRORS.get(79);
-        assertEquals("found count() >= 0 but expected count() > 0", shown.message());
-        assertEquals("Counterexample: count() == 0", shown.counterexample());
+        assertEquals("found `count() >= 0` but expected `count() > 0`", shown.message());
+        assertEquals("Counterexample: `count() == 0`", shown.counterexample());
     }
 
     @Test
@@ -81,26 +81,26 @@ class TestFoundBinders {
     void staticFieldIsWrittenWithItsClass() {
         Shown shown = ERRORS.get(31);
         assertEquals(List.of("∀count count == Basket.served + 1"), shown.rows());
-        assertEquals("Counterexample: count == 0 && Basket.served == -1", shown.counterexample());
+        assertEquals("Counterexample: `count == 0 && Basket.served == -1`", shown.counterexample());
     }
 
     @Test
     void variablesAnotherRowShowsGetNoTrueRow() {
         Shown shown = ERRORS.get(64);
         assertEquals(List.of("∀sum sum == first + second"), shown.rows());
-        assertEquals("Counterexample: sum == 0 && first == 0 && second == 0", shown.counterexample());
+        assertEquals("Counterexample: `sum == 0 && first == 0 && second == 0`", shown.counterexample());
     }
 
     @Test
     void variableOnlyExpectedNamesKeepsItsTrueRow() {
         Shown shown = ERRORS.get(69);
         assertEquals(List.of("∀t true"), shown.rows());
-        assertEquals("Counterexample: t == 0", shown.counterexample());
+        assertEquals("Counterexample: `t == 0`", shown.counterexample());
     }
 
     @Test
     void writeToAnotherObjectsFieldIsNamedAfterThatObject() {
-        assertEquals("found other.level == -1 but expected other.level >= 0", ERRORS.get(36).message());
+        assertEquals("found `other.level == -1` but expected `other.level >= 0`", ERRORS.get(36).message());
         assertEquals(List.of("∀this.level this.level >= 0", "∀other.level other.level == this.level - 1"),
                 ERRORS.get(48).rows());
     }
@@ -108,8 +108,8 @@ class TestFoundBinders {
     @Test
     void earlierValuesOfAVariableAreWrittenWithTheirLine() {
         Shown shown = ERRORS.get(86);
-        assertEquals("found b@86 == 8 && b@86 > 0 && b == -b@86 but expected b > 0", shown.message());
-        assertEquals("Counterexample: b == -8", shown.counterexample());
+        assertEquals("found `b@86 == 8 && b@86 > 0 && b == -b@86` but expected `b > 0`", shown.message());
+        assertEquals("Counterexample: `b == -8`", shown.counterexample());
         assertEquals(List.of("∀b@85 b@85 == 8", "∀b@86 b@86 == b@85 && b@86 > 0", "∀b b == -b@86"),
                 shown.originalRows());
     }

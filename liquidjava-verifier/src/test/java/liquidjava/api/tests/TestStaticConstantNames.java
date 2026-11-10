@@ -36,7 +36,8 @@ class TestStaticConstantNames {
     }
 
     private static void assertShowsName(RefinementError error) {
-        assertEquals("found mode == ImageWriteParam.MODE_EXPLICIT but expected mode != ImageWriteParam.MODE_EXPLICIT",
+        assertEquals(
+                "found `mode == ImageWriteParam.MODE_EXPLICIT` but expected `mode != ImageWriteParam.MODE_EXPLICIT`",
                 error.getMessage().replaceAll("[⁰¹²³⁴⁵⁶⁷⁸⁹]", ""));
         assertTrue(error.getCounterexample().isEmpty());
     }
