@@ -42,6 +42,15 @@ class TestOriginNotes {
         assertEquals(List.of(), captured.getMessageNotes());
     }
 
+    @Test
+    void callArgumentIsTracedToWhatItsReturnRefinementGuaranteesAboutIt() {
+        CommandLineLauncher.launch(TEST_SUITE + "classes/found_binders_error");
+        LJError pick = Diagnostics.getInstance().getErrors().stream().filter(e -> e.getPosition().getLine() == 25)
+                .findFirst().orElseThrow();
+        assertEquals(List.of("From: items.size() (ArrayListRefinements.java:13) guarantees only items.size() >= 0"),
+                pick.getMessageNotes());
+    }
+
     private static LJError verify(String test) {
         CommandLineLauncher.launch(TEST_SUITE + test);
         List<LJError> errors = Diagnostics.getInstance().getErrors().stream().toList();

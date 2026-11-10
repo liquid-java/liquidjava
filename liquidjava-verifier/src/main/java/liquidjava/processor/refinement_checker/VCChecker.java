@@ -91,6 +91,7 @@ public class VCChecker {
                     implBeforeChange.simplify(NeededVariables.forRefinementError(expectedType)), map,
                     result.getCounterexample(), customMessage, context.getAliases());
             OriginNotes.unrefinedParameters(error, element, context).forEach(error::addMessageNote);
+            OriginNotes.returnedValues(error, context).forEach(error::addMessageNote);
             throw error;
         }
     }

@@ -16,6 +16,20 @@ import spoon.reflect.declaration.CtMethod;
 import spoon.reflect.declaration.CtParameter;
 import spoon.reflect.declaration.CtType;
 import liquidjava.utils.Utils;
+import liquidjava.utils.constants.Keys;
+import liquidjava.processor.context.CallResult;
+import liquidjava.processor.context.VariableInstance;
+import liquidjava.rj_language.ast.BinaryExpression;
+import liquidjava.rj_language.ast.Expression;
+import liquidjava.rj_language.ast.FunctionInvocation;
+import liquidjava.rj_language.ast.LiteralBoolean;
+import liquidjava.rj_language.ast.Var;
+import liquidjava.rj_language.ast.formatter.ExpressionFormatter;
+import spoon.reflect.cu.SourcePosition;
+
+import static liquidjava.rj_language.opt.VCSimplificationUtils.containsExpression;
+import static liquidjava.rj_language.opt.VCSimplificationUtils.factsOf;
+import static liquidjava.rj_language.opt.VCSimplificationUtils.isTrue;
 
 /**
  * The origin notes of a refinement error, which say where the values its expected refinement is about come from. Each
@@ -51,6 +65,64 @@ final class OriginNotes {
                     signature(method.get())));
         }
         return notes;
+    }
+
+    /**
+     * For each argument of expected that is a call to a refined method, what the method's return refinement guarantees
+     * about it. An equality defining a ghost, {@code _ == size(this)}, is left out when the ghost is nowhere else in
+     * the refinement: it then constrains no value, so what is left is all it says about the value
+     */
+    static List<String> returnedValues(RefinementError error, Context context) {
+        List<String> notes = new ArrayList<>();
+        for (String variable : error.getExpected().getVariableNames().stream().distinct().toList()) {
+            // a call argument, which has no variable of its own and is shown as the call
+            if (!(context.getVariableByName(variable)instanceof VariableInstance instance)
+                    || instance.getReturnedBy().isEmpty() || context.getVariableFromInstance(instance) != null)
+                continue;
+            CallResult call = instance.getReturnedBy().get();
+            SourcePosition declared = call.function().getPlacementInCode() == null ? null
+                    : call.function().getPlacementInCode().getAnnotationPosition();
+            if (declared == null || !declared.isValidPosition() || declared.getFile() == null)
+                continue;
+            Expression guaranteed = withoutGhostDefinitions(call.returned().getExpression());
+            String value = ExpressionFormatter.format(new Var(variable), error.getDisplayNames());
+            String says = isTrue(guaranteed) ? "guarantees nothing about " + value
+                    : "guarantees only " + ExpressionFormatter.format(
+                            guaranteed.substitute(new Var(Keys.WILDCARD), new Var(variable)), error.getDisplayNames());
+            notes.add(String.format("From: %s (%s:%d) %s", value, declared.getFile().getName(), declared.getLine(),
+                    says));
+        }
+        return notes;
+    }
+
+    private static Expression withoutGhostDefinitions(Expression refinement) {
+        List<Expression> facts = factsOf(refinement);
+        Expression kept = new LiteralBoolean(true);
+        for (Expression fact : facts) {
+            boolean definesGhost = ghostDefined(fact).filter(
+                    ghost -> facts.stream().noneMatch(other -> other != fact && containsExpression(other, ghost)))
+                    .isPresent();
+            if (!definesGhost)
+                kept = isTrue(kept) ? fact : new BinaryExpression(kept, "&&", fact);
+        }
+        return kept;
+    }
+
+    /** The ghost application {@code g(...)} of a fact {@code _ == g(...)} */
+    private static Optional<Expression> ghostDefined(Expression fact) {
+        if (!(fact instanceof BinaryExpression equality) || !"==".equals(equality.getOperator()))
+            return Optional.empty();
+        Expression left = equality.getFirstOperand();
+        Expression right = equality.getSecondOperand();
+        if (isWildcard(left) && right instanceof FunctionInvocation)
+            return Optional.of(right);
+        if (isWildcard(right) && left instanceof FunctionInvocation)
+            return Optional.of(left);
+        return Optional.empty();
+    }
+
+    private static boolean isWildcard(Expression expression) {
+        return expression instanceof Var var && Keys.WILDCARD.equals(var.getName());
     }
 
     /**
