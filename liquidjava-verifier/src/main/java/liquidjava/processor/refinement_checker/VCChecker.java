@@ -1,5 +1,8 @@
 package liquidjava.processor.refinement_checker;
 
+import static liquidjava.rj_language.opt.VCSimplificationUtils.factsOf;
+import static liquidjava.rj_language.opt.VCSimplificationUtils.linkedToExpected;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -464,11 +467,29 @@ public class VCChecker {
         VCSimplificationResult simplified = foundState.simplify(NeededVariables.forStateError(expected));
         VCSimplificationResult relevant = VCSimplification.simplifyOnce(simplified,
                 new VCRelevantFacts(expected.getExpression(), this::ghostFunctionsOf));
-        VCSimplificationResult shown = VCSimplification.simplifyOnce(relevant, new VCPathFolding(foundState));
+        VCSimplificationResult folded = VCSimplification.simplifyOnce(relevant, new VCPathFolding(foundState));
+        VCSimplificationResult shown = keepsShownFacts(relevant, folded, expected) ? folded : relevant;
         throw new StateRefinementError(position, declarationPosition, expected, shown, map, customMessage, hints,
                 category, context,
                 e -> StateValues.toSetForm(e, this.context.getGhostStates(), this.context.getGhosts()),
                 declarationNotes);
+    }
+
+    /**
+     * Whether the error still shows, after folding, every fact it showed that is not conditional: the facts a fold uses
+     * must stay in sight, or the folded branch would read as if nothing chose it
+     */
+    private static boolean keepsShownFacts(VCSimplificationResult before, VCSimplificationResult after,
+            Predicate expected) {
+        List<Expression> shownAfter = factsOf(
+                linkedToExpected(after.getImplication().toPredicate().getExpression(), expected.getExpression()));
+        return factsOf(
+                linkedToExpected(before.getImplication().toPredicate().getExpression(), expected.getExpression()))
+                        .stream().filter(fact -> !hasIte(fact)).allMatch(shownAfter::contains);
+    }
+
+    private static boolean hasIte(Expression expression) {
+        return expression instanceof Ite || expression.getChildren().stream().anyMatch(VCChecker::hasIte);
     }
 
     /** The ghost functions an invocation name stands for: a state's state set function, or the ghost itself */
