@@ -87,9 +87,11 @@ public class VCChecker {
         }
         DebugLog.smtResult(result);
         if (result.isError()) {
-            throw new RefinementError(element.getPosition(), declarationPosition, expectedType,
+            RefinementError error = new RefinementError(element.getPosition(), declarationPosition, expectedType,
                     implBeforeChange.simplify(NeededVariables.forRefinementError(expectedType)), map,
                     result.getCounterexample(), customMessage, context.getAliases());
+            FromNotes.unrefinedParameters(error, element, context).forEach(error::addMessageNote);
+            throw error;
         }
     }
 

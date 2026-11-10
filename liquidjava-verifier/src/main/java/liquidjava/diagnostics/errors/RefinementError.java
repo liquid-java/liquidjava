@@ -116,10 +116,13 @@ public class RefinementError extends LJError {
         return expectedAliases;
     }
 
-    /** A where line declaring each alias the message uses */
+    /** A where line declaring each alias the message uses, then the other notes */
     @Override
     public List<String> getMessageNotes() {
-        return aliasDeclarations.stream().map(declaration -> "where " + declaration).toList();
+        List<String> notes = new ArrayList<>(
+                aliasDeclarations.stream().map(declaration -> "where " + declaration).toList());
+        notes.addAll(super.getMessageNotes());
+        return notes;
     }
 
     // Keeps the counterexample assignments to the terms of expected and of the found facts linked to them, except
