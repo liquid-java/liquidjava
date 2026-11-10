@@ -65,9 +65,11 @@ final class FromNotes {
         int index = method.getParameters().indexOf(parameter);
         String owner = method.getParent(CtType.class).getQualifiedName();
         String name = method instanceof CtConstructor<?> ? Utils.getSimpleName(owner) : method.getSimpleName();
+        List<String> types = method.getParameters().stream().map(p -> p.getType().getQualifiedName()).toList();
         return context.getCtxFunctions().stream()
                 .filter(f -> owner.equals(f.getTargetClass()) && name.equals(Utils.getSimpleName(f.getName()))
-                        && f.getArguments().size() == method.getParameters().size())
+                        && types.equals(f.getArguments().stream()
+                                .map(a -> a.getType() == null ? null : a.getType().getQualifiedName()).toList()))
                 .anyMatch(f -> !f.getArguments().get(index).getMainRefinement().isBooleanTrue());
     }
 
