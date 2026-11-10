@@ -70,6 +70,12 @@ public class LJDiagnostic extends RuntimeException {
         return null;
     }
 
+    /** Where each part of the refinement is declared, the first being {@link #getDeclarationPosition()} */
+    public List<SourcePosition> getDeclarationPositions() {
+        SourcePosition declarationPosition = getDeclarationPosition();
+        return declarationPosition == null ? List.of() : List.of(declarationPosition);
+    }
+
     /** Lines printed under the message that explain it, such as what the names it uses mean */
     public List<String> getMessageNotes() {
         return List.of();
@@ -149,7 +155,7 @@ public class LJDiagnostic extends RuntimeException {
         SourcePosition declPos = getDeclarationPosition();
         if (declPos != null && declPos.getFile() != null && !declPos.equals(position)) {
             sb.append(Colors.CYAN).append("\n--> Refinement declared here:\n").append(Colors.RESET);
-            String declarationSnippet = getSnippet(declPos, 1, 1, Colors.CYAN, null, true);
+            String declarationSnippet = getSnippet(getDeclarationPositions(), 1, 1, Colors.CYAN, null, true);
             if (declarationSnippet != null) {
                 sb.append(declarationSnippet);
                 for (String note : getDeclarationNotes())
@@ -164,22 +170,27 @@ public class LJDiagnostic extends RuntimeException {
     }
 
     public String getSnippet() {
-        return getSnippet(position, 2, 2, accentColor, customMessage, false);
+        return position == null ? null : getSnippet(List.of(position), 2, 2, accentColor, customMessage, false);
     }
 
-    private String getSnippet(SourcePosition snippetPosition, int contextBefore, int contextAfter, String markerColor,
+    // One excerpt of the file of the first position, marking each position in that file
+    private String getSnippet(List<SourcePosition> positions, int contextBefore, int contextAfter, String markerColor,
             String markerMessage, boolean firstLineOnly) {
-        if (snippetPosition == null || snippetPosition.getFile() == null)
+        if (positions.isEmpty() || positions.get(0).getFile() == null)
             return null;
 
-        Path path = snippetPosition.getFile().toPath();
+        Path path = positions.get(0).getFile().toPath();
+        List<SourcePosition> marked = positions.stream()
+                .filter(p -> p.getFile() != null && p.getFile().toPath().equals(path)).toList();
         try {
             List<String> lines = Files.readAllLines(path);
             StringBuilder sb = new StringBuilder();
 
-            int startLine = Math.max(1, snippetPosition.getLine() - contextBefore);
-            int highlightedEndLine = firstLineOnly ? snippetPosition.getLine() : snippetPosition.getEndLine();
-            int endLine = Math.min(lines.size(), highlightedEndLine + contextAfter);
+            int startLine = Math.max(1,
+                    marked.stream().mapToInt(SourcePosition::getLine).min().getAsInt() - contextBefore);
+            int endLine = Math.min(lines.size(),
+                    marked.stream().mapToInt(p -> highlightedEndLine(p, firstLineOnly)).max().getAsInt()
+                            + contextAfter);
 
             // calculate padding for line numbers
             int padding = String.valueOf(endLine).length();
@@ -193,31 +204,34 @@ public class LJDiagnostic extends RuntimeException {
                 sb.append(Colors.GREY).append(lineNumStr).append(PIPE).append(line).append(Colors.RESET).append("\n");
 
                 // add error markers on the line(s) with the error
-                if (i >= snippetPosition.getLine() && i <= highlightedEndLine) {
-                    int colStart = (i == snippetPosition.getLine()) ? snippetPosition.getColumn() : 1;
-                    int colEnd = (i == snippetPosition.getEndLine()) ? snippetPosition.getEndColumn()
-                            : rawLine.length();
+                for (SourcePosition snippetPosition : marked) {
+                    int highlightedEndLine = highlightedEndLine(snippetPosition, firstLineOnly);
+                    if (i >= snippetPosition.getLine() && i <= highlightedEndLine) {
+                        int colStart = (i == snippetPosition.getLine()) ? snippetPosition.getColumn() : 1;
+                        int colEnd = (i == snippetPosition.getEndLine()) ? snippetPosition.getEndColumn()
+                                : rawLine.length();
 
-                    if (colStart > 0 && colEnd > 0) {
-                        int tabsBeforeStart = (int) rawLine.substring(0, Math.max(0, colStart - 1)).chars()
-                                .filter(ch -> ch == '\t').count();
-                        int tabsBeforeEnd = (int) rawLine.substring(0, Math.max(0, colEnd)).chars()
-                                .filter(ch -> ch == '\t').count();
-                        int visualColStart = colStart + tabsBeforeStart * 3;
-                        int visualColEnd = colEnd + tabsBeforeEnd * 3;
+                        if (colStart > 0 && colEnd > 0) {
+                            int tabsBeforeStart = (int) rawLine.substring(0, Math.max(0, colStart - 1)).chars()
+                                    .filter(ch -> ch == '\t').count();
+                            int tabsBeforeEnd = (int) rawLine.substring(0, Math.max(0, colEnd)).chars()
+                                    .filter(ch -> ch == '\t').count();
+                            int visualColStart = colStart + tabsBeforeStart * 3;
+                            int visualColEnd = colEnd + tabsBeforeEnd * 3;
 
-                        // line number padding + pipe + column offset
-                        String indent = " ".repeat(padding) + Colors.GREY + PIPE + Colors.RESET
-                                + " ".repeat(visualColStart - 1);
-                        String markers = markerColor + "^".repeat(Math.max(1, visualColEnd - visualColStart + 1));
-                        sb.append(indent).append(markers);
+                            // line number padding + pipe + column offset
+                            String indent = " ".repeat(padding) + Colors.GREY + PIPE + Colors.RESET
+                                    + " ".repeat(visualColStart - 1);
+                            String markers = markerColor + "^".repeat(Math.max(1, visualColEnd - visualColStart + 1));
+                            sb.append(indent).append(markers);
 
-                        // custom message
-                        if (markerMessage != null && !markerMessage.isBlank()) {
-                            String offset = " ".repeat(padding + visualColEnd + PIPE.length() + 1);
-                            sb.append(" " + markerMessage.replace("\n", "\n" + offset));
+                            // custom message
+                            if (markerMessage != null && !markerMessage.isBlank()) {
+                                String offset = " ".repeat(padding + visualColEnd + PIPE.length() + 1);
+                                sb.append(" " + markerMessage.replace("\n", "\n" + offset));
+                            }
+                            sb.append(Colors.RESET).append("\n");
                         }
-                        sb.append(Colors.RESET).append("\n");
                     }
                 }
             }
@@ -225,6 +239,10 @@ public class LJDiagnostic extends RuntimeException {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    private static int highlightedEndLine(SourcePosition position, boolean firstLineOnly) {
+        return firstLineOnly ? position.getLine() : position.getEndLine();
     }
 
     @Override

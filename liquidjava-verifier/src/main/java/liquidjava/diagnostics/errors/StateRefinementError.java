@@ -24,25 +24,27 @@ public class StateRefinementError extends LJError {
 
     private final Predicate expected;
     private final VCSimplificationResult found;
-    private final SourcePosition declarationPosition;
+    private final List<SourcePosition> declarationPositions;
     private final StateErrorContext context;
     private final List<String> declarationNotes;
 
     /**
+     * @param declarationPositions
+     *            where each entry state that makes up expected is declared
      * @param display
      *            rewrites expected and found as the error shows them, here and to the IDE, after the facts to show are
      *            chosen on them as given
      * @param declarationNotes
      *            lines that explain the declaration, printed under its excerpt
      */
-    public StateRefinementError(SourcePosition position, SourcePosition declarationPosition, Predicate expected,
+    public StateRefinementError(SourcePosition position, List<SourcePosition> declarationPositions, Predicate expected,
             VCSimplificationResult found, TranslationTable translationTable, String customMessage, List<Hint> hints,
             ErrorCategory category, StateErrorContext context, UnaryOperator<Expression> display,
             List<String> declarationNotes) {
         super("State Refinement Error", ErrorMessage.of(expected.getExpression(), found, translationTable,
                 StateRefinementError::appliesGhost, "found %s but expected %s", display), position, translationTable,
                 customMessage);
-        this.declarationPosition = declarationPosition;
+        this.declarationPositions = declarationPositions;
         this.expected = new Predicate(display.apply(expected.getExpression()));
         this.found = found.map(display);
         this.context = context;
@@ -68,7 +70,12 @@ public class StateRefinementError extends LJError {
 
     @Override
     public SourcePosition getDeclarationPosition() {
-        return declarationPosition;
+        return declarationPositions.isEmpty() ? null : declarationPositions.get(0);
+    }
+
+    @Override
+    public List<SourcePosition> getDeclarationPositions() {
+        return declarationPositions;
     }
 
     public Predicate getExpected() {
