@@ -154,7 +154,7 @@ public class RefinementError extends LJError {
     }
 
     // Whether a fact of found is term == value, which the counterexample would only repeat
-    private static boolean isKnown(Pair<String, String> assignment, List<Expression> facts) {
+    static boolean isKnown(Pair<String, String> assignment, List<Expression> facts) {
         return facts.stream()
                 .anyMatch(fact -> fact instanceof BinaryExpression binary && "==".equals(binary.getOperator())
                         && (states(binary.getFirstOperand(), binary.getSecondOperand(), assignment)

@@ -234,6 +234,14 @@ class TestCounterexamples {
         assertAssignments(error, assignment("k", "-1"));
     }
 
+    @Test
+    void stateErrorShowsTheValueThatPicksTheFailingBranchButNoStateValue() {
+        CommandLineLauncher.launch(TEST_SUITE + "ErrorStateHintPathDependent.java");
+        List<LJError> errors = Diagnostics.getInstance().getErrors().stream().toList();
+        assertEquals(1, errors.size());
+        assertEquals("Counterexample: ready == false", errors.get(0).getCounterexampleStr());
+    }
+
     private static RefinementError verify(String test) {
         CommandLineLauncher.launch(TEST_SUITE + test);
         List<LJError> errors = Diagnostics.getInstance().getErrors().stream().toList();

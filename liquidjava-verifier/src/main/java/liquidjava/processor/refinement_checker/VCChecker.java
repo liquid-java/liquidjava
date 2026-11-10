@@ -457,16 +457,19 @@ public class VCChecker {
 
     protected void throwStateRefinementError(SourcePosition position, SourcePosition declarationPosition,
             Predicate found, Predicate expected, String customMessage, List<Hint> hints, ErrorCategory category,
-            StateErrorContext context, List<String> declarationNotes) throws StateRefinementError {
+            StateErrorContext context, List<String> declarationNotes, Counterexample counterexample)
+            throws StateRefinementError {
         TranslationTable map = new TranslationTable();
         VCImplication foundState = buildPremiseChain(map, expected, found);
         VCSimplificationResult simplified = foundState.simplify(NeededVariables.forStateError(expected));
         VCSimplificationResult shown = VCSimplification.simplifyOnce(simplified,
                 new VCRelevantFacts(expected.getExpression(), this::ghostFunctionsOf));
-        throw new StateRefinementError(position, declarationPosition, expected, shown, map, customMessage, hints,
-                category, context,
+        StateRefinementError error = new StateRefinementError(position, declarationPosition, expected, shown, map,
+                customMessage, hints, category, context,
                 e -> StateValues.toSetForm(e, this.context.getGhostStates(), this.context.getGhosts()),
                 declarationNotes);
+        error.showCounterexample(counterexample);
+        throw error;
     }
 
     /** The ghost functions an invocation name stands for: a state's state set function, or the ghost itself */

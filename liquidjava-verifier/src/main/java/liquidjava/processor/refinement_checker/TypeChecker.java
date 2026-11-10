@@ -31,6 +31,8 @@ import liquidjava.rj_language.ast.FunctionInvocation;
 import liquidjava.rj_language.ast.Var;
 import liquidjava.rj_language.ast.formatter.FieldDisplayNames;
 import liquidjava.rj_language.parsing.RefinementsParser;
+import liquidjava.diagnostics.DebugLog;
+import liquidjava.smt.Counterexample;
 import liquidjava.smt.SMTEvaluator;
 import liquidjava.smt.SMTResult;
 import liquidjava.utils.Utils;
@@ -621,7 +623,19 @@ public abstract class TypeChecker extends CtScanner {
             Predicate expected, String customMessage, List<Hint> hints, ErrorCategory category,
             StateErrorContext context, List<String> declarationNotes) throws LJError {
         vcChecker.throwStateRefinementError(position, declarationPosition, found, expected, customMessage, hints,
-                category, context, declarationNotes);
+                category, context, declarationNotes, counterexample(found, expected, position));
+    }
+
+    /** A model of what is known where {@code expected} fails, or null if the solver gives none */
+    private Counterexample counterexample(Predicate found, Predicate expected, SourcePosition position) {
+        try {
+            SMTResult result = verifyStateSMT(found, expected, position, true);
+            return result.isError() ? result.getCounterexample() : null;
+        } catch (RuntimeException e) {
+            // a failure to find a model must not replace the error being reported
+            DebugLog.warn("Could not find a counterexample for the state error: " + e.getMessage());
+            return null;
+        }
     }
 
     public void throwStateConflictError(SourcePosition position, Predicate expectedType) throws LJError {

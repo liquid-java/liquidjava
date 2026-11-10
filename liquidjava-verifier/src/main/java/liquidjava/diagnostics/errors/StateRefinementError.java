@@ -1,9 +1,13 @@
 package liquidjava.diagnostics.errors;
 
+import static liquidjava.rj_language.opt.VCSimplificationUtils.factsOf;
 import static liquidjava.rj_language.opt.VCSimplificationUtils.isTrue;
+import static liquidjava.rj_language.opt.VCSimplificationUtils.linkedToExpected;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.UnaryOperator;
+import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.TranslationTable;
 import liquidjava.diagnostics.categories.ErrorCategory;
@@ -13,6 +17,8 @@ import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.FunctionInvocation;
 import liquidjava.rj_language.opt.VCSimplificationResult;
+import liquidjava.smt.Counterexample;
+import liquidjava.utils.GeneratedNames;
 import spoon.reflect.cu.SourcePosition;
 
 /**
@@ -52,6 +58,27 @@ public class StateRefinementError extends LJError {
         if (hints.isEmpty() && isTrue(found.getImplication().toPredicate().getExpression()))
             addHint(Hint.general(
                     "No state information is known for this object. Make sure its state is initialized and available at this point."));
+    }
+
+    /**
+     * Shows the values the counterexample gives the variables of the found the message shows, but those found already
+     * states. A ghost or state value is never shown: a state is an unconstrained number, and the message already says
+     * which state each object is in
+     */
+    public void showCounterexample(Counterexample counterexample) {
+        Expression foundExpression = found.getImplication().toPredicate().getExpression();
+        Expression shown = linkedToExpected(foundExpression, expected.getExpression());
+        if (counterexample == null || !appliesGhost(shown))
+            return;
+        List<String> variables = new ArrayList<>();
+        shown.getVariableNames(variables);
+        List<Expression> facts = factsOf(foundExpression);
+        String values = counterexample.assignments().stream()
+                .filter(a -> variables.contains(a.first()) && !GeneratedNames.isGenerated(a.first()))
+                .filter(a -> !RefinementError.isKnown(a, facts) && !a.second().contains("!val!"))
+                .map(a -> getDisplayNames().get(a.first()) + " == " + a.second()).collect(Collectors.joining(" && "));
+        if (!values.isEmpty())
+            setCounterexampleStr("Counterexample: " + values);
     }
 
     // Only the facts of found about the objects of expected, and only when one of them tells a state: an alias or a
