@@ -22,6 +22,18 @@ class TestOriginNotes {
         assertTrue(error.toString().contains(error.getMessage() + "\n  Origin: line 10, amount is a parameter"));
     }
 
+    @Test
+    void stateIsTracedToTheCallThatLastSetTheSetThatIsWrong() {
+        assertEquals(List.of("From: lockState(d) == locked, last set at line 27: d.lock()"),
+                verify("ErrorStateHintMultipleSets.java").getMessageNotes());
+    }
+
+    @Test
+    void stateIsTracedToTheReturnRefinementOfTheCallAssigned() {
+        assertEquals(List.of("From: task = FromReturnedTask.create(), line 27, which returns phase(task) == idle"),
+                verify("ErrorStateFromReturnedValue.java").getMessageNotes());
+    }
+
     private static LJError verify(String test) {
         CommandLineLauncher.launch(TEST_SUITE + test);
         List<LJError> errors = Diagnostics.getInstance().getErrors().stream().toList();

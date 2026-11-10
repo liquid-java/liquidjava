@@ -99,7 +99,7 @@ public class RefinementTypeChecker extends TypeChecker {
     ContextHistory contextHistory = ContextHistory.getInstance();
     // the metadata that checking an element puts on it
     private static final List<String> CHECK_METADATA = List.of(Keys.REFINEMENT, Keys.TARGET, Keys.RECEIVER,
-            Keys.RETURN_VAR_NAME, Keys.STATE_CHANGE);
+            Keys.RETURN_VAR_NAME, Keys.STATE_CHANGE, Keys.CALL_RESULT);
     // the loops being checked, innermost first
     private final Deque<LoopTypestates> loops = new ArrayDeque<>();
 
@@ -195,7 +195,14 @@ public class RefinementTypeChecker extends TypeChecker {
             context.addVarToContext(varName, localVariable.getType(), new Predicate(), e);
             checkVariableRefinements(refinementFound, varName, localVariable.getType(), localVariable, localVariable);
             AuxStateHandler.addStateRefinements(this, varName, e);
+            recordReturnedValue(varName, e);
         }
+    }
+
+    /** Records on the new instance of a local variable the call whose value it was assigned, if any */
+    private void recordReturnedValue(String name, CtExpression<?> value) {
+        if (value != null && value.getMetadata(Keys.CALL_RESULT)instanceof CallResult result)
+            context.getLastVariableInstance(name).ifPresent(instance -> instance.setReturnedBy(result));
     }
 
     @Override
@@ -271,6 +278,8 @@ public class RefinementTypeChecker extends TypeChecker {
             CtVariable<T> varDecl = (CtVariable<T>) var.getDeclaration();
             String name = var.getSimpleName();
             checkAssignment(name, varDecl.getType(), ex, assignment.getAssignment(), assignment, varDecl);
+            if (varDecl instanceof CtLocalVariable<?> && !(assignment instanceof CtOperatorAssignment<?, ?>))
+                recordReturnedValue(name, assignment.getAssignment());
 
         } else if (ex instanceof CtFieldWrite<?> fw) {
             CtFieldReference<?> cr = fw.getVariable();

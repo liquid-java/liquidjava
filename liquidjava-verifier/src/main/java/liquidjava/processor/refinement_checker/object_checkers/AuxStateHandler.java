@@ -827,8 +827,24 @@ public class AuxStateHandler {
             StateErrorContext context = states
                     .map(r -> StateErrorContext.of(r.machine(), function, r.current(), writtenReceiver(invocation)))
                     .orElse(null);
+            List<String> messageNotes = receiverOf(invocation)
+                    .flatMap(r -> fromNote(tc, vi, r, function, ghostStates, states, prevState, expected, invocation))
+                    .stream().toList();
             tc.throwStateRefinementError(invocation.getPosition(), declarationPositions, prevState,
-                    expectedStatesDisjunction, message, hints, category, context, declarationNotes);
+                    expectedStatesDisjunction, message, hints, category, context, declarationNotes, messageNotes);
+        }
+    }
+
+    /** Best effort, like {@link #receiverStates}: see {@link StateOrigin} */
+    private static Optional<String> fromNote(TypeChecker tc, VariableInstance receiver, String written,
+            RefinedFunction function, List<GhostState> ghostStates, Optional<ReceiverStates> states, Predicate found,
+            Predicate expected, CtElement invocation) {
+        try {
+            return StateOrigin.note(tc, receiver, written, function, ghostStates, states.map(ReceiverStates::machine),
+                    states.map(ReceiverStates::current).orElse(Set.of()), found, expected, invocation);
+        } catch (RuntimeException e) {
+            DebugLog.warn("Could not tell where the receiver's state comes from: " + e.getMessage());
+            return Optional.empty();
         }
     }
 
@@ -1042,8 +1058,9 @@ public class AuxStateHandler {
             Predicate c = variableInstance.getRefinement().substituteVariable(Keys.WILDCARD, newInstanceName)
                     .substituteVariable(variableInstance.getName(), newInstanceName);
 
-            addInstanceWithState(tc, name, newInstanceName, variableInstance, c, invocation)
-                    .setStateChange(variableInstance.getStateChange().orElse(null));
+            VariableInstance same = addInstanceWithState(tc, name, newInstanceName, variableInstance, c, invocation);
+            same.setStateChange(variableInstance.getStateChange().orElse(null));
+            same.setReturnedBy(variableInstance.getReturnedBy().orElse(null));
         }
     }
 
