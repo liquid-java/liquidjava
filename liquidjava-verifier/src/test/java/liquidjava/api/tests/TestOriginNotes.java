@@ -10,16 +10,16 @@ import liquidjava.api.CommandLineLauncher;
 import liquidjava.diagnostics.Diagnostics;
 import liquidjava.diagnostics.errors.LJError;
 
-class TestFromNotes {
+class TestOriginNotes {
 
     private static final String TEST_SUITE = "../liquidjava-example/src/main/java/testSuite/";
 
     @Test
     void unrefinedParameterIsNamedWithItsMethod() {
         LJError error = verify("ErrorUnknownArgument.java");
-        assertEquals(List.of("From: amount is a parameter of use(int) (line 10) with no refinement"),
+        assertEquals(List.of("Origin: line 10, amount is a parameter of use(int) with no refinement"),
                 error.getMessageNotes());
-        assertTrue(error.toString().contains(error.getMessage() + "\n  From: amount is a parameter"));
+        assertTrue(error.toString().contains(error.getMessage() + "\n  Origin: line 10, amount is a parameter"));
     }
 
     private static LJError verify(String test) {
