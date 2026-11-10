@@ -455,7 +455,7 @@ public class VCChecker {
         return buildPremiseChain(new TranslationTable(), expected, found).simplify().getImplication().toPredicate();
     }
 
-    protected void throwStateRefinementError(SourcePosition position, SourcePosition declarationPosition,
+    protected void throwStateRefinementError(SourcePosition position, List<SourcePosition> declarationPositions,
             Predicate found, Predicate expected, String customMessage, List<Hint> hints, ErrorCategory category,
             StateErrorContext context, List<String> declarationNotes) throws StateRefinementError {
         TranslationTable map = new TranslationTable();
@@ -463,7 +463,7 @@ public class VCChecker {
         VCSimplificationResult simplified = foundState.simplify(NeededVariables.forStateError(expected));
         VCSimplificationResult shown = VCSimplification.simplifyOnce(simplified,
                 new VCRelevantFacts(expected.getExpression(), this::ghostFunctionsOf));
-        throw new StateRefinementError(position, declarationPosition, expected, shown, map, customMessage, hints,
+        throw new StateRefinementError(position, declarationPositions, expected, shown, map, customMessage, hints,
                 category, context,
                 e -> StateValues.toSetForm(e, this.context.getGhostStates(), this.context.getGhosts()),
                 declarationNotes);

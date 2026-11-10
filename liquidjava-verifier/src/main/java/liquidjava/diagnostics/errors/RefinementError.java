@@ -13,7 +13,6 @@ import java.util.stream.Collectors;
 import liquidjava.diagnostics.AliasExpansion;
 import liquidjava.diagnostics.TranslationTable;
 import liquidjava.diagnostics.categories.ErrorCategory;
-import liquidjava.diagnostics.hints.Hint;
 import liquidjava.processor.context.AliasWrapper;
 import liquidjava.rj_language.Predicate;
 import liquidjava.rj_language.ast.BinaryExpression;
@@ -54,7 +53,7 @@ public class RefinementError extends LJError {
             String customMessage, List<AliasWrapper> aliases) {
         super("Refinement Error",
                 ErrorMessage.of(expected.getExpression(), found, translationTable, shown -> !isTrue(shown),
-                        "%s is not a subtype of %s", UnaryOperator.identity()),
+                        "found %s but expected %s", UnaryOperator.identity()),
                 position, translationTable, customMessage);
         this.expected = expected;
         this.found = found;
@@ -72,9 +71,6 @@ public class RefinementError extends LJError {
             setCounterexampleStr("Counterexample: " + counterexampleString);
         }
         setCategory(categoryOf(expected, found));
-        if (isTrue(found.getImplication().toPredicate().getExpression()))
-            addHint(Hint.general(
-                    "Not enough information to prove the expected refinement. Add a refinement or condition to constrain it."));
     }
 
     // Each alias the message uses once, with those their definitions use, as declared

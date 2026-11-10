@@ -417,13 +417,13 @@ public class AuxStateHandler {
             Predicate written = new Predicate(from, e, prefix);
             state.setWrittenFrom(written);
             state.setFrom(createStatePredicate(written, from, f.getTargetClass(), tc, e, false));
-            state.setFromPosition(Utils.getLJAnnotationPosition(e, from));
+            state.setFromPosition(valuePosition(m.get("from"), e, from));
         }
 
         // has to
         if (to != null) {
             state.setTo(createStatePredicate(new Predicate(to, e, prefix), to, f.getTargetClass(), tc, e, true));
-            state.setToPosition(Utils.getLJAnnotationPosition(e, to));
+            state.setToPosition(valuePosition(m.get("to"), e, to));
         }
 
         // has to but not from, state enters with true
@@ -431,6 +431,12 @@ public class AuxStateHandler {
             state.setFrom(new Predicate());
 
         return state;
+    }
+
+    // Where this annotation writes the value, as another annotation of the element may write the same text
+    private static SourcePosition valuePosition(CtExpression<?> value, CtElement element, String written) {
+        SourcePosition position = Utils.getAnnotationValuePosition(value);
+        return position != null ? position : Utils.getLJAnnotationPosition(element, written);
     }
 
     /**
@@ -796,12 +802,16 @@ public class AuxStateHandler {
             // combine messages of all state changes
             String message = stateChanges.stream().map(ObjectState::getMessage)
                     .filter(msg -> msg != null && !msg.isBlank()).distinct().collect(Collectors.joining("\n"));
-            Optional<ObjectState> declaration = stateChanges.stream().filter(ObjectState::hasFrom)
-                    .filter(s -> s.getFromPosition() != null).findFirst();
-            SourcePosition declarationPosition = declaration.map(ObjectState::getFromPosition)
-                    .orElse(function.getPlacementInCode().getPosition());
-            List<String> declarationNotes = declaration.map(ObjectState::getWrittenFrom).filter(Objects::nonNull)
-                    .map(written -> declarationNotes(written.getExpression(), tc.getContext())).orElse(List.of());
+            // every entry state that makes up expected, each with what its states mean
+            List<ObjectState> declarations = stateChanges.stream().filter(ObjectState::hasFrom)
+                    .filter(s -> s.getFromPosition() != null).toList();
+            List<SourcePosition> declarationPositions = declarations.isEmpty()
+                    ? List.of(function.getPlacementInCode().getPosition())
+                    : declarations.stream().map(ObjectState::getFromPosition).toList();
+            List<String> declarationNotes = declarations.stream().map(ObjectState::getWrittenFrom)
+                    .filter(Objects::nonNull)
+                    .flatMap(written -> declarationNotes(written.getExpression(), tc.getContext()).stream()).distinct()
+                    .toList();
             List<GhostState> ghostStates = getGhostStatesFor(function.getTargetClass(), tc);
             Optional<DecidingArgument> deciding = decidingArgument(tc, vi, function, ghostStates, invocation);
             Optional<ReceiverStates> states = receiverStates(tc, function, vi, prevState, invocation);
@@ -817,7 +827,7 @@ public class AuxStateHandler {
             StateErrorContext context = states
                     .map(r -> StateErrorContext.of(r.machine(), function, r.current(), writtenReceiver(invocation)))
                     .orElse(null);
-            tc.throwStateRefinementError(invocation.getPosition(), declarationPosition, prevState,
+            tc.throwStateRefinementError(invocation.getPosition(), declarationPositions, prevState,
                     expectedStatesDisjunction, message, hints, category, context, declarationNotes);
         }
     }

@@ -63,7 +63,7 @@ class TestFoundBinders {
     @Test
     void callArgumentIsWrittenAsTheCallerWroteIt() {
         Shown shown = ERRORS.get(79);
-        assertEquals("count() >= 0 is not a subtype of count() > 0", shown.message());
+        assertEquals("found count() >= 0 but expected count() > 0", shown.message());
         assertEquals("Counterexample: count() == 0", shown.counterexample());
     }
 
@@ -100,7 +100,7 @@ class TestFoundBinders {
 
     @Test
     void writeToAnotherObjectsFieldIsNamedAfterThatObject() {
-        assertEquals("other.level == -1 is not a subtype of other.level >= 0", ERRORS.get(36).message());
+        assertEquals("found other.level == -1 but expected other.level >= 0", ERRORS.get(36).message());
         assertEquals(List.of("∀this.level this.level >= 0", "∀other.level other.level == this.level - 1"),
                 ERRORS.get(48).rows());
     }
@@ -108,7 +108,7 @@ class TestFoundBinders {
     @Test
     void earlierValuesOfAVariableAreWrittenWithTheirLine() {
         Shown shown = ERRORS.get(86);
-        assertEquals("b@86 == 8 && b@86 > 0 && b == -b@86 is not a subtype of b > 0", shown.message());
+        assertEquals("found b@86 == 8 && b@86 > 0 && b == -b@86 but expected b > 0", shown.message());
         assertEquals("Counterexample: b == -8", shown.counterexample());
         assertEquals(List.of("∀b@85 b@85 == 8", "∀b@86 b@86 == b@85 && b@86 > 0", "∀b b == -b@86"),
                 shown.originalRows());

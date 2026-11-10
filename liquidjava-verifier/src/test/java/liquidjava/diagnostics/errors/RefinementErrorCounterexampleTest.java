@@ -124,23 +124,30 @@ class RefinementErrorCounterexampleTest {
     }
 
     @Test
+    void messageWithNothingFoundGivesNoHint() {
+        RefinementError error = error("timeout >= 0", vc("∀timeout:int. true", "true"), "timeout=-1");
+        assertEquals("expected timeout >= 0 but could not prove it", error.getMessage());
+        assertTrue(error.getHints().isEmpty());
+    }
+
+    @Test
     void messageKeepsOnlyTheGuardsLinkedToExpected() {
         RefinementError error = error("t >= 0",
                 vc("∀port:int. true", "∀retries:int. true", "∀t:int. true",
                         "∀##if_condition_1:boolean. !(port < 0 || retries > t)", "true"),
                 "port=0", "retries=-2", "t=-1");
-        assertEquals("!(retries > t) is not a subtype of t >= 0", error.getMessage());
+        assertEquals("found !(retries > t) but expected t >= 0", error.getMessage());
     }
 
     @Test
     void messageKeepsFoundAsWrittenWhenEveryFactIsLinked() {
         RefinementError error = error("x >= 0", vc("∀x:int. !(x < 0 || x > 5)", "true"), "x=-1");
-        assertEquals("!(x < 0 || x > 5) is not a subtype of x >= 0", error.getMessage());
+        assertEquals("found !(x < 0 || x > 5) but expected x >= 0", error.getMessage());
     }
 
     @Test
     void stateMessageKeepsAStateReachingExpectedThroughAnAlias() {
-        StateRefinementError error = new StateRefinementError(null, null,
+        StateRefinementError error = new StateRefinementError(null, List.of(),
                 new Predicate(RefinementsParser.createAST("full(box)", "")),
                 new VCSimplificationResult(
                         vc("∀b1:Object. empty(b1)", "∀x:int. x > 0", "∀box:Object. box == b1", "true")),
