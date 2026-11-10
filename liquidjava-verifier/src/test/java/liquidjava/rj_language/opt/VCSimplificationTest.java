@@ -9,7 +9,12 @@ import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
+import liquidjava.processor.VCImplication;
 import liquidjava.processor.context.Context;
+import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.ast.BinaryExpression;
+import liquidjava.rj_language.ast.Ite;
+import liquidjava.rj_language.ast.Var;
 import liquidjava.rj_language.parsing.RefinementsParser;
 import liquidjava.utils.TestUtils;
 
@@ -190,7 +195,7 @@ class VCSimplificationTest {
         Map<String, String> stateSets = Map.of("startTiling", "state1", "tilingSet", "state1", "state1", "state1",
                 "compressionSet", "state2", "state2", "state2");
         return new VCRelevantFacts(RefinementsParser.createAST(expected, ""),
-                name -> stateSets.containsKey(name) ? Set.of(stateSets.get(name)) : Set.of());
+                name -> stateSets.containsKey(name) ? Set.of(stateSets.get(name)) : Set.of(), Set.of("Mode.Photo"));
     }
 
     @Test
@@ -198,6 +203,31 @@ class VCSimplificationTest {
         assertSimplificationSteps(relevantTo("tilingSet(p)"),
                 vc("∀q:Object. compressionSet(q) && startTiling(p)", "p == q"),
                 step("compressionSet(q) && startTiling(p)", "p == q"));
+    }
+
+    @Test
+    void relevantStepDoesNotLinkFactsThroughAConstant() {
+        // code reads an enum constant as a variable named after it
+        Var photo = new Var("Mode.Photo");
+        VCImplication implication = vc("∀n:Mode. true", "true");
+        implication.setRefinement(new Predicate(new BinaryExpression(new Var("n"), "==", photo)));
+        implication.getNext()
+                .setRefinement(new Predicate(new Ite(new BinaryExpression(new Var("m"), "==", photo),
+                        RefinementsParser.createAST("startTiling(p)", ""),
+                        RefinementsParser.createAST("compressionSet(p)", ""))));
+        assertSimplificationSteps(relevantTo("tilingSet(p)"), implication,
+                step("m == Photo ? startTiling(p) : compressionSet(p)"));
+    }
+
+    @Test
+    void relevantStepLinksFactsThroughAConstantAnObjectEquals() {
+        Var photo = new Var("Mode.Photo");
+        VCImplication implication = vc("∀p:Mode. true", "true");
+        implication.setRefinement(new Predicate(new BinaryExpression(new Var("p"), "==", photo)));
+        implication.getNext().setRefinement(new Predicate(
+                new BinaryExpression(RefinementsParser.createAST("startTiling(q)", ""), "&&", new Var("ready"))));
+        implication.getNext().getRefinement().getExpression().getChildren().get(0).setChild(0, photo);
+        assertSimplificationSteps(relevantTo("tilingSet(p)"), implication, step("p == Photo", "startTiling(Photo)"));
     }
 
     @Test
