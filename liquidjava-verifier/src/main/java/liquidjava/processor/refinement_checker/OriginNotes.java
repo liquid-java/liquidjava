@@ -86,6 +86,8 @@ final class OriginNotes {
             if (declared == null || !declared.isValidPosition() || declared.getFile() == null)
                 continue;
             Expression guaranteed = withoutGhostDefinitions(call.returned().getExpression(), variable, error, context);
+            if (!namesOnlyCodeVariables(guaranteed, context))
+                continue;
             String value = ExpressionFormatter.format(new Var(variable), error.getDisplayNames());
             String says = isTrue(guaranteed) ? "guarantees nothing about " + value
                     : "guarantees only " + ExpressionFormatter.format(
@@ -130,6 +132,20 @@ final class OriginNotes {
     private static boolean isGhost(String name, Context context) {
         return !Utils.isBuiltin(name) && (context.getGhosts().stream().anyMatch(g -> g.matches(name))
                 || context.getGhostStates().stream().anyMatch(g -> g.getParent() == null && g.matches(name)));
+    }
+
+    /**
+     * Whether every variable of the refinement but the value is one the code names: an argument the verifier names
+     * after the callee's parameter, such as the {@code 0} of {@code twice(0)} for {@code _ == b * 2}, would read as
+     * that parameter
+     */
+    private static boolean namesOnlyCodeVariables(Expression refinement, Context context) {
+        List<String> variables = new ArrayList<>();
+        refinement.getVariableNames(variables);
+        return variables.stream().filter(name -> !Keys.WILDCARD.equals(name))
+                .allMatch(name -> context.getVariableByName(name) instanceof Variable
+                        || context.getVariableByName(name)instanceof VariableInstance instance
+                                && context.getVariableFromInstance(instance) != null);
     }
 
     /** Whether {@code fact} is {@code variable == ghost}, the argument's own definition */
