@@ -33,9 +33,11 @@ class ErrorStateSetNameOfAGeneratedName {}
 @StateSet(name = "undo", value = {"undoable", "notUndoable"}) // Expect: Warning
 class ErrorStateSetNameOfAMethod {
     void undo() {}
+    private void reset() {}
 }
 
 @StateSet(name = "undo", value = {"undoable", "notUndoable"}) // Expect: Warning
+@StateSet(name = "reset", value = {"fresh", "used"}) // no warning: reset() is private to the superclass
 class ErrorStateSetNameOfAnInheritedMethod extends ErrorStateSetNameOfAMethod {}
 
 @ExternalRefinementsFor("java.util.ArrayList")

@@ -297,7 +297,9 @@ public abstract class TypeChecker extends CtScanner {
         if (name.matches(Formats.STATE_SET_NAMES))
             return; // a set without a name, whose name the user did not choose
         CtType<?> type = factory.Type().createReference(set.getPrefix()).getTypeDeclaration();
-        if (type == null || type.getAllMethods().stream().noneMatch(m -> m.getSimpleName().equals(name)))
+        // a private method of a superclass is not a method of this class
+        if (type == null || type.getAllMethods().stream()
+                .noneMatch(m -> m.getSimpleName().equals(name) && (m.getDeclaringType() == type || !m.isPrivate())))
             return;
         String state = context.getGhostState(set.getParentClassName()).stream().filter(gs -> gs.getParent() == set)
                 .map(GhostState::getName).findFirst().orElse("...");
