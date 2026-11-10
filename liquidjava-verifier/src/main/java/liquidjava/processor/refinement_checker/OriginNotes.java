@@ -90,7 +90,7 @@ final class OriginNotes {
             String says = isTrue(guaranteed) ? "guarantees nothing about " + value
                     : "guarantees only " + ExpressionFormatter.format(
                             guaranteed.substitute(new Var(Keys.WILDCARD), new Var(variable)), error.getDisplayNames());
-            notes.add(String.format("From: %s (%s:%d) %s", value, declared.getFile().getName(), declared.getLine(),
+            notes.add(String.format("Origin: %s:%d, %s %s", declared.getFile().getName(), declared.getLine(), value,
                     says));
         }
         return notes;

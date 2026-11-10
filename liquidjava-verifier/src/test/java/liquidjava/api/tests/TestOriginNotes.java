@@ -47,7 +47,7 @@ class TestOriginNotes {
         CommandLineLauncher.launch(TEST_SUITE + "classes/found_binders_error");
         LJError pick = Diagnostics.getInstance().getErrors().stream().filter(e -> e.getPosition().getLine() == 25)
                 .findFirst().orElseThrow();
-        assertEquals(List.of("From: items.size() (ArrayListRefinements.java:13) guarantees only items.size() >= 0"),
+        assertEquals(List.of("Origin: ArrayListRefinements.java:13, items.size() guarantees only items.size() >= 0"),
                 pick.getMessageNotes());
     }
 
