@@ -67,6 +67,8 @@ A state set can be given a `name`, and a state is then written as a value of its
 State Refinement Error: found connection(socket) == bound but expected connection(socket) == connected
 ```
 
+Choose set names that are not also names of methods of the class: with a set named `undo`, `undo(x) == undoable` reads like a call to `undo()`, so LiquidJava warns about such names.
+
 Lambda bodies are checked separately from the code that creates them. Creating a lambda does not apply its state
 transitions to captured objects. While checking the body, LiquidJava keeps declared refinements but forgets the current
 state of mutable captures, since that state may change before invocation. Callback execution summaries are not supported:

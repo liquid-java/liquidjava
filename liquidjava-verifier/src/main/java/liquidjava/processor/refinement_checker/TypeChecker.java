@@ -12,6 +12,7 @@ import liquidjava.diagnostics.Diagnostics;
 import liquidjava.diagnostics.errors.*;
 import liquidjava.diagnostics.categories.ErrorCategory;
 import liquidjava.diagnostics.hints.Hint;
+import liquidjava.diagnostics.warnings.CustomWarning;
 import liquidjava.diagnostics.warnings.UnsatisfiableRefinementWarning;
 import liquidjava.processor.context.AliasWrapper;
 import liquidjava.processor.context.Context;
@@ -230,8 +231,10 @@ public abstract class TypeChecker extends CtScanner {
         }
         // checked once every set and ghost of the class exists, so the order of the annotations does not matter; a
         // generated name such as state1 can clash too
-        for (Map.Entry<GhostFunction, SourcePosition> stateSet : stateSets.entrySet())
+        for (Map.Entry<GhostFunction, SourcePosition> stateSet : stateSets.entrySet()) {
             checkStateSetNameIsFree(stateSet.getKey(), stateSet.getValue());
+            warnIfStateSetNameIsAMethod(stateSet.getKey(), stateSet.getValue());
+        }
     }
 
     /**
@@ -283,6 +286,28 @@ public abstract class TypeChecker extends CtScanner {
         if (usedBy != null)
             throw new CustomError(String.format("State set name '%s' is already the name of %s of %s", name, usedBy,
                     set.getParentClassName()), position);
+    }
+
+    /**
+     * Warns about a named state set whose name is also the name of a method of its class, or of the class an external
+     * spec refines: in a message such as {@code undo(x) == undoable} the set reads like a call to that method
+     */
+    private void warnIfStateSetNameIsAMethod(GhostFunction set, SourcePosition position) {
+        String name = set.getName();
+        if (name.matches(Formats.STATE_SET_NAMES))
+            return; // a set without a name, whose name the user did not choose
+        CtType<?> type = factory.Type().createReference(set.getPrefix()).getTypeDeclaration();
+        // a private method of a superclass is not a method of this class
+        if (type == null || type.getAllMethods().stream()
+                .noneMatch(m -> m.getSimpleName().equals(name) && (m.getDeclaringType() == type || !m.isPrivate())))
+            return;
+        String state = context.getGhostState(set.getParentClassName()).stream().filter(gs -> gs.getParent() == set)
+                .map(GhostState::getName).findFirst().orElse("...");
+        diagnostics.add(new CustomWarning(position,
+                String.format(
+                        "State set name '%s' is also the name of a method of %s, so %s(x) == %s reads like a "
+                                + "call to %s(). Choose another name, such as %sState",
+                        name, set.getParentClassName(), name, state, name, name)));
     }
 
     private GhostFunction createStateSet(CtNewArray<String> e, String name, CtElement element) throws LJError {

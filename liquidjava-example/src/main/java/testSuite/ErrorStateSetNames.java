@@ -1,11 +1,13 @@
 package testSuite;
 
+import liquidjava.specification.ExternalRefinementsFor;
 import liquidjava.specification.Ghost;
 import liquidjava.specification.RefinementPredicate;
 import liquidjava.specification.StateSet;
 
 // A state set name must be a lowercase identifier that no state, ghost or other state set of the class uses, and
-// not one of the names given to state sets without a name
+// not one of the names given to state sets without a name. A name that is also a method of the class is only a
+// warning (#514): undo(x) == undoable reads like a call to undo()
 @StateSet(name = "Door", value = {"closed", "opened"}) // Expect: Error
 public class ErrorStateSetNames {}
 
@@ -27,3 +29,17 @@ class ErrorStateSetNameOfARefinementPredicate {}
 
 @StateSet(name = "state2", value = {"closed", "opened"}) // Expect: Error
 class ErrorStateSetNameOfAGeneratedName {}
+
+@StateSet(name = "undo", value = {"undoable", "notUndoable"}) // Expect: Warning
+class ErrorStateSetNameOfAMethod {
+    void undo() {}
+    private void reset() {}
+}
+
+@StateSet(name = "undo", value = {"undoable", "notUndoable"}) // Expect: Warning
+@StateSet(name = "reset", value = {"fresh", "used"}) // no warning: reset() is private to the superclass
+class ErrorStateSetNameOfAnInheritedMethod extends ErrorStateSetNameOfAMethod {}
+
+@ExternalRefinementsFor("java.util.ArrayList")
+@StateSet(name = "clear", value = {"empty", "nonEmpty"}) // Expect: Warning
+interface ErrorStateSetNameOfAMethodOfTheTarget {}
