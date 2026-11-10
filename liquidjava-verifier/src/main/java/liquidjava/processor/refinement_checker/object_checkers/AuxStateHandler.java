@@ -2,6 +2,7 @@ package liquidjava.processor.refinement_checker.object_checkers;
 
 import java.lang.annotation.Annotation;
 import java.util.*;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.DebugLog;
@@ -23,6 +24,7 @@ import liquidjava.processor.state_machine.StateMachine;
 import liquidjava.processor.state_machine.StateMachineBuilder;
 import liquidjava.processor.state_machine.StateSolver;
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.StateValues;
 import liquidjava.utils.GeneratedNames;
 import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Formats;
@@ -805,7 +807,7 @@ public class AuxStateHandler {
                     .orElse(null);
             List<Hint> hints = deciding.isPresent()
                     ? receiverOf(invocation).map(r -> StateHints.decidingArgument(deciding.get(), r)).stream().toList()
-                    : states.map(r -> stateHints(r, function, category, checked, invocation)).orElse(List.of());
+                    : states.map(r -> stateHints(tc, r, function, category, checked, invocation)).orElse(List.of());
             StateErrorContext context = states
                     .map(r -> StateErrorContext.of(r.machine(), function, r.current(), writtenReceiver(invocation)))
                     .orElse(null);
@@ -883,13 +885,19 @@ public class AuxStateHandler {
      * Hints on how to fix a call to {@code function} made in a state that does not allow it. Best effort, like
      * {@link #receiverStates}: the machine asks the solver about some calls only when a hint needs them
      */
-    private static List<Hint> stateHints(ReceiverStates states, RefinedFunction function, ErrorCategory category,
-            boolean checked, CtElement invocation) {
+    private static List<Hint> stateHints(TypeChecker tc, ReceiverStates states, RefinedFunction function,
+            ErrorCategory category, boolean checked, CtElement invocation) {
         Optional<String> receiver = receiverOf(invocation);
         if (receiver.isEmpty() || !StateMachineBuilder.canModel(function))
             return List.of();
+        // states are named as the message names them: by their set, unless it shows the shorthand
+        Context context = tc.getContext();
+        UnaryOperator<String> stateName = state -> StateValues
+                .setNameOf(state, context.getGhostStates(), context.getGhosts()).map(set -> set + " == " + state)
+                .orElse(state);
         try {
-            return StateHints.forCall(states.machine(), function, states.current(), receiver.get(), category, checked);
+            return StateHints.forCall(states.machine(), function, states.current(), receiver.get(), category, checked,
+                    stateName);
         } catch (RuntimeException e) {
             DebugLog.warn("Could not compute the state hints: " + e.getMessage());
             return List.of();

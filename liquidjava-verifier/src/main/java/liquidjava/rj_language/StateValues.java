@@ -123,17 +123,27 @@ public final class StateValues {
     /** {@code set(e) op state} when {@code e} is the state {@code state(e)} of a set with one, given name */
     private static Optional<BinaryExpression> setValue(Expression e, String op, List<GhostState> states,
             List<GhostFunction> ghosts) {
-        if (!(e instanceof FunctionInvocation invocation && invocation.getArgs().size() == 1)
-                || ghosts.stream().anyMatch(g -> g.matches(invocation.getName()))
-                || states.stream().anyMatch(s -> s.getParent() == null && s.matches(invocation.getName())))
+        if (!(e instanceof FunctionInvocation invocation && invocation.getArgs().size() == 1))
             return Optional.empty();
-        List<String> setNames = states.stream().filter(s -> s.getParent() != null && s.matches(invocation.getName()))
+        return setNameOf(invocation.getName(), states, ghosts).map(setName -> new BinaryExpression(
+                new FunctionInvocation(qualifiedLike(invocation.getName(), setName),
+                        List.of(invocation.getArgs().get(0).clone())),
+                op, new Var(Utils.getSimpleName(invocation.getName()))));
+    }
+
+    /**
+     * The name of the state set that {@link #toSetForm} shows the state {@code state} as a value of, or empty when it
+     * keeps the shorthand
+     */
+    public static Optional<String> setNameOf(String state, List<GhostState> states, List<GhostFunction> ghosts) {
+        if (ghosts.stream().anyMatch(g -> g.matches(state))
+                || states.stream().anyMatch(s -> s.getParent() == null && s.matches(state)))
+            return Optional.empty();
+        List<String> setNames = states.stream().filter(s -> s.getParent() != null && s.matches(state))
                 .map(s -> s.getParent().getName()).distinct().toList();
         if (setNames.size() != 1 || setNames.get(0).matches(Formats.STATE_SET_NAMES))
             return Optional.empty();
-        FunctionInvocation set = new FunctionInvocation(qualifiedLike(invocation.getName(), setNames.get(0)),
-                List.of(invocation.getArgs().get(0).clone()));
-        return Optional.of(new BinaryExpression(set, op, new Var(Utils.getSimpleName(invocation.getName()))));
+        return Optional.of(setNames.get(0));
     }
 
     /** The states of {@code set}, or only those named {@code name} when it is not null */

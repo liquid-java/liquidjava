@@ -39,8 +39,10 @@ class TestStateHints {
     @Test
     void callSequenceNamesOnlyTheStateSetsItChanges() {
         assertHints("ErrorStateHintMultipleSets.java",
-                new Hint(Kind.CALL_SEQUENCE, "Call d.unlock() before this call to move d from locked to unlocked"),
-                new Hint(Kind.AVAILABLE_CALLS, "In state closed and locked, d can call: unlock()"));
+                new Hint(Kind.CALL_SEQUENCE,
+                        "Call d.unlock() before this call to move d from lockState == locked to lockState == unlocked"),
+                new Hint(Kind.AVAILABLE_CALLS,
+                        "In state doorState == closed and lockState == locked, d can call: unlock()"));
     }
 
     @Test
@@ -200,14 +202,14 @@ class TestStateHints {
     void joinsAreNotTakenForAnUnknownState() {
         List<StateRefinementError> errors = errors("ErrorStateHintJoins.java", 2);
         assertHints(errors.get(0), new Hint(Kind.UNREACHABLE_STATE,
-                "No sequence of calls moves d from closed and unlocked or closed and locked or opened and unlocked "
-                        + "or opened and locked to closed and unlocked. "
+                "No sequence of calls moves d from (closed and unlocked) or (closed and locked) or (opened and unlocked) "
+                        + "or (opened and locked) to closed and unlocked. "
                         + "Create a new object instead with new ErrorStateHintJoins()"));
         assertHints(errors.get(1), new Hint(Kind.UNREACHABLE_STATE,
-                "No sequence of calls moves d from closed and unlocked or opened and unlocked to closed and unlocked. "
+                "No sequence of calls moves d from (closed and unlocked) or (opened and unlocked) to closed and unlocked. "
                         + "Create a new object instead with new ErrorStateHintJoins()"),
                 new Hint(Kind.AVAILABLE_CALLS,
-                        "In state closed and unlocked or opened and unlocked, d can call: lock()"));
+                        "In state (closed and unlocked) or (opened and unlocked), d can call: lock()"));
         assertEquals(Optional.empty(), errors.get(0).getCategory());
     }
 
@@ -345,13 +347,18 @@ class TestStateHints {
         assertEquals(
                 "found doorState(d@26) == closed && lockState(d) == locked && doorState(d) == doorState(d@26) but expected doorState(d) == closed && lockState(d) == unlocked",
                 error.getMessage().replaceAll("[⁰¹²³⁴⁵⁶⁷⁸⁹]", ""));
+        // the declaration is shown as written, with what its states mean under it
+        assertTrue(error.toString().contains("  where closed(this) means doorState(this) == closed, "
+                + "unlocked(this) means lockState(this) == unlocked\n"));
     }
 
     @Test
     void queryWrittenWithItsStateSetIsOfferedAsAGuard() {
         assertHints("ErrorStateValueQuery.java",
-                new Hint(Kind.NEEDED_STATE, "The state of d is unknown here, and this call needs it to be unlocked"),
-                new Hint(Kind.GUARD, "Guard this call with if (d.isUnlocked()): when it returns true, d is unlocked"));
+                new Hint(Kind.NEEDED_STATE,
+                        "The state of d is unknown here, and this call needs it to be lock == unlocked"),
+                new Hint(Kind.GUARD,
+                        "Guard this call with if (d.isUnlocked()): when it returns true, d is lock == unlocked"));
     }
 
     @Test

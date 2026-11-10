@@ -7,6 +7,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -41,10 +42,12 @@ public final class StateHints {
     private final List<Set<State>> goals;
     /** The state sets the failing call checks, as indexes into {@link State#names()} */
     private final Set<Integer> checkedSets;
+    private final UnaryOperator<String> stateName;
 
-    private StateHints(StateMachine machine, String receiver, RefinedFunction call) {
+    private StateHints(StateMachine machine, String receiver, RefinedFunction call, UnaryOperator<String> stateName) {
         this.machine = machine;
         this.receiver = receiver;
+        this.stateName = stateName;
         this.goals = machine.statesAllowingByRefinement(call);
         this.checkedSets = goals.stream().flatMap(g -> machine.stateSetsNamed(g).stream())
                 .collect(Collectors.toCollection(TreeSet::new));
@@ -62,12 +65,14 @@ public final class StateHints {
      * @param checkedElsewhere
      *            whether the receiver's state was checked elsewhere, though not decided, e.g. by an earlier call whose
      *            result says which state it is in
+     * @param stateName
+     *            a state's name as the error shows it, e.g. {@code lockState == locked} for {@code locked}
      */
     public static List<Hint> forCall(StateMachine machine, RefinedFunction call, Set<State> current, String receiver,
-            ErrorCategory category, boolean checkedElsewhere) {
+            ErrorCategory category, boolean checkedElsewhere, UnaryOperator<String> stateName) {
         if (!machine.models(call) || current.isEmpty() || machine.allows(current, call))
             return List.of(); // the machine cannot explain why the call failed
-        StateHints hints = new StateHints(machine, receiver, call);
+        StateHints hints = new StateHints(machine, receiver, call, stateName);
         if (hints.goals.isEmpty())
             return List.of();
 
@@ -311,11 +316,15 @@ public final class StateHints {
         Set<State> goal = machine.ordered(goals.stream().flatMap(Set::stream).toList());
         if (goal.size() < machine.states().size())
             return names(goal);
-        return goals.stream().map(this::names).distinct().collect(Collectors.joining(" or "));
+        return join(goals.stream().flatMap(g -> machine.describe(g).stream()).distinct().toList());
     }
 
-    private static String join(List<List<String>> groups) {
-        return groups.stream().map(group -> String.join(" and ", group)).collect(Collectors.joining(" or "));
+    /** The groups joined by {@code or}, each in parentheses if it has several states and there are other groups */
+    private String join(List<List<String>> groups) {
+        return groups.stream().map(group -> {
+            String states = group.stream().map(stateName).collect(Collectors.joining(" and "));
+            return groups.size() > 1 && group.size() > 1 ? "(" + states + ")" : states;
+        }).collect(Collectors.joining(" or "));
     }
 
     private static String list(List<String> items) {
