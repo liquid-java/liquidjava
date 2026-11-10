@@ -69,8 +69,9 @@ final class OriginNotes {
 
     /**
      * For each argument of expected that is a call to a refined method, what the method's return refinement guarantees
-     * about it. An equality defining a ghost, {@code _ == size(this)}, is left out when the ghost is nowhere else in
-     * the refinement: it then constrains no value, so what is left is all it says about the value
+     * about it. An equality defining a ghost, {@code _ == size(this)}, is left out when nothing else the error knows or
+     * expects mentions that ghost application: it then constrains no value, so what is left is all the refinement says
+     * about the value
      */
     static List<String> returnedValues(RefinementError error, Context context) {
         List<String> notes = new ArrayList<>();
@@ -84,7 +85,7 @@ final class OriginNotes {
                     : call.function().getPlacementInCode().getAnnotationPosition();
             if (declared == null || !declared.isValidPosition() || declared.getFile() == null)
                 continue;
-            Expression guaranteed = withoutGhostDefinitions(call.returned().getExpression());
+            Expression guaranteed = withoutGhostDefinitions(call.returned().getExpression(), variable, error, context);
             String value = ExpressionFormatter.format(new Var(variable), error.getDisplayNames());
             String says = isTrue(guaranteed) ? "guarantees nothing about " + value
                     : "guarantees only " + ExpressionFormatter.format(
@@ -95,12 +96,18 @@ final class OriginNotes {
         return notes;
     }
 
-    private static Expression withoutGhostDefinitions(Expression refinement) {
+    private static Expression withoutGhostDefinitions(Expression refinement, String variable, RefinementError error,
+            Context context) {
         List<Expression> facts = factsOf(refinement);
+        List<Expression> known = factsOf(error.getFound().getOriginal().getImplication().toPredicate().getExpression());
         Expression kept = new LiteralBoolean(true);
         for (Expression fact : facts) {
-            boolean definesGhost = ghostDefined(fact).filter(
-                    ghost -> facts.stream().noneMatch(other -> other != fact && containsExpression(other, ghost)))
+            boolean definesGhost = ghostDefined(fact).filter(ghost -> isGhost(ghost.getName(), context))
+                    .filter(ghost -> facts.stream()
+                            .noneMatch(other -> other != fact && containsExpression(other, ghost)))
+                    .filter(ghost -> !containsExpression(error.getExpected().getExpression(), ghost))
+                    .filter(ghost -> known.stream().noneMatch(
+                            other -> containsExpression(other, ghost) && !definesGhostAs(other, ghost, variable)))
                     .isPresent();
             if (!definesGhost)
                 kept = isTrue(kept) ? fact : new BinaryExpression(kept, "&&", fact);
@@ -108,16 +115,30 @@ final class OriginNotes {
         return kept;
     }
 
-    /** The ghost application {@code g(...)} of a fact {@code _ == g(...)} */
-    private static Optional<Expression> ghostDefined(Expression fact) {
+    /** Whether {@code name} is a declared ghost, unlike a built-in such as {@code length}, which may be interpreted */
+    private static boolean isGhost(String name, Context context) {
+        return context.getGhosts().stream().anyMatch(g -> g.matches(name))
+                || context.getGhostStates().stream().anyMatch(g -> g.getParent() == null && g.matches(name));
+    }
+
+    /** Whether {@code fact} is {@code variable == ghost}, the argument's own definition */
+    private static boolean definesGhostAs(Expression fact, Expression ghost, String variable) {
+        return fact instanceof BinaryExpression equality && "==".equals(equality.getOperator())
+                && (equality.getFirstOperand().equals(new Var(variable)) && equality.getSecondOperand().equals(ghost)
+                        || equality.getSecondOperand().equals(new Var(variable))
+                                && equality.getFirstOperand().equals(ghost));
+    }
+
+    /** The function application {@code g(...)} of a fact {@code _ == g(...)} */
+    private static Optional<FunctionInvocation> ghostDefined(Expression fact) {
         if (!(fact instanceof BinaryExpression equality) || !"==".equals(equality.getOperator()))
             return Optional.empty();
         Expression left = equality.getFirstOperand();
         Expression right = equality.getSecondOperand();
-        if (isWildcard(left) && right instanceof FunctionInvocation)
-            return Optional.of(right);
-        if (isWildcard(right) && left instanceof FunctionInvocation)
-            return Optional.of(left);
+        if (isWildcard(left) && right instanceof FunctionInvocation ghost)
+            return Optional.of(ghost);
+        if (isWildcard(right) && left instanceof FunctionInvocation ghost)
+            return Optional.of(ghost);
         return Optional.empty();
     }
 
