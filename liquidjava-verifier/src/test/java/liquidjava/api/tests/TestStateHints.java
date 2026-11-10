@@ -218,6 +218,7 @@ class TestStateHints {
         // the line it names, for clients to link to
         SourceReference reference = errors("ErrorArgumentPicksTheState.java", 1).get(0).getHints().get(0).reference();
         assertEquals("line 20", reference.text());
+        assertEquals("line 20", reference.message().substring(reference.start(), reference.start() + 7));
         assertEquals(20, reference.line());
     }
 

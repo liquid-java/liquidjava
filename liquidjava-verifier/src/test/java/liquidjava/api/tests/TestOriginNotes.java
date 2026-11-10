@@ -35,6 +35,7 @@ class TestOriginNotes {
         SourceReference reference = error.getReferences().get(0);
         assertEquals(error.getMessageNotes().get(0), reference.message());
         assertEquals("line 27", reference.text());
+        assertEquals("Origin: ".length(), reference.start());
         assertEquals(27, reference.line());
         assertTrue(reference.file().endsWith("ErrorStateHintMultipleSets.java"));
     }

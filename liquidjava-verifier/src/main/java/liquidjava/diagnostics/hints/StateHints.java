@@ -120,9 +120,12 @@ public final class StateHints {
         String values = deciding.values().isEmpty() ? "other arguments" : deciding.values().entrySet().stream()
                 .map(e -> Code.of(e.getKey() + " == " + e.getValue())).collect(Collectors.joining(" and "));
         String line = "line " + deciding.call().position().getLine();
-        String message = String.format("%s on %s decides the state of %s: with %s, this call would be allowed",
-                Code.of(call), line, Code.of(receiver), values);
-        return new Hint(Kind.DECIDING_ARGUMENT, message, SourceReference.of(message, line, deciding.call().position()));
+        String before = Code.of(call) + " on ";
+        String message = String.format("%s%s decides the state of %s: with %s, this call would be allowed", before,
+                line, Code.of(receiver), values);
+        // the call's code may hold the same words
+        return new Hint(Kind.DECIDING_ARGUMENT, message,
+                SourceReference.of(message, line, before.length(), deciding.call().position()));
     }
 
     /**

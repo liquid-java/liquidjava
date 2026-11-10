@@ -9,7 +9,9 @@ import spoon.reflect.cu.SourcePosition;
  * @param message
  *            the whole line, a message note or a hint, as the diagnostic gives it
  * @param text
- *            the words of {@code message} that name the place, which occur in it once
+ *            the words of {@code message} that name the place
+ * @param start
+ *            where {@code text} starts in {@code message}, as an index of its characters
  * @param file
  *            the path of the file
  * @param line
@@ -17,10 +19,15 @@ import spoon.reflect.cu.SourcePosition;
  * @param column
  *            the column, from 1
  */
-public record SourceReference(String message, String text, String file, int line, int column) {
+public record SourceReference(String message, String text, int start, String file, int line, int column) {
 
+    /** {@code text} where it first occurs in {@code message}, naming {@code position} */
     public static SourceReference of(String message, String text, SourcePosition position) {
-        return new SourceReference(message, text, position.getFile().getPath(), position.getLine(),
+        return of(message, text, message.indexOf(text), position);
+    }
+
+    public static SourceReference of(String message, String text, int start, SourcePosition position) {
+        return new SourceReference(message, text, start, position.getFile().getPath(), position.getLine(),
                 position.getColumn());
     }
 }

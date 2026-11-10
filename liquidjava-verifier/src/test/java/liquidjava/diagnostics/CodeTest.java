@@ -20,5 +20,8 @@ class CodeTest {
                 "found " + Colors.BLUE + "x > 0" + Colors.RESET + " but expected " + Colors.BLUE + "`a" + Colors.RESET,
                 Code.render(message, true));
         assertEquals(message, Code.render(message, false));
+        // spaces and line breaks of the code itself are kept
+        assertEquals(Colors.BLUE + " a " + Colors.RESET, Code.render(Code.of(" a "), true));
+        assertEquals(Colors.BLUE + "a\nb" + Colors.RESET, Code.render(Code.of("a\nb"), true));
     }
 }

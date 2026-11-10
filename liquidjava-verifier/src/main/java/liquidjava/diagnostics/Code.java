@@ -10,7 +10,7 @@ import java.util.regex.Pattern;
 public final class Code {
 
     // a run of backticks, the code, and a run of the same length
-    private static final Pattern SPAN = Pattern.compile("(`+)(.+?)(?<!`)\\1(?!`)");
+    private static final Pattern SPAN = Pattern.compile("(`+)(.+?)(?<!`)\\1(?!`)", Pattern.DOTALL);
 
     private Code() {
     }
@@ -38,8 +38,11 @@ public final class Code {
         StringBuilder rendered = new StringBuilder();
         while (span.find()) {
             String code = span.group(2);
-            if (code.length() > 2 && code.startsWith(" ") && code.endsWith(" "))
-                code = code.substring(1, code.length() - 1);
+            // the padding of() adds around code that starts or ends with a backtick, not spaces of the code
+            String inner = code.length() > 2 && code.startsWith(" ") && code.endsWith(" ")
+                    ? code.substring(1, code.length() - 1) : code;
+            if (inner.startsWith("`") || inner.endsWith("`"))
+                code = inner;
             span.appendReplacement(rendered, Matcher.quoteReplacement(Colors.BLUE + code + Colors.RESET));
         }
         span.appendTail(rendered);
