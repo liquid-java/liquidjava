@@ -7,6 +7,8 @@ public class ObjectState {
 
     Predicate from;
     Predicate to;
+    /** {@code from} as written, before states written as values of their sets are read as the shorthand */
+    Predicate writtenFrom;
     SourcePosition fromPosition;
     SourcePosition toPosition;
     String message;
@@ -31,6 +33,14 @@ public class ObjectState {
 
     public void setTo(Predicate to) {
         this.to = to;
+    }
+
+    public Predicate getWrittenFrom() {
+        return writtenFrom;
+    }
+
+    public void setWrittenFrom(Predicate writtenFrom) {
+        this.writtenFrom = writtenFrom;
     }
 
     public SourcePosition getFromPosition() {
@@ -77,6 +87,7 @@ public class ObjectState {
         Predicate clonedFrom = from == null ? null : from.clone();
         Predicate clonedTo = to == null ? null : to.clone();
         ObjectState clone = new ObjectState(clonedFrom, clonedTo, message);
+        clone.setWrittenFrom(writtenFrom);
         clone.setFromPosition(fromPosition);
         clone.setToPosition(toPosition);
         return clone;

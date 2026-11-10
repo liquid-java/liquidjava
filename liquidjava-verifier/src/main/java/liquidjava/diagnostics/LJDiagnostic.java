@@ -75,13 +75,8 @@ public class LJDiagnostic extends RuntimeException {
         return List.of();
     }
 
-    /**
-     * Lines printed under the excerpt of where the refinement is declared that explain it
-     *
-     * @param declaration
-     *            the declaration's text on the first line of the excerpt
-     */
-    public List<String> getDeclarationNotes(String declaration) {
+    /** Lines printed under the excerpt of where the refinement is declared that explain it */
+    public List<String> getDeclarationNotes() {
         return List.of();
     }
 
@@ -157,7 +152,7 @@ public class LJDiagnostic extends RuntimeException {
             String declarationSnippet = getSnippet(declPos, 1, 1, Colors.CYAN, null, true);
             if (declarationSnippet != null) {
                 sb.append(declarationSnippet);
-                for (String note : getDeclarationNotes(getDeclarationText(declPos)))
+                for (String note : getDeclarationNotes())
                     sb.append("  ").append(note).append("\n");
             }
 
@@ -170,17 +165,6 @@ public class LJDiagnostic extends RuntimeException {
 
     public String getSnippet() {
         return getSnippet(position, 2, 2, accentColor, customMessage, false);
-    }
-
-    /** The text {@code position} spans on its first line, or an empty string if it cannot be read */
-    private static String getDeclarationText(SourcePosition position) {
-        try {
-            String line = Files.readAllLines(position.getFile().toPath()).get(position.getLine() - 1);
-            int end = position.getEndLine() == position.getLine() ? position.getEndColumn() : line.length();
-            return line.substring(Math.max(0, position.getColumn() - 1), Math.min(line.length(), end));
-        } catch (Exception e) {
-            return "";
-        }
     }
 
     private String getSnippet(SourcePosition snippetPosition, int contextBefore, int contextAfter, String markerColor,
