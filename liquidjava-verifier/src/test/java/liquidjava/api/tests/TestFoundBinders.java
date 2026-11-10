@@ -115,6 +115,15 @@ class TestFoundBinders {
     }
 
     // the rows of Found as the IDE writes them, with the error's names: binder name, then its refinement
+    @Test
+    void stateFoundFoldsTheBranchesItsPathConditionRulesOut() {
+        CommandLineLauncher.launch("../liquidjava-example/src/main/java/testSuite/ErrorStatePathFolding.java");
+        List<LJError> errors = Diagnostics.getInstance().getErrors().stream().toList();
+        assertEquals(1, errors.size());
+        assertEquals("found next == BORDERLESS && (previous != BORDERLESS ? display(frame) == hidden : "
+                + "display(frame) == shown) but expected display(frame) == hidden", errors.get(0).getMessage());
+    }
+
     private static List<String> rows(VCImplication found, DisplayNames names) {
         List<String> rows = new ArrayList<>();
         for (VCImplication current = found; current != null; current = current.getNext()) {

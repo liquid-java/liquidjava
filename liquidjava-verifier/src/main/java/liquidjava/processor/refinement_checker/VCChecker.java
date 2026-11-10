@@ -22,6 +22,7 @@ import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.Ite;
 import liquidjava.rj_language.ast.Var;
 import liquidjava.rj_language.opt.NeededVariables;
+import liquidjava.rj_language.opt.VCPathFolding;
 import liquidjava.rj_language.opt.VCRelevantFacts;
 import liquidjava.rj_language.opt.VCSimplification;
 import liquidjava.rj_language.opt.VCSimplificationResult;
@@ -461,8 +462,9 @@ public class VCChecker {
         TranslationTable map = new TranslationTable();
         VCImplication foundState = buildPremiseChain(map, expected, found);
         VCSimplificationResult simplified = foundState.simplify(NeededVariables.forStateError(expected));
-        VCSimplificationResult shown = VCSimplification.simplifyOnce(simplified,
+        VCSimplificationResult relevant = VCSimplification.simplifyOnce(simplified,
                 new VCRelevantFacts(expected.getExpression(), this::ghostFunctionsOf));
+        VCSimplificationResult shown = VCSimplification.simplifyOnce(relevant, new VCPathFolding(foundState));
         throw new StateRefinementError(position, declarationPosition, expected, shown, map, customMessage, hints,
                 category, context,
                 e -> StateValues.toSetForm(e, this.context.getGhostStates(), this.context.getGhosts()),
