@@ -237,8 +237,9 @@ final class StateOrigin {
         Optional<Predicate> facts = foundAbout(after, shownFound, changed);
         if (facts.isEmpty() || !implies(after.getRefinement(), facts.get()))
             return Optional.empty();
-        return code(change.position()).map(code -> String.format("From: %s, last set at line %d: %s",
-                display(facts.get(), after.getName()), change.position().getLine(), code));
+        // the call last set these sets, so it is what makes them so
+        return code(change.position()).map(code -> String.format("Origin: line %d, %s makes %s",
+                change.position().getLine(), code, display(facts.get(), after.getName())));
     }
 
     /**
@@ -251,14 +252,13 @@ final class StateOrigin {
         Optional<String> code = code(call.position());
         if (code.isEmpty())
             return Optional.empty();
-        String from = String.format("From: %s = %s, line %d, ", written, code.get(), call.position().getLine());
+        String origin = String.format("Origin: line %d, %s ", call.position().getLine(), code.get());
         Optional<Predicate> facts = factsOn(call.returned(), Keys.WILDCARD, shown);
         Optional<Predicate> found = foundAbout(assigned, shownFound, shown);
         if (facts.isPresent())
             return found.isPresent()
                     && implies(facts.get().substituteVariable(Keys.WILDCARD, assigned.getName()), found.get())
-                            ? Optional.of(from + "which returns " + display(facts.get(), Keys.WILDCARD))
-                            : Optional.empty();
+                            ? Optional.of(origin + "returns " + display(facts.get(), Keys.WILDCARD)) : Optional.empty();
         Predicate returned = call.returned();
         // a set declared without a name has a generated one, which the message does not otherwise show
         // a state refinement of the method may give the value its state, as `to = "running(_)"` does
@@ -269,7 +269,7 @@ final class StateOrigin {
                 && !hasAlias(returned.getExpression());
         String sets = shown.stream().map(set -> Utils.getSimpleName(set.getName()) + "(" + written + ")").sorted()
                 .collect(Collectors.joining(", "));
-        return saysNothing ? Optional.of(from + "which says nothing about " + sets) : Optional.empty();
+        return saysNothing ? Optional.of(origin + "says nothing about " + sets) : Optional.empty();
     }
 
     /**
@@ -278,7 +278,7 @@ final class StateOrigin {
      * constructor only, given when the walk back to the call that last set the state broke, e.g. at a join of branches
      */
     private Optional<String> creationNote(VariableInstance unknown, Predicate shownFound) throws LJError {
-        DebugLog.warn("From note: no known call gives " + unknown.getName() + " its state, e.g. a join of branches");
+        DebugLog.warn("Origin note: no known call gives " + unknown.getName() + " its state, e.g. a join of branches");
         if (!(invocation instanceof CtInvocation<?> call && call.getTarget()instanceof CtVariableRead<?> read
                 && read.getVariable().getDeclaration()instanceof CtLocalVariable<?> local
                 && local.getDefaultExpression()instanceof CtConstructorCall<?> constructor
@@ -292,8 +292,9 @@ final class StateOrigin {
         if (facts.isEmpty() || found.isEmpty() || code.isEmpty()
                 || !implies(found.get(), facts.get().substituteVariable(Keys.THIS, unknown.getName())))
             return Optional.empty();
-        return Optional.of(String.format("From: %s is created at line %d by %s, which makes it %s", written,
-                created.position().getLine(), code.get(), display(facts.get(), Keys.THIS)));
+        // not "makes": a later call may have set the state again, which found no longer tells
+        return Optional.of(String.format("Origin: line %d, %s creates %s with %s", created.position().getLine(),
+                code.get(), written, display(facts.get(), Keys.THIS)));
     }
 
     /**

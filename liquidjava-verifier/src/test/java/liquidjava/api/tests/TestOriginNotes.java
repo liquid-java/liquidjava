@@ -24,13 +24,13 @@ class TestOriginNotes {
 
     @Test
     void stateIsTracedToTheCallThatLastSetTheSetThatIsWrong() {
-        assertEquals(List.of("From: lockState(d) == locked, last set at line 27: d.lock()"),
+        assertEquals(List.of("Origin: line 27, d.lock() makes lockState(d) == locked"),
                 verify("ErrorStateHintMultipleSets.java").getMessageNotes());
     }
 
     @Test
     void stateIsTracedToTheReturnRefinementOfTheCallAssigned() {
-        assertEquals(List.of("From: task = FromReturnedTask.create(), line 27, which returns phase(task) == idle"),
+        assertEquals(List.of("Origin: line 27, FromReturnedTask.create() returns phase(task) == idle"),
                 verify("ErrorStateFromReturnedValue.java").getMessageNotes());
     }
 
