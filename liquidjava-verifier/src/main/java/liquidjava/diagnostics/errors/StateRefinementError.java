@@ -27,7 +27,8 @@ import spoon.reflect.cu.SourcePosition;
 public class StateRefinementError extends LJError {
 
     /** A call with one argument that is a name, e.g. {@code closed(this)} */
-    private static final Pattern ON_A_NAME = Pattern.compile("([A-Za-z_$][\\w$.]*)\\(\\s*([A-Za-z_$][\\w$]*)\\s*\\)");
+    private static final Pattern CALL_ON_A_NAME = Pattern
+            .compile("([A-Za-z_$][\\w$.]*)\\(\\s*([A-Za-z_$][\\w$]*)\\s*\\)");
 
     private final Predicate expected;
     private final VCSimplificationResult found;
@@ -72,7 +73,7 @@ public class StateRefinementError extends LJError {
     @Override
     public List<String> getDeclarationNotes(String declaration) {
         List<String> meanings = new ArrayList<>();
-        Matcher call = ON_A_NAME.matcher(declaration);
+        Matcher call = CALL_ON_A_NAME.matcher(declaration);
         while (call.find()) {
             Expression state = new FunctionInvocation(call.group(1), List.of(new Var(call.group(2))));
             Expression shown = display.apply(state);

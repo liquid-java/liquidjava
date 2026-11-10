@@ -133,7 +133,8 @@ public final class StateValues {
 
     /**
      * The name of the state set that {@link #toSetForm} shows the state {@code state} as a value of, or empty when it
-     * keeps the shorthand
+     * keeps the shorthand. It also keeps it when sets of different classes have that set name, e.g. a class and its
+     * superclass: their values would read as values of one set
      */
     public static Optional<String> setNameOf(String state, List<GhostState> states, List<GhostFunction> ghosts) {
         if (ghosts.stream().anyMatch(g -> g.matches(state))
@@ -143,7 +144,10 @@ public final class StateValues {
                 .map(s -> s.getParent().getName()).distinct().toList();
         if (setNames.size() != 1 || setNames.get(0).matches(Formats.STATE_SET_NAMES))
             return Optional.empty();
-        return Optional.of(setNames.get(0));
+        long setsWithName = states.stream().map(GhostState::getParent)
+                .filter(p -> p != null && p.getName().equals(setNames.get(0))).map(GhostFunction::getQualifiedName)
+                .distinct().count();
+        return setsWithName == 1 ? Optional.of(setNames.get(0)) : Optional.empty();
     }
 
     /** The states of {@code set}, or only those named {@code name} when it is not null */

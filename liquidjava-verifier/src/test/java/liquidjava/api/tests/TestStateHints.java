@@ -353,6 +353,15 @@ class TestStateHints {
     }
 
     @Test
+    void setNameOfTheClassAndOfItsSuperclassKeepsTheShorthand() {
+        StateRefinementError error = errors("ErrorStateSetNameInSuperclass.java", 1).get(0);
+        assertEquals("found ready(c) && idle(c) but expected ready(c) && busy(c)",
+                error.getMessage().replaceAll("[⁰¹²³⁴⁵⁶⁷⁸⁹]", ""));
+        assertHints(error, new Hint(Kind.CALL_SEQUENCE, "Call c.start() before this call to move c from idle to busy"),
+                new Hint(Kind.AVAILABLE_CALLS, "In state idle and ready, c can call: start()"));
+    }
+
+    @Test
     void queryWrittenWithItsStateSetIsOfferedAsAGuard() {
         assertHints("ErrorStateValueQuery.java",
                 new Hint(Kind.NEEDED_STATE,
