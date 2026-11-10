@@ -44,7 +44,7 @@ public class VCSimplification {
     public static VCSimplificationResult simplifyOnce(VCSimplificationResult implication) {
         if (implication == null)
             return null;
-        return simplifyOnce(implication, passes(implication.getImplication(), NeededVariables.NONE));
+        return simplifyOnce(implication, passes(implication.getOriginal().getImplication(), NeededVariables.NONE));
     }
 
     private static VCSimplificationResult simplifyOnce(VCSimplificationResult implication,

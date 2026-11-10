@@ -1,7 +1,6 @@
 package liquidjava.rj_language.opt;
 
 import static liquidjava.utils.VCTestUtils.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
@@ -33,10 +32,16 @@ class VCKnownEnumValuesTest {
     }
 
     @Test
+    void keepsPremisesTheConclusionWouldDecide() {
+        VCImplication implication = vc("∀mode:Mode. mode == Mode.Video || p", "mode == Mode.Photo");
+        assertSimplificationSteps(new VCKnownEnumValues(implication), implication,
+                step("mode == Mode.Video || p", "mode == Mode.Photo"));
+    }
+
+    @Test
     void foldsTheTernariesAFactDecides() {
-        VCImplication simplified = VCSimplification
-                .simplifyToFixedPoint(vc("∀mode:Mode. true", "mode == Mode.Video && (mode == Mode.Photo ? a : b)"))
-                .getImplication();
-        assertEquals("mode == Mode.Video && b", simplified.toPredicate().getExpression().toDisplayString());
+        assertSimplificationSteps(vc("∀mode:Mode. true", "mode == Mode.Video && (mode == Mode.Photo ? a : b)"),
+                step("mode == Mode.Video && (mode == Mode.Photo ? a : b)"),
+                step("mode == Mode.Video && (false ? a : b)"), step("mode == Mode.Video && b"));
     }
 }

@@ -52,19 +52,23 @@ public class VCKnownEnumValues implements VCSimplificationPass {
                 KnownValue known = knownValue(fact);
                 if (known == null)
                     continue;
-                VCImplication decided = decide(implication, known);
+                // the last row may be the conclusion, which the other rows cannot assume
+                boolean onlyLastRow = row.getNext() == null && row != implication;
+                VCImplication decided = decide(implication, known, onlyLastRow);
                 if (!decided.equals(implication))
                     return decided;
             }
         return implication;
     }
 
-    private VCImplication decide(VCImplication implication, KnownValue known) {
+    private VCImplication decide(VCImplication implication, KnownValue known, boolean onlyLastRow) {
         if (implication == null)
             return null;
+        Expression expression = implication.getRefinement().getExpression();
+        boolean decides = !onlyLastRow || implication.getNext() == null;
         VCImplication result = copyWithRefinement(implication,
-                new Predicate(decide(implication.getRefinement().getExpression(), known)));
-        result.setNext(decide(implication.getNext(), known));
+                new Predicate(decides ? decide(expression, known) : expression.clone()));
+        result.setNext(decide(implication.getNext(), known, onlyLastRow));
         return result;
     }
 
