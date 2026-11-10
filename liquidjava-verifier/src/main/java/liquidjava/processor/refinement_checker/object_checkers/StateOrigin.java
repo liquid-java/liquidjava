@@ -46,6 +46,7 @@ import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtExecutable;
+import spoon.reflect.declaration.CtMethod;
 import spoon.reflect.declaration.CtVariable;
 import spoon.reflect.visitor.filter.TypeFilter;
 
@@ -161,7 +162,18 @@ final class StateOrigin {
             return true;
         return scope.getElements(new TypeFilter<>(CtVariableRead.class)).stream()
                 .filter(use -> use.getVariable().getDeclaration() == variable && mayRunBefore(use, scope))
-                .anyMatch(use -> escapes(use, scope));
+                .anyMatch(use -> escapes(use, scope) || callsUnspecifiedBody(use));
+    }
+
+    /**
+     * Whether {@code use} is the receiver of a call to a method of the analyzed code with no state refinement: the
+     * verifier takes it to keep the state, which its body may still change
+     */
+    private boolean callsUnspecifiedBody(CtVariableRead<?> use) {
+        return use.getParent()instanceof CtInvocation<?> call && call != invocation && call.getTarget() == use
+                && call.getExecutable().getDeclaration()instanceof CtMethod<?> method && method.getBody() != null
+                && method.getAnnotations().stream().noneMatch(a -> a.getAnnotationType().getQualifiedName()
+                        .equals("liquidjava.specification.StateRefinement"));
     }
 
     /**
@@ -234,7 +246,8 @@ final class StateOrigin {
                             : Optional.empty();
         Predicate returned = call.returned();
         // a set declared without a name has a generated one, which the message does not otherwise show
-        boolean saysNothing = found.isEmpty()
+        // a state refinement of the method may give the value its state, as `to = "running(_)"` does
+        boolean saysNothing = found.isEmpty() && call.function().getAllStates().stream().noneMatch(ObjectState::hasTo)
                 && shown.stream().noneMatch(set -> Utils.getSimpleName(set.getName()).matches(Formats.STATE_SET_NAMES))
                 && setsOf(List.of(returned), ghostStates).stream().noneMatch(shown::contains)
                 && returned.getVariableNames().stream().allMatch(Keys.WILDCARD::equals)
