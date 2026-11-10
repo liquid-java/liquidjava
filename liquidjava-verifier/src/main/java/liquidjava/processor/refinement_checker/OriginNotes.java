@@ -19,6 +19,7 @@ import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Keys;
 import liquidjava.processor.context.CallResult;
 import liquidjava.processor.context.VariableInstance;
+import liquidjava.rj_language.ast.AliasInvocation;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.FunctionInvocation;
@@ -115,9 +116,13 @@ final class OriginNotes {
         return kept;
     }
 
-    /** Whether {@code expression} applies the function {@code name}, to any arguments */
+    /**
+     * Whether {@code expression} may apply the function {@code name}, to any arguments: it does, or it applies an
+     * alias, whose definition may
+     */
     private static boolean applies(Expression expression, String name) {
         return expression instanceof FunctionInvocation invocation && invocation.getName().equals(name)
+                || expression instanceof AliasInvocation
                 || expression.getChildren().stream().anyMatch(child -> applies(child, name));
     }
 
