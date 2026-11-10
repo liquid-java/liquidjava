@@ -2,7 +2,6 @@ package liquidjava.processor.refinement_checker.object_checkers;
 
 import java.lang.annotation.Annotation;
 import java.util.*;
-import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.DebugLog;
@@ -890,14 +889,10 @@ public class AuxStateHandler {
         Optional<String> receiver = receiverOf(invocation);
         if (receiver.isEmpty() || !StateMachineBuilder.canModel(function))
             return List.of();
-        // states are named as the message names them: by their set, unless it shows the shorthand
         Context context = tc.getContext();
-        UnaryOperator<String> stateName = state -> StateValues
-                .setNameOf(state, context.getGhostStates(), context.getGhosts()).map(set -> set + " == " + state)
-                .orElse(state);
         try {
             return StateHints.forCall(states.machine(), function, states.current(), receiver.get(), category, checked,
-                    stateName);
+                    state -> StateValues.setNameOf(state, context.getGhostStates(), context.getGhosts()));
         } catch (RuntimeException e) {
             DebugLog.warn("Could not compute the state hints: " + e.getMessage());
             return List.of();

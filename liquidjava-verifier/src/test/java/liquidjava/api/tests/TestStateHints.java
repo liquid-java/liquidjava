@@ -38,11 +38,10 @@ class TestStateHints {
 
     @Test
     void callSequenceNamesOnlyTheStateSetsItChanges() {
-        assertHints("ErrorStateHintMultipleSets.java",
-                new Hint(Kind.CALL_SEQUENCE,
-                        "Call d.unlock() before this call to move d from lockState == locked to lockState == unlocked"),
+        assertHints("ErrorStateHintMultipleSets.java", new Hint(Kind.CALL_SEQUENCE,
+                "Call d.unlock() before this call to move d from lockState(d) == locked to lockState(d) == unlocked"),
                 new Hint(Kind.AVAILABLE_CALLS,
-                        "In state doorState == closed and lockState == locked, d can call: unlock()"));
+                        "When doorState(d) == closed and lockState(d) == locked, d can call: unlock()"));
     }
 
     @Test
@@ -364,10 +363,9 @@ class TestStateHints {
     @Test
     void queryWrittenWithItsStateSetIsOfferedAsAGuard() {
         assertHints("ErrorStateValueQuery.java",
-                new Hint(Kind.NEEDED_STATE,
-                        "The state of d is unknown here, and this call needs it to be lock == unlocked"),
+                new Hint(Kind.NEEDED_STATE, "The state of d is unknown here, and this call needs lock(d) == unlocked"),
                 new Hint(Kind.GUARD,
-                        "Guard this call with if (d.isUnlocked()): when it returns true, d is lock == unlocked"));
+                        "Guard this call with if (d.isUnlocked()): when it returns true, lock(d) == unlocked"));
     }
 
     @Test
