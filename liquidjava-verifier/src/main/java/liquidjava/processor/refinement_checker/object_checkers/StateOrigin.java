@@ -32,6 +32,7 @@ import spoon.reflect.code.BinaryOperatorKind;
 import spoon.reflect.code.CtBinaryOperator;
 import spoon.reflect.code.CtConstructorCall;
 import spoon.reflect.code.CtExpression;
+import spoon.reflect.code.CtFieldAccess;
 import spoon.reflect.code.CtFieldRead;
 import spoon.reflect.code.CtLambda;
 import spoon.reflect.code.CtLoop;
@@ -207,7 +208,9 @@ final class StateOrigin {
     private static boolean escapes(CtElement use, CtExecutable<?> scope) {
         CtElement parent = use.getParent();
         CtElement nested = use.getParent(e -> e instanceof CtLambda<?> || e instanceof CtClass<?>);
-        boolean target = parent instanceof CtTargetedExpression<?, ?> targeted && targeted.getTarget() == use;
+        // a method reference, such as task::start, keeps its target for later
+        boolean target = (parent instanceof CtInvocation<?> || parent instanceof CtFieldAccess<?>)
+                && ((CtTargetedExpression<?, ?>) parent).getTarget() == use;
         boolean compared = parent instanceof CtBinaryOperator<?> operator
                 && (operator.getKind() == BinaryOperatorKind.EQ || operator.getKind() == BinaryOperatorKind.NE);
         return !(target || compared) || nested != null && nested.hasParent(scope);

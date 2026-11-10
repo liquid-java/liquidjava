@@ -843,6 +843,7 @@ public class AuxStateHandler {
             return StateOrigin.note(tc, receiver, written, function, ghostStates, states.map(ReceiverStates::machine),
                     states.map(ReceiverStates::current).orElse(Set.of()), found, expected, invocation);
         } catch (RuntimeException e) {
+            // also an LJError, such as an unknown solver result: the note is left out, the error is still reported
             DebugLog.warn("Could not tell where the receiver's state comes from: " + e.getMessage());
             return Optional.empty();
         }
