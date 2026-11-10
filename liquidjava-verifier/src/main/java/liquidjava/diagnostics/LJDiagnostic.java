@@ -22,6 +22,7 @@ public class LJDiagnostic extends RuntimeException {
     private String file;
     private SourcePosition position;
     private final List<Hint> hints = new ArrayList<>();
+    private final List<String> messageNotes = new ArrayList<>();
     private String counterexample;
     private ErrorCategory category;
     private static final String PIPE = " | ";
@@ -72,7 +73,12 @@ public class LJDiagnostic extends RuntimeException {
 
     /** Lines printed under the message that explain it, such as what the names it uses mean */
     public List<String> getMessageNotes() {
-        return List.of();
+        return Collections.unmodifiableList(messageNotes);
+    }
+
+    /** Adds a line printed under the message, such as where the value it is about comes from */
+    public void addMessageNote(String note) {
+        messageNotes.add(note);
     }
 
     /** Lines printed under the excerpt of where the refinement is declared that explain it */
