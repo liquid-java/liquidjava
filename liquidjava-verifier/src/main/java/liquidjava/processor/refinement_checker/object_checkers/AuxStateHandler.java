@@ -23,6 +23,9 @@ import liquidjava.processor.state_machine.StateMachine;
 import liquidjava.processor.state_machine.StateMachineBuilder;
 import liquidjava.processor.state_machine.StateSolver;
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.StateValues;
+import liquidjava.rj_language.ast.Expression;
+import liquidjava.rj_language.ast.FunctionInvocation;
 import liquidjava.utils.GeneratedNames;
 import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Formats;
@@ -411,7 +414,9 @@ public class AuxStateHandler {
 
         // has from
         if (from != null) {
-            state.setFrom(createStatePredicate(new Predicate(from, e, prefix), from, f.getTargetClass(), tc, e, false));
+            Predicate written = new Predicate(from, e, prefix);
+            state.setWrittenFrom(written);
+            state.setFrom(createStatePredicate(written, from, f.getTargetClass(), tc, e, false));
             state.setFromPosition(Utils.getLJAnnotationPosition(e, from));
         }
 
@@ -791,9 +796,12 @@ public class AuxStateHandler {
             // combine messages of all state changes
             String message = stateChanges.stream().map(ObjectState::getMessage)
                     .filter(msg -> msg != null && !msg.isBlank()).distinct().collect(Collectors.joining("\n"));
-            SourcePosition declarationPosition = stateChanges.stream().filter(ObjectState::hasFrom)
-                    .map(ObjectState::getFromPosition).filter(Objects::nonNull).findFirst()
+            Optional<ObjectState> declaration = stateChanges.stream().filter(ObjectState::hasFrom)
+                    .filter(s -> s.getFromPosition() != null).findFirst();
+            SourcePosition declarationPosition = declaration.map(ObjectState::getFromPosition)
                     .orElse(function.getPlacementInCode().getPosition());
+            List<String> declarationNotes = declaration.map(ObjectState::getWrittenFrom).filter(Objects::nonNull)
+                    .map(written -> declarationNotes(written.getExpression(), tc.getContext())).orElse(List.of());
             List<GhostState> ghostStates = getGhostStatesFor(function.getTargetClass(), tc);
             Optional<DecidingArgument> deciding = decidingArgument(tc, vi, function, ghostStates, invocation);
             Optional<ReceiverStates> states = receiverStates(tc, function, vi, prevState, invocation);
@@ -805,13 +813,36 @@ public class AuxStateHandler {
                     .orElse(null);
             List<Hint> hints = deciding.isPresent()
                     ? receiverOf(invocation).map(r -> StateHints.decidingArgument(deciding.get(), r)).stream().toList()
-                    : states.map(r -> stateHints(r, function, category, checked, invocation)).orElse(List.of());
+                    : states.map(r -> stateHints(tc, r, function, category, checked, invocation)).orElse(List.of());
             StateErrorContext context = states
                     .map(r -> StateErrorContext.of(r.machine(), function, r.current(), writtenReceiver(invocation)))
                     .orElse(null);
             tc.throwStateRefinementError(invocation.getPosition(), declarationPosition, prevState,
-                    expectedStatesDisjunction, message, hints, category, context);
+                    expectedStatesDisjunction, message, hints, category, context, declarationNotes);
         }
+    }
+
+    /**
+     * What each state of a named set that {@code written} writes as the shorthand means as the error's message shows
+     * it, e.g. {@code where closed(this) means doorState(this) == closed}: the declaration is shown as written
+     */
+    private static List<String> declarationNotes(Expression written, Context context) {
+        List<String> meanings = new ArrayList<>();
+        addMeanings(written, context, meanings);
+        return meanings.isEmpty() ? List.of() : List.of("where " + String.join(", ", meanings));
+    }
+
+    private static void addMeanings(Expression e, Context context, List<String> meanings) {
+        if (e instanceof FunctionInvocation state && state.getArgs().size() == 1
+                && StateValues.setNameOf(state.getName(), context.getGhostStates(), context.getGhosts()).isPresent()) {
+            String meaning = state.toDisplayString() + " means "
+                    + StateValues.toSetForm(state, context.getGhostStates(), context.getGhosts()).toDisplayString();
+            if (!meanings.contains(meaning))
+                meanings.add(meaning);
+            return;
+        }
+        for (Expression child : e.getChildren())
+            addMeanings(child, context, meanings);
     }
 
     /**
@@ -883,13 +914,15 @@ public class AuxStateHandler {
      * Hints on how to fix a call to {@code function} made in a state that does not allow it. Best effort, like
      * {@link #receiverStates}: the machine asks the solver about some calls only when a hint needs them
      */
-    private static List<Hint> stateHints(ReceiverStates states, RefinedFunction function, ErrorCategory category,
-            boolean checked, CtElement invocation) {
+    private static List<Hint> stateHints(TypeChecker tc, ReceiverStates states, RefinedFunction function,
+            ErrorCategory category, boolean checked, CtElement invocation) {
         Optional<String> receiver = receiverOf(invocation);
         if (receiver.isEmpty() || !StateMachineBuilder.canModel(function))
             return List.of();
+        Context context = tc.getContext();
         try {
-            return StateHints.forCall(states.machine(), function, states.current(), receiver.get(), category, checked);
+            return StateHints.forCall(states.machine(), function, states.current(), receiver.get(), category, checked,
+                    state -> StateValues.setNameOf(state, context.getGhostStates(), context.getGhosts()));
         } catch (RuntimeException e) {
             DebugLog.warn("Could not compute the state hints: " + e.getMessage());
             return List.of();

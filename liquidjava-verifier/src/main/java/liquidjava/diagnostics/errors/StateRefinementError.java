@@ -26,15 +26,19 @@ public class StateRefinementError extends LJError {
     private final VCSimplificationResult found;
     private final SourcePosition declarationPosition;
     private final StateErrorContext context;
+    private final List<String> declarationNotes;
 
     /**
      * @param display
      *            rewrites expected and found as the error shows them, here and to the IDE, after the facts to show are
      *            chosen on them as given
+     * @param declarationNotes
+     *            lines that explain the declaration, printed under its excerpt
      */
     public StateRefinementError(SourcePosition position, SourcePosition declarationPosition, Predicate expected,
             VCSimplificationResult found, TranslationTable translationTable, String customMessage, List<Hint> hints,
-            ErrorCategory category, StateErrorContext context, UnaryOperator<Expression> display) {
+            ErrorCategory category, StateErrorContext context, UnaryOperator<Expression> display,
+            List<String> declarationNotes) {
         super("State Refinement Error", ErrorMessage.of(expected.getExpression(), found, translationTable,
                 StateRefinementError::appliesGhost, "found %s but expected %s", display), position, translationTable,
                 customMessage);
@@ -42,6 +46,7 @@ public class StateRefinementError extends LJError {
         this.expected = new Predicate(display.apply(expected.getExpression()));
         this.found = found.map(display);
         this.context = context;
+        this.declarationNotes = declarationNotes;
         hints.forEach(this::addHint);
         setCategory(category);
         if (hints.isEmpty() && isTrue(found.getImplication().toPredicate().getExpression()))
@@ -54,6 +59,11 @@ public class StateRefinementError extends LJError {
     private static boolean appliesGhost(Expression expression) {
         return expression instanceof FunctionInvocation
                 || expression.getChildren().stream().anyMatch(StateRefinementError::appliesGhost);
+    }
+
+    @Override
+    public List<String> getDeclarationNotes() {
+        return declarationNotes;
     }
 
     @Override

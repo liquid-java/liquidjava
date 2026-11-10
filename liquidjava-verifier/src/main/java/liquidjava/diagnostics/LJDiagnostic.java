@@ -75,6 +75,11 @@ public class LJDiagnostic extends RuntimeException {
         return List.of();
     }
 
+    /** Lines printed under the excerpt of where the refinement is declared that explain it */
+    public List<String> getDeclarationNotes() {
+        return List.of();
+    }
+
     public void setPosition(SourcePosition pos) {
         if (pos == null || pos.getFile() == null)
             return;
@@ -145,8 +150,11 @@ public class LJDiagnostic extends RuntimeException {
         if (declPos != null && declPos.getFile() != null && !declPos.equals(position)) {
             sb.append(Colors.CYAN).append("\n--> Refinement declared here:\n").append(Colors.RESET);
             String declarationSnippet = getSnippet(declPos, 1, 1, Colors.CYAN, null, true);
-            if (declarationSnippet != null)
+            if (declarationSnippet != null) {
                 sb.append(declarationSnippet);
+                for (String note : getDeclarationNotes())
+                    sb.append("  ").append(note).append("\n");
+            }
 
             sb.append("\n").append(declPos.getFile().getPath()).append(":").append(declPos.getLine())
                     .append(Colors.RESET).append("\n");

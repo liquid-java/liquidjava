@@ -7,6 +7,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Supplier;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -41,10 +42,21 @@ public final class StateHints {
     private final List<Set<State>> goals;
     /** The state sets the failing call checks, as indexes into {@link State#names()} */
     private final Set<Integer> checkedSets;
+    /** The name of the state set a state is shown as a value of, or empty when it keeps the shorthand */
+    private final Function<String, Optional<String>> setNameOf;
+    /**
+     * Whether states are shown as the error's message shows them, e.g. {@code lockState(d) == locked}: when some state
+     * set of the class is shown by its name
+     */
+    private final boolean asValues;
 
-    private StateHints(StateMachine machine, String receiver, RefinedFunction call) {
+    private StateHints(StateMachine machine, String receiver, RefinedFunction call,
+            Function<String, Optional<String>> setNameOf) {
         this.machine = machine;
         this.receiver = receiver;
+        this.setNameOf = setNameOf;
+        this.asValues = machine.states().stream().flatMap(s -> s.names().stream())
+                .anyMatch(name -> setNameOf.apply(name).isPresent());
         this.goals = machine.statesAllowingByRefinement(call);
         this.checkedSets = goals.stream().flatMap(g -> machine.stateSetsNamed(g).stream())
                 .collect(Collectors.toCollection(TreeSet::new));
@@ -62,12 +74,15 @@ public final class StateHints {
      * @param checkedElsewhere
      *            whether the receiver's state was checked elsewhere, though not decided, e.g. by an earlier call whose
      *            result says which state it is in
+     * @param setNameOf
+     *            the name of the state set the error's message shows a state as a value of, or empty when it shows the
+     *            shorthand
      */
     public static List<Hint> forCall(StateMachine machine, RefinedFunction call, Set<State> current, String receiver,
-            ErrorCategory category, boolean checkedElsewhere) {
+            ErrorCategory category, boolean checkedElsewhere, Function<String, Optional<String>> setNameOf) {
         if (!machine.models(call) || current.isEmpty() || machine.allows(current, call))
             return List.of(); // the machine cannot explain why the call failed
-        StateHints hints = new StateHints(machine, receiver, call);
+        StateHints hints = new StateHints(machine, receiver, call, setNameOf);
         if (hints.goals.isEmpty())
             return List.of();
 
@@ -107,7 +122,7 @@ public final class StateHints {
     private List<Hint> anyState(Set<State> current, RefinedFunction call, boolean checkedElsewhere) {
         String known = checkedElsewhere ? "What is known here does not decide the state of " + receiver
                 : "The state of " + receiver + " is unknown here";
-        String message = known + ", and this call needs it to be " + needed();
+        String message = known + ", and this call needs " + (asValues ? "" : "it to be ") + needed();
         message += newObjects(call).map(c -> ". Objects created with " + c + " start in such a state").orElse("");
         List<Hint> hints = new ArrayList<>();
         hints.add(new Hint(Kind.NEEDED_STATE, message));
@@ -161,8 +176,8 @@ public final class StateHints {
         String check = (negated ? "!" : "") + guardCall(guard.method());
         String arguments = guard.method().getArguments().isEmpty() ? ""
                 : ", filling in the arguments of " + declaration(guard.method());
-        String message = String.format("Guard this call with if (%s)%s: when it returns %s, %s is %s", check, arguments,
-                !negated, receiver, needed());
+        String message = String.format("Guard this call with if (%s)%s: when it returns %s, %s", check, arguments,
+                !negated, (asValues ? "" : receiver + " is ") + needed());
         return List.of(new Hint(Kind.GUARD, message));
     }
 
@@ -206,6 +221,11 @@ public final class StateHints {
     }
 
     private Hint unreachable(Set<State> current, RefinedFunction call, boolean pathDependent) {
+        if (pathDependent && asValues)
+            return new Hint(Kind.PATH_DEPENDENT_STATE, String.format(
+                    "Depending on the path taken, %s here, and no sequence of calls moves %s from all of them to %s. "
+                            + "Make %s reach this line in the same state on every path",
+                    namesHere(current), receiver, needed(), receiver));
         if (pathDependent)
             return new Hint(Kind.PATH_DEPENDENT_STATE, String.format(
                     "%s can be in %s here, depending on the path taken, and no sequence of calls moves all of them to %s. "
@@ -222,13 +242,15 @@ public final class StateHints {
         if (!allowed.isEmpty()) {
             List<String> signatures = allowed.stream().map(StateHints::signature).toList();
             String others = machine.complete() ? "" : " (and possibly others)";
-            return List.of(new Hint(Kind.AVAILABLE_CALLS, String.format("In state %s, %s can call: %s%s",
-                    namesHere(current), receiver, list(signatures), others)));
+            return List.of(new Hint(Kind.AVAILABLE_CALLS, String.format("%s %s, %s can call: %s%s",
+                    asValues ? "When" : "In state", namesHere(current), receiver, list(signatures), others)));
         }
         boolean noCallsInAnyState = current.stream().allMatch(s -> machine.allowedIn(Set.of(s)).isEmpty());
         if (machine.complete() && noCallsInAnyState)
-            return List.of(new Hint(Kind.FINAL_STATE,
-                    String.format("%s is in state %s, where none of its methods with state refinements can be called",
+            return List.of(new Hint(Kind.FINAL_STATE, asValues
+                    ? String.format("When %s, none of the methods of %s with state refinements can be called",
+                            namesHere(current), receiver)
+                    : String.format("%s is in state %s, where none of its methods with state refinements can be called",
                             receiver, namesHere(current))));
         return List.of();
     }
@@ -311,11 +333,26 @@ public final class StateHints {
         Set<State> goal = machine.ordered(goals.stream().flatMap(Set::stream).toList());
         if (goal.size() < machine.states().size())
             return names(goal);
-        return goals.stream().map(this::names).distinct().collect(Collectors.joining(" or "));
+        return join(goals.stream().flatMap(g -> machine.describe(g).stream()).distinct().toList());
     }
 
-    private static String join(List<List<String>> groups) {
-        return groups.stream().map(group -> String.join(" and ", group)).collect(Collectors.joining(" or "));
+    /** The groups joined by {@code or}, each in parentheses if it has several states and there are other groups */
+    private String join(List<List<String>> groups) {
+        return groups.stream().map(group -> {
+            String states = group.stream().map(this::stateName).collect(Collectors.joining(" and "));
+            return groups.size() > 1 && group.size() > 1 ? "(" + states + ")" : states;
+        }).collect(Collectors.joining(" or "));
+    }
+
+    /**
+     * A state as the error's message shows it, e.g. {@code lockState(d) == locked}, or {@code closed(d)} for a state
+     * that keeps the shorthand, or only its name if no state set of the class is shown by its name
+     */
+    private String stateName(String state) {
+        if (!asValues)
+            return state;
+        return setNameOf.apply(state).map(set -> set + "(" + receiver + ") == " + state)
+                .orElse(state + "(" + receiver + ")");
     }
 
     private static String list(List<String> items) {
