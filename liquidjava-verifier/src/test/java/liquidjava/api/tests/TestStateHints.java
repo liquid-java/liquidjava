@@ -22,26 +22,21 @@ class TestStateHints {
     private static final String TEST_SUITE = "../liquidjava-example/src/main/java/testSuite/";
 
     @Test
-    void missingCallIsSuggestedWithTheCallsAllowedNow() {
+    void missingCallIsSuggestedWithTheStateItLeadsTo() {
         assertHints("ErrorStateHintCallSequence.java",
-                new Hint(Kind.CALL_SEQUENCE, "Call f.open() before this call to move f from created to open"),
-                new Hint(Kind.AVAILABLE_CALLS, "In state created, f can call: open()"));
+                new Hint(Kind.CALL_SEQUENCE, "Call f.open() before this call; afterwards f is open"));
     }
 
     @Test
     void missingCallsAreSuggestedInOrder() {
-        assertHints("ErrorStateHintTwoCalls.java",
-                new Hint(Kind.CALL_SEQUENCE,
-                        "Call r.prepare(), then r.start() before this call to move r from idle to running"),
-                new Hint(Kind.AVAILABLE_CALLS, "In state idle, r can call: prepare()"));
+        assertHints("ErrorStateHintTwoCalls.java", new Hint(Kind.CALL_SEQUENCE,
+                "Call r.prepare(), then r.start() before this call; afterwards r is running"));
     }
 
     @Test
     void callSequenceNamesOnlyTheStateSetsItChanges() {
-        assertHints("ErrorStateHintMultipleSets.java", new Hint(Kind.CALL_SEQUENCE,
-                "Call d.unlock() before this call to move d from lockState(d) == locked to lockState(d) == unlocked"),
-                new Hint(Kind.AVAILABLE_CALLS,
-                        "When doorState(d) == closed and lockState(d) == locked, d can call: unlock()"));
+        assertHints("ErrorStateHintMultipleSets.java",
+                new Hint(Kind.CALL_SEQUENCE, "Call d.unlock() before this call; afterwards lockState(d) == unlocked"));
     }
 
     @Test
@@ -55,7 +50,7 @@ class TestStateHints {
     @Test
     void transitionDependingOnArgumentsIsSuggestedWithItsConditionButPreventsClaimingStateIsFinal() {
         assertHints("ErrorStateHintIncomplete.java", new Hint(Kind.CALL_SEQUENCE,
-                "Call f.reopen(int attempts) with attempts > 0 before this call to move f from closed to open"));
+                "Call f.reopen(int attempts) with attempts > 0 before this call; afterwards f is open"));
     }
 
     @Test
@@ -66,40 +61,31 @@ class TestStateHints {
     @Test
     void subclassReceiverCanUseItsOwnTransitionsOnInheritedStates() {
         assertHints("ErrorStateHintInheritedStates.java",
-                new Hint(Kind.CALL_SEQUENCE, "Call s.bc() before this call to move s from b to c"),
-                new Hint(Kind.AVAILABLE_CALLS, "In state b, s can call: bc()"));
+                new Hint(Kind.CALL_SEQUENCE, "Call s.bc() before this call; afterwards s is c"));
     }
 
     @Test
     void overrideInTheReceiversClassReplacesTheInheritedTransition() {
         assertHints("ErrorStateHintOverride.java",
-                new Hint(Kind.CALL_SEQUENCE, "Call s.next() before this call to move s from a to c"),
-                new Hint(Kind.AVAILABLE_CALLS, "In state a, s can call: next()"));
+                new Hint(Kind.CALL_SEQUENCE, "Call s.next() before this call; afterwards s is c"));
     }
 
     @Test
     void stateSetAndMethodsFromSpecsOfTheReceiversSuperclasses() {
-        assertHints("classes/state_hints_grandchild_spec_error",
-                new Hint(Kind.CALL_SEQUENCE,
-                        "Call window.dispose() before this call to move window from displayable to notDisplayable"),
-                new Hint(Kind.AVAILABLE_CALLS, "In state displayable, window can call: dispose(), pack()"));
+        assertHints("classes/state_hints_grandchild_spec_error", new Hint(Kind.CALL_SEQUENCE,
+                "Call window.dispose() before this call; afterwards window is notDisplayable"));
     }
 
     @Test
     void superclassRefinementOfAMethodTheReceiversClassRedeclaresIsNotSuggested() {
-        assertHints("classes/state_hints_redeclared_method_error",
-                new Hint(Kind.CALL_SEQUENCE,
-                        "Call host.dispose() before this call to move host from displayable to notDisplayable"),
-                new Hint(Kind.AVAILABLE_CALLS,
-                        "In state displayable, host can call: dispose(), pack() (and possibly others)"));
+        assertHints("classes/state_hints_redeclared_method_error", new Hint(Kind.CALL_SEQUENCE,
+                "Call host.dispose() before this call; afterwards host is notDisplayable"));
     }
 
     @Test
     void stateSetAndMethodsFromTheReceiversSuperclassSpec() {
-        assertHints("classes/state_hints_superclass_spec_error",
-                new Hint(Kind.CALL_SEQUENCE,
-                        "Call host.dispose() before this call to move host from displayable to notDisplayable"),
-                new Hint(Kind.AVAILABLE_CALLS, "In state displayable, host can call: dispose(), pack()"));
+        assertHints("classes/state_hints_superclass_spec_error", new Hint(Kind.CALL_SEQUENCE,
+                "Call host.dispose() before this call; afterwards host is notDisplayable"));
     }
 
     @Test
@@ -110,8 +96,7 @@ class TestStateHints {
     @Test
     void statesOfAnotherClassWithTheSimpleNameOfASupertypeAreLeftOut() {
         assertHints("classes/state_hints_same_simple_name_error",
-                new Hint(Kind.CALL_SEQUENCE, "Call l.add(E) before this call to move l from empty to nonEmpty"),
-                new Hint(Kind.AVAILABLE_CALLS, "In state empty, l can call: add(E)"));
+                new Hint(Kind.CALL_SEQUENCE, "Call l.add(E) before this call; afterwards l is nonEmpty"));
     }
 
     @Test
@@ -152,15 +137,14 @@ class TestStateHints {
                 new Hint(Kind.NEEDED_STATE,
                         "The state of undoManager is unknown here, and this call needs it to be redoable"),
                 new Hint(Kind.GUARD,
-                        "Guard this call with if (undoManager.canRedo()): when it returns true, undoManager is redoable"));
+                        "Guard this call with if (undoManager.canRedo()); inside it, undoManager is redoable"));
     }
 
     @Test
     void unknownStateSuggestsCallsAllowedInAnyState() {
         assertHints("ErrorStateHintUnknownAnyState.java",
                 new Hint(Kind.NEEDED_STATE, "The state of f is unknown here, and this call needs it to be open"),
-                new Hint(Kind.CALL_SEQUENCE,
-                        "Call f.reset(), then f.open() before this call to move f from any state to open"));
+                new Hint(Kind.CALL_SEQUENCE, "Call f.reset(), then f.open() before this call; afterwards f is open"));
     }
 
     @Test
@@ -172,8 +156,7 @@ class TestStateHints {
                 new Hint(Kind.NEEDED_STATE, "The state of t is unknown here, and this call needs it to be a or b. "
                         + "Objects created with new ErrorStateHintNamingToggle() start in such a state"));
         assertHints(errors.get(2),
-                new Hint(Kind.UNREACHABLE_STATE, "No sequence of calls moves this from notRedoable to redoable"),
-                new Hint(Kind.AVAILABLE_CALLS, "In state notRedoable, this can call: check()"));
+                new Hint(Kind.UNREACHABLE_STATE, "No sequence of calls moves this from notRedoable to redoable"));
     }
 
     @Test
@@ -183,16 +166,14 @@ class TestStateHints {
         assertHints(errors.get(0),
                 new Hint(Kind.NEEDED_STATE,
                         "What is known here does not decide the state of it, and this call needs it to be hasMore"),
-                new Hint(Kind.GUARD, "Guard this call with if (it.hasNext()): when it returns true, it is hasMore"));
+                new Hint(Kind.GUARD, "Guard this call with if (it.hasNext()); inside it, it is hasMore"));
         assertHints(errors.get(1),
                 new Hint(Kind.NEEDED_STATE,
                         "What is known here does not decide the state of same, and this call needs it to be hasMore"),
-                new Hint(Kind.GUARD,
-                        "Guard this call with if (same.hasNext()): when it returns true, same is hasMore"));
+                new Hint(Kind.GUARD, "Guard this call with if (same.hasNext()); inside it, same is hasMore"));
         assertHints(errors.get(2),
                 new Hint(Kind.NEEDED_STATE, "The state of input is unknown here, and this call needs it to be hasMore"),
-                new Hint(Kind.GUARD,
-                        "Guard this call with if (input.hasNext()): when it returns true, input is hasMore"));
+                new Hint(Kind.GUARD, "Guard this call with if (input.hasNext()); inside it, input is hasMore"));
         assertEquals(List.of(Optional.empty(), Optional.empty(), Optional.of(ErrorCategory.UNKNOWN)),
                 errors.stream().map(LJError::getCategory).toList());
     }
@@ -206,9 +187,7 @@ class TestStateHints {
                         + "Create a new object instead with new ErrorStateHintJoins()"));
         assertHints(errors.get(1), new Hint(Kind.UNREACHABLE_STATE,
                 "No sequence of calls moves d from (closed and unlocked) or (opened and unlocked) to closed and unlocked. "
-                        + "Create a new object instead with new ErrorStateHintJoins()"),
-                new Hint(Kind.AVAILABLE_CALLS,
-                        "In state (closed and unlocked) or (opened and unlocked), d can call: lock()"));
+                        + "Create a new object instead with new ErrorStateHintJoins()"));
         assertEquals(Optional.empty(), errors.get(0).getCategory());
     }
 
@@ -232,12 +211,8 @@ class TestStateHints {
         // the files are verified in no fixed order
         assertEquals(Set.of(
                 List.of(new Hint(Kind.CALL_SEQUENCE,
-                        "Call hatch.openPublicly() before this call to move hatch from closed to open"),
-                        new Hint(Kind.AVAILABLE_CALLS,
-                                "In state closed, hatch can call: openPublicly() (and possibly others)")),
-                List.of(new Hint(Kind.CALL_SEQUENCE,
-                        "Call door.push() before this call to move door from shut to ajar"),
-                        new Hint(Kind.AVAILABLE_CALLS, "In state shut, door can call: push() (and possibly others)"))),
+                        "Call hatch.openPublicly() before this call; afterwards hatch is open")),
+                List.of(new Hint(Kind.CALL_SEQUENCE, "Call door.push() before this call; afterwards door is ajar"))),
                 errors.stream().map(StateRefinementError::getHints).collect(Collectors.toSet()));
     }
 
@@ -255,23 +230,20 @@ class TestStateHints {
 
     @Test
     void checksAreSuggestedOnlyWhenTheRefinementsProveThem() {
-        List<StateRefinementError> errors = errors("ErrorStateHintGuards.java", 11);
+        List<StateRefinementError> errors = errors("ErrorStateHintGuards.java", 12);
         assertHints(errors.get(0),
                 new Hint(Kind.NEEDED_STATE,
                         "The state of c is unknown here, and this call needs it to be open. "
                                 + "Objects created with new GuardChannel() start in such a state"),
-                new Hint(Kind.GUARD, "Guard this call with if (!c.isClosed()): when it returns false, c is open"));
-        assertHints(errors.get(1),
-                new Hint(Kind.GUARD, "Guard this call with if (l.tryLock(...)), "
-                        + "filling in the arguments of tryLock(long timeout): when it returns true, l is locked"),
-                new Hint(Kind.AVAILABLE_CALLS, "In state unlocked, l can call: tryLock(long) (and possibly others)"));
+                new Hint(Kind.GUARD, "Guard this call with if (!c.isClosed()); inside it, c is open"));
+        assertHints(errors.get(1), new Hint(Kind.GUARD, "Guard this call with if (l.tryLock(...)), "
+                + "filling in the arguments of tryLock(long timeout); inside it, l is locked"));
         assertHints(errors.get(2),
                 new Hint(Kind.NEEDED_STATE, "The state of p is unknown here, and this call needs it to be ready"));
         assertHints(errors.get(3),
                 new Hint(Kind.NEEDED_STATE, "The state of w is unknown here, and this call needs it to be accept"));
         assertHints(errors.get(4),
-                new Hint(Kind.GUARD, "Guard this call with if (w.canWrite()): when it returns true, w is accept"),
-                new Hint(Kind.AVAILABLE_CALLS, "In state start, w can call: canWrite() (and possibly others)"));
+                new Hint(Kind.GUARD, "Guard this call with if (w.canWrite()); inside it, w is accept"));
         assertHints(errors.get(5), new Hint(Kind.NEEDED_STATE,
                 "The state of b is unknown here, and this call needs it to be undoable and redoable"));
         assertHints(errors.get(6),
@@ -285,21 +257,19 @@ class TestStateHints {
                 new Hint(Kind.AVAILABLE_CALLS, "In state live, r can call: read() (and possibly others)"));
         assertHints(errors.get(10),
                 new Hint(Kind.NEEDED_STATE, "The state of g is unknown here, and this call needs it to be running"));
+        assertHints(errors.get(11),
+                new Hint(Kind.CALL_SEQUENCE, "Call f.dispose() before this call; afterwards f is hidden"));
     }
 
     @Test
     void argumentConditionsAreSuggestedOnlyWhenEveryArgumentMeetingThemWorks() {
         List<StateRefinementError> errors = errors("ErrorStateHintArgumentConditions.java", 7);
-        assertHints(errors.get(0),
-                new Hint(Kind.CALL_SEQUENCE,
-                        "Call r.set(int lo, int hi) with lo < hi before this call to move r from low to high"),
-                new Hint(Kind.AVAILABLE_CALLS, "In state low, r can call: set(int, int) (and possibly others)"));
+        assertHints(errors.get(0), new Hint(Kind.CALL_SEQUENCE,
+                "Call r.set(int lo, int hi) with lo < hi before this call; afterwards r is high"));
         assertHints(errors.get(1), new Hint(Kind.CALL_SEQUENCE,
-                "Call chain.pick(int k) with k == 1, then chain.next() before this call to move chain from a to c"),
-                new Hint(Kind.AVAILABLE_CALLS, "In state a, chain can call: pick(int) (and possibly others)"));
+                "Call chain.pick(1), then chain.next() before this call; afterwards chain is c"));
         assertHints(errors.get(2), new Hint(Kind.CALL_SEQUENCE,
-                "Call l.setLimit(int limit) with limit <= 0 before this call to move l from bounded to unbounded"),
-                new Hint(Kind.AVAILABLE_CALLS, "In state bounded, l can call: setLimit(int) (and possibly others)"));
+                "Call l.setLimit(int limit) with limit <= 0 before this call; afterwards l is unbounded"));
         // no condition, and no value of the earlier call's argument, is claimed to allow the call
         for (StateRefinementError error : errors.subList(3, 5))
             assertHints(error,
@@ -313,9 +283,7 @@ class TestStateHints {
     @Test
     void callWhoseStateDependsOnItsArgumentIsSuggestedWithTheCondition() {
         assertHints("classes/state_hint_compression_mode_error", new Hint(Kind.CALL_SEQUENCE,
-                "Call wParam.setCompressionMode(int mode) with mode == 2 before this call to move wParam from startCompression to compressionExplicit"),
-                new Hint(Kind.AVAILABLE_CALLS,
-                        "In state startCompression, wParam can call: setCompressionMode(int) (and possibly others)"));
+                "Call wParam.setCompressionMode(2) before this call; afterwards wParam is compressionExplicit"));
     }
 
     @Test
@@ -325,12 +293,12 @@ class TestStateHints {
                 new Hint(Kind.NEEDED_STATE,
                         "The state of undoManager is unknown here, and this call needs it to be redoable"),
                 new Hint(Kind.GUARD,
-                        "Guard this call with if (undoManager.canRedo()): when it returns true, undoManager is redoable"));
+                        "Guard this call with if (undoManager.canRedo()); inside it, undoManager is redoable"));
         assertHints(errors.get(1),
                 new Hint(Kind.NEEDED_STATE,
                         "The state of undoManager is unknown here, and this call needs it to be undoable"),
                 new Hint(Kind.GUARD,
-                        "Guard this call with if (undoManager.canUndo()): when it returns true, undoManager is undoable"));
+                        "Guard this call with if (undoManager.canUndo()); inside it, undoManager is undoable"));
     }
 
     @Test
@@ -356,16 +324,14 @@ class TestStateHints {
         StateRefinementError error = errors("ErrorStateSetNameInSuperclass.java", 1).get(0);
         assertEquals("found ready(c) && idle(c) but expected ready(c) && busy(c)",
                 error.getMessage().replaceAll("[⁰¹²³⁴⁵⁶⁷⁸⁹]", ""));
-        assertHints(error, new Hint(Kind.CALL_SEQUENCE, "Call c.start() before this call to move c from idle to busy"),
-                new Hint(Kind.AVAILABLE_CALLS, "In state idle and ready, c can call: start()"));
+        assertHints(error, new Hint(Kind.CALL_SEQUENCE, "Call c.start() before this call; afterwards c is busy"));
     }
 
     @Test
     void queryWrittenWithItsStateSetIsOfferedAsAGuard() {
         assertHints("ErrorStateValueQuery.java",
                 new Hint(Kind.NEEDED_STATE, "The state of d is unknown here, and this call needs lock(d) == unlocked"),
-                new Hint(Kind.GUARD,
-                        "Guard this call with if (d.isUnlocked()): when it returns true, lock(d) == unlocked"));
+                new Hint(Kind.GUARD, "Guard this call with if (d.isUnlocked()); inside it, lock(d) == unlocked"));
     }
 
     @Test

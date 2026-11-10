@@ -71,6 +71,14 @@ public class ErrorStateHintGuards {
         GuardCoarse g = GuardCoarse.make();
         g.run(); // Expect: State Refinement Error
     }
+
+    // a call reaches the needed state on every path: the check is not suggested, as it would skip the call where it fails
+    static void reachableOnEveryPath(boolean shown) {
+        GuardFrame f = new GuardFrame();
+        if (shown)
+            f.show();
+        f.decorate(); // Expect: State Refinement Error
+    }
 }
 
 @StateSet({"open", "closed"})
@@ -215,4 +223,22 @@ class GuardReader {
 
     @StateRefinement(from = "eof(this)")
     public void finish() {}
+}
+
+@StateSet({"hidden", "shown"})
+class GuardFrame {
+    @StateRefinement(to = "hidden(this)")
+    public GuardFrame() {}
+
+    @StateRefinement(to = "shown(this)")
+    public void show() {}
+
+    @StateRefinement(to = "hidden(this)")
+    public void dispose() {}
+
+    @StateRefinement(to = "return ? shown(this) : hidden(this)")
+    public boolean isShown() { return true; }
+
+    @StateRefinement(from = "hidden(this)")
+    public void decorate() {}
 }

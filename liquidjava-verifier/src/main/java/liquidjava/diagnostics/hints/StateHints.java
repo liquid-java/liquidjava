@@ -20,6 +20,9 @@ import liquidjava.processor.state_machine.DecidingArgument;
 import liquidjava.processor.state_machine.State;
 import liquidjava.processor.state_machine.StateMachine;
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.ast.BinaryExpression;
+import liquidjava.rj_language.ast.Expression;
+import liquidjava.rj_language.ast.Var;
 import liquidjava.utils.Utils;
 import liquidjava.utils.constants.Keys;
 import spoon.reflect.reference.CtExecutableReference;
@@ -89,12 +92,17 @@ public final class StateHints {
         if (category == ErrorCategory.UNKNOWN || checkedElsewhere)
             return hints.anyState(current, call, checkedElsewhere);
         boolean pathDependent = category == ErrorCategory.PATH_DEPENDENT_STATE;
-        List<Hint> sequences = hints.howToReach(current, call, false,
+        List<Hint> sequences = hints.howToReach(current, call,
                 () -> machine.complete() ? List.of(hints.unreachable(current, call, pathDependent)) : List.of());
-        // in a known state, a check is suggested only when no sequence of calls reaches a state that allows the call
+        // a check is suggested only when no sequence of calls reaches a state that allows the call: wrapping the call
+        // in it would skip the call in the states where it fails
         boolean reachable = sequences.stream().anyMatch(h -> h.kind() == Kind.CALL_SEQUENCE);
-        List<Hint> guards = reachable && current.size() == 1 ? List.of() : hints.guard(current, call);
-        return Stream.of(sequences, guards, hints.allowedCalls(current)).flatMap(List::stream).toList();
+        List<Hint> found = reachable ? sequences
+                : Stream.concat(sequences.stream(), hints.guard(current, call).stream()).toList();
+        // the calls allowed now are listed only when nothing else is suggested
+        Stream<Hint> allowed = hints.allowedCalls(current).stream()
+                .filter(h -> found.isEmpty() || h.kind() != Kind.AVAILABLE_CALLS);
+        return Stream.concat(found.stream(), allowed).toList();
     }
 
     /** The earlier call whose arguments decided the receiver's state, and values that would allow the call */
@@ -127,20 +135,17 @@ public final class StateHints {
         List<Hint> hints = new ArrayList<>();
         hints.add(new Hint(Kind.NEEDED_STATE, message));
         hints.addAll(guard(current, call));
-        hints.addAll(howToReach(current, call, true, List::of));
+        hints.addAll(howToReach(current, call, List::of));
         return hints;
     }
 
     /**
      * The shortest sequences of calls that are allowed in every state of {@code current} and lead to {@code call}
      *
-     * @param fromAnyState
-     *            whether to name {@code current} as any state
      * @param unreachable
      *            the hints to give if no sequence exists
      */
-    private List<Hint> howToReach(Set<State> current, RefinedFunction call, boolean fromAnyState,
-            Supplier<List<Hint>> unreachable) {
+    private List<Hint> howToReach(Set<State> current, RefinedFunction call, Supplier<List<Hint>> unreachable) {
         Optional<List<List<CallVariant>>> search = machine.shortestPaths(current, call, MAX_SEQUENCES);
         if (search.isEmpty())
             return List.of();
@@ -149,7 +154,7 @@ public final class StateHints {
             return unreachable.get();
         if (sequences.get(0).size() > MAX_SEQUENCE_LENGTH)
             return List.of();
-        return sequences.stream().map(sequence -> callSequence(current, sequence, fromAnyState)).toList();
+        return sequences.stream().map(sequence -> callSequence(current, sequence)).toList();
     }
 
     /**
@@ -172,12 +177,11 @@ public final class StateHints {
         if (guards.size() != 1)
             return List.of();
         CallVariant guard = guards.get(0);
-        boolean negated = guard.negatedResult();
-        String check = (negated ? "!" : "") + guardCall(guard.method());
+        String check = (guard.negatedResult() ? "!" : "") + guardCall(guard.method());
         String arguments = guard.method().getArguments().isEmpty() ? ""
                 : ", filling in the arguments of " + declaration(guard.method());
-        String message = String.format("Guard this call with if (%s)%s: when it returns %s, %s", check, arguments,
-                !negated, (asValues ? "" : receiver + " is ") + needed());
+        String message = String.format("Guard this call with if (%s)%s; inside it, %s", check, arguments,
+                isIn(needed()));
         return List.of(new Hint(Kind.GUARD, message));
     }
 
@@ -208,16 +212,18 @@ public final class StateHints {
         return refinements.anyMatch(p -> StateMachine.mayName(p, checked));
     }
 
-    /** The states before and after {@code sequence} are named only in the state sets it changes */
-    private Hint callSequence(Set<State> current, List<CallVariant> sequence, boolean fromAnyState) {
+    /**
+     * The state after {@code sequence} is named only in the state sets it changes. The state before is in the error's
+     * message.
+     */
+    private Hint callSequence(Set<State> current, List<CallVariant> sequence) {
         Set<State> reached = current;
         for (CallVariant step : sequence)
             reached = machine.after(reached, step);
         Set<Integer> changed = machine.stateSetsChanged(current, reached);
-        String from = fromAnyState ? "any state" : join(machine.describeOnly(current, changed));
         String calls = sequence.stream().map(this::call).collect(Collectors.joining(", then "));
-        return new Hint(Kind.CALL_SEQUENCE, String.format("Call %s before this call to move %s from %s to %s", calls,
-                receiver, from, join(machine.describeOnly(reached, changed))));
+        return new Hint(Kind.CALL_SEQUENCE, String.format("Call %s before this call; afterwards %s", calls,
+                isIn(join(machine.describeOnly(reached, changed)))));
     }
 
     private Hint unreachable(Set<State> current, RefinedFunction call, boolean pathDependent) {
@@ -286,14 +292,37 @@ public final class StateHints {
     }
 
     /**
-     * A step of a sequence, with the condition on its arguments if it has one, e.g.
-     * {@code p.setMode(int mode) with mode == 2}
+     * A step of a sequence, with the condition on its arguments if it has one: as the call with its argument when the
+     * condition gives the only parameter a value, e.g. {@code p.setMode(2)}, and otherwise after the call, e.g.
+     * {@code p.set(int lo, int hi) with lo < hi}
      */
     private String call(CallVariant step) {
         if (step.kind() != CallVariant.Kind.ARGUMENTS)
             return call(step.method());
-        return receiver + "." + declaration(step.method()) + " with "
-                + step.condition().getExpression().toDisplayString();
+        Expression condition = step.condition().getExpression();
+        return argumentValue(step.method(), condition)
+                .map(value -> receiver + "." + Utils.getSimpleName(step.method().getName()) + "(" + value + ")")
+                .orElse(receiver + "." + declaration(step.method()) + " with " + condition.toDisplayString());
+    }
+
+    /** The value {@code condition} gives the only parameter of {@code method}, as {@code 2} in {@code mode == 2} */
+    private static Optional<String> argumentValue(RefinedFunction method, Expression condition) {
+        if (method.getArguments().size() != 1 || !(condition instanceof BinaryExpression equality)
+                || !equality.getOperator().equals("=="))
+            return Optional.empty();
+        Var parameter = new Var(method.getArguments().get(0).getName());
+        if (equality.getFirstOperand().equals(parameter))
+            return constant(equality.getSecondOperand());
+        if (equality.getSecondOperand().equals(parameter))
+            return constant(equality.getFirstOperand());
+        return Optional.empty();
+    }
+
+    /** {@code e} as shown in hints, if it names no variable */
+    private static Optional<String> constant(Expression e) {
+        List<String> variables = new ArrayList<>();
+        e.getVariableNames(variables);
+        return variables.isEmpty() ? Optional.of(e.toDisplayString()) : Optional.empty();
     }
 
     /** A method as shown in hints, e.g. {@code open(int)} */
@@ -313,6 +342,11 @@ public final class StateHints {
     private static String parameters(RefinedFunction function) {
         return function.getArguments().stream().map(Variable::getType).map(CtTypeReference::getSimpleName)
                 .collect(Collectors.joining(", ", "(", ")"));
+    }
+
+    /** That the receiver is in {@code states}, e.g. {@code f is open}, or {@code states} if they name the receiver */
+    private String isIn(String states) {
+        return (asValues ? "" : receiver + " is ") + states;
     }
 
     /** {@code states} named as briefly as possible, e.g. {@code open or loud} */
