@@ -9,7 +9,7 @@ class CodeTest {
     @Test
     void codeHoldingABacktickGetsALongerFence() {
         assertEquals("`x > 0`", Code.of("x > 0"));
-        assertEquals("``c == '`'``", Code.of("c == '`'"));
+        assertEquals("`` c == '`' ``", Code.of("c == '`'"));
         assertEquals("`` `a ``", Code.of("`a"));
     }
 
@@ -23,5 +23,6 @@ class CodeTest {
         // spaces and line breaks of the code itself are kept
         assertEquals(Colors.BLUE + " a " + Colors.RESET, Code.render(Code.of(" a "), true));
         assertEquals(Colors.BLUE + "a\nb" + Colors.RESET, Code.render(Code.of("a\nb"), true));
+        assertEquals(Colors.BLUE + " ` " + Colors.RESET, Code.render(Code.of(" ` "), true));
     }
 }

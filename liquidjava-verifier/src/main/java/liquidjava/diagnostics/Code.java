@@ -16,13 +16,14 @@ public final class Code {
     }
 
     /**
-     * {@code code} marked as code, fenced by more backticks than any run it holds, padded if it starts or ends with one
+     * {@code code} marked as code, fenced by more backticks than any run it holds, and padded with a space on each side
+     * if it holds a backtick or starts or ends with a space, so {@link #render} can tell the padding from the code
      */
     public static String of(String code) {
         String fence = "`";
         while (code.contains(fence))
             fence += "`";
-        String pad = code.startsWith("`") || code.endsWith("`") ? " " : "";
+        String pad = code.contains("`") || code.startsWith(" ") || code.endsWith(" ") ? " " : "";
         return fence + pad + code + pad + fence;
     }
 
@@ -38,11 +39,9 @@ public final class Code {
         StringBuilder rendered = new StringBuilder();
         while (span.find()) {
             String code = span.group(2);
-            // the padding of() adds around code that starts or ends with a backtick, not spaces of the code
-            String inner = code.length() > 2 && code.startsWith(" ") && code.endsWith(" ")
-                    ? code.substring(1, code.length() - 1) : code;
-            if (inner.startsWith("`") || inner.endsWith("`"))
-                code = inner;
+            // the padding of() adds: code with a space at both ends is always padded
+            if (code.length() >= 2 && code.startsWith(" ") && code.endsWith(" "))
+                code = code.substring(1, code.length() - 1);
             span.appendReplacement(rendered, Matcher.quoteReplacement(Colors.BLUE + code + Colors.RESET));
         }
         span.appendTail(rendered);
