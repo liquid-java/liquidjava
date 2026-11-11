@@ -5,6 +5,7 @@ import static liquidjava.rj_language.opt.VCSimplificationUtils.factsOf;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
@@ -32,14 +33,25 @@ public class VCKnownEnumValues implements VCSimplificationPass {
     }
 
     /** The enum type of each enum constant, by the name the solver translates the constant from */
-    private final Map<String, String> enumTypes = new HashMap<>();
+    private final Map<String, String> enumTypes;
 
     public VCKnownEnumValues(VCImplication implication) {
+        this.enumTypes = enumTypesOf(implication);
+    }
+
+    /** The names the constants of the enum types of the chain's binders are translated from, which denote values */
+    public static Set<String> enumConstants(VCImplication implication) {
+        return enumTypesOf(implication).keySet();
+    }
+
+    private static Map<String, String> enumTypesOf(VCImplication implication) {
+        Map<String, String> enumTypes = new HashMap<>();
         for (VCImplication row = implication; row != null; row = row.getNext())
             if (row.getType() != null && row.getType().getDeclaration()instanceof CtEnum<?> enumDecl)
                 for (CtEnumValue<?> value : enumDecl.getEnumValues())
                     enumTypes.put(String.format(Formats.ENUM, enumDecl.getSimpleName(), value.getSimpleName()),
                             enumDecl.getQualifiedName());
+        return enumTypes;
     }
 
     /**

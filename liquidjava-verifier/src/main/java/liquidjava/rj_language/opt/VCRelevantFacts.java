@@ -15,6 +15,7 @@ import java.util.function.Function;
 
 import liquidjava.processor.VCImplication;
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.ast.AliasInvocation;
 import liquidjava.rj_language.ast.BinaryExpression;
 import liquidjava.rj_language.ast.Expression;
 import liquidjava.rj_language.ast.FunctionInvocation;
@@ -27,22 +28,28 @@ import liquidjava.rj_language.ast.Var;
  * value it constrains. Different ghost functions, or the same one over different objects, are different solver terms,
  * so facts that share no symbol with expected, directly or through other facts, are independent of it and are left out.
  * An object whose value a fact constrains, such as {@code x == y}, or that an alias or unknown function takes, is one
- * symbol with all its ghost functions, so its facts are never split. Nothing changes when every fact or none is
- * relevant
+ * symbol with all its ghost functions, so its facts are never split. A constant, such as an enum constant read in code,
+ * is a fixed value, so facts that only compare values with it share no symbol through it; it stays one when a function
+ * or alias takes it or a chain of comparisons relates it to a value one takes, as equal objects have equal ghost
+ * values. Nothing changes when every fact or none is relevant
  */
 public class VCRelevantFacts implements VCSimplificationPass {
 
     private final Expression expected;
     private final Function<String, Set<String>> ghostFunctionsOf;
+    private final Set<String> constants;
 
     /**
      * @param ghostFunctionsOf
      *            the ghost functions an invocation name stands for: a state's state set function, or the ghost itself;
      *            none for any other name
+     * @param constants
+     *            the variable names that denote constants, such as enum constants
      */
-    public VCRelevantFacts(Expression expected, Function<String, Set<String>> ghostFunctionsOf) {
+    public VCRelevantFacts(Expression expected, Function<String, Set<String>> ghostFunctionsOf, Set<String> constants) {
         this.expected = expected;
         this.ghostFunctionsOf = ghostFunctionsOf;
+        this.constants = constants;
     }
 
     @Override
@@ -60,8 +67,10 @@ public class VCRelevantFacts implements VCSimplificationPass {
         addSymbols(expected, new HashMap<>(), values);
         allFacts.forEach(fact -> addSymbols(fact, new HashMap<>(), values));
 
-        Set<String> linked = symbolsOf(expected, values);
-        List<Set<String>> unlinked = new ArrayList<>(allFacts.stream().map(fact -> symbolsOf(fact, values)).toList());
+        Set<String> valueConstants = valueConstants(expected, allFacts);
+        Set<String> linked = symbolsOf(expected, values, valueConstants);
+        List<Set<String>> unlinked = new ArrayList<>(
+                allFacts.stream().map(fact -> symbolsOf(fact, values, valueConstants)).toList());
         boolean changed = true;
         while (changed) {
             changed = false;
@@ -75,8 +84,11 @@ public class VCRelevantFacts implements VCSimplificationPass {
             }
         }
 
-        List<List<Expression>> kept = rowFacts.stream().map(facts -> facts.stream()
-                .filter(fact -> symbolsOf(fact, values).stream().anyMatch(linked::contains)).toList()).toList();
+        List<List<Expression>> kept = rowFacts.stream()
+                .map(facts -> facts.stream()
+                        .filter(fact -> symbolsOf(fact, values, valueConstants).stream().anyMatch(linked::contains))
+                        .toList())
+                .toList();
         int relevant = kept.stream().mapToInt(List::size).sum();
         if (relevant == 0 || relevant == allFacts.size())
             return implication;
@@ -99,13 +111,50 @@ public class VCRelevantFacts implements VCSimplificationPass {
         return result;
     }
 
+    // The constants no function or alias takes and that no chain of comparisons relates to a value one takes
+    private Set<String> valueConstants(Expression expected, List<Expression> facts) {
+        Set<String> objects = new HashSet<>();
+        addArguments(expected, objects);
+        facts.forEach(fact -> addArguments(fact, objects));
+        List<Expression> all = new ArrayList<>(facts);
+        all.add(expected);
+        while (all.stream().anyMatch(expression -> addComparedWithObjects(expression, objects)))
+            ;
+        Set<String> valueConstants = new HashSet<>(constants);
+        valueConstants.removeAll(objects);
+        return valueConstants;
+    }
+
+    private static void addArguments(Expression expression, Set<String> objects) {
+        if (expression instanceof FunctionInvocation invocation)
+            invocation.getArgs().forEach(argument -> objects.addAll(variablesOf(argument)));
+        else if (expression instanceof AliasInvocation alias)
+            alias.getArgs().forEach(argument -> objects.addAll(variablesOf(argument)));
+        expression.getChildren().forEach(child -> addArguments(child, objects));
+    }
+
+    // Adds to objects the variables a comparison relates to one of them; true when it added any
+    private static boolean addComparedWithObjects(Expression expression, Set<String> objects) {
+        boolean added = false;
+        if (expression instanceof BinaryExpression binary
+                && ("==".equals(binary.getOperator()) || "!=".equals(binary.getOperator()))) {
+            List<String> compared = variablesOf(binary);
+            if (compared.stream().anyMatch(objects::contains))
+                added = objects.addAll(compared);
+        }
+        for (Expression child : expression.getChildren())
+            added |= addComparedWithObjects(child, objects);
+        return added;
+    }
+
     // The symbols an expression constrains: f(x) for a ghost function over an object, or the object itself when values
-    // has it, and the variables whose value it constrains
-    private Set<String> symbolsOf(Expression expression, Set<String> values) {
+    // has it, and the variables whose value it constrains, except the value constants
+    private Set<String> symbolsOf(Expression expression, Set<String> values, Set<String> valueConstants) {
         Map<String, String> applications = new HashMap<>();
         Set<String> symbols = new HashSet<>();
         addSymbols(expression, applications, symbols);
         applications.forEach((application, object) -> symbols.add(values.contains(object) ? object : application));
+        symbols.removeAll(valueConstants);
         return symbols;
     }
 
