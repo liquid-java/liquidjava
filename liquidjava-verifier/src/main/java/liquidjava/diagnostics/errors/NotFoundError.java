@@ -3,6 +3,7 @@ package liquidjava.diagnostics.errors;
 import java.util.Collection;
 import java.util.Locale;
 
+import liquidjava.diagnostics.Code;
 import liquidjava.diagnostics.NameSuggester;
 import liquidjava.diagnostics.TranslationTable;
 import liquidjava.diagnostics.hints.Hint;
@@ -29,11 +30,12 @@ public class NotFoundError extends LJError {
 
     public NotFoundError(SourcePosition position, String name, Kind kind, TranslationTable translationTable,
             Collection<String> availableElements) {
-        super("Not Found Error", String.format("%s '%s' could not be found", kind, name), position, translationTable);
+        super("Not Found Error", String.format("%s %s could not be found", kind, Code.of(name)), position,
+                translationTable);
         this.name = Utils.getSimpleName(name);
         this.kind = kind;
         NameSuggester.findClosest(name, availableElements)
-                .ifPresent(match -> addHint(Hint.general(String.format("Did you mean '%s'?", match))));
+                .ifPresent(match -> addHint(Hint.general(String.format("Did you mean %s?", Code.of(match)))));
     }
 
     public String getName() {

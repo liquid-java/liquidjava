@@ -11,6 +11,7 @@ import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.errors.*;
 import liquidjava.diagnostics.DebugLog;
+import liquidjava.diagnostics.SourceReference;
 import liquidjava.diagnostics.TranslationTable;
 import liquidjava.diagnostics.categories.ErrorCategory;
 import liquidjava.diagnostics.hints.Hint;
@@ -460,7 +461,7 @@ public class VCChecker {
 
     protected void throwStateRefinementError(SourcePosition position, List<SourcePosition> declarationPositions,
             Predicate found, Predicate expected, String customMessage, List<Hint> hints, ErrorCategory category,
-            StateErrorContext context, List<String> declarationNotes, List<String> messageNotes)
+            StateErrorContext context, List<String> declarationNotes, List<SourceReference> messageNotes)
             throws StateRefinementError {
         TranslationTable map = new TranslationTable();
         VCImplication foundState = buildPremiseChain(map, expected, found);

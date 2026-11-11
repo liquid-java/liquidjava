@@ -54,7 +54,7 @@ class TestStateErrorContext {
     @Test
     void foundEndsWithTheFactsRelevantToTheExpectedStateSet() {
         StateRefinementError error = errorOf("ErrorArgumentPicksTheStateEarlier.java");
-        assertEquals("found tilingOff(param@25) && state1(param) == state1(param@25) but expected tilingOn(param)",
+        assertEquals("found `tilingOff(param@25) && state1(param) == state1(param@25)` but expected `tilingOn(param)`",
                 error.getMessage());
         VCSimplificationResult found = error.getFoundSimplification();
         assertEquals("Relevant to Expected", found.getSimplification());

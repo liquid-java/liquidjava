@@ -5,6 +5,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.DebugLog;
+import liquidjava.diagnostics.SourceReference;
+import liquidjava.diagnostics.Code;
 import liquidjava.diagnostics.categories.ErrorCategory;
 import liquidjava.diagnostics.errors.IllegalConstructorTransitionError;
 import liquidjava.diagnostics.errors.InvalidRefinementError;
@@ -827,7 +829,7 @@ public class AuxStateHandler {
             StateErrorContext context = states
                     .map(r -> StateErrorContext.of(r.machine(), function, r.current(), writtenReceiver(invocation)))
                     .orElse(null);
-            List<String> messageNotes = receiverOf(invocation)
+            List<SourceReference> messageNotes = receiverOf(invocation)
                     .flatMap(r -> fromNote(tc, vi, r, function, ghostStates, states, prevState, expected, invocation))
                     .stream().toList();
             tc.throwStateRefinementError(invocation.getPosition(), declarationPositions, prevState,
@@ -836,7 +838,7 @@ public class AuxStateHandler {
     }
 
     /** Best effort, like {@link #receiverStates}: see {@link StateOrigin} */
-    private static Optional<String> fromNote(TypeChecker tc, VariableInstance receiver, String written,
+    private static Optional<SourceReference> fromNote(TypeChecker tc, VariableInstance receiver, String written,
             RefinedFunction function, List<GhostState> ghostStates, Optional<ReceiverStates> states, Predicate found,
             Predicate expected, CtElement invocation) {
         try {
@@ -862,8 +864,8 @@ public class AuxStateHandler {
     private static void addMeanings(Expression e, Context context, List<String> meanings) {
         if (e instanceof FunctionInvocation state && state.getArgs().size() == 1
                 && StateValues.setNameOf(state.getName(), context.getGhostStates(), context.getGhosts()).isPresent()) {
-            String meaning = state.toDisplayString() + " means "
-                    + StateValues.toSetForm(state, context.getGhostStates(), context.getGhosts()).toDisplayString();
+            String meaning = Code.of(state.toDisplayString()) + " means " + Code
+                    .of(StateValues.toSetForm(state, context.getGhostStates(), context.getGhosts()).toDisplayString());
             if (!meanings.contains(meaning))
                 meanings.add(meaning);
             return;

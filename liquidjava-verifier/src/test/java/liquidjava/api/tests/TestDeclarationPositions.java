@@ -55,7 +55,7 @@ class TestDeclarationPositions {
         assertPosition(positions.get(0), path, fromStart(source, "shut(this)"), "shut(this)");
         // the second annotation's from, not the same text the first writes as its to
         assertPosition(positions.get(1), path, fromStart(source, "ajar(this)"), "ajar(this)");
-        String notes = "  where shut(this) means door(this) == shut\n  where ajar(this) means door(this) == ajar\n";
+        String notes = "  where `shut(this)` means `door(this) == shut`\n  where `ajar(this)` means `door(this) == ajar`\n";
         assertTrue(errors.get(0).toString().contains(notes));
     }
 

@@ -26,7 +26,7 @@ class RefinementErrorCounterexampleTest {
         RefinementError error = error("timeout >= 0", vc("∀port:int. port > 0", "∀timeout:int. true", "true"),
                 "timeout=-1", "port=1");
         assertEquals(List.of(pair("timeout", "-1")), error.getCounterexample().assignments());
-        assertEquals("Counterexample: timeout == -1", error.getCounterexampleStr());
+        assertEquals("Counterexample: `timeout == -1`", error.getCounterexampleStr());
     }
 
     @Test
@@ -66,7 +66,7 @@ class RefinementErrorCounterexampleTest {
         RefinementError error = error("size(#s_3) > 0", vc("∀port:int. port > 0", "true"), "port=1", "size(#s_3)=0",
                 "length(#a_1)=4");
         assertEquals(List.of(pair("size(#s_3)", "0")), error.getCounterexample().assignments());
-        assertEquals("Counterexample: size(s) == 0", error.getCounterexampleStr());
+        assertEquals("Counterexample: `size(s) == 0`", error.getCounterexampleStr());
     }
 
     @Test
@@ -120,13 +120,13 @@ class RefinementErrorCounterexampleTest {
     void messageSaysExpectedCouldNotBeProvedWhenFoundOnlyGuardsOtherVariables() {
         RefinementError error = error("timeout >= 0", vc("∀port:int. true", "∀timeout:int. true",
                 "∀##if_condition_1:boolean. !(port < 0 || port > 65535)", "true"), "port=0", "timeout=-1");
-        assertEquals("expected timeout >= 0 but could not prove it", error.getMessage());
+        assertEquals("expected `timeout >= 0` but could not prove it", error.getMessage());
     }
 
     @Test
     void messageWithNothingFoundGivesNoHint() {
         RefinementError error = error("timeout >= 0", vc("∀timeout:int. true", "true"), "timeout=-1");
-        assertEquals("expected timeout >= 0 but could not prove it", error.getMessage());
+        assertEquals("expected `timeout >= 0` but could not prove it", error.getMessage());
         assertTrue(error.getHints().isEmpty());
     }
 
@@ -136,13 +136,13 @@ class RefinementErrorCounterexampleTest {
                 vc("∀port:int. true", "∀retries:int. true", "∀t:int. true",
                         "∀##if_condition_1:boolean. !(port < 0 || retries > t)", "true"),
                 "port=0", "retries=-2", "t=-1");
-        assertEquals("found !(retries > t) but expected t >= 0", error.getMessage());
+        assertEquals("found `!(retries > t)` but expected `t >= 0`", error.getMessage());
     }
 
     @Test
     void messageKeepsFoundAsWrittenWhenEveryFactIsLinked() {
         RefinementError error = error("x >= 0", vc("∀x:int. !(x < 0 || x > 5)", "true"), "x=-1");
-        assertEquals("found !(x < 0 || x > 5) but expected x >= 0", error.getMessage());
+        assertEquals("found `!(x < 0 || x > 5)` but expected `x >= 0`", error.getMessage());
     }
 
     @Test
@@ -152,7 +152,7 @@ class RefinementErrorCounterexampleTest {
                 new VCSimplificationResult(
                         vc("∀b1:Object. empty(b1)", "∀x:int. x > 0", "∀box:Object. box == b1", "true")),
                 new TranslationTable(), null, List.of(), null, null, UnaryOperator.identity(), List.of());
-        assertEquals("found empty(b1) && box == b1 but expected full(box)", error.getMessage());
+        assertEquals("found `empty(b1) && box == b1` but expected `full(box)`", error.getMessage());
     }
 
     @Test
@@ -167,7 +167,7 @@ class RefinementErrorCounterexampleTest {
         RefinementError error = error("at(#l_1, #i_2) > 0 && #i_2 > 0", vc("∀#i_2:int. at(#l_1, #i_2) == 0", "true"),
                 "at(#l_1, #i_2)=0", "#i_2=0");
         assertEquals(List.of(pair("#i_2", "0")), error.getCounterexample().assignments());
-        assertEquals("Counterexample: i == 0", error.getCounterexampleStr());
+        assertEquals("Counterexample: `i == 0`", error.getCounterexampleStr());
     }
 
     @Test
@@ -175,7 +175,7 @@ class RefinementErrorCounterexampleTest {
         RefinementError error = error("at(#l_1, #i_2) > 0", vc("∀#i_2:int. #i_2 > 0", "true"), "at(#l_1, #i_2)=0",
                 "#i_2=1");
         assertEquals(List.of(pair("at(#l_1, #i_2)", "0"), pair("#i_2", "1")), error.getCounterexample().assignments());
-        assertEquals("Counterexample: at(l, i) == 0 && i == 1", error.getCounterexampleStr());
+        assertEquals("Counterexample: `at(l, i) == 0 && i == 1`", error.getCounterexampleStr());
     }
 
     private static RefinementError error(String expected, VCImplication found, String... assignments) {

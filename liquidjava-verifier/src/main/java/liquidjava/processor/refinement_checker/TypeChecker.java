@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import liquidjava.diagnostics.Diagnostics;
+import liquidjava.diagnostics.SourceReference;
 import liquidjava.diagnostics.errors.*;
 import liquidjava.diagnostics.categories.ErrorCategory;
 import liquidjava.diagnostics.hints.Hint;
@@ -619,7 +620,8 @@ public abstract class TypeChecker extends CtScanner {
 
     public void throwStateRefinementError(SourcePosition position, List<SourcePosition> declarationPositions,
             Predicate found, Predicate expected, String customMessage, List<Hint> hints, ErrorCategory category,
-            StateErrorContext context, List<String> declarationNotes, List<String> messageNotes) throws LJError {
+            StateErrorContext context, List<String> declarationNotes, List<SourceReference> messageNotes)
+            throws LJError {
         vcChecker.throwStateRefinementError(position, declarationPositions, found, expected, customMessage, hints,
                 category, context, declarationNotes, messageNotes);
     }

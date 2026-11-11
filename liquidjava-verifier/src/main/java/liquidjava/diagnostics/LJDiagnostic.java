@@ -23,6 +23,7 @@ public class LJDiagnostic extends RuntimeException {
     private SourcePosition position;
     private final List<Hint> hints = new ArrayList<>();
     private final List<String> messageNotes = new ArrayList<>();
+    private final List<SourceReference> references = new ArrayList<>();
     private String counterexample;
     private ErrorCategory category;
     private static final String PIPE = " | ";
@@ -87,6 +88,19 @@ public class LJDiagnostic extends RuntimeException {
         messageNotes.add(note);
     }
 
+    /** Adds a line printed under the message that names a place in the source, as {@code reference} tells */
+    public void addMessageNote(SourceReference reference) {
+        messageNotes.add(reference.message());
+        references.add(reference);
+    }
+
+    /** The places in the source that the message notes and hints name, each with the line that names it */
+    public List<SourceReference> getReferences() {
+        List<SourceReference> all = new ArrayList<>(references);
+        hints.stream().map(Hint::reference).filter(Objects::nonNull).forEach(all::add);
+        return all;
+    }
+
     /** Lines printed under the excerpt of where the refinement is declared that explain it */
     public List<String> getDeclarationNotes() {
         return List.of();
@@ -128,10 +142,10 @@ public class LJDiagnostic extends RuntimeException {
         StringBuilder sb = new StringBuilder();
 
         // title
-        sb.append("\n").append(accentColor).append(title).append(": ").append(Colors.RESET).append(message)
+        sb.append("\n").append(accentColor).append(title).append(": ").append(Colors.RESET).append(Code.render(message))
                 .append("\n");
         for (String note : getMessageNotes())
-            sb.append("  ").append(note).append("\n");
+            sb.append("  ").append(Code.render(note)).append("\n");
 
         // snippet
         String snippet = getSnippet();
@@ -142,14 +156,14 @@ public class LJDiagnostic extends RuntimeException {
         // counterexample
         String counterexample = getCounterexampleStr();
         if (counterexample != null && !counterexample.isBlank()) {
-            sb.append(" --> ").append(String.join("\n     ", counterexample.split("\n"))).append("\n");
+            sb.append(" --> ").append(Code.render(String.join("\n     ", counterexample.split("\n")))).append("\n");
         }
 
         // hints
         if (!hints.isEmpty()) {
             sb.append("\nHints:\n");
             for (Hint hint : hints)
-                sb.append("  - ").append(String.join("\n    ", hint.message().split("\n"))).append("\n");
+                sb.append("  - ").append(Code.render(String.join("\n    ", hint.message().split("\n")))).append("\n");
         }
 
         // location
@@ -165,7 +179,7 @@ public class LJDiagnostic extends RuntimeException {
             if (declarationSnippet != null) {
                 sb.append(declarationSnippet);
                 for (String note : getDeclarationNotes())
-                    sb.append("  ").append(note).append("\n");
+                    sb.append("  ").append(Code.render(note)).append("\n");
             }
 
             sb.append("\n").append(declPos.getFile().getPath()).append(":").append(declPos.getLine())

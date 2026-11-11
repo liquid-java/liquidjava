@@ -159,7 +159,7 @@ class TestCounterexamples {
     void ghostOfArgumentFoundKnowsNothingAboutIsKept() {
         RefinementError error = verify("ErrorCounterexampleGhostArgument.java");
         assertAssignments(error, assignment("size(bag)", "0"));
-        assertTrue(error.getCounterexampleStr().contains("Counterexample: size(bag) == 0"));
+        assertTrue(error.getCounterexampleStr().contains("Counterexample: `size(bag) == 0`"));
     }
 
     @Test

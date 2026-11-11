@@ -30,11 +30,10 @@ class TestAliasExpansions {
     @Test
     void messageDeclaresEachAliasOnceAsWritten() {
         RefinementError error = verify("ErrorStaticFinalInAlias.java");
-        assertEquals(
-                List.of("where Mode(x) = x == ImageWriteParam.MODE_DISABLED || x == ImageWriteParam.MODE_DEFAULT "
-                        + "|| x == ImageWriteParam.MODE_EXPLICIT || x == ImageWriteParam.MODE_COPY_FROM_METADATA"),
+        assertEquals(List.of(
+                "where `Mode(x) = x == ImageWriteParam.MODE_DISABLED || x == ImageWriteParam.MODE_DEFAULT || x == ImageWriteParam.MODE_EXPLICIT || x == ImageWriteParam.MODE_COPY_FROM_METADATA`"),
                 error.getMessageNotes());
-        assertTrue(error.toString().contains(error.getMessage() + "\n  where Mode(x) = "));
+        assertTrue(error.toString().contains(error.getMessage() + "\n  where `Mode(x) = "));
     }
 
     private static void assertExpansion(List<AliasExpansion> expansions, String invocation, String expansion) {
