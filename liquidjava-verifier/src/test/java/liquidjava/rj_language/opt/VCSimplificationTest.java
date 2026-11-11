@@ -231,6 +231,20 @@ class VCSimplificationTest {
     }
 
     @Test
+    void relevantStepLinksFactsThroughAConstantAChainOfEqualitiesRelatesToAnObject() {
+        // p == r == Photo == s == q, so the facts about q constrain tilingSet(p)
+        Var photo = new Var("Mode.Photo");
+        VCImplication implication = vc("∀p:Mode. true", "true");
+        implication.setRefinement(new Predicate(new BinaryExpression(RefinementsParser.createAST("p == r", ""), "&&",
+                new BinaryExpression(new Var("r"), "==", photo))));
+        implication.getNext()
+                .setRefinement(new Predicate(new BinaryExpression(new BinaryExpression(new Var("s"), "==", photo), "&&",
+                        RefinementsParser.createAST("s == q && startTiling(q)", ""))));
+        assertSimplificationSteps(relevantTo("tilingSet(p)"), implication,
+                step("p == r && r == Photo", "s == Photo && s == q && startTiling(q)"));
+    }
+
+    @Test
     void relevantStepKeepsFactsAnUnknownFunctionTakesTheObjectOf() {
         assertSimplificationSteps(relevantTo("tilingSet(p)"), vc("compressionSet(p) && ready(p)", "startTiling(p)"),
                 step("compressionSet(p) && ready(p)", "startTiling(p)"));

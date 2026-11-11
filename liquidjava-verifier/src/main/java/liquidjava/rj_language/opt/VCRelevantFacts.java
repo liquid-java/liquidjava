@@ -30,8 +30,8 @@ import liquidjava.rj_language.ast.Var;
  * An object whose value a fact constrains, such as {@code x == y}, or that an alias or unknown function takes, is one
  * symbol with all its ghost functions, so its facts are never split. A constant, such as an enum constant read in code,
  * is a fixed value, so facts that only compare values with it share no symbol through it; it stays one when a function
- * or alias takes it or a value one takes is compared with it, as equal objects have equal ghost values. Nothing changes
- * when every fact or none is relevant
+ * or alias takes it or a chain of comparisons relates it to a value one takes, as equal objects have equal ghost
+ * values. Nothing changes when every fact or none is relevant
  */
 public class VCRelevantFacts implements VCSimplificationPass {
 
@@ -111,15 +111,17 @@ public class VCRelevantFacts implements VCSimplificationPass {
         return result;
     }
 
-    // The constants no function or alias takes and that are compared with no value one takes
+    // The constants no function or alias takes and that no chain of comparisons relates to a value one takes
     private Set<String> valueConstants(Expression expected, List<Expression> facts) {
         Set<String> objects = new HashSet<>();
         addArguments(expected, objects);
         facts.forEach(fact -> addArguments(fact, objects));
+        List<Expression> all = new ArrayList<>(facts);
+        all.add(expected);
+        while (all.stream().anyMatch(expression -> addComparedWithObjects(expression, objects)))
+            ;
         Set<String> valueConstants = new HashSet<>(constants);
         valueConstants.removeAll(objects);
-        removeComparedWithObjects(expected, objects, valueConstants);
-        facts.forEach(fact -> removeComparedWithObjects(fact, objects, valueConstants));
         return valueConstants;
     }
 
@@ -131,15 +133,18 @@ public class VCRelevantFacts implements VCSimplificationPass {
         expression.getChildren().forEach(child -> addArguments(child, objects));
     }
 
-    private static void removeComparedWithObjects(Expression expression, Set<String> objects,
-            Set<String> valueConstants) {
+    // Adds to objects the variables a comparison relates to one of them; true when it added any
+    private static boolean addComparedWithObjects(Expression expression, Set<String> objects) {
+        boolean added = false;
         if (expression instanceof BinaryExpression binary
                 && ("==".equals(binary.getOperator()) || "!=".equals(binary.getOperator()))) {
             List<String> compared = variablesOf(binary);
             if (compared.stream().anyMatch(objects::contains))
-                valueConstants.removeAll(compared);
+                added = objects.addAll(compared);
         }
-        expression.getChildren().forEach(child -> removeComparedWithObjects(child, objects, valueConstants));
+        for (Expression child : expression.getChildren())
+            added |= addComparedWithObjects(child, objects);
+        return added;
     }
 
     // The symbols an expression constrains: f(x) for a ghost function over an object, or the object itself when values
