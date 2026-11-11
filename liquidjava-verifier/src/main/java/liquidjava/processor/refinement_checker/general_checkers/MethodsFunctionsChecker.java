@@ -472,7 +472,11 @@ public class MethodsFunctionsChecker {
         if (!unknown && !met.getVariableNames().contains(Keys.WILDCARD))
             met = Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), met);
         String nVar = String.format(Formats.INSTANCE, fArg.getName(), rtc.getContext().getCounter());
-        rtc.getContext().addInstanceToContext(nVar, fArg.getType(), met.substituteVariable(Keys.WILDCARD, nVar), iArg);
+        RefinedVariable argument = rtc.getContext().addInstanceToContext(nVar, fArg.getType(),
+                met.substituteVariable(Keys.WILDCARD, nVar), iArg);
+        if (argument instanceof VariableInstance instance
+                && iArg.getMetadata(Keys.CALL_RESULT)instanceof CallResult call)
+            instance.setReturnedBy(call);
         // a call in the source reads as written; any other argument is refined as equal to its code, which would read
         // as a tautology
         if (iArg instanceof CtInvocation && iArg.getPosition().isValidPosition())

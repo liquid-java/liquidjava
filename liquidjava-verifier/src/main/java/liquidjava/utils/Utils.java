@@ -39,6 +39,11 @@ public class Utils {
     private static final Set<String> DEFAULT_NAMES = Set.of("old", "length", "addToIndex", "getFromIndex");
     private static final List<String> REFINEMENT_KEYS = List.of("value", "to", "from");
 
+    /** Whether {@code name} is a function the refinement language provides, such as {@code length} */
+    public static boolean isBuiltin(String name) {
+        return DEFAULT_NAMES.contains(name);
+    }
+
     public static CtTypeReference<?> getType(String type, Factory factory) {
         // TODO: complete with other types
         return switch (type) {
