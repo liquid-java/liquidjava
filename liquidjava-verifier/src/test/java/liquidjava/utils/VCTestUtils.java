@@ -13,12 +13,17 @@ import liquidjava.rj_language.opt.VCSimplificationPass;
 import liquidjava.rj_language.opt.VCSimplificationResult;
 import liquidjava.rj_language.parsing.RefinementsParser;
 import spoon.Launcher;
+import spoon.reflect.declaration.CtEnum;
+import spoon.reflect.declaration.CtEnumValue;
+import spoon.reflect.factory.Factory;
 import spoon.reflect.factory.TypeFactory;
 import spoon.reflect.reference.CtTypeReference;
 
 public class VCTestUtils {
 
-    private static final TypeFactory TYPE_FACTORY = new Launcher().getFactory().Type();
+    private static final Factory FACTORY = new Launcher().getFactory();
+    private static final TypeFactory TYPE_FACTORY = FACTORY.Type();
+    private static final CtTypeReference<?> MODE = enumType("Mode", "Photo", "Video");
 
     public static VCImplication vc(String... implications) {
         VCImplication first = null;
@@ -103,7 +108,19 @@ public class VCTestUtils {
             return TYPE_FACTORY.BOOLEAN_PRIMITIVE;
         if ("Object".equals(name))
             return TYPE_FACTORY.OBJECT;
+        if ("Mode".equals(name))
+            return MODE;
         throw new IllegalArgumentException("Unsupported test type: " + name);
+    }
+
+    private static CtTypeReference<?> enumType(String name, String... values) {
+        CtEnum<?> enumDecl = FACTORY.Enum().create(name);
+        for (String value : values) {
+            CtEnumValue<?> enumValue = FACTORY.Core().createEnumValue();
+            enumValue.setSimpleName(value);
+            enumDecl.addEnumValue(enumValue);
+        }
+        return enumDecl.getReference();
     }
 
     private static String formatRefinement(VCImplication implication) {
