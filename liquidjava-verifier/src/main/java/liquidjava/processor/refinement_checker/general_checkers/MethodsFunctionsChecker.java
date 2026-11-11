@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import liquidjava.diagnostics.errors.LJError;
+import liquidjava.processor.context.CallResult;
 import liquidjava.processor.context.Refined;
 import liquidjava.processor.context.RefinedFunction;
 import liquidjava.processor.context.RefinedVariable;
@@ -358,6 +359,7 @@ public class MethodsFunctionsChecker {
                     ? Predicate.createEquals(Predicate.createVar(Keys.WILDCARD), Predicate.createVar(returnViName))
                     : new Predicate();
             invocation.putMetadata(Keys.REFINEMENT, returnRef);
+            recordCallResult(invocation, f, new Predicate());
             return map;
         }
 
@@ -369,6 +371,12 @@ public class MethodsFunctionsChecker {
         // -- Part 2: Apply changes
         applyReturnRefinement(invocation, f, map, returnViName);
         return map;
+    }
+
+    /** Records on a call written in the source what it returns, for the variable it is assigned to */
+    private static void recordCallResult(CtExpression<?> invocation, RefinedFunction f, Predicate returned) {
+        if (invocation instanceof CtInvocation<?> && invocation.getPosition().isValidPosition())
+            invocation.putMetadata(Keys.CALL_RESULT, new CallResult(f, returned, invocation.getPosition()));
     }
 
     /**
@@ -412,6 +420,7 @@ public class MethodsFunctionsChecker {
                 varName = v.getName();
         }
 
+        recordCallResult(invocation, f, methodRef);
         String viName = returnViName != null ? returnViName
                 : GeneratedNames.valueOf(invocation, rtc.getContext().getCounter());
         VariableInstance vi = (VariableInstance) rtc.getContext().addInstanceToContext(viName, f.getType(),

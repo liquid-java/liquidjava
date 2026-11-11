@@ -18,12 +18,12 @@ import spoon.reflect.declaration.CtType;
 import liquidjava.utils.Utils;
 
 /**
- * The notes of a refinement error that say where the values its expected refinement is about come from. Each is given
- * only when it restates what the verifier used, and is left out otherwise
+ * The origin notes of a refinement error, which say where the values its expected refinement is about come from. Each
+ * is given only when it restates what the verifier used, and is left out otherwise
  */
-final class FromNotes {
+final class OriginNotes {
 
-    private FromNotes() {
+    private OriginNotes() {
     }
 
     /**
@@ -46,9 +46,9 @@ final class FromNotes {
                     || !(context.getVariableByName(variable)instanceof Variable declared)
                     || !declared.getMainRefinement().isBooleanTrue() || isRefined(parameter.get(), context))
                 return List.of();
-            notes.add(String.format("From: %s is a parameter of %s (line %d) with no refinement",
-                    error.getDisplayNames().get(variable), signature(method.get()),
-                    parameter.get().getPosition().getLine()));
+            notes.add(String.format("Origin: line %d, %s is a parameter of %s with no refinement",
+                    parameter.get().getPosition().getLine(), error.getDisplayNames().get(variable),
+                    signature(method.get())));
         }
         return notes;
     }

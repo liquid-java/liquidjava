@@ -8,6 +8,7 @@ public class VariableInstance extends RefinedVariable {
 
     private Variable parent;
     private StateChange stateChange;
+    private CallResult returnedBy;
 
     public VariableInstance(String name, CtTypeReference<?> type, Predicate c) {
         super(name, type, c);
@@ -41,6 +42,15 @@ public class VariableInstance extends RefinedVariable {
 
     public void setStateChange(StateChange stateChange) {
         this.stateChange = stateChange;
+    }
+
+    /** The call whose value this instance was assigned, if it was assigned one and its state has not changed since */
+    public Optional<CallResult> getReturnedBy() {
+        return Optional.ofNullable(returnedBy);
+    }
+
+    public void setReturnedBy(CallResult returnedBy) {
+        this.returnedBy = returnedBy;
     }
 
     public Optional<Variable> getParent() {
