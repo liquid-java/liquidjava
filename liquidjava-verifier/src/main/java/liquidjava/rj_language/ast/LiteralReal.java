@@ -8,13 +8,20 @@ import liquidjava.rj_language.visitors.ExpressionVisitor;
 public class LiteralReal extends Expression {
 
     private final double value;
+    private final boolean isFloat;
 
     public LiteralReal(double v) {
         value = v;
+        isFloat = false;
     }
 
     public LiteralReal(String v) {
+        this(v, false);
+    }
+
+    public LiteralReal(String v, boolean isFloat) {
         value = Double.parseDouble(v);
+        this.isFloat = isFloat;
     }
 
     @Override
@@ -30,6 +37,10 @@ public class LiteralReal extends Expression {
         return value;
     }
 
+    public boolean isFloat() {
+        return isFloat;
+    }
+
     @Override
     public void getVariableNames(List<String> toAdd) {
         // end leaf
@@ -42,7 +53,7 @@ public class LiteralReal extends Expression {
 
     @Override
     public Expression clone() {
-        return new LiteralReal(value);
+        return new LiteralReal(Double.toString(value), isFloat);
     }
 
     @Override
@@ -55,6 +66,7 @@ public class LiteralReal extends Expression {
         final int prime = 31;
         int result = 1;
         result = prime * result + Double.hashCode(value);
+        result = prime * result + Boolean.hashCode(isFloat);
         return result;
     }
 
@@ -62,11 +74,10 @@ public class LiteralReal extends Expression {
     public boolean equals(Object obj) {
         if (this == obj)
             return true;
-        if (obj == null)
+        if (obj == null || getClass() != obj.getClass())
             return false;
-        if (getClass() != obj.getClass())
-            return false;
+
         LiteralReal other = (LiteralReal) obj;
-        return Double.doubleToLongBits(value) == Double.doubleToLongBits(other.value);
+        return Double.doubleToLongBits(value) == Double.doubleToLongBits(other.value) && isFloat == other.isFloat;
     }
 }
