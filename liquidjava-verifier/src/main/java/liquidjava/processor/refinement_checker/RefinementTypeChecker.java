@@ -551,6 +551,10 @@ public class RefinementTypeChecker extends TypeChecker {
         context.variablesSetBeforeIf();
         context.enterContext();
 
+        // each branch starts from the path conditions before the if; the conditions it adds or drops (see
+        // keepPathVariablesOnCurrentValue for the ones assignments rename) hold only on its own paths
+        List<RefinedVariable> pathBefore = vcChecker.getPathVariables();
+
         // VISIT THEN
         context.enterContext();
         visitCtBlock(ifElement.getThenStatement());
@@ -560,14 +564,13 @@ public class RefinementTypeChecker extends TypeChecker {
         }
         contextHistory.saveContext(ifElement.getThenStatement(), context);
         context.exitContext();
-        // assignments in a branch rename the variables in its path condition (see keepPathVariablesOnCurrentValue)
-        Predicate thenEnd = pathConditionAtEnd(freshRV);
+        List<RefinedVariable> pathAfterThen = vcChecker.getPathVariables();
+        Predicate thenRefsAtEnd = freshRV.getRefinement();
 
         // VISIT ELSE
         boolean elseCompletes = true;
+        vcChecker.replacePathVariables(pathBefore);
         context.newRefinementToVariableInContext(pathVarName, elseRefs);
-        if (thenEnd == null)
-            vcChecker.addPathVariable(freshRV);
         if (ifElement.getElseStatement() != null) {
             context.enterContext();
             visitCtBlock(ifElement.getElseStatement());
@@ -578,30 +581,24 @@ public class RefinementTypeChecker extends TypeChecker {
             contextHistory.saveContext(ifElement.getElseStatement(), context);
             context.exitContext();
         }
-        Predicate elseEnd = pathConditionAtEnd(freshRV);
         // end
         if (thenCompletes == elseCompletes) {
+            // only the conditions from before the if that both branches kept hold after it
+            List<RefinedVariable> pathAfterElse = vcChecker.getPathVariables();
+            vcChecker.replacePathVariables(pathBefore.stream()
+                    .filter(rv -> pathAfterThen.contains(rv) && pathAfterElse.contains(rv)).toList());
             // Reset the path variable's refinement to the original condition after the if,
             // so branch-local truth assertions (and any typestate they imply) don't leak past the join.
             context.newRefinementToVariableInContext(pathVarName, lastExpRefs);
             vcChecker.removePathVariable(freshRV);
-        } else {
-            // Keep the path condition as the only branch that reaches the code after the if left it.
-            Predicate kept = thenCompletes ? thenEnd : elseEnd;
-            vcChecker.removePathVariable(freshRV);
-            if (kept != null) {
-                context.newRefinementToVariableInContext(pathVarName, kept);
-                vcChecker.addPathVariable(freshRV);
-            }
+        } else if (thenCompletes) {
+            // the path conditions are those of the only branch that reaches the code after the if
+            vcChecker.replacePathVariables(pathAfterThen);
+            context.newRefinementToVariableInContext(pathVarName, thenRefsAtEnd);
         }
         context.exitContext();
         context.variablesCombineFromIf(joinGuard);
         context.variablesFinishIfCombination();
-    }
-
-    /** The refinement of a path variable, or null if it is no longer a path condition */
-    private Predicate pathConditionAtEnd(RefinedVariable pathVar) {
-        return vcChecker.getPathVariables().contains(pathVar) ? pathVar.getRefinement() : null;
     }
 
     @Override
@@ -1172,7 +1169,7 @@ public class RefinementTypeChecker extends TypeChecker {
 
     /**
      * Assumes the loop condition in the body, as a path condition on the values it was evaluated on (same encoding as
-     * the condition of an if, see visitCtIf). Re-assigning a variable in the body drops the conditions on it.
+     * the condition of an if, see visitCtIf). Re-assigning a variable in the body keeps the condition on its old value.
      */
     private void assumeLoopCondition(CtExpression<Boolean> condition) {
         assumeCondition(condition, true, GeneratedNames.LOOP_CONDITION);
