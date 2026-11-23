@@ -207,10 +207,7 @@ public class RefinementTypeChecker extends TypeChecker {
         super.visitCtLocalVariable(localVariable);
         // only declaration, no assignment
         if (localVariable.getAssignment() == null) {
-            Optional<Predicate> a = getRefinementFromAnnotation(localVariable);
-            RefinedVariable v = context.addVarToContext(localVariable.getSimpleName(), localVariable.getType(),
-                    a.orElse(new Predicate()), localVariable);
-            getMessageFromAnnotation(localVariable).ifPresent(v::setMessage);
+            declareWithoutValue(localVariable);
         } else {
             String varName = localVariable.getSimpleName();
             CtExpression<?> e = localVariable.getAssignment();
@@ -224,6 +221,14 @@ public class RefinementTypeChecker extends TypeChecker {
             AuxStateHandler.addStateRefinements(this, varName, e);
             recordReturnedValue(varName, e);
         }
+    }
+
+    /** Adds a local variable to the context with only its declared refinement */
+    private void declareWithoutValue(CtLocalVariable<?> localVariable) {
+        Optional<Predicate> a = getRefinementFromAnnotation(localVariable);
+        RefinedVariable v = context.addVarToContext(localVariable.getSimpleName(), localVariable.getType(),
+                a.orElse(new Predicate()), localVariable);
+        getMessageFromAnnotation(localVariable).ifPresent(v::setMessage);
     }
 
     /** Records on the new instance of a local variable the call whose value it was assigned, if any */
@@ -1149,8 +1154,7 @@ public class RefinementTypeChecker extends TypeChecker {
         for (String name : changedIn(statement, statement))
             forgetChanges(name, new Predicate(), statement);
         if (statement instanceof CtLocalVariable<?> localVariable)
-            context.addVarToContext(localVariable.getSimpleName(), localVariable.getType(),
-                    getRefinementFromAnnotation(localVariable).orElse(new Predicate()), localVariable);
+            declareWithoutValue(localVariable);
     }
 
     /** Checks the body of a loop, up to the point after it where its continues join */
