@@ -234,6 +234,13 @@ class TestCounterexamples {
         assertAssignments(error, assignment("k", "-1"));
     }
 
+    @Test
+    void errorInLoopBodyShowsNoUnprovedInvariant() {
+        RefinementError error = verify("ErrorLoopUnprovedInvariant.java");
+        String found = error.getFound().getImplication().toPredicate().toString();
+        assertFalse(found.contains("<= 0"), found);
+    }
+
     private static RefinementError verify(String test) {
         CommandLineLauncher.launch(TEST_SUITE + test);
         List<LJError> errors = Diagnostics.getInstance().getErrors().stream().toList();

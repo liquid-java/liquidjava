@@ -1027,8 +1027,9 @@ public class RefinementTypeChecker extends TypeChecker {
      *
      * <p>
      * An earlier check starts from fewer states and more invariants than the last one, so an error that stops it is
-     * also an error of the last one. Only the last check keeps the errors recorded without stopping it (e.g. in a
-     * lambda).
+     * also an error of the last one. It is only reported once the invariants it assumes are proved, with the statement
+     * where it stopped skipped (see {@link LoopInvariants}). Only the last check keeps the errors recorded without
+     * stopping it (e.g. in a lambda).
      */
     private void checkUntilFixpoint(LoopTypestates states, LoopInvariants loopInvariants,
             Consumer<LoopTypestates> iteration) {
@@ -1043,12 +1044,17 @@ public class RefinementTypeChecker extends TypeChecker {
                 iteration.accept(states);
                 states.recordNextIteration();
                 loopInvariants.recordNextIteration();
+            } catch (LJError e) {
+                if (!loopInvariants.checkAgainAfterError(statement -> canSkip(statement, states)))
+                    throw e;
+                diagnostics.getErrors().retainAll(errors);
+                continue;
             } finally {
                 context.exitContext();
                 vcChecker.replacePathVariables(pathVariables);
             }
             boolean typestatesStable = states.reachedFixpoint();
-            if (loopInvariants.reachedFixpoint() && typestatesStable)
+            if (loopInvariants.reachedFixpoint() && typestatesStable && !loopInvariants.checkSkippedAgain())
                 return;
             diagnostics.getErrors().retainAll(errors);
         }
@@ -1091,6 +1097,60 @@ public class RefinementTypeChecker extends TypeChecker {
         states.recordExit();
         if (conditionIsFalse != null)
             vcChecker.removePathVariable(conditionIsFalse);
+    }
+
+    @Override
+    public void scan(CtElement element) {
+        LoopInvariants loopInvariants = element instanceof CtStatement statement ? invariantsOfBodyWith(statement)
+                : null;
+        if (loopInvariants == null) {
+            super.scan(element);
+            return;
+        }
+        CtStatement statement = (CtStatement) element;
+        if (loopInvariants.skips(statement)) {
+            skip(statement);
+            return;
+        }
+        try {
+            super.scan(statement);
+        } catch (LJError e) {
+            loopInvariants.stoppedAt(statement);
+            throw e;
+        }
+    }
+
+    /** The invariants of the loop being checked whose body is {@code statement} or a block of it, if any */
+    private LoopInvariants invariantsOfBodyWith(CtStatement statement) {
+        if (invariants.isEmpty() || !statement.isParentInitialized())
+            return null;
+        CtElement parent = statement.getParent();
+        if (parent instanceof CtBlock<?> && parent.isParentInitialized() && parent.getParent()instanceof CtLoop loop
+                && loop.getBody() == parent)
+            return invariants.get(loop);
+        return parent instanceof CtLoop loop && loop.getBody() == statement ? invariants.get(loop) : null;
+    }
+
+    /**
+     * Whether a statement of a loop body can be skipped, as if it changed anything it may change: it is not a local
+     * class, continues no loop outside it (whose next iteration would be missed), and changes no object whose
+     * typestates the loop follows
+     */
+    private boolean canSkip(CtStatement statement, LoopTypestates states) {
+        return !(statement instanceof CtClass<?>)
+                && statement.getElements(new TypeFilter<>(CtContinue.class)).stream().allMatch(jump -> {
+                    CtElement target = jumpTarget(jump);
+                    return target == statement || target.hasParent(statement);
+                }) && changedIn(statement, statement).stream().noneMatch(states.tracked()::contains);
+    }
+
+    /** Instead of checking a statement, forgets what it may change, and declares the variable it declares, if any */
+    private void skip(CtStatement statement) {
+        for (String name : changedIn(statement, statement))
+            forgetChanges(name, new Predicate(), statement);
+        if (statement instanceof CtLocalVariable<?> localVariable)
+            context.addVarToContext(localVariable.getSimpleName(), localVariable.getType(),
+                    getRefinementFromAnnotation(localVariable).orElse(new Predicate()), localVariable);
     }
 
     /** Checks the body of a loop, up to the point after it where its continues join */
