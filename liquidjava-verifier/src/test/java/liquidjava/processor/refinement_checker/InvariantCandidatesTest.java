@@ -67,6 +67,15 @@ class InvariantCandidatesTest {
                         .size());
     }
 
+    @Test
+    void translatesConditionsOverTheSameTerms() {
+        // printed without parentheses
+        assertEquals("!i < n || i == 0 && i != n", InvariantCandidates
+                .condition(condition("!(i < n) || i == 0 && i != n")).map(Predicate::toString).orElseThrow());
+        assertEquals(Optional.empty(), InvariantCandidates.condition(condition("i < n && i < size()")));
+        assertEquals(Optional.empty(), InvariantCandidates.condition(condition("true")));
+    }
+
     private static List<String> candidates(String variable, String before, String condition) {
         return InvariantCandidates.of(variable, Optional.ofNullable(before), condition(condition)).stream()
                 .map(Predicate::toString).toList();

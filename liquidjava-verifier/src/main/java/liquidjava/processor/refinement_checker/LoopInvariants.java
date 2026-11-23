@@ -132,6 +132,16 @@ class LoopInvariants {
         return !dropped;
     }
 
+    /**
+     * After a loop that only exits through its condition, once what it changes is forgotten: the variables satisfy the
+     * invariants, and the condition is false, as at the loop head where it exited
+     */
+    void afterLoop() {
+        List<Predicate> facts = new ArrayList<>(candidates);
+        InvariantCandidates.condition(condition(loop)).ifPresent(condition -> facts.add(condition.negate()));
+        addToLastInstances(facts);
+    }
+
     /** The candidates, and that each variable grew or shrank since the loop head, that are proved here */
     private List<Predicate> provedForNextIteration() {
         List<Predicate> facts = new ArrayList<>(candidates);
@@ -180,7 +190,8 @@ class LoopInvariants {
         return result;
     }
 
-    private static CtExpression<Boolean> condition(CtLoop loop) {
+    /** The condition of a loop, or null if it has none */
+    static CtExpression<Boolean> condition(CtLoop loop) {
         if (loop instanceof CtWhile whileLoop)
             return whileLoop.getLoopingExpression();
         if (loop instanceof CtDo doLoop)

@@ -186,6 +186,10 @@ class TryChecker {
                 for (VariableInstance vi : instances)
                     anyOf = Predicate.createDisjunction(anyOf, vi.getRenamedRefinements(name));
             }
+            // a recorded instance may refer to values of a block that ended (e.g. a loop body checked again), which
+            // are no longer known: the variable is then unknown
+            if (anyOf.getVariableNames().stream().anyMatch(n -> !n.equals(name) && !context.hasVariable(n)))
+                anyOf = new Predicate();
             context.addInstanceToContext(name, v.getType(), anyOf, element);
             context.addRefinementInstanceToVariable(v.getName(), name);
         });

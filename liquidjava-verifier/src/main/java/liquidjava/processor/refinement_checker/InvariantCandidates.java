@@ -96,6 +96,36 @@ final class InvariantCandidates {
         };
     }
 
+    /**
+     * The predicate a loop condition stands for, if it is built of {@code &&}, {@code ||}, {@code !} and comparisons of
+     * the terms a candidate may mention
+     */
+    static Optional<Predicate> condition(CtExpression<?> condition) {
+        if (condition instanceof CtUnaryOperator<?> operator && operator.getKind() == UnaryOperatorKind.NOT)
+            return condition(operator.getOperand()).map(Predicate::negate);
+        if (!(condition instanceof CtBinaryOperator<?> operator))
+            return Optional.empty();
+        String op = switch (operator.getKind()) {
+        case AND -> Ops.AND;
+        case OR -> Ops.OR;
+        case LT -> Ops.LT;
+        case LE -> Ops.LE;
+        case GT -> Ops.GT;
+        case GE -> Ops.GE;
+        case EQ -> Ops.EQ;
+        case NE -> Ops.NEQ;
+        default -> null;
+        };
+        boolean logical = operator.getKind() == BinaryOperatorKind.AND || operator.getKind() == BinaryOperatorKind.OR;
+        Optional<Predicate> left = logical ? condition(operator.getLeftHandOperand())
+                : term(operator.getLeftHandOperand());
+        Optional<Predicate> right = logical ? condition(operator.getRightHandOperand())
+                : term(operator.getRightHandOperand());
+        if (op == null || left.isEmpty() || right.isEmpty())
+            return Optional.empty();
+        return Optional.of(Predicate.createOperation(left.get(), op, right.get()));
+    }
+
     /** The integer term an expression stands for, if it is built only of what a candidate may mention */
     private static Optional<Predicate> term(CtExpression<?> expression) {
         if (expression instanceof CtLiteral<?> literal && literal.getValue()instanceof Integer value)
