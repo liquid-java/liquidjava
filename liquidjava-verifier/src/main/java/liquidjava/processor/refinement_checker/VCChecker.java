@@ -401,6 +401,25 @@ public class VCChecker {
                 .forEach(pathVariables::remove);
     }
 
+    /**
+     * Keeps the path conditions true when variable {@code name} is about to get a new instance. A variable's name
+     * stands for its last instance, so a condition on the name would then describe the new value: the name is replaced
+     * by the last instance, which holds the value the condition was checked on and never changes. A condition on the
+     * name is dropped when the variable has no instance yet to name that value, or is not of a primitive type: an
+     * object also gets new instances when its state changes, which leave the conditions on its name behind.
+     */
+    void keepPathVariablesOnCurrentValue(String name) {
+        RefinedVariable variable = context.getVariableByName(name);
+        Optional<VariableInstance> current = context.getLastVariableInstance(name);
+        if (current.isEmpty() || variable.getType() == null || !variable.getType().isPrimitive()) {
+            removePathVariableThatIncludes(name);
+            return;
+        }
+        for (RefinedVariable rv : pathVariables)
+            if (rv.getRefinement().getVariableNames().contains(name))
+                rv.setRefinement(rv.getRefinement().substituteVariable(name, current.get().getName()));
+    }
+
     private boolean hasDependencyCycle(RefinedVariable rv, String var, List<RefinedVariable> vars, Set<String> seen) {
         if (!seen.add(rv.getName()))
             return false;

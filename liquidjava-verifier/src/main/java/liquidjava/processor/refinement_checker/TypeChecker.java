@@ -562,6 +562,7 @@ public abstract class TypeChecker extends CtScanner {
         RefinedVariable rv = context.addInstanceToContext(newName, type, correctNewRefinement, usage);
         for (CtTypeReference<?> t : mainRV.getSuperTypes())
             rv.addSuperType(t);
+        vcChecker.keepPathVariablesOnCurrentValue(simpleName);
         context.addRefinementInstanceToVariable(simpleName, newName);
         String customMessage = getMessageFromAnnotation(variable).orElse(mainRV != null ? mainRV.getMessage() : null);
         checkSMT(cEt, usage, declarationPosition, customMessage);

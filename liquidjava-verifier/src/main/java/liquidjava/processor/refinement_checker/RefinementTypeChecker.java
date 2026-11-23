@@ -560,13 +560,15 @@ public class RefinementTypeChecker extends TypeChecker {
         }
         contextHistory.saveContext(ifElement.getThenStatement(), context);
         context.exitContext();
+        // assignments in a branch rename the variables in its path condition (see keepPathVariablesOnCurrentValue)
+        Predicate thenEnd = pathConditionAtEnd(freshRV);
 
         // VISIT ELSE
         boolean elseCompletes = true;
+        context.newRefinementToVariableInContext(pathVarName, elseRefs);
+        if (thenEnd == null)
+            vcChecker.addPathVariable(freshRV);
         if (ifElement.getElseStatement() != null) {
-            context.getVariableByName(pathVarName);
-            context.newRefinementToVariableInContext(pathVarName, elseRefs);
-
             context.enterContext();
             visitCtBlock(ifElement.getElseStatement());
             elseCompletes = canCompleteNormally(ifElement.getElseStatement());
@@ -576,6 +578,7 @@ public class RefinementTypeChecker extends TypeChecker {
             contextHistory.saveContext(ifElement.getElseStatement(), context);
             context.exitContext();
         }
+        Predicate elseEnd = pathConditionAtEnd(freshRV);
         // end
         if (thenCompletes == elseCompletes) {
             // Reset the path variable's refinement to the original condition after the if,
@@ -583,12 +586,22 @@ public class RefinementTypeChecker extends TypeChecker {
             context.newRefinementToVariableInContext(pathVarName, lastExpRefs);
             vcChecker.removePathVariable(freshRV);
         } else {
-            // Keep the refinement of the only branch that reaches the code after the if.
-            context.newRefinementToVariableInContext(pathVarName, thenCompletes ? thenRefs : elseRefs);
+            // Keep the path condition as the only branch that reaches the code after the if left it.
+            Predicate kept = thenCompletes ? thenEnd : elseEnd;
+            vcChecker.removePathVariable(freshRV);
+            if (kept != null) {
+                context.newRefinementToVariableInContext(pathVarName, kept);
+                vcChecker.addPathVariable(freshRV);
+            }
         }
         context.exitContext();
         context.variablesCombineFromIf(joinGuard);
         context.variablesFinishIfCombination();
+    }
+
+    /** The refinement of a path variable, or null if it is no longer a path condition */
+    private Predicate pathConditionAtEnd(RefinedVariable pathVar) {
+        return vcChecker.getPathVariables().contains(pathVar) ? pathVar.getRefinement() : null;
     }
 
     @Override
@@ -1097,7 +1110,7 @@ public class RefinementTypeChecker extends TypeChecker {
     void forgetChanges(String name, Predicate known, CtElement element) {
         if (!(context.getVariableByName(name)instanceof Variable variable))
             return;
-        vcChecker.removePathVariableThatIncludes(name);
+        vcChecker.keepPathVariablesOnCurrentValue(name);
         String instanceName = String.format(Formats.INSTANCE, name, context.getCounter());
         Predicate declared = variable.getMainRefinement().substituteVariable(name, instanceName);
         context.addInstanceToContext(instanceName, variable.getType(),
@@ -1247,11 +1260,6 @@ public class RefinementTypeChecker extends TypeChecker {
                 refinementFound = new Predicate();
             }
         }
-        Optional<VariableInstance> r = context.getLastVariableInstance(name);
-        // AQUI!!
-        r.ifPresent(variableInstance -> vcChecker.removePathVariableThatIncludes(variableInstance.getName()));
-
-        vcChecker.removePathVariableThatIncludes(name); // AQUI!!
         checkVariableRefinements(refinementFound, name, type, parentElem, varDecl);
     }
 
