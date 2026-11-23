@@ -98,10 +98,11 @@ class LoopInvariants {
         return candidates.stream().map(this::key).collect(Collectors.toSet());
     }
 
+    /** The text of a candidate, with each instance before the loop renamed to a name no Java variable has */
     private String key(Predicate candidate) {
         Predicate key = candidate;
         for (Map.Entry<String, String> entry : before.entrySet())
-            key = key.substituteVariable(entry.getValue(), entry.getKey() + "_before");
+            key = key.substituteVariable(entry.getValue(), entry.getKey() + "#before");
         return key.toString();
     }
 
