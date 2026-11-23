@@ -1187,7 +1187,8 @@ public class RefinementTypeChecker extends TypeChecker {
         scan(body);
         boolean completes = canCompleteNormally(body);
         LoopInvariants loopInvariants = invariants.get(loop);
-        if (body != null && !body.getElements(new TypeFilter<>(CtContinue.class)).isEmpty()) {
+        if (body != null && body.getElements(new TypeFilter<>(CtContinue.class)).stream()
+                .anyMatch(jump -> jumpTarget(jump) == loop)) {
             // a continue reaches the end of the body from any point of it, skipping its facts and assignments
             List<Predicate> joinedFacts = loopInvariants.atJoin(completes);
             vcChecker.restorePathVariables(pathVariables);

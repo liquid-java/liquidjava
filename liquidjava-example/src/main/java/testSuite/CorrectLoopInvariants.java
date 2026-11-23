@@ -88,4 +88,20 @@ public class CorrectLoopInvariants {
             i = i + 2;
         } while (i < 10);
     }
+
+    static boolean ten(@Refinement("_ == 10") int x) {
+        return true;
+    }
+
+    // the continue goes to the inner loop, so the condition still knows the value the body gave i
+    static void continueOfInnerLoop(int n) {
+        int i = 0;
+        do {
+            i = 10;
+            for (int j = 0; j < n; j++) {
+                if (next())
+                    continue;
+            }
+        } while (ten(i) && next());
+    }
 }
