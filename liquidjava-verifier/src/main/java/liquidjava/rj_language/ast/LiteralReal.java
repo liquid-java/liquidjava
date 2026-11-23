@@ -20,7 +20,7 @@ public class LiteralReal extends Expression {
     }
 
     public LiteralReal(String v, boolean isFloat) {
-        value = Double.parseDouble(v);
+        value = isFloat ? (double) Float.parseFloat(v) : Double.parseDouble(v);
         this.isFloat = isFloat;
     }
 
@@ -29,7 +29,11 @@ public class LiteralReal extends Expression {
         return visitor.visitLiteralReal(this);
     }
 
+    @Override
     public String toString() {
+        if (isFloat) {
+            return Float.toString((float) value) + "f";
+        }
         return Double.toString(value);
     }
 
@@ -63,11 +67,7 @@ public class LiteralReal extends Expression {
 
     @Override
     public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + Double.hashCode(value);
-        result = prime * result + Boolean.hashCode(isFloat);
-        return result;
+        return Double.hashCode(value);
     }
 
     @Override
@@ -78,6 +78,6 @@ public class LiteralReal extends Expression {
             return false;
 
         LiteralReal other = (LiteralReal) obj;
-        return Double.doubleToLongBits(value) == Double.doubleToLongBits(other.value) && isFloat == other.isFloat;
+        return Double.doubleToLongBits(value) == Double.doubleToLongBits(other.value);
     }
 }

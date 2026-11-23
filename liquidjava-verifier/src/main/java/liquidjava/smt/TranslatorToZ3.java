@@ -144,7 +144,7 @@ public class TranslatorToZ3 implements AutoCloseable {
     }
 
     public Expr<?> makeFloatLiteral(double value) {
-        return z3.mkFP(value, z3.mkFPSort32());
+        return z3.mkFP(value, z3.mkFPSort64());
     }
 
     public Expr<?> makeString(String s) {
@@ -499,11 +499,7 @@ public class TranslatorToZ3 implements AutoCloseable {
     }
 
     private FPSort commonFPSort(Expr<?> e1, Expr<?> e2) {
-        if ((e1 instanceof FPExpr && e1.getSort().equals(z3.mkFPSort64()))
-                || (e2 instanceof FPExpr && e2.getSort().equals(z3.mkFPSort64()))) {
-            return z3.mkFPSort64();
-        }
-        return z3.mkFPSort32();
+        return z3.mkFPSort64();
     }
 
     private FPExpr toFP(Expr<?> e, FPSort targetSort) {
