@@ -148,6 +148,7 @@ public class RefinementTypeChecker extends TypeChecker {
         context.enterContext();
         context.restoreInstanceVariables();
         mfc.loadFunctionInfo(constructor);
+        snapshotWrittenParameters(constructor);
         try {
             super.visitCtConstructor(constructor);
         } catch (LJError e) {
@@ -164,6 +165,7 @@ public class RefinementTypeChecker extends TypeChecker {
         context.restoreInstanceVariables();
         if (!method.getSignature().equals("main(java.lang.String[])")) {
             mfc.loadFunctionInfo(method);
+            snapshotWrittenParameters(method);
         }
         try {
             super.visitCtMethod(method);
@@ -173,6 +175,27 @@ public class RefinementTypeChecker extends TypeChecker {
         contextHistory.saveContext(method, context);
         context.exitContext();
         vcChecker.clearPathVariables();
+    }
+
+    /**
+     * Gives each parameter that the executable writes an instance for its value on entry. What is known about that
+     * value (e.g. {@code x == y} after {@code int x = y}) then names the instance, and still holds after {@code y} is
+     * written: a variable's name stands for its last instance.
+     */
+    private void snapshotWrittenParameters(CtExecutable<?> executable) {
+        Set<CtVariable<?>> written = new HashSet<>();
+        for (CtVariableWrite<?> write : executable
+                .getElements(new TypeFilter<CtVariableWrite<?>>(CtVariableWrite.class)))
+            written.add(write.getVariable().getDeclaration());
+        for (CtParameter<?> parameter : executable.getParameters()) {
+            String name = parameter.getSimpleName();
+            if (!written.contains(parameter) || !(context.getVariableByName(name)instanceof Variable variable))
+                continue;
+            String instanceName = String.format(Formats.INSTANCE, name, context.getCounter());
+            context.addInstanceToContext(instanceName, variable.getType(),
+                    variable.getMainRefinement().substituteVariable(name, instanceName), parameter);
+            context.addRefinementInstanceToVariable(name, instanceName);
+        }
     }
 
     @Override
@@ -558,6 +581,10 @@ public class RefinementTypeChecker extends TypeChecker {
         context.variablesSetBeforeIf();
         context.enterContext();
 
+        // each branch starts from the path conditions before the if; the conditions it adds or drops (see
+        // keepPathVariablesOnCurrentValue for the ones assignments rename) hold only on its own paths
+        List<RefinedVariable> pathBefore = vcChecker.getPathVariables();
+
         // VISIT THEN
         context.enterContext();
         visitCtBlock(ifElement.getThenStatement());
@@ -567,13 +594,14 @@ public class RefinementTypeChecker extends TypeChecker {
         }
         contextHistory.saveContext(ifElement.getThenStatement(), context);
         context.exitContext();
+        List<RefinedVariable> pathAfterThen = vcChecker.getPathVariables();
+        Predicate thenRefsAtEnd = freshRV.getRefinement();
 
         // VISIT ELSE
         boolean elseCompletes = true;
+        vcChecker.replacePathVariables(pathBefore);
+        context.newRefinementToVariableInContext(pathVarName, elseRefs);
         if (ifElement.getElseStatement() != null) {
-            context.getVariableByName(pathVarName);
-            context.newRefinementToVariableInContext(pathVarName, elseRefs);
-
             context.enterContext();
             visitCtBlock(ifElement.getElseStatement());
             elseCompletes = canCompleteNormally(ifElement.getElseStatement());
@@ -585,13 +613,18 @@ public class RefinementTypeChecker extends TypeChecker {
         }
         // end
         if (thenCompletes == elseCompletes) {
+            // only the conditions from before the if that both branches kept hold after it
+            List<RefinedVariable> pathAfterElse = vcChecker.getPathVariables();
+            vcChecker.replacePathVariables(pathBefore.stream()
+                    .filter(rv -> pathAfterThen.contains(rv) && pathAfterElse.contains(rv)).toList());
             // Reset the path variable's refinement to the original condition after the if,
             // so branch-local truth assertions (and any typestate they imply) don't leak past the join.
             context.newRefinementToVariableInContext(pathVarName, lastExpRefs);
             vcChecker.removePathVariable(freshRV);
-        } else {
-            // Keep the refinement of the only branch that reaches the code after the if.
-            context.newRefinementToVariableInContext(pathVarName, thenCompletes ? thenRefs : elseRefs);
+        } else if (thenCompletes) {
+            // the path conditions are those of the only branch that reaches the code after the if
+            vcChecker.replacePathVariables(pathAfterThen);
+            context.newRefinementToVariableInContext(pathVarName, thenRefsAtEnd);
         }
         context.exitContext();
         context.variablesCombineFromIf(joinGuard);
@@ -1104,7 +1137,7 @@ public class RefinementTypeChecker extends TypeChecker {
     void forgetChanges(String name, Predicate known, CtElement element) {
         if (!(context.getVariableByName(name)instanceof Variable variable))
             return;
-        vcChecker.removePathVariableThatIncludes(name);
+        vcChecker.keepPathVariablesOnCurrentValue(name);
         String instanceName = String.format(Formats.INSTANCE, name, context.getCounter());
         Predicate declared = variable.getMainRefinement().substituteVariable(name, instanceName);
         context.addInstanceToContext(instanceName, variable.getType(),
@@ -1166,7 +1199,7 @@ public class RefinementTypeChecker extends TypeChecker {
 
     /**
      * Assumes the loop condition in the body, as a path condition on the values it was evaluated on (same encoding as
-     * the condition of an if, see visitCtIf). Re-assigning a variable in the body drops the conditions on it.
+     * the condition of an if, see visitCtIf). Re-assigning a variable in the body keeps the condition on its old value.
      */
     private void assumeLoopCondition(CtExpression<Boolean> condition) {
         assumeCondition(condition, true, GeneratedNames.LOOP_CONDITION);
@@ -1254,11 +1287,6 @@ public class RefinementTypeChecker extends TypeChecker {
                 refinementFound = new Predicate();
             }
         }
-        Optional<VariableInstance> r = context.getLastVariableInstance(name);
-        // AQUI!!
-        r.ifPresent(variableInstance -> vcChecker.removePathVariableThatIncludes(variableInstance.getName()));
-
-        vcChecker.removePathVariableThatIncludes(name); // AQUI!!
         checkVariableRefinements(refinementFound, name, type, parentElem, varDecl);
     }
 

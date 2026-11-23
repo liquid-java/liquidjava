@@ -67,7 +67,7 @@ class TestCounterexamples {
     @Test
     void variableUpdateIncludesNegativeInputAndGeneratedReturn() {
         RefinementError error = verify("ErrorAssignmentBeforeReturn.java");
-        assertAssignments(error, assignment("#ret", "0"), assignment("x", "-1"));
+        assertAssignments(error, assignment("#ret", "0"), assignment("#x", "-1"));
     }
 
     @Test
