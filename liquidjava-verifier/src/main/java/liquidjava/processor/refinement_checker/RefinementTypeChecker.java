@@ -222,6 +222,13 @@ public class RefinementTypeChecker extends TypeChecker {
     public <T> void visitCtNewArray(CtNewArray<T> newArray) {
         super.visitCtNewArray(newArray);
         List<CtExpression<Integer>> l = newArray.getDimensionExpressions();
+        if (l.isEmpty()) {
+            // an array initializer ({...}) has no size expression: its length is the number of elements
+            String length = String.valueOf(newArray.getElements().size());
+            newArray.putMetadata(Keys.REFINEMENT, Predicate.createEquals(
+                    BuiltinFunctionPredicate.length(Keys.WILDCARD, newArray), Predicate.createLit(length, Types.INT)));
+            return;
+        }
         // TODO only working for 1 dimension
         for (CtExpression<?> exp : l) {
             Predicate c = getExpressionRefinements(exp);

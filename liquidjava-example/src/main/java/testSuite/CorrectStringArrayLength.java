@@ -17,4 +17,12 @@ public class CorrectStringArrayLength {
         int size = names.length;
         return n + size;
     }
+
+    static void sized(String[] names, @Refinement("_ == length(names)") int n) {}
+
+    public static void initializers() {
+        sized(new String[] { "a", "b" }, 2);
+        String[] none = {};
+        sized(none, 0);
+    }
 }
