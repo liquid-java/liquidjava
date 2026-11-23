@@ -1015,6 +1015,8 @@ public class RefinementTypeChecker extends TypeChecker {
         }
         vcChecker.restorePathVariables(pathVariables);
         havocChangedIn(loop, states.tracked());
+        if (exitsAtHeadThroughCondition(loop))
+            loopInvariants.afterLoop();
         states.finishLoop();
     }
 
@@ -1107,6 +1109,19 @@ public class RefinementTypeChecker extends TypeChecker {
         }
         states.endBody(completes);
         loopInvariants.endBody(completes);
+    }
+
+    /**
+     * Whether the code after a loop is only reached from its head, where the condition is false: the loop is not a
+     * do-while, which exits after its body, no break leaves it, and its condition writes no variable
+     */
+    private static boolean exitsAtHeadThroughCondition(CtLoop loop) {
+        CtExpression<Boolean> condition = loop instanceof CtWhile whileLoop ? whileLoop.getLoopingExpression()
+                : loop instanceof CtFor forLoop ? forLoop.getExpression() : null;
+        return !(loop instanceof CtDo)
+                && loop.getElements(new TypeFilter<>(CtBreak.class)).stream()
+                        .noneMatch(jump -> jumpTarget(jump) == loop)
+                && (condition == null || condition.getElements(new TypeFilter<>(CtVariableWrite.class)).isEmpty());
     }
 
     /** The loop being checked that {@code jump} leaves, if any */
