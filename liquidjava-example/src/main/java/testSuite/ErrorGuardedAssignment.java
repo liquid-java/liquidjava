@@ -39,4 +39,13 @@ public class ErrorGuardedAssignment {
         }
         negative(1); // Expect: Refinement Error
     }
+
+    // x was given the value of y on entry, not the value assigned to y afterwards
+    static void parameterWrittenAfterCopy(int y) {
+        int x = y;
+        if (x > 0) {
+            y = -1;
+            negative(1); // Expect: Refinement Error
+        }
+    }
 }

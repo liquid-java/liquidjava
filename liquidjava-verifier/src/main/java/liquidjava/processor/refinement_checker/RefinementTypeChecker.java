@@ -148,6 +148,7 @@ public class RefinementTypeChecker extends TypeChecker {
         context.enterContext();
         context.restoreInstanceVariables();
         mfc.loadFunctionInfo(constructor);
+        snapshotWrittenParameters(constructor);
         try {
             super.visitCtConstructor(constructor);
         } catch (LJError e) {
@@ -164,6 +165,7 @@ public class RefinementTypeChecker extends TypeChecker {
         context.restoreInstanceVariables();
         if (!method.getSignature().equals("main(java.lang.String[])")) {
             mfc.loadFunctionInfo(method);
+            snapshotWrittenParameters(method);
         }
         try {
             super.visitCtMethod(method);
@@ -173,6 +175,27 @@ public class RefinementTypeChecker extends TypeChecker {
         contextHistory.saveContext(method, context);
         context.exitContext();
         vcChecker.clearPathVariables();
+    }
+
+    /**
+     * Gives each parameter that the executable writes an instance for its value on entry. What is known about that
+     * value (e.g. {@code x == y} after {@code int x = y}) then names the instance, and still holds after {@code y} is
+     * written: a variable's name stands for its last instance.
+     */
+    private void snapshotWrittenParameters(CtExecutable<?> executable) {
+        Set<CtVariable<?>> written = new HashSet<>();
+        for (CtVariableWrite<?> write : executable
+                .getElements(new TypeFilter<CtVariableWrite<?>>(CtVariableWrite.class)))
+            written.add(write.getVariable().getDeclaration());
+        for (CtParameter<?> parameter : executable.getParameters()) {
+            String name = parameter.getSimpleName();
+            if (!written.contains(parameter) || !(context.getVariableByName(name)instanceof Variable variable))
+                continue;
+            String instanceName = String.format(Formats.INSTANCE, name, context.getCounter());
+            context.addInstanceToContext(instanceName, variable.getType(),
+                    variable.getMainRefinement().substituteVariable(name, instanceName), parameter);
+            context.addRefinementInstanceToVariable(name, instanceName);
+        }
     }
 
     @Override
