@@ -190,7 +190,8 @@ class LoopInvariants {
         return result;
     }
 
-    private static CtExpression<Boolean> condition(CtLoop loop) {
+    /** The condition of a loop, or null if it has none */
+    static CtExpression<Boolean> condition(CtLoop loop) {
         if (loop instanceof CtWhile whileLoop)
             return whileLoop.getLoopingExpression();
         if (loop instanceof CtDo doLoop)

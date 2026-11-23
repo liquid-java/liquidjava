@@ -1116,8 +1116,7 @@ public class RefinementTypeChecker extends TypeChecker {
      * do-while, which exits after its body, no break leaves it, and its condition writes no variable
      */
     private static boolean exitsAtHeadThroughCondition(CtLoop loop) {
-        CtExpression<Boolean> condition = loop instanceof CtWhile whileLoop ? whileLoop.getLoopingExpression()
-                : loop instanceof CtFor forLoop ? forLoop.getExpression() : null;
+        CtExpression<Boolean> condition = LoopInvariants.condition(loop);
         return !(loop instanceof CtDo)
                 && loop.getElements(new TypeFilter<>(CtBreak.class)).stream()
                         .noneMatch(jump -> jumpTarget(jump) == loop)

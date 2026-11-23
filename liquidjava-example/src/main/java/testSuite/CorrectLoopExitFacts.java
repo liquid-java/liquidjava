@@ -29,4 +29,20 @@ public class CorrectLoopExitFacts {
         }
         ten(i);
     }
+
+    // the catch block may start from any value i had in the loop
+    static void loopInTry(boolean fail) {
+        int i = 0;
+        try {
+            while (i < 10) {
+                if (fail)
+                    throw new RuntimeException();
+                i++;
+            }
+        } catch (RuntimeException e) {
+        }
+        if (i != 10)
+            return;
+        ten(i);
+    }
 }
