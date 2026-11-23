@@ -6,8 +6,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -102,6 +104,8 @@ public class RefinementTypeChecker extends TypeChecker {
             Keys.RETURN_VAR_NAME, Keys.STATE_CHANGE, Keys.CALL_RESULT);
     // the loops being checked, innermost first
     private final Deque<LoopTypestates> loops = new ArrayDeque<>();
+    // the invariants inferred for the loops being checked
+    private final Map<CtLoop, LoopInvariants> invariants = new IdentityHashMap<>();
 
     public RefinementTypeChecker(Context context, Factory factory) {
         super(context, factory);
@@ -952,6 +956,8 @@ public class RefinementTypeChecker extends TypeChecker {
             scanBody(doLoop, states);
             scan(doLoop.getLoopingExpression());
             recordExit(states, doLoop.getLoopingExpression());
+            // the next iteration starts only if the condition holds
+            assumeLoopCondition(doLoop.getLoopingExpression());
         });
     }
 
@@ -975,14 +981,19 @@ public class RefinementTypeChecker extends TypeChecker {
     @Override
     public void visitCtContinue(CtContinue continueStatement) {
         super.visitCtContinue(continueStatement);
-        loopLeftBy(continueStatement).ifPresent(LoopTypestates::recordContinue);
+        loopLeftBy(continueStatement).ifPresent(states -> {
+            states.recordContinue();
+            invariants.get(states.loop()).recordContinue();
+        });
     }
 
     /**
      * Checks a loop for any number of iterations. What the loop may change is havocked (keeps only its declared
      * refinement, which every assignment re-checks) before it and again after it, except the typestates of the local
-     * objects it may change, which are computed over its iterations (see {@link LoopTypestates}). Path conditions added
-     * inside the loop (e.g. the loop condition, or an {@code if (...) break;}) are dropped after it.
+     * objects it may change, which are computed over its iterations (see {@link LoopTypestates}), and the invariants
+     * inferred for the {@code int} local variables it changes, which hold at its head (see {@link LoopInvariants}).
+     * Path conditions added inside the loop (e.g. the loop condition, or an {@code if (...) break;}) are dropped after
+     * it.
      */
     private void visitLoop(CtLoop loop, Consumer<LoopTypestates> iteration) {
         List<RefinedVariable> pathVariables = vcChecker.getPathVariables();
@@ -991,12 +1002,16 @@ public class RefinementTypeChecker extends TypeChecker {
         Set<String> locals = followsJumps(loop) ? changedIn(loop).stream().filter(name -> !isField(name))
                 .collect(Collectors.toCollection(LinkedHashSet::new)) : Set.of();
         LoopTypestates states = new LoopTypestates(this, loop, locals);
+        LoopInvariants loopInvariants = new LoopInvariants(this, loop,
+                locals.stream().filter(this::isIntVariable).toList());
         havocChangedIn(loop, states.tracked());
         loops.push(states);
+        invariants.put(loop, loopInvariants);
         try {
-            checkUntilFixpoint(states, iteration);
+            checkUntilFixpoint(states, loopInvariants, iteration);
         } finally {
             loops.pop();
+            invariants.remove(loop);
         }
         vcChecker.restorePathVariables(pathVariables);
         havocChangedIn(loop, states.tracked());
@@ -1004,15 +1019,17 @@ public class RefinementTypeChecker extends TypeChecker {
     }
 
     /**
-     * Checks iterations of a loop from the typestates at its head until they stop changing. Every check starts from the
-     * facts before the loop, with what it changes havocked; only the head typestates differ. What a check adds
-     * (variables, instances, path conditions, metadata) is dropped before the next one.
+     * Checks iterations of a loop from the typestates and invariants at its head until they stop changing. Every check
+     * starts from the facts before the loop, with what it changes havocked; only the head typestates and invariants
+     * differ. What a check adds (variables, instances, path conditions, metadata) is dropped before the next one.
      *
      * <p>
-     * An earlier check starts from fewer states than the last one, so an error that stops it is also an error of the
-     * last one. Only the last check keeps the errors recorded without stopping it (e.g. in a lambda).
+     * An earlier check starts from fewer states and more invariants than the last one, so an error that stops it is
+     * also an error of the last one. Only the last check keeps the errors recorded without stopping it (e.g. in a
+     * lambda).
      */
-    private void checkUntilFixpoint(LoopTypestates states, Consumer<LoopTypestates> iteration) {
+    private void checkUntilFixpoint(LoopTypestates states, LoopInvariants loopInvariants,
+            Consumer<LoopTypestates> iteration) {
         List<RefinedVariable> pathVariables = vcChecker.getPathVariables();
         while (true) {
             Set<LJError> errors = new LinkedHashSet<>(diagnostics.getErrors());
@@ -1020,13 +1037,16 @@ public class RefinementTypeChecker extends TypeChecker {
             context.enterContext();
             try {
                 states.startIteration();
+                loopInvariants.startIteration();
                 iteration.accept(states);
                 states.recordNextIteration();
+                loopInvariants.recordNextIteration();
             } finally {
                 context.exitContext();
                 vcChecker.replacePathVariables(pathVariables);
             }
-            if (states.reachedFixpoint())
+            boolean typestatesStable = states.reachedFixpoint();
+            if (loopInvariants.reachedFixpoint() && typestatesStable)
                 return;
             diagnostics.getErrors().retainAll(errors);
         }
@@ -1076,12 +1096,17 @@ public class RefinementTypeChecker extends TypeChecker {
         List<RefinedVariable> pathVariables = vcChecker.getPathVariables();
         CtStatement body = loop.getBody(); // null for an empty statement body, as in for (...);
         scan(body);
+        boolean completes = canCompleteNormally(body);
+        LoopInvariants loopInvariants = invariants.get(loop);
         if (body != null && !body.getElements(new TypeFilter<>(CtContinue.class)).isEmpty()) {
             // a continue reaches the end of the body from any point of it, skipping its facts and assignments
+            List<Predicate> joinedFacts = loopInvariants.atJoin(completes);
             vcChecker.restorePathVariables(pathVariables);
             havocChangedIn(loop, states.tracked());
+            loopInvariants.joined(joinedFacts);
         }
-        states.endBody(canCompleteNormally(body));
+        states.endBody(completes);
+        loopInvariants.endBody(completes);
     }
 
     /** The loop being checked that {@code jump} leaves, if any */
@@ -1179,6 +1204,13 @@ public class RefinementTypeChecker extends TypeChecker {
             context.getCtxVars().stream().map(RefinedVariable::getName).filter(RefinementTypeChecker::isField)
                     .forEach(names::add);
         return names;
+    }
+
+    /** Whether a name in the context is that of a variable of type {@code int} */
+    private boolean isIntVariable(String name) {
+        RefinedVariable variable = context.getVariableByName(name);
+        return variable != null && variable.getType() != null
+                && variable.getType().getQualifiedName().equals(Types.INT);
     }
 
     /** Whether a name in the context is that of a field of this */
