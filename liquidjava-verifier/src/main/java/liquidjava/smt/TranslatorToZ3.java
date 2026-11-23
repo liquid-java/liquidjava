@@ -66,6 +66,7 @@ public class TranslatorToZ3 implements AutoCloseable {
     private final Set<Set<String>> referenceIdentityPairs = new HashSet<>();
 
     public TranslatorToZ3(liquidjava.processor.context.Context context) {
+        Z3NativeLibraries.deleteUnpackedFiles(); // Z3 is loaded by now, the z3 field is initialized first
         TranslatorContextToZ3.translateVariables(z3, context.getContext(), varTranslation);
         TranslatorContextToZ3.storeVariablesSubtypes(z3, context.getAllVariablesWithSupertypes(), varSuperTypes);
         TranslatorContextToZ3.addAliases(context.getAliases(), aliasTranslation);
