@@ -94,7 +94,7 @@ public class VCChecker {
             RefinementError error = new RefinementError(element.getPosition(), declarationPosition, expectedType,
                     implBeforeChange.simplify(NeededVariables.forRefinementError(expectedType)), map,
                     result.getCounterexample(), customMessage, context.getAliases());
-            error.setInferredFacts(inferredFactsOf(error.getFound()));
+            error.setInferredFacts(inferredFactsOf(error.getFound(), error.getExpected()));
             OriginNotes.unrefinedParameters(error, element, context).forEach(error::addMessageNote);
             OriginNotes.returnedValues(error, context).forEach(error::addMessageNote);
             throw error;
@@ -475,15 +475,23 @@ public class VCChecker {
         RefinementError error = new RefinementError(position, declarationPosition, expected,
                 premises.simplify(NeededVariables.forRefinementError(expected)), map, counterexample, customMessage,
                 context.getAliases());
-        error.setInferredFacts(inferredFactsOf(error.getFound()));
+        error.setInferredFacts(inferredFactsOf(error.getFound(), error.getExpected()));
         throw error;
     }
 
-    /** The facts that loop invariant inference gave the values of the chain found was simplified from */
-    private List<InferredFacts> inferredFactsOf(VCSimplificationResult found) {
+    /**
+     * The facts that loop invariant inference gave the values of the chain found was simplified from, those linked to
+     * the terms of expected
+     */
+    private List<InferredFacts> inferredFactsOf(VCSimplificationResult found, Predicate expected) {
+        VCImplication chain = found.getOriginal().getImplication();
+        List<String> expectedTerms = VCSimplificationUtils.termsOf(expected.getExpression());
+        Set<String> linked = VCSimplificationUtils
+                .linkedTerms(VCSimplificationUtils.factsOf(chain.toPredicate().getExpression()), expectedTerms);
         List<InferredFacts> inferred = new ArrayList<>();
-        for (VCImplication link = found.getOriginal().getImplication(); link != null; link = link.getNext()) {
-            if (!link.hasBinder() || !(context.getVariableByName(link.getName())instanceof VariableInstance instance)
+        for (VCImplication link = chain; link != null; link = link.getNext()) {
+            if (!link.hasBinder() || !(expectedTerms.isEmpty() || linked.contains(link.getName()))
+                    || !(context.getVariableByName(link.getName())instanceof VariableInstance instance)
                     || instance.getInferredFacts().isEmpty())
                 continue;
             InferredFacts facts = instance.getInferredFacts().get();

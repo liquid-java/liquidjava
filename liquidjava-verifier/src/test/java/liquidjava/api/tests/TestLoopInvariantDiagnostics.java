@@ -43,6 +43,11 @@ class TestLoopInvariantDiagnostics {
     }
 
     @Test
+    void factsInferredForValuesExpectedDoesNotDependOnAreNotMarked() {
+        assertEquals(List.of(), errorAt("ErrorLoopUnprovedInvariant.java", 19).getInferredFacts());
+    }
+
+    @Test
     void hintSuggestsStatingExpectedOnTheDeclarationOfTheVariableTheLoopChanges() {
         RefinementError error = errorAt("ErrorLoopInvariants.java", 25);
         Hint hint = error.getHints().get(0);

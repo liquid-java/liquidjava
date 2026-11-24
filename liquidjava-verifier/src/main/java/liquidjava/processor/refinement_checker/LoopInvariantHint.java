@@ -51,7 +51,7 @@ final class LoopInvariantHint {
             if (loop.isPresent()) {
                 Optional<CtLocalVariable<?>> declaration = declaration(variable, loop.get().loop());
                 boolean aboutVariable = error.getExpected().getVariableNames().stream()
-                        .anyMatch(name -> VariableFormatter.withoutInstance(name).equals(variable));
+                        .anyMatch(name -> isValueOf(name, variable));
                 if (declaration.isPresent() && !isRefined(declaration.get()) && aboutVariable
                         && loop.get().holdsOnFirstIteration(error.getExpected()))
                     hint(error, declaration.get(), loop.get()).ifPresent(error::addHint);
@@ -88,15 +88,23 @@ final class LoopInvariantHint {
      */
     private static Optional<Predicate> refinementFor(String variable, Predicate expected, CtLoop loop) {
         List<String> names = expected.getVariableNames().stream().distinct().toList();
-        List<String> values = names.stream().filter(name -> VariableFormatter.withoutInstance(name).equals(variable))
-                .toList();
-        Set<String> written = loop.getElements(new TypeFilter<CtVariableWrite<?>>(CtVariableWrite.class)).stream()
-                .map(write -> write.getVariable().getSimpleName()).collect(Collectors.toSet());
+        List<String> values = names.stream().filter(name -> isValueOf(name, variable)).toList();
+        Set<String> written = writes(loop).stream().map(write -> write.getVariable().getSimpleName())
+                .collect(Collectors.toSet());
         boolean othersNamed = names.stream().filter(name -> !values.contains(name))
                 .allMatch(name -> !name.contains("#") && !written.contains(name));
         if (values.size() != 1 || !othersNamed)
             return Optional.empty();
         return Optional.of(expected.substituteVariable(values.get(0), Keys.WILDCARD));
+    }
+
+    /** Whether a name in a predicate is the variable or one of its instances */
+    private static boolean isValueOf(String name, String variable) {
+        return VariableFormatter.withoutInstance(name).equals(variable);
+    }
+
+    private static List<CtVariableWrite<?>> writes(CtLoop loop) {
+        return loop.getElements(new TypeFilter<CtVariableWrite<?>>(CtVariableWrite.class));
     }
 
     private static boolean isRefined(CtLocalVariable<?> declaration) {
@@ -106,8 +114,7 @@ final class LoopInvariantHint {
 
     /** The declaration of a local variable the loop writes */
     private static Optional<CtLocalVariable<?>> declaration(String variable, CtLoop loop) {
-        return loop.getElements(new TypeFilter<CtVariableWrite<?>>(CtVariableWrite.class)).stream()
-                .filter(write -> write.getVariable().getSimpleName().equals(variable))
+        return writes(loop).stream().filter(write -> write.getVariable().getSimpleName().equals(variable))
                 .map(write -> write.getVariable().getDeclaration())
                 .filter(declaration -> declaration instanceof CtLocalVariable<?>)
                 .<CtLocalVariable<?>> map(declaration -> (CtLocalVariable<?>) declaration).findFirst();
