@@ -262,15 +262,15 @@ public class RefinementTypeChecker extends TypeChecker {
             return;
         }
         // the length is the first dimension: inner arrays are not modelled, nothing is known about their lengths
-        CtExpression<Integer> exp = l.get(0);
-        Predicate c = getExpressionRefinements(exp);
+        CtExpression<Integer> outerDimension = l.get(0);
+        Predicate c = getExpressionRefinements(outerDimension);
         String name = GeneratedNames.of(GeneratedNames.ARRAY_LENGTH, context.getCounter());
         if (c.getVariableNames().contains(Keys.WILDCARD)) {
             c = c.substituteVariable(Keys.WILDCARD, name);
         } else {
             c = Predicate.createEquals(Predicate.createVar(name), c);
         }
-        context.addVarToContext(name, factory.Type().INTEGER_PRIMITIVE, c, exp);
+        context.addVarToContext(name, factory.Type().INTEGER_PRIMITIVE, c, outerDimension);
         newArray.putMetadata(Keys.REFINEMENT, Predicate
                 .createEquals(BuiltinFunctionPredicate.length(Keys.WILDCARD, newArray), Predicate.createVar(name)));
     }

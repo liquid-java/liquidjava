@@ -26,6 +26,9 @@ public class CorrectStringArrayLength {
         sized(new String[] { "a", "b" }, 2);
         String[] none = {};
         sized(none, 0);
+    }
+
+    public static void dimensions() {
         rows(new String[2][3], 2);
     }
 }
