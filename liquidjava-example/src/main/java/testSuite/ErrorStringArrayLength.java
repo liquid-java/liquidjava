@@ -8,4 +8,10 @@ public class ErrorStringArrayLength {
         @Refinement("_ > 0")
         int size = names.length; // Expect: Refinement Error
     }
+
+    static void rows(String[][] grid, @Refinement("_ == length(grid)") int n) {}
+
+    public static void grid() {
+        rows(new String[2][3], 3); // Expect: Refinement Error
+    }
 }
