@@ -155,9 +155,6 @@ public class MethodsFunctionsChecker {
     }
 
     private <R> void auxGetMethodRefinements(CtMethod<R> method, RefinedFunction rf) throws LJError {
-        // main cannot have refinement - for now
-        if (method.getSignature().equals("main(java.lang.String[])"))
-            return;
         List<CtParameter<?>> params = method.getParameters();
         Predicate ref = handleFunctionRefinements(rf, method, params);
         method.putMetadata(Keys.REFINEMENT, ref);
