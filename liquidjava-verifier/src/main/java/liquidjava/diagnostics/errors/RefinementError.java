@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.AliasExpansion;
 import liquidjava.diagnostics.Code;
+import liquidjava.diagnostics.InferredFacts;
 import liquidjava.diagnostics.TranslationTable;
 import liquidjava.diagnostics.categories.ErrorCategory;
 import liquidjava.processor.context.AliasWrapper;
@@ -48,6 +49,7 @@ public class RefinementError extends LJError {
     private final List<AliasExpansion> foundAliases;
     private final List<AliasExpansion> expectedAliases;
     private final List<String> aliasDeclarations;
+    private List<InferredFacts> inferredFacts = List.of();
 
     public RefinementError(SourcePosition position, SourcePosition declarationPosition, Predicate expected,
             VCSimplificationResult found, TranslationTable translationTable, Counterexample counterexample,
@@ -115,6 +117,15 @@ public class RefinementError extends LJError {
     /** The alias invocations in expected and what they stand for */
     public List<AliasExpansion> getExpectedAliases() {
         return expectedAliases;
+    }
+
+    /** The facts of found that loop invariant inference gave the values it is about */
+    public List<InferredFacts> getInferredFacts() {
+        return inferredFacts;
+    }
+
+    public void setInferredFacts(List<InferredFacts> inferredFacts) {
+        this.inferredFacts = List.copyOf(inferredFacts);
     }
 
     /** A where line declaring each alias the message uses, then the other notes */

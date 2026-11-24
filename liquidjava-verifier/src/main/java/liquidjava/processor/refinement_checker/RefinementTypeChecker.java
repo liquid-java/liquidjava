@@ -17,6 +17,7 @@ import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.Diagnostics;
 import liquidjava.diagnostics.errors.LJError;
+import liquidjava.diagnostics.errors.RefinementError;
 import liquidjava.processor.context.*;
 import liquidjava.processor.refinement_checker.general_checkers.MethodsFunctionsChecker;
 import liquidjava.processor.refinement_checker.general_checkers.OperationsChecker;
@@ -1061,8 +1062,12 @@ public class RefinementTypeChecker extends TypeChecker {
                 states.recordNextIteration();
                 loopInvariants.recordNextIteration();
             } catch (LJError e) {
-                if (!loopInvariants.checkAgainAfterError(statement -> canSkip(statement, states)))
+                if (!loopInvariants.checkAgainAfterError(statement -> canSkip(statement, states))) {
+                    if (e instanceof RefinementError error)
+                        LoopInvariantHint.addTo(error,
+                                loops.stream().map(loop -> invariants.get(loop.loop())).toList());
                     throw e;
+                }
                 diagnostics.getErrors().retainAll(errors);
                 forgetInferredNestedIn(states.loop());
                 continue;
