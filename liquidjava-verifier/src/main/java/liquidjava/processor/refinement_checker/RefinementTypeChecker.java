@@ -1325,7 +1325,7 @@ public class RefinementTypeChecker extends TypeChecker {
      */
     private RefinedVariable assumeCondition(CtExpression<Boolean> condition, boolean holds, String kind) {
         // conditions with side effects (e.g. (n = read()) > 0) are not encoded, so they assume nothing
-        if (condition == null || !condition.getElements(new TypeFilter<>(CtVariableWrite.class)).isEmpty())
+        if (condition == null || hasSideEffects(condition))
             return null;
         Predicate refs = getRefinement(condition);
         if (isUninformativeCondition(refs, condition))
@@ -1377,8 +1377,7 @@ public class RefinementTypeChecker extends TypeChecker {
         Predicate refs = getRefinement(condition);
         Predicate value;
         // as in assumeCondition, conditions with side effects are not encoded, and uninformative ones say nothing
-        if (!condition.getElements(new TypeFilter<>(CtVariableWrite.class)).isEmpty()
-                || isUninformativeCondition(refs, condition))
+        if (hasSideEffects(condition) || isUninformativeCondition(refs, condition))
             value = new Predicate();
         else if (refs.getVariableNames().contains(Keys.WILDCARD) || condition instanceof CtInvocation<?>)
             value = refs.substituteVariable(Keys.WILDCARD, name);
@@ -1387,6 +1386,10 @@ public class RefinementTypeChecker extends TypeChecker {
         value = snapshotMutableVariables(substituteAllVariablesForLastInstance(value), condition);
         context.addInstanceToContext(name, factory.Type().BOOLEAN_PRIMITIVE, value, condition);
         return Predicate.createVar(name);
+    }
+
+    private static boolean hasSideEffects(CtExpression<?> expression) {
+        return !expression.getElements(new TypeFilter<>(CtVariableWrite.class)).isEmpty();
     }
 
     private void scanAssuming(CtExpression<?> branch, CtExpression<Boolean> condition, boolean holds) {
