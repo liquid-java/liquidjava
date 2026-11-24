@@ -19,4 +19,11 @@ public class ErrorTernaryExpression {
     static void pick(boolean b) {
         oneElement(b ? new int[1] : new int[2]); // Expect: Refinement Error
     }
+
+    boolean flag;
+
+    void clear() {
+        @Refinement("_ == true")
+        boolean was = flag ? (flag = false) : true; // Expect: Refinement Error
+    }
 }

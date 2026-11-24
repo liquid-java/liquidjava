@@ -562,7 +562,7 @@ public class RefinementTypeChecker extends TypeChecker {
         Predicate lastExpRefs = substituteAllVariablesForLastInstance(expRefs);
         if (canCompleteNormally(ifElement.getThenStatement()) || ifElement.getElseStatement() == null
                 || canCompleteNormally(ifElement.getElseStatement()))
-            lastExpRefs = snapshotMutableParameters(lastExpRefs, exp);
+            lastExpRefs = snapshotMutableVariables(lastExpRefs, exp);
         expRefs = Predicate.createConjunction(expRefs, lastExpRefs);
 
         // TODO Change in future
@@ -668,7 +668,7 @@ public class RefinementTypeChecker extends TypeChecker {
         // the selector is evaluated once, so the cases compare its value then, not what its variables hold later
         String selectorName = GeneratedNames.of(GeneratedNames.SWITCH_SELECTOR, context.getCounter());
         Predicate selectorRefs = getRefinement(selector).substituteVariable(Keys.WILDCARD, selectorName);
-        selectorRefs = snapshotMutableParameters(substituteAllVariablesForLastInstance(selectorRefs), selector);
+        selectorRefs = snapshotMutableVariables(substituteAllVariablesForLastInstance(selectorRefs), selector);
         context.addInstanceToContext(selectorName, selector.getType(), selectorRefs, selector);
 
         // the cases with no statements share the statements of the next case, the default one is tested last
@@ -822,8 +822,8 @@ public class RefinementTypeChecker extends TypeChecker {
         return statement instanceof CtCFlowBreak ? statement : null;
     }
 
-    private Predicate snapshotMutableParameters(Predicate predicate, CtExpression<?> condition) {
-        // An unchanged parameter can keep its name; a later write must not change this guard's meaning.
+    private Predicate snapshotMutableVariables(Predicate predicate, CtExpression<?> condition) {
+        // An unchanged parameter or field can keep its name; a later write must not change this guard's meaning.
         CtExecutable<?> executable = condition.getParent(CtExecutable.class);
         Set<CtVariable<?>> written = new LinkedHashSet<>();
         if (executable != null)
@@ -831,12 +831,17 @@ public class RefinementTypeChecker extends TypeChecker {
                     .getElements(new TypeFilter<CtVariableWrite<?>>(CtVariableWrite.class)))
                 if (write.getVariable().getDeclaration() != null)
                     written.add(write.getVariable().getDeclaration());
-        Set<String> parameters = new LinkedHashSet<>();
-        for (CtVariableRead<?> read : condition.getElements(new TypeFilter<CtVariableRead<?>>(CtVariableRead.class)))
-            if (read.getVariable().getDeclaration()instanceof CtParameter<?> parameter && written.contains(parameter))
-                parameters.add(read.getVariable().getSimpleName());
+        Set<String> mutable = new LinkedHashSet<>();
+        for (CtVariableRead<?> read : condition.getElements(new TypeFilter<CtVariableRead<?>>(CtVariableRead.class))) {
+            if (!written.contains(read.getVariable().getDeclaration()))
+                continue;
+            if (read instanceof CtFieldRead<?> fieldRead)
+                mutable.add(Utils.qualifyFieldName(fieldRead.getVariable()));
+            else if (read.getVariable().getDeclaration() instanceof CtParameter<?>)
+                mutable.add(read.getVariable().getSimpleName());
+        }
         for (String name : predicate.getVariableNames()) {
-            if (!parameters.contains(name) || !(context.getVariableByName(name)instanceof Variable variable)
+            if (!mutable.contains(name) || !(context.getVariableByName(name)instanceof Variable variable)
                     || variable.getLastInstance().isPresent())
                 continue;
             String snapshot = String.format(Formats.INSTANCE, name, context.getCounter());
@@ -1354,9 +1359,10 @@ public class RefinementTypeChecker extends TypeChecker {
         // each branch is checked knowing which way the condition went, as the branches of an if
         CtExpression<Boolean> condition = conditional.getCondition();
         scan(condition);
+        Predicate value = conditionValue(condition);
         scanAssuming(conditional.getThenExpression(), condition, true);
         scanAssuming(conditional.getElseExpression(), condition, false);
-        Predicate c = Predicate.createITE(conditionValue(condition), getRefinement(conditional.getThenExpression()),
+        Predicate c = Predicate.createITE(value, getRefinement(conditional.getThenExpression()),
                 getRefinement(conditional.getElseExpression()));
         conditional.putMetadata(Keys.REFINEMENT, c);
     }
@@ -1364,7 +1370,7 @@ public class RefinementTypeChecker extends TypeChecker {
     /**
      * The value of the condition of a conditional, as a fresh boolean: the wildcard of the condition's refinement is
      * the condition, while the wildcard of the conditional's refinement is its result. The fresh boolean keeps the
-     * values the condition was evaluated on, as later writes do not change which branch was taken.
+     * values the condition was evaluated on, as later writes (even in a branch) do not change which branch was taken.
      */
     private Predicate conditionValue(CtExpression<Boolean> condition) {
         String name = GeneratedNames.of(GeneratedNames.TERNARY_CONDITION, context.getCounter());
@@ -1378,7 +1384,7 @@ public class RefinementTypeChecker extends TypeChecker {
             value = refs.substituteVariable(Keys.WILDCARD, name);
         else
             value = Predicate.createEquals(Predicate.createVar(name), refs);
-        value = snapshotMutableParameters(substituteAllVariablesForLastInstance(value), condition);
+        value = snapshotMutableVariables(substituteAllVariablesForLastInstance(value), condition);
         context.addInstanceToContext(name, factory.Type().BOOLEAN_PRIMITIVE, value, condition);
         return Predicate.createVar(name);
     }
