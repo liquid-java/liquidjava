@@ -1,11 +1,13 @@
 package liquidjava.processor.refinement_checker;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import liquidjava.diagnostics.errors.LJError;
 import liquidjava.processor.context.RefinedVariable;
@@ -16,6 +18,7 @@ import spoon.reflect.code.CtDo;
 import spoon.reflect.code.CtExpression;
 import spoon.reflect.code.CtFor;
 import spoon.reflect.code.CtLoop;
+import spoon.reflect.code.CtStatement;
 import spoon.reflect.code.CtWhile;
 
 /**
@@ -29,6 +32,12 @@ import spoon.reflect.code.CtWhile;
  * Where the continues of the body join, at its end, the values of what the loop changes are forgotten. The facts proved
  * at every continue and at the end of the body are kept there: the candidates, and whether each variable grew or shrank
  * since the loop head.
+ *
+ * <p>
+ * An error that stops a check of the body leaves the candidates unchecked on the paths after it, so it is not reported
+ * with them. The statement of the body where it stopped is skipped in the next checks, as if it changed anything it may
+ * change, until a check drops no candidate; then the body is checked again without skipping it, which reports the error
+ * with candidates proved on every path. If the statement cannot be skipped, all candidates are dropped.
  */
 class LoopInvariants {
 
@@ -49,6 +58,12 @@ class LoopInvariants {
     private boolean reachable;
     // the facts proved at every continue reached so far, null if none was reached
     private List<Predicate> atContinues;
+    // the statements of the body whose check stopped at an error, skipped in the checks that prove the candidates
+    private final Set<CtStatement> skipped = Collections.newSetFromMap(new IdentityHashMap<>());
+    // the statement of the body where an error stopped the iteration being checked, if any
+    private CtStatement stoppedAt;
+    // whether the iteration being checked follows a fixpoint reached with statements skipped, to report their error
+    private boolean reporting;
 
     /**
      * Keeps the candidates that the facts before the loop prove; to be created before what the loop changes is
@@ -78,6 +93,7 @@ class LoopInvariants {
         dropped = false;
         reachable = true;
         atContinues = null;
+        stoppedAt = null;
     }
 
     void recordContinue() {
@@ -127,6 +143,7 @@ class LoopInvariants {
      * checks dropped some, all are dropped.
      */
     boolean reachedFixpoint() {
+        reporting = false;
         if (dropped && ++rounds >= MAX_ROUNDS)
             candidates.clear();
         return !dropped;
@@ -140,6 +157,49 @@ class LoopInvariants {
         List<Predicate> facts = new ArrayList<>(candidates);
         InvariantCandidates.condition(condition(loop)).ifPresent(condition -> facts.add(condition.negate()));
         addToLastInstances(facts);
+    }
+
+    /**
+     * At a fixpoint reached with statements skipped: the next iteration checks them, to report their error
+     *
+     * @return whether the body is to be checked again
+     */
+    boolean checkSkippedAgain() {
+        if (skipped.isEmpty())
+            return false;
+        skipped.clear();
+        reporting = true;
+        return true;
+    }
+
+    /** Whether a statement of the body is skipped in the iteration being checked */
+    boolean skips(CtStatement statement) {
+        return skipped.contains(statement);
+    }
+
+    /** Records the statement of the body where an error stops the iteration being checked */
+    void stoppedAt(CtStatement statement) {
+        if (stoppedAt == null)
+            stoppedAt = statement;
+    }
+
+    /**
+     * After an error stopped the iteration being checked: skips the statement where it stopped, if it can be skipped,
+     * else drops all candidates
+     *
+     * @return whether the body is to be checked again, else the error is reported: it was found from candidates proved
+     *         on every path, or from none and with no statement skipped
+     */
+    boolean checkAgainAfterError(java.util.function.Predicate<CtStatement> canSkip) {
+        if (reporting || (candidates.isEmpty() && skipped.isEmpty()))
+            return false;
+        if (!candidates.isEmpty() && stoppedAt != null && canSkip.test(stoppedAt)) {
+            skipped.add(stoppedAt);
+        } else {
+            candidates.clear();
+            skipped.clear();
+        }
+        return true;
     }
 
     /** The candidates, and that each variable grew or shrank since the loop head, that are proved here */
