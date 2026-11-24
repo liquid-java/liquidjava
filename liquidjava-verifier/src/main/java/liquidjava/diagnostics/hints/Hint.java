@@ -36,7 +36,9 @@ public record Hint(Kind kind, String message, SourceReference reference) {
         /** The object can be in any state: the state the failing call needs, and the constructors that create it */
         NEEDED_STATE,
         /** A call whose result, checked right before the failing call, puts the object in a state that allows it */
-        GUARD
+        GUARD,
+        /** A variable a loop changes, and how to state what holds for it on every iteration */
+        LOOP_INVARIANT
     }
 
     public static Hint general(String message) {

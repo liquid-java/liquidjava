@@ -10,10 +10,15 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import liquidjava.diagnostics.InferredFacts;
+import liquidjava.diagnostics.InferredFacts.Point;
 import liquidjava.diagnostics.errors.LJError;
 import liquidjava.processor.context.RefinedVariable;
 import liquidjava.processor.context.VariableInstance;
 import liquidjava.rj_language.Predicate;
+import liquidjava.rj_language.ast.Expression;
+import liquidjava.rj_language.opt.VCSimplificationUtils;
+import liquidjava.utils.constants.Keys;
 import liquidjava.utils.constants.Ops;
 import spoon.reflect.code.CtDo;
 import spoon.reflect.code.CtExpression;
@@ -51,6 +56,8 @@ class LoopInvariants {
     private final List<Predicate> candidates = new ArrayList<>();
     // the instance of each variable before the loop
     private final Map<String, String> before = new LinkedHashMap<>();
+    // the path conditions before the loop
+    private final List<RefinedVariable> pathBefore;
     // the instance of each variable at the loop head
     private final Map<String, VariableInstance> head = new LinkedHashMap<>();
     // the refinement of each instance before facts were added to it
@@ -82,6 +89,7 @@ class LoopInvariants {
         this.checker = checker;
         this.loop = loop;
         this.variables = variables;
+        this.pathBefore = checker.vcChecker.getPathVariables();
         for (String variable : variables)
             checker.getContext().getLastVariableInstance(variable)
                     .ifPresent(instance -> before.put(variable, instance.getName()));
@@ -91,6 +99,15 @@ class LoopInvariants {
                 if ((previous == null || previous.contains(key(candidate))) && !candidates.contains(candidate)
                         && proved(candidate))
                     candidates.add(candidate);
+    }
+
+    CtLoop loop() {
+        return loop;
+    }
+
+    /** The {@code int} local variables the loop changes, for which invariants are inferred */
+    List<String> variables() {
+        return variables;
     }
 
     /** The invariants inferred, the same across visits of the loop, which name the values before it differently */
@@ -110,7 +127,7 @@ class LoopInvariants {
     void startIteration() {
         for (String variable : variables)
             checker.getContext().getLastVariableInstance(variable).ifPresent(instance -> head.put(variable, instance));
-        addToLastInstances(candidates);
+        addToLastInstances(candidates, Point.ITERATION_START);
         dropped = false;
         reachable = true;
         atContinues = null;
@@ -140,7 +157,7 @@ class LoopInvariants {
 
     /** After the continues joined: the new instances of the variables satisfy the facts {@link #atJoin} returned */
     void joined(List<Predicate> facts) {
-        addToLastInstances(facts);
+        addToLastInstances(facts, Point.ITERATION_END);
     }
 
     /**
@@ -177,7 +194,7 @@ class LoopInvariants {
     void afterLoop() {
         List<Predicate> facts = new ArrayList<>(candidates);
         InvariantCandidates.condition(condition(loop)).ifPresent(condition -> facts.add(condition.negate()));
-        addToLastInstances(facts);
+        addToLastInstances(facts, Point.AFTER_LOOP);
     }
 
     /**
@@ -223,6 +240,36 @@ class LoopInvariants {
         return true;
     }
 
+    /**
+     * Whether a fact holds here in the first iteration, when the variables at the loop head have their values before
+     * the loop
+     */
+    boolean holdsOnFirstIteration(Predicate fact) {
+        Predicate first = new Predicate();
+        for (Map.Entry<String, VariableInstance> entry : head.entrySet())
+            if (before.containsKey(entry.getKey()))
+                first = Predicate.createConjunction(first,
+                        Predicate.createEquals(Predicate.createVar(entry.getValue().getName()),
+                                Predicate.createVar(before.get(entry.getKey()))));
+        return holds(first, fact);
+    }
+
+    /**
+     * Whether a refinement, on {@code _}, holds for the value of a variable before the loop, from what is known there
+     */
+    boolean holdsBefore(String variable, Predicate refinement) {
+        String instance = before.get(variable);
+        if (instance == null)
+            return false;
+        List<RefinedVariable> pathHere = checker.vcChecker.getPathVariables();
+        checker.vcChecker.replacePathVariables(pathBefore);
+        try {
+            return holds(new Predicate(), refinement.substituteVariable(Keys.WILDCARD, instance));
+        } finally {
+            checker.vcChecker.replacePathVariables(pathHere);
+        }
+    }
+
     /** The candidates, and that each variable grew or shrank since the loop head, that are proved here */
     private List<Predicate> provedForNextIteration() {
         List<Predicate> facts = new ArrayList<>(candidates);
@@ -237,25 +284,37 @@ class LoopInvariants {
 
     /**
      * Adds to the last instance of each variable the facts that mention it, on the last instances of the variables.
-     * Unlike a path condition, the refinement of an instance is not dropped when the variable is assigned.
+     * Unlike a path condition, the refinement of an instance is not dropped when the variable is assigned. The instance
+     * records them as inferred at {@code point} of the loop.
      */
-    private void addToLastInstances(List<Predicate> facts) {
+    private void addToLastInstances(List<Predicate> facts, Point point) {
         for (String variable : variables) {
             Optional<VariableInstance> last = checker.getContext().getLastVariableInstance(variable);
             if (last.isEmpty())
                 continue;
             Predicate refinement = declared.computeIfAbsent(last.get(), RefinedVariable::getRefinement);
+            List<Expression> added = new ArrayList<>();
             for (Predicate fact : facts)
-                if (fact.getVariableNames().contains(variable))
-                    refinement = Predicate.createConjunction(refinement, onLastInstances(fact));
+                if (fact.getVariableNames().contains(variable)) {
+                    Predicate onLast = onLastInstances(fact);
+                    refinement = Predicate.createConjunction(refinement, onLast);
+                    added.addAll(VCSimplificationUtils.factsOf(onLast.getExpression()));
+                }
             last.get().setRefinement(refinement);
+            last.get().setInferredFacts(
+                    added.isEmpty() ? null : new InferredFacts(last.get().getName(), added, loop.getPosition(), point));
         }
     }
 
     /** Whether a fact on variable names holds for their last instances, from what is known here */
     private boolean proved(Predicate fact) {
+        return holds(new Predicate(), onLastInstances(fact));
+    }
+
+    /** Whether {@code assumed} implies a fact, from what is known here */
+    private boolean holds(Predicate assumed, Predicate fact) {
         try {
-            return checker.checkStateSMT(new Predicate(), onLastInstances(fact), loop.getPosition(), true);
+            return checker.checkStateSMT(assumed, fact, loop.getPosition(), true);
         } catch (LJError e) {
             return false;
         }

@@ -1,6 +1,8 @@
 package liquidjava.processor.context;
 
 import java.util.Optional;
+
+import liquidjava.diagnostics.InferredFacts;
 import liquidjava.rj_language.Predicate;
 import spoon.reflect.reference.CtTypeReference;
 
@@ -9,6 +11,7 @@ public class VariableInstance extends RefinedVariable {
     private Variable parent;
     private StateChange stateChange;
     private CallResult returnedBy;
+    private InferredFacts inferredFacts;
 
     public VariableInstance(String name, CtTypeReference<?> type, Predicate c) {
         super(name, type, c);
@@ -51,6 +54,15 @@ public class VariableInstance extends RefinedVariable {
 
     public void setReturnedBy(CallResult returnedBy) {
         this.returnedBy = returnedBy;
+    }
+
+    /** The facts that loop invariant inference added to the refinement of this instance, if any */
+    public Optional<InferredFacts> getInferredFacts() {
+        return Optional.ofNullable(inferredFacts);
+    }
+
+    public void setInferredFacts(InferredFacts inferredFacts) {
+        this.inferredFacts = inferredFacts;
     }
 
     public Optional<Variable> getParent() {

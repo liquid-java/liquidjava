@@ -11,6 +11,7 @@ import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.errors.*;
 import liquidjava.diagnostics.DebugLog;
+import liquidjava.diagnostics.InferredFacts;
 import liquidjava.diagnostics.SourceReference;
 import liquidjava.diagnostics.TranslationTable;
 import liquidjava.diagnostics.categories.ErrorCategory;
@@ -27,6 +28,7 @@ import liquidjava.rj_language.opt.VCKnownEnumValues;
 import liquidjava.rj_language.opt.VCRelevantFacts;
 import liquidjava.rj_language.opt.VCSimplification;
 import liquidjava.rj_language.opt.VCSimplificationResult;
+import liquidjava.rj_language.opt.VCSimplificationUtils;
 import liquidjava.smt.Counterexample;
 import liquidjava.smt.SMTEvaluator;
 import liquidjava.smt.SMTResult;
@@ -92,6 +94,7 @@ public class VCChecker {
             RefinementError error = new RefinementError(element.getPosition(), declarationPosition, expectedType,
                     implBeforeChange.simplify(NeededVariables.forRefinementError(expectedType)), map,
                     result.getCounterexample(), customMessage, context.getAliases());
+            error.setInferredFacts(inferredFactsOf(error.getFound()));
             OriginNotes.unrefinedParameters(error, element, context).forEach(error::addMessageNote);
             OriginNotes.returnedValues(error, context).forEach(error::addMessageNote);
             throw error;
@@ -469,9 +472,27 @@ public class VCChecker {
             Predicate found, Counterexample counterexample, String customMessage) throws RefinementError {
         TranslationTable map = new TranslationTable();
         VCImplication premises = buildPremiseChain(map, expected, found);
-        throw new RefinementError(position, declarationPosition, expected,
+        RefinementError error = new RefinementError(position, declarationPosition, expected,
                 premises.simplify(NeededVariables.forRefinementError(expected)), map, counterexample, customMessage,
                 context.getAliases());
+        error.setInferredFacts(inferredFactsOf(error.getFound()));
+        throw error;
+    }
+
+    /** The facts that loop invariant inference gave the values of the chain found was simplified from */
+    private List<InferredFacts> inferredFactsOf(VCSimplificationResult found) {
+        List<InferredFacts> inferred = new ArrayList<>();
+        for (VCImplication link = found.getOriginal().getImplication(); link != null; link = link.getNext()) {
+            if (!link.hasBinder() || !(context.getVariableByName(link.getName())instanceof VariableInstance instance)
+                    || instance.getInferredFacts().isEmpty())
+                continue;
+            InferredFacts facts = instance.getInferredFacts().get();
+            List<Expression> shown = VCSimplificationUtils.factsOf(link.getRefinement().getExpression());
+            List<Expression> kept = facts.facts().stream().filter(shown::contains).toList();
+            if (!kept.isEmpty())
+                inferred.add(new InferredFacts(facts.variable(), kept, facts.loop(), facts.point()));
+        }
+        return inferred;
     }
 
     /** What a state refinement error shows as found: what is known about the variables of both predicates */
