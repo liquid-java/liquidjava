@@ -14,6 +14,7 @@ import com.microsoft.z3.Solver;
 import com.microsoft.z3.Sort;
 import com.microsoft.z3.Symbol;
 import com.microsoft.z3.Model;
+import com.microsoft.z3.FPSort;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -140,6 +141,10 @@ public class TranslatorToZ3 implements AutoCloseable {
     }
 
     public Expr<?> makeDoubleLiteral(double value) {
+        return z3.mkFP(value, z3.mkFPSort64());
+    }
+
+    public Expr<?> makeFloatLiteral(double value) {
         return z3.mkFP(value, z3.mkFPSort64());
     }
 
@@ -281,8 +286,10 @@ public class TranslatorToZ3 implements AutoCloseable {
 
     // #####################Boolean Operations#####################
     public Expr<?> makeEquals(Expr<?> e1, Expr<?> e2) {
-        if (e1 instanceof FPExpr || e2 instanceof FPExpr)
-            return z3.mkFPEq(toFP(e1), toFP(e2));
+        if (e1 instanceof FPExpr || e2 instanceof FPExpr) {
+            FPSort targetSort = commonFPSort(e1, e2);
+            return z3.mkFPEq(toFP(e1, targetSort), toFP(e2, targetSort));
+        }
         if (e1 instanceof RealExpr || e2 instanceof RealExpr)
             return z3.mkEq(toReal(e1), toReal(e2));
         if (isReference(e1) && isReference(e2))
@@ -349,8 +356,10 @@ public class TranslatorToZ3 implements AutoCloseable {
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public Expr<?> makeLt(Expr<?> e1, Expr<?> e2) {
-        if (e1 instanceof FPExpr || e2 instanceof FPExpr)
-            return z3.mkFPLt(toFP(e1), toFP(e2));
+        if (e1 instanceof FPExpr || e2 instanceof FPExpr) {
+            FPSort targetSort = commonFPSort(e1, e2);
+            return z3.mkFPLt(toFP(e1, targetSort), toFP(e2, targetSort));
+        }
         if (e1 instanceof RealExpr || e2 instanceof RealExpr)
             return z3.mkLt(toReal(e1), toReal(e2));
         return z3.mkLt((ArithExpr) e1, (ArithExpr) e2);
@@ -358,8 +367,10 @@ public class TranslatorToZ3 implements AutoCloseable {
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public Expr<?> makeLtEq(Expr<?> e1, Expr<?> e2) {
-        if (e1 instanceof FPExpr || e2 instanceof FPExpr)
-            return z3.mkFPLEq(toFP(e1), toFP(e2));
+        if (e1 instanceof FPExpr || e2 instanceof FPExpr) {
+            FPSort targetSort = commonFPSort(e1, e2);
+            return z3.mkFPLEq(toFP(e1, targetSort), toFP(e2, targetSort));
+        }
         if (e1 instanceof RealExpr || e2 instanceof RealExpr)
             return z3.mkLe(toReal(e1), toReal(e2));
         return z3.mkLe((ArithExpr) e1, (ArithExpr) e2);
@@ -367,8 +378,10 @@ public class TranslatorToZ3 implements AutoCloseable {
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public Expr<?> makeGt(Expr<?> e1, Expr<?> e2) {
-        if (e1 instanceof FPExpr || e2 instanceof FPExpr)
-            return z3.mkFPGt(toFP(e1), toFP(e2));
+        if (e1 instanceof FPExpr || e2 instanceof FPExpr) {
+            FPSort targetSort = commonFPSort(e1, e2);
+            return z3.mkFPGt(toFP(e1, targetSort), toFP(e2, targetSort));
+        }
         if (e1 instanceof RealExpr || e2 instanceof RealExpr)
             return z3.mkGt(toReal(e1), toReal(e2));
         return z3.mkGt((ArithExpr) e1, (ArithExpr) e2);
@@ -376,8 +389,10 @@ public class TranslatorToZ3 implements AutoCloseable {
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public Expr<?> makeGtEq(Expr<?> e1, Expr<?> e2) {
-        if (e1 instanceof FPExpr || e2 instanceof FPExpr)
-            return z3.mkFPGEq(toFP(e1), toFP(e2));
+        if (e1 instanceof FPExpr || e2 instanceof FPExpr) {
+            FPSort targetSort = commonFPSort(e1, e2);
+            return z3.mkFPGEq(toFP(e1, targetSort), toFP(e2, targetSort));
+        }
         if (e1 instanceof RealExpr || e2 instanceof RealExpr)
             return z3.mkGe(toReal(e1), toReal(e2));
         return z3.mkGe((ArithExpr) e1, (ArithExpr) e2);
@@ -414,8 +429,10 @@ public class TranslatorToZ3 implements AutoCloseable {
     // #####################Arithmetic Operations#####################
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public Expr<?> makeAdd(Expr<?> eval, Expr<?> eval2) {
-        if (eval instanceof FPExpr || eval2 instanceof FPExpr)
-            return z3.mkFPAdd(z3.mkFPRoundNearestTiesToEven(), toFP(eval), toFP(eval2));
+        if (eval instanceof FPExpr || eval2 instanceof FPExpr) {
+            FPSort targetSort = commonFPSort(eval, eval2);
+            return z3.mkFPAdd(z3.mkFPRoundNearestTiesToEven(), toFP(eval, targetSort), toFP(eval2, targetSort));
+        }
         if (eval instanceof RealExpr || eval2 instanceof RealExpr)
             return z3.mkAdd(toReal(eval), toReal(eval2));
         return z3.mkAdd((ArithExpr) eval, (ArithExpr) eval2);
@@ -423,8 +440,10 @@ public class TranslatorToZ3 implements AutoCloseable {
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public Expr<?> makeSub(Expr<?> eval, Expr<?> eval2) {
-        if (eval instanceof FPExpr || eval2 instanceof FPExpr)
-            return z3.mkFPSub(z3.mkFPRoundNearestTiesToEven(), toFP(eval), toFP(eval2));
+        if (eval instanceof FPExpr || eval2 instanceof FPExpr) {
+            FPSort targetSort = commonFPSort(eval, eval2);
+            return z3.mkFPSub(z3.mkFPRoundNearestTiesToEven(), toFP(eval, targetSort), toFP(eval2, targetSort));
+        }
         if (eval instanceof RealExpr || eval2 instanceof RealExpr)
             return z3.mkSub(toReal(eval), toReal(eval2));
         return z3.mkSub((ArithExpr) eval, (ArithExpr) eval2);
@@ -432,8 +451,10 @@ public class TranslatorToZ3 implements AutoCloseable {
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public Expr<?> makeMul(Expr<?> eval, Expr<?> eval2) {
-        if (eval instanceof FPExpr || eval2 instanceof FPExpr)
-            return z3.mkFPMul(z3.mkFPRoundNearestTiesToEven(), toFP(eval), toFP(eval2));
+        if (eval instanceof FPExpr || eval2 instanceof FPExpr) {
+            FPSort targetSort = commonFPSort(eval, eval2);
+            return z3.mkFPMul(z3.mkFPRoundNearestTiesToEven(), toFP(eval, targetSort), toFP(eval2, targetSort));
+        }
         if (eval instanceof RealExpr || eval2 instanceof RealExpr)
             return z3.mkMul(toReal(eval), toReal(eval2));
         return z3.mkMul((ArithExpr) eval, (ArithExpr) eval2);
@@ -441,8 +462,10 @@ public class TranslatorToZ3 implements AutoCloseable {
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public Expr<?> makeDiv(Expr<?> eval, Expr<?> eval2) {
-        if (eval instanceof FPExpr || eval2 instanceof FPExpr)
-            return z3.mkFPDiv(z3.mkFPRoundNearestTiesToEven(), toFP(eval), toFP(eval2));
+        if (eval instanceof FPExpr || eval2 instanceof FPExpr) {
+            FPSort targetSort = commonFPSort(eval, eval2);
+            return z3.mkFPDiv(z3.mkFPRoundNearestTiesToEven(), toFP(eval, targetSort), toFP(eval2, targetSort));
+        }
         if (eval instanceof RealExpr || eval2 instanceof RealExpr)
             return z3.mkDiv(toReal(eval), toReal(eval2));
         // Z3 integer division does not model Java's truncation toward zero for negative operands
@@ -450,8 +473,10 @@ public class TranslatorToZ3 implements AutoCloseable {
     }
 
     public Expr<?> makeMod(Expr<?> eval, Expr<?> eval2) {
-        if (eval instanceof FPExpr || eval2 instanceof FPExpr)
-            return z3.mkFPRem(toFP(eval), toFP(eval2));
+        if (eval instanceof FPExpr || eval2 instanceof FPExpr) {
+            FPSort targetSort = commonFPSort(eval, eval2);
+            return z3.mkFPRem(toFP(eval, targetSort), toFP(eval2, targetSort));
+        }
         // Z3 integer modulo does not model Java's dividend-signed remainder for negative operands
         if (eval instanceof RealExpr || eval2 instanceof RealExpr)
             return z3.mkMod(toInt(eval), toInt(eval2));
@@ -474,21 +499,25 @@ public class TranslatorToZ3 implements AutoCloseable {
         throw new NotImplementedException();
     }
 
-    private FPExpr toFP(Expr<?> e) {
-        FPExpr f;
-        if (e instanceof FPExpr) {
-            f = (FPExpr) e;
-        } else if (e instanceof IntNum)
-            f = z3.mkFP(((IntNum) e).getInt(), z3.mkFPSort64());
-        else if (e instanceof IntExpr ee) {
-            RealExpr re = z3.mkInt2Real(ee);
-            f = z3.mkFPToFP(z3.mkFPRoundNearestTiesToEven(), re, z3.mkFPSort64());
-        } else if (e instanceof RealExpr) {
-            f = z3.mkFPToFP(z3.mkFPRoundNearestTiesToEven(), (RealExpr) e, z3.mkFPSort64());
-        } else {
-            throw new NotImplementedException();
+    private FPSort commonFPSort(Expr<?> e1, Expr<?> e2) {
+        return z3.mkFPSort64();
+    }
+
+    private FPExpr toFP(Expr<?> e, FPSort targetSort) {
+        if (e instanceof FPExpr f) {
+            if (f.getSort().equals(targetSort)) {
+                return f;
+            }
+            return z3.mkFPToFP(z3.mkFPRoundNearestTiesToEven(), f, targetSort);
         }
-        return f;
+
+        if (e instanceof IntExpr || e instanceof RealExpr) {
+            RealExpr real = e instanceof IntExpr ? z3.mkInt2Real((IntExpr) e) : (RealExpr) e;
+
+            return z3.mkFPToFP(z3.mkFPRoundNearestTiesToEven(), real, targetSort);
+        }
+
+        throw new NotImplementedException();
     }
 
     public Expr<?> makeIte(Expr<?> c, Expr<?> t, Expr<?> e) {

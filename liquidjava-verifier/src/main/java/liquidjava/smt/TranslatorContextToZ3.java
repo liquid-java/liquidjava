@@ -99,7 +99,8 @@ public class TranslatorContextToZ3 {
                 .mkIntConst(name);
         case "boolean", "java.lang.Boolean" -> z3.mkBoolConst(name);
         case "long", "java.lang.Long" -> z3.mkRealConst(name);
-        case "float", "double", "java.lang.Float", "java.lang.Double" -> (FPExpr) z3.mkConst(name, z3.mkFPSort64());
+        case "float", "java.lang.Float" -> (FPExpr) z3.mkConst(name, z3.mkFPSort64());
+        case "double", "java.lang.Double" -> (FPExpr) z3.mkConst(name, z3.mkFPSort64());
         case "int[]" -> z3.mkArrayConst(name, z3.mkIntSort(), z3.mkIntSort());
         default -> z3.mkConst(name, z3.mkUninterpretedSort(typeName));
         };
@@ -138,7 +139,7 @@ public class TranslatorContextToZ3 {
         case "int", "short", "char", "java.lang.Integer", "java.lang.Short", "java.lang.Character" -> z3.getIntSort();
         case "boolean", "java.lang.Boolean" -> z3.getBoolSort();
         case "long", "java.lang.Long" -> z3.getRealSort();
-        case "float", "java.lang.Float" -> z3.mkFPSort32();
+        case "float", "java.lang.Float" -> z3.mkFPSort64();
         case "double", "java.lang.Double" -> z3.mkFPSortDouble();
         case "int[]" -> z3.mkArraySort(z3.mkIntSort(), z3.mkIntSort());
         case "String" -> z3.getStringSort();

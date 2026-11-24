@@ -341,6 +341,7 @@ public class AuxStateHandler {
             case "char" -> Predicate.createLit("\u0000", Types.CHAR);
             case "boolean" -> Predicate.createLit("false", Types.BOOLEAN);
             case "double" -> Predicate.createLit("0.0", Types.DOUBLE);
+            case "float" -> Predicate.createLit("0.0", Types.FLOAT);
             default -> throw new RuntimeException("Ghost not implemented for type " + retType);
             };
             Predicate p = Predicate.createEquals(Predicate.createInvocation(sg.getQualifiedName(), target),
