@@ -106,6 +106,11 @@ public class RefinementTypeChecker extends TypeChecker {
     private final Deque<LoopTypestates> loops = new ArrayDeque<>();
     // the invariants inferred for the loops being checked
     private final Map<CtLoop, LoopInvariants> invariants = new IdentityHashMap<>();
+    // the invariants inferred at the last visit of each loop nested in the loops being checked, from which its next
+    // visit starts: each check of a body starts from no more facts than the one before (fewer invariants, more
+    // typestates, more statements skipped), so a nested loop cannot have more invariants than at its last visit. A
+    // check that starts from more facts (skipping fewer statements, or a loop starting over) forgets those nested in it
+    private final Map<CtLoop, Set<String>> lastInferred = new IdentityHashMap<>();
 
     public RefinementTypeChecker(Context context, Factory factory) {
         super(context, factory);
@@ -1007,16 +1012,22 @@ public class RefinementTypeChecker extends TypeChecker {
         Set<String> locals = followsJumps(loop) ? changedIn(loop).stream().filter(name -> !isField(name))
                 .collect(Collectors.toCollection(LinkedHashSet::new)) : Set.of();
         LoopTypestates states = new LoopTypestates(this, loop, locals);
+        Set<String> previous = lastInferred.remove(loop);
+        if (previous == null)
+            forgetInferredNestedIn(loop);
         LoopInvariants loopInvariants = new LoopInvariants(this, loop,
-                locals.stream().filter(this::isIntVariable).toList());
+                locals.stream().filter(this::isIntVariable).toList(), previous);
         havocChangedIn(loop, states.tracked());
         loops.push(states);
         invariants.put(loop, loopInvariants);
         try {
             checkUntilFixpoint(states, loopInvariants, iteration);
+            lastInferred.put(loop, loopInvariants.inferred());
         } finally {
             loops.pop();
             invariants.remove(loop);
+            if (loops.isEmpty())
+                lastInferred.clear();
         }
         vcChecker.restorePathVariables(pathVariables);
         havocChangedIn(loop, states.tracked());
@@ -1053,16 +1064,28 @@ public class RefinementTypeChecker extends TypeChecker {
                 if (!loopInvariants.checkAgainAfterError(statement -> canSkip(statement, states)))
                     throw e;
                 diagnostics.getErrors().retainAll(errors);
+                forgetInferredNestedIn(states.loop());
                 continue;
             } finally {
                 context.exitContext();
                 vcChecker.replacePathVariables(pathVariables);
             }
             boolean typestatesStable = states.reachedFixpoint();
-            if (loopInvariants.reachedFixpoint() && typestatesStable && !loopInvariants.checkSkippedAgain())
-                return;
+            if (loopInvariants.reachedFixpoint() && typestatesStable) {
+                if (!loopInvariants.checkSkippedAgain())
+                    return;
+                forgetInferredNestedIn(states.loop());
+            }
             diagnostics.getErrors().retainAll(errors);
         }
+    }
+
+    /**
+     * Forgets the invariants inferred for the loops nested in {@code loop}, before a check of its body that may start
+     * from more facts than the last one (it no longer skips a statement)
+     */
+    private void forgetInferredNestedIn(CtLoop loop) {
+        lastInferred.keySet().removeIf(nested -> nested.hasParent(loop));
     }
 
     /**
@@ -1164,7 +1187,8 @@ public class RefinementTypeChecker extends TypeChecker {
         scan(body);
         boolean completes = canCompleteNormally(body);
         LoopInvariants loopInvariants = invariants.get(loop);
-        if (body != null && !body.getElements(new TypeFilter<>(CtContinue.class)).isEmpty()) {
+        if (body != null && body.getElements(new TypeFilter<>(CtContinue.class)).stream()
+                .anyMatch(jump -> jumpTarget(jump) == loop)) {
             // a continue reaches the end of the body from any point of it, skipping its facts and assignments
             List<Predicate> joinedFacts = loopInvariants.atJoin(completes);
             vcChecker.restorePathVariables(pathVariables);

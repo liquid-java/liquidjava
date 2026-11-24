@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import liquidjava.diagnostics.errors.LJError;
 import liquidjava.processor.context.RefinedVariable;
@@ -48,6 +49,8 @@ class LoopInvariants {
     private final CtLoop loop;
     private final List<String> variables;
     private final List<Predicate> candidates = new ArrayList<>();
+    // the instance of each variable before the loop
+    private final Map<String, String> before = new LinkedHashMap<>();
     // the instance of each variable at the loop head
     private final Map<String, VariableInstance> head = new LinkedHashMap<>();
     // the refinement of each instance before facts were added to it
@@ -71,18 +74,36 @@ class LoopInvariants {
      *
      * @param variables
      *            the {@code int} local variables the loop changes
+     * @param previous
+     *            the invariants inferred at the last visit of the loop (see {@link #inferred}), or null: when the facts
+     *            before the loop are no stronger than then, only these can be invariants again
      */
-    LoopInvariants(RefinementTypeChecker checker, CtLoop loop, List<String> variables) {
+    LoopInvariants(RefinementTypeChecker checker, CtLoop loop, List<String> variables, Set<String> previous) {
         this.checker = checker;
         this.loop = loop;
         this.variables = variables;
-        for (String variable : variables) {
-            Optional<String> before = checker.getContext().getLastVariableInstance(variable)
-                    .map(RefinedVariable::getName);
-            for (Predicate candidate : InvariantCandidates.of(variable, before, condition(loop)))
-                if (!candidates.contains(candidate) && proved(candidate))
+        for (String variable : variables)
+            checker.getContext().getLastVariableInstance(variable)
+                    .ifPresent(instance -> before.put(variable, instance.getName()));
+        for (String variable : variables)
+            for (Predicate candidate : InvariantCandidates.of(variable, Optional.ofNullable(before.get(variable)),
+                    condition(loop)))
+                if ((previous == null || previous.contains(key(candidate))) && !candidates.contains(candidate)
+                        && proved(candidate))
                     candidates.add(candidate);
-        }
+    }
+
+    /** The invariants inferred, the same across visits of the loop, which name the values before it differently */
+    Set<String> inferred() {
+        return candidates.stream().map(this::key).collect(Collectors.toSet());
+    }
+
+    /** The text of a candidate, with each instance before the loop renamed to a name no Java variable has */
+    private String key(Predicate candidate) {
+        Predicate key = candidate;
+        for (Map.Entry<String, String> entry : before.entrySet())
+            key = key.substituteVariable(entry.getValue(), entry.getKey() + "#before");
+        return key.toString();
     }
 
     /** Starts checking an iteration: the variables at the loop head satisfy the candidates */
