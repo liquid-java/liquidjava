@@ -261,22 +261,18 @@ public class RefinementTypeChecker extends TypeChecker {
                     BuiltinFunctionPredicate.length(Keys.WILDCARD, newArray), Predicate.createLit(length, Types.INT)));
             return;
         }
-        // TODO only working for 1 dimension
-        for (CtExpression<?> exp : l) {
-            Predicate c = getExpressionRefinements(exp);
-            String name = GeneratedNames.of(GeneratedNames.ARRAY_LENGTH, context.getCounter());
-            if (c.getVariableNames().contains(Keys.WILDCARD)) {
-                c = c.substituteVariable(Keys.WILDCARD, name);
-            } else {
-                c = Predicate.createEquals(Predicate.createVar(name), c);
-            }
-            context.addVarToContext(name, factory.Type().INTEGER_PRIMITIVE, c, exp);
-            Predicate ep;
-            ep = Predicate.createEquals(BuiltinFunctionPredicate.length(Keys.WILDCARD, newArray),
-                    Predicate.createVar(name));
-
-            newArray.putMetadata(Keys.REFINEMENT, ep);
+        // the length is the first dimension: inner arrays are not modelled, nothing is known about their lengths
+        CtExpression<Integer> exp = l.get(0);
+        Predicate c = getExpressionRefinements(exp);
+        String name = GeneratedNames.of(GeneratedNames.ARRAY_LENGTH, context.getCounter());
+        if (c.getVariableNames().contains(Keys.WILDCARD)) {
+            c = c.substituteVariable(Keys.WILDCARD, name);
+        } else {
+            c = Predicate.createEquals(Predicate.createVar(name), c);
         }
+        context.addVarToContext(name, factory.Type().INTEGER_PRIMITIVE, c, exp);
+        newArray.putMetadata(Keys.REFINEMENT, Predicate
+                .createEquals(BuiltinFunctionPredicate.length(Keys.WILDCARD, newArray), Predicate.createVar(name)));
     }
 
     @Override
