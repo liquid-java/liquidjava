@@ -167,10 +167,8 @@ public class RefinementTypeChecker extends TypeChecker {
         context.clearInstanceVariables();
         context.enterContext();
         context.restoreInstanceVariables();
-        if (!method.getSignature().equals("main(java.lang.String[])")) {
-            mfc.loadFunctionInfo(method);
-            snapshotWrittenParameters(method);
-        }
+        mfc.loadFunctionInfo(method);
+        snapshotWrittenParameters(method);
         try {
             super.visitCtMethod(method);
         } catch (LJError e) {
@@ -1358,10 +1356,31 @@ public class RefinementTypeChecker extends TypeChecker {
         scan(condition);
         scanAssuming(conditional.getThenExpression(), condition, true);
         scanAssuming(conditional.getElseExpression(), condition, false);
-        Predicate cond = getRefinement(conditional.getCondition());
-        Predicate c = Predicate.createITE(cond, getRefinement(conditional.getThenExpression()),
+        Predicate c = Predicate.createITE(conditionValue(condition), getRefinement(conditional.getThenExpression()),
                 getRefinement(conditional.getElseExpression()));
         conditional.putMetadata(Keys.REFINEMENT, c);
+    }
+
+    /**
+     * The value of the condition of a conditional, as a fresh boolean: the wildcard of the condition's refinement is
+     * the condition, while the wildcard of the conditional's refinement is its result. The fresh boolean keeps the
+     * values the condition was evaluated on, as later writes do not change which branch was taken.
+     */
+    private Predicate conditionValue(CtExpression<Boolean> condition) {
+        String name = GeneratedNames.of(GeneratedNames.TERNARY_CONDITION, context.getCounter());
+        Predicate refs = getRefinement(condition);
+        Predicate value;
+        // as in assumeCondition, conditions with side effects are not encoded, and uninformative ones say nothing
+        if (!condition.getElements(new TypeFilter<>(CtVariableWrite.class)).isEmpty()
+                || isUninformativeCondition(refs, condition))
+            value = new Predicate();
+        else if (refs.getVariableNames().contains(Keys.WILDCARD) || condition instanceof CtInvocation<?>)
+            value = refs.substituteVariable(Keys.WILDCARD, name);
+        else
+            value = Predicate.createEquals(Predicate.createVar(name), refs);
+        value = snapshotMutableParameters(substituteAllVariablesForLastInstance(value), condition);
+        context.addInstanceToContext(name, factory.Type().BOOLEAN_PRIMITIVE, value, condition);
+        return Predicate.createVar(name);
     }
 
     private void scanAssuming(CtExpression<?> branch, CtExpression<Boolean> condition, boolean holds) {

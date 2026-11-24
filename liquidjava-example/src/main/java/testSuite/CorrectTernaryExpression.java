@@ -9,6 +9,8 @@ public class CorrectTernaryExpression {
         return 3;
     }
 
+    static void oneElement(@Refinement("length(a) == 1") int[] a) {}
+
     public static void main(String[] args) {
         @Refinement("_ < 10")
         int a = 5;
@@ -20,5 +22,12 @@ public class CorrectTernaryExpression {
         @Refinement("c < 100")
         int c = (a < 100) ? three() : a;
         c = (a < 100) ? three() * 3 : a * 5;
+
+        boolean some = args.length > 0;
+        if (some)
+            oneElement(some ? new int[1] : new int[2]);
+        @Refinement("_ > 0")
+        int d = 1;
+        d += (some ? a < 100 : false) ? 1 : 1;
     }
 }

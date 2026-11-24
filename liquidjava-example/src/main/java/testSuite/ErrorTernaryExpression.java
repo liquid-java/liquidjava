@@ -13,4 +13,10 @@ public class ErrorTernaryExpression {
         int a = 5;
         a = (a == 2) ? 6 + three() : 4 * three(); // Expect: Refinement Error
     }
+
+    static void oneElement(@Refinement("length(a) == 1") int[] a) {}
+
+    static void pick(boolean b) {
+        oneElement(b ? new int[1] : new int[2]); // Expect: Refinement Error
+    }
 }

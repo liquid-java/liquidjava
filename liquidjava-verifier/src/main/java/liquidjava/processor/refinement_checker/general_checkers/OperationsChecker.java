@@ -439,9 +439,9 @@ public class OperationsChecker {
 
     private Predicate getConditionRefinement(CtExpression<Boolean> condition) throws LJError {
         Predicate refinement = rtc.getRefinement(condition);
-        Optional<Predicate> value = unwrapWildcardEquality(refinement);
-        if (value.isPresent())
-            return value.get();
+        // a refinement with the wildcard constrains the condition's value, which is not the value itself
+        if (refinement.getVariableNames().contains(Keys.WILDCARD))
+            return valueFromRefinement(condition, refinement);
         return refinement;
     }
 
